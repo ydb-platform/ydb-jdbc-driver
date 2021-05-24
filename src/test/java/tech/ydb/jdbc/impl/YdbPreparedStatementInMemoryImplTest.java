@@ -5,14 +5,13 @@ import java.sql.SQLFeatureNotSupportedException;
 
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbPreparedStatement;
+import tech.ydb.table.values.PrimitiveType;
 import org.junit.jupiter.api.Test;
 
 import static tech.ydb.jdbc.TestHelper.assertThrowsMsg;
-import static tech.ydb.jdbc.TestHelper.stringFileReference;
+import static tech.ydb.jdbc.TestHelper.assertThrowsMsgLike;
 
-class YdbPreparedStatementImplTest extends AbstractYdbPreparedStatementImplTest {
-
-    static final String PREPARE_ALL = stringFileReference("classpath:sql/prepare_all_values.sql");
+class YdbPreparedStatementInMemoryImplTest extends AbstractYdbPreparedStatementImplTest {
 
     @Test
     void addBatch() throws SQLException {
@@ -34,14 +33,36 @@ class YdbPreparedStatementImplTest extends AbstractYdbPreparedStatementImplTest 
     }
 
 
+    @Test
+    void executeRequired() throws SQLException {
+        retry(connection ->
+                assertThrowsMsgLike(SQLException.class,
+                        () -> {
+                            YdbPreparedStatement statement = getTestStatement(connection, "c_Utf8", "Utf8");
+                            statement.setInt("key", 1);
+                            statement.setObject("c_Utf8", PrimitiveType.utf8().makeOptional().emptyValue());
+                            statement.execute();
+                        },
+                        "Parameter $c_Utf8 type mismatch, expected: Utf8, actual: Utf8?"));
+    }
+
+    @Test
+    @Override
+    void unknownColumns() throws SQLException {
+        retry(connection -> {
+            YdbPreparedStatement statement = getUtf8Statement(connection);
+            statement.setObject("column0", "value");
+            statement.execute();
+        }); // Not an error - we don't know if this column is known or not
+    }
 
     @Override
     protected YdbPreparedStatement getTestStatement(YdbConnection connection,
                                                     String column,
                                                     String type) throws SQLException {
-        return connection.prepareStatement(
+        return connection.prepareStatementInMemory(
                 String.format(
-                        "declare $key as Int32; \n" +
+                        "declare $key as Int32?; \n" +
                                 "declare $%s as %s; \n" +
                                 "upsert into unit_2(key, %s) values ($key, $%s)",
                         column, type,
@@ -50,7 +71,7 @@ class YdbPreparedStatementImplTest extends AbstractYdbPreparedStatementImplTest 
 
     @Override
     protected YdbPreparedStatement getTestAllValuesStatement(YdbConnection connection) throws SQLException {
-        return connection.prepareStatement(subst("unit_2", PREPARE_ALL));
+        return connection.prepareStatement(subst("unit_2", YdbPreparedStatementImplTest.PREPARE_ALL));
     }
 
     @Override
@@ -60,6 +81,6 @@ class YdbPreparedStatementImplTest extends AbstractYdbPreparedStatementImplTest 
 
     @Override
     protected boolean sqlTypeRequired() {
-        return false;
+        return true;
     }
 }

@@ -15,16 +15,20 @@ import java.util.Properties;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.YdbDatabaseMetaData;
 import tech.ydb.jdbc.YdbDriver;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.YdbResultSet;
+import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.exception.YdbNonRetryableException;
 import tech.ydb.table.values.ListType;
 import tech.ydb.table.values.ListValue;
 import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.table.values.PrimitiveValue;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -41,6 +45,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class YdbConnectionImplTest extends AbstractTest {
+    private YdbConnection connection;
+
+    @BeforeEach
+    void beforeEach() throws SQLException {
+        connection = getTestConnection();
+    }
 
     @Test
     void createStatement() throws SQLException {
@@ -254,7 +264,7 @@ class YdbConnectionImplTest extends AbstractTest {
 
     @Test
     void commitInvalidTx() throws SQLException {
-        recreateSimpleTestTable();
+        cleanupSimpleTestTable();
 
         Statement statement = connection.createStatement();
         statement.execute("upsert into unit_1(key, c_Utf8) values (1, '2')");
@@ -276,7 +286,7 @@ class YdbConnectionImplTest extends AbstractTest {
 
     @Test
     void rollbackInvalidTx() throws SQLException {
-        recreateSimpleTestTable();
+        cleanupSimpleTestTable();
 
         Statement statement = connection.createStatement();
         statement.execute("insert into unit_1(key, c_Utf8) values (1, '2')");
@@ -311,10 +321,9 @@ class YdbConnectionImplTest extends AbstractTest {
     }
 
     @Test
-    void getMetaData() {
-        assertThrows(SQLFeatureNotSupportedException.class,
-                () -> connection.getMetaData(),
-                "metadata is not supported yet");
+    void getMetaData() throws SQLException {
+        YdbDatabaseMetaData metaData = connection.getMetaData();
+        assertNotNull(metaData);
     }
 
     @Test
@@ -481,9 +490,9 @@ class YdbConnectionImplTest extends AbstractTest {
 
     @Test
     void schema() throws SQLException {
-        assertEquals("/local", connection.getSchema());
+        assertNull(connection.getSchema());
         connection.setSchema("test");
-        assertEquals("/local", connection.getSchema());
+        assertNull(connection.getSchema());
     }
 
 
@@ -508,13 +517,30 @@ class YdbConnectionImplTest extends AbstractTest {
 
     @ParameterizedTest
     @MethodSource("unsupportedTypes")
-    void testUnsupportedTableTypes(String paramName, String sqlExpression, String expectedError) {
+    void testUnsupportedTableTypes(String paramName, String sqlExpression, String expectedError)
+            {
         String tableName = "unsupported_" + paramName;
         String sql = String.format("--jdbc:SCHEME\ncreate table ${tableName} (key Int32, %s %s, primary key(key))",
                 paramName, sqlExpression);
         assertThrowsMsgLike(YdbNonRetryableException.class,
                 () -> createTestTable(tableName, sql),
                 expectedError);
+    }
+
+    @Test
+    void testDDLInsideTransaction() throws SQLException {
+        YdbStatement statement = connection.createStatement();
+
+        statement.execute("upsert into unit_1(key, c_Utf8) values (1, '2')");
+        statement.executeSchemeQuery("create table unit_11(id Int32, value Int32, primary key(id))");
+        try {
+            // No commits in case of ddl
+            assertThrowsMsgLike(YdbNonRetryableException.class,
+                    () -> statement.executeQuery("select * from unit_1"),
+                    "Data modifications previously made to table");
+        } finally {
+            statement.executeSchemeQuery("drop table unit_11");
+        }
     }
 
     @Test
@@ -557,12 +583,10 @@ class YdbConnectionImplTest extends AbstractTest {
         assertTrue(statement.execute("select 2 + 2"));
         assertEquals(txId, connection.getYdbTxId());
 
-        recreateSimpleTestTable();
-
         assertTrue(statement.execute("select * from unit_1"));
         assertEquals(txId, connection.getYdbTxId());
 
-        assertFalse(statement.execute("insert into unit_1(key, c_Utf8) values (1, '2')"));
+        assertFalse(statement.execute("upsert into unit_1(key, c_Utf8) values (1, '2')"));
         assertEquals(txId, connection.getYdbTxId());
 
         assertTrue(statement.execute("select 2 + 2"));
