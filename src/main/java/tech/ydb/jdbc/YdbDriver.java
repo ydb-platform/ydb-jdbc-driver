@@ -20,7 +20,9 @@ import tech.ydb.core.Result;
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.jdbc.impl.Validator;
 import tech.ydb.jdbc.impl.YdbConnectionImpl;
+import tech.ydb.jdbc.settings.ParsedProperty;
 import tech.ydb.jdbc.settings.YdbConnectionProperties;
+import tech.ydb.jdbc.settings.YdbConnectionProperty;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.jdbc.settings.YdbProperties;
 import tech.ydb.table.SchemeClient;
@@ -172,9 +174,12 @@ public class YdbDriver implements Driver {
                 return clients;
             }
 
-            LOGGER.info("Creating new YDB connection to {}{}",
+            ParsedProperty tokenProperty = connProperties.getProperty(YdbConnectionProperty.TOKEN);
+            boolean hasAuth = tokenProperty != null && tokenProperty.getParsedValue() != null;
+            LOGGER.info("Creating new YDB connection to {}{}{}",
                     connProperties.getAddresses(),
-                    Strings.nullToEmpty(connProperties.getDatabase()));
+                    Strings.nullToEmpty(connProperties.getDatabase()),
+                    hasAuth ? " with auth" : " without auth");
 
             GrpcTransport grpcTransport = connProperties.toGrpcTransport();
 
