@@ -13,7 +13,10 @@ import tech.ydb.jdbc.exception.YdbNonRetryableException;
 import tech.ydb.jdbc.exception.YdbResultTruncatedException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 
+import static tech.ydb.jdbc.TestHelper.TEST_TYPE;
+import static tech.ydb.jdbc.TestHelper.UNIVERSAL;
 import static tech.ydb.jdbc.TestHelper.assertThrowsMsg;
 import static tech.ydb.jdbc.TestHelper.assertThrowsMsgLike;
 import static tech.ydb.jdbc.TestHelper.stringFileReference;
@@ -21,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@DisabledIfSystemProperty(named = TEST_TYPE, matches = UNIVERSAL)
 class YdbPreparedStatementWithDataQueryBatchedImplTest extends AbstractYdbPreparedStatementImplTest {
 
     static final String PREPARE_ALL = stringFileReference("classpath:sql/prepare_all_values_batched.sql");
