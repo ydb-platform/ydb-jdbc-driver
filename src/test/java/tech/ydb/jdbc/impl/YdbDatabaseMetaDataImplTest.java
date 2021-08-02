@@ -30,8 +30,8 @@ import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static tech.ydb.jdbc.TestHelper.TEST_TYPE;
-import static tech.ydb.jdbc.TestHelper.UNIVERSAL;
+import static tech.ydb.jdbc.TestHelper.SKIP_DOCKER_TESTS;
+import static tech.ydb.jdbc.TestHelper.TRUE;
 import static tech.ydb.jdbc.TestHelper.assertThrowsMsg;
 import static tech.ydb.jdbc.impl.MappingResultSets.stableMap;
 import static tech.ydb.jdbc.impl.YdbDatabaseMetaDataImpl.SYSTEM_TABLE;
@@ -53,7 +53,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@DisabledIfSystemProperty(named = TEST_TYPE, matches = UNIVERSAL)
+@DisabledIfSystemProperty(named = SKIP_DOCKER_TESTS, matches = TRUE)
 class YdbDatabaseMetaDataImplTest extends AbstractTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(YdbDatabaseMetaDataImplTest.class);
 
