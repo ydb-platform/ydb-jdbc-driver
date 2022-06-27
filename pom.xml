@@ -6,7 +6,7 @@
     <groupId>tech.ydb</groupId>
 
     <artifactId>ydb-jdbc-driver</artifactId>
-    <version>0.9.0</version>
+    <version>1.0.0-SNAPSHOT</version>
     <name>JDBC client implementation over Table client</name>
     <description>JDBC client implementation over Table client</description>
 
@@ -19,7 +19,7 @@
         <junit.version>5.8.2</junit.version>
         <testcontainers.version>1.17.2</testcontainers.version>
 
-        <ydb.sdk.version>1.13.4</ydb.sdk.version>
+        <ydb.sdk.version>2.0.0-SNAPSHOT</ydb.sdk.version>
     </properties>
 
     <dependencies>
