@@ -43,7 +43,6 @@ import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.table.SchemeClient;
 import tech.ydb.table.Session;
 import tech.ydb.table.query.DataQuery;
-import tech.ydb.table.settings.CloseSessionSettings;
 import tech.ydb.table.settings.CommitTxSettings;
 import tech.ydb.table.settings.KeepAliveSessionSettings;
 import tech.ydb.table.settings.PrepareDataQuerySettings;
@@ -202,13 +201,8 @@ public class YdbConnectionImpl implements YdbConnection {
         if (!state.closed) {
             this.clearWarnings();
             try {
-                if (session.release()) {
-                    LOGGER.info("Releasing session: {}", session.getId());
-                } else {
-                    this.joinStatusImpl(
-                            () -> "Closing session: " + session.getId(),
-                            () -> this.session.close(validator.init(new CloseSessionSettings())));
-                }
+                session.close();
+                LOGGER.info("Releasing session: {}", session.getId());
             } finally {
                 state.closed = true;
                 this.clearTx();

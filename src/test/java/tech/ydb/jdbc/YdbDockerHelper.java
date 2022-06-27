@@ -2,6 +2,7 @@ package tech.ydb.jdbc;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -22,6 +23,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.AbstractWaitStrategy;
 
 import static org.rnorth.ducttape.unreliables.Unreliables.retryUntilSuccess;
+import tech.ydb.core.grpc.GrpcTransportBuilder;
 
 public class YdbDockerHelper {
     private static final String SECURE_CONNECTION = "secured";
@@ -111,7 +113,7 @@ public class YdbDockerHelper {
             retryUntilSuccess(3600, TimeUnit.SECONDS, () -> {
                 getRateLimiter().doWhenReady(() -> {
                     try {
-                        GrpcTransport.Builder transportBuilder = GrpcTransport.forHost(host, mappedPort);
+                        GrpcTransportBuilder transportBuilder = GrpcTransport.forHost(host, mappedPort);
                         if (SECURED) {
                             transportBuilder.withSecureConnection();
                             if (ydbCertFile != null) {
@@ -127,28 +129,26 @@ public class YdbDockerHelper {
                         try (GrpcTransport transport = transportBuilder.build()) {
                             GrpcTableRpc grpcTableRpc = GrpcTableRpc.useTransport(transport);
                             try (TableClient tableClient = TableClient.newClient(grpcTableRpc).build()) {
-
                                 log.info("Getting session");
-                                Result<Session> sessionResult = tableClient.createSession().get();
+                                Result<Session> sessionResult = tableClient.createSession(Duration.ofSeconds(5)).get();
                                 if (!sessionResult.isSuccess()) {
                                     throw new RuntimeException("Session not ready: " + sessionResult);
                                 }
 
-                                Session session = sessionResult.ok()
-                                        .orElseThrow(() ->
-                                                new RuntimeException("Internal error when checking session"));
+                                try (Session session = sessionResult.expect("Internal error when checking session")) {
 
-                                log.info("Creating test table");
-                                session.createTable(
-                                        DOCKER_INIT_TABLE,
-                                        TableDescription
-                                                .newBuilder()
-                                                .addNullableColumn("id", PrimitiveType.utf8())
-                                                .setPrimaryKey("id")
-                                                .build()
-                                )
-                                        .get()
-                                        .expect("Table creation error");
+                                    log.info("Creating test table");
+                                    session.createTable(
+                                            DOCKER_INIT_TABLE,
+                                            TableDescription
+                                                    .newBuilder()
+                                                    .addNullableColumn("id", PrimitiveType.utf8())
+                                                    .setPrimaryKey("id")
+                                                    .build()
+                                    )
+                                            .get()
+                                            .expect("Table creation error");
+                                }
                             }
                         }
                     } catch (Exception e) {

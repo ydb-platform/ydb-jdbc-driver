@@ -11,14 +11,6 @@ import tech.ydb.table.TableClient;
 public class YdbClientProperty<T> extends AbstractYdbProperty<T, TableClient.Builder> {
     private static final PropertiesCollector<YdbClientProperty<?>> PROPERTIES = new PropertiesCollector<>();
 
-    public static final YdbClientProperty<Integer> QUERY_CACHE_SIZE =
-            new YdbClientProperty<>(
-                    "queryCacheSize",
-                    "Query cache size",
-                    null,
-                    Integer.class,
-                    PropertyConverter.integerValue(),
-                    TableClient.Builder::queryCacheSize);
     public static final YdbClientProperty<Boolean> KEEP_QUERY_TEXT =
             new YdbClientProperty<>(
                     "keepQueryText",
@@ -43,14 +35,6 @@ public class YdbClientProperty<T> extends AbstractYdbProperty<T, TableClient.Bui
                     Duration.class,
                     PropertyConverter.durationValue(),
                     TableClient.Builder::sessionMaxIdleTime);
-    public static final YdbClientProperty<Integer> SESSION_CREATION_MAX_RETRIES =
-            new YdbClientProperty<>(
-                    "sessionCreationMaxRetries",
-                    "Session creation max retries",
-                    null,
-                    Integer.class,
-                    PropertyConverter.integerValue(),
-                    TableClient.Builder::sessionCreationMaxRetries);
     public static final YdbClientProperty<Integer> SESSION_POOL_SIZE_MIN =
             new YdbClientProperty<>("sessionPoolSizeMin",
                     "Session pool min size (with with sessionPoolSizeMax)",

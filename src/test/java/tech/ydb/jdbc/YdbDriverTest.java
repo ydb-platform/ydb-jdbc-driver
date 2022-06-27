@@ -125,8 +125,8 @@ class YdbDriverTest {
     @Test
     void connectAndCloseMultipleTimes() throws SQLException {
         try (YdbConnection ydbConnection = driver.connect(TestHelper.getTestUrl(), new Properties())) {
-            ydbConnection.getYdbSession().close().join().expect("cannot close");
-            ydbConnection.getYdbSession().close().join().expect("cannot close"); // multiple close is ok
+            ydbConnection.getYdbSession().close();
+            ydbConnection.getYdbSession().close(); // multiple close is ok
 
             assertThrowsMsgLike(YdbRetryableException.class,
                     () -> ydbConnection.createStatement().executeQuery("select 2 + 2"),
@@ -431,11 +431,9 @@ class YdbDriverTest {
                 YdbConnectionProperty.TOKEN.toDriverPropertyInfo(null),
                 YdbConnectionProperty.AUTH_PROVIDER.toDriverPropertyInfo(null),
 
-                YdbClientProperty.QUERY_CACHE_SIZE.toDriverPropertyInfo(null),
                 YdbClientProperty.KEEP_QUERY_TEXT.toDriverPropertyInfo(null),
                 YdbClientProperty.SESSION_KEEP_ALIVE_TIME.toDriverPropertyInfo(null),
                 YdbClientProperty.SESSION_MAX_IDLE_TIME.toDriverPropertyInfo(null),
-                YdbClientProperty.SESSION_CREATION_MAX_RETRIES.toDriverPropertyInfo(null),
                 YdbClientProperty.SESSION_POOL_SIZE_MIN.toDriverPropertyInfo(null),
                 YdbClientProperty.SESSION_POOL_SIZE_MAX.toDriverPropertyInfo(null),
 
@@ -468,11 +466,9 @@ class YdbDriverTest {
         properties.setProperty("readTimeout", "2m");
         properties.setProperty("token", "x-secured-token");
 
-        properties.setProperty("queryCacheSize", "101");
         properties.setProperty("keepQueryText", "true");
         properties.setProperty("sessionKeepAliveTime", "15m");
         properties.setProperty("sessionMaxIdleTime", "5m");
-        properties.setProperty("sessionCreationMaxRetries", "2");
         properties.setProperty("sessionPoolSizeMin", "3");
         properties.setProperty("sessionPoolSizeMax", "4");
 
@@ -508,11 +504,9 @@ class YdbDriverTest {
                 YdbConnectionProperty.TOKEN.toDriverPropertyInfo("x-secured-token"),
                 YdbConnectionProperty.AUTH_PROVIDER.toDriverPropertyInfo(null),
 
-                YdbClientProperty.QUERY_CACHE_SIZE.toDriverPropertyInfo("101"),
                 YdbClientProperty.KEEP_QUERY_TEXT.toDriverPropertyInfo("true"),
                 YdbClientProperty.SESSION_KEEP_ALIVE_TIME.toDriverPropertyInfo("15m"),
                 YdbClientProperty.SESSION_MAX_IDLE_TIME.toDriverPropertyInfo("5m"),
-                YdbClientProperty.SESSION_CREATION_MAX_RETRIES.toDriverPropertyInfo("2"),
                 YdbClientProperty.SESSION_POOL_SIZE_MIN.toDriverPropertyInfo("3"),
                 YdbClientProperty.SESSION_POOL_SIZE_MAX.toDriverPropertyInfo("4"),
 
@@ -651,8 +645,6 @@ class YdbDriverTest {
 
     static Collection<Arguments> invalidIntegerParams() {
         return Arrays.asList(
-                Arguments.of("queryCacheSize"),
-                Arguments.of("sessionCreationMaxRetries"),
                 Arguments.of("sessionPoolSizeMin"),
                 Arguments.of("sessionPoolSizeMax"),
                 Arguments.of("transactionLevel")

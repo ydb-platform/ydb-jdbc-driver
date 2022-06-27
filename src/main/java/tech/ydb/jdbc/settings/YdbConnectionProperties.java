@@ -9,6 +9,7 @@ import javax.annotation.Nullable;
 import com.google.common.base.Preconditions;
 import com.google.common.net.HostAndPort;
 import tech.ydb.core.grpc.GrpcTransport;
+import tech.ydb.core.grpc.GrpcTransportBuilder;
 
 @SuppressWarnings("UnstableApiUsage")
 public class YdbConnectionProperties {
@@ -42,7 +43,7 @@ public class YdbConnectionProperties {
     }
 
     public GrpcTransport toGrpcTransport() {
-        GrpcTransport.Builder builder = GrpcTransport.forHosts(addresses);
+        GrpcTransportBuilder builder = GrpcTransport.forHosts(addresses);
         for (Map.Entry<YdbConnectionProperty<?>, ParsedProperty> entry : params.entrySet()) {
             if (entry.getValue() != null) {
                 entry.getKey().getSetter().accept(builder, entry.getValue().getParsedValue());

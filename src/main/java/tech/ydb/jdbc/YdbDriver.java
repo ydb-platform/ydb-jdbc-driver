@@ -74,7 +74,7 @@ public class YdbDriver implements Driver {
         Result<Session> session = validator.joinResult(
                 LOGGER,
                 () -> "Get or create session",
-                () -> clients.tableClient.getOrCreateSession(sessionTimeout));
+                () -> clients.tableClient.createSession(sessionTimeout));
 
         // TODO: support scheme client eager initialization
         return new YdbConnectionImpl(

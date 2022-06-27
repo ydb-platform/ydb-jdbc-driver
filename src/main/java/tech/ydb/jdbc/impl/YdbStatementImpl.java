@@ -414,8 +414,8 @@ public class YdbStatementImpl implements YdbStatement {
 
         ExecuteDataQuerySettings settings = new ExecuteDataQuerySettings();
         validator.init(settings);
-        if (state.keepInQueryCache) {
-            settings.keepInQueryCache();
+        if (!state.keepInQueryCache) {
+            settings.disableQueryCache();
         }
         settings.setTimeout(state.queryTimeout);
 

@@ -8,10 +8,10 @@ import javax.annotation.Nullable;
 
 import tech.ydb.core.auth.AuthProvider;
 import tech.ydb.core.auth.TokenAuthProvider;
-import tech.ydb.core.grpc.GrpcTransport;
+import tech.ydb.core.grpc.GrpcTransportBuilder;
 import tech.ydb.jdbc.exception.YdbConfigurationException;
 
-public class YdbConnectionProperty<T> extends AbstractYdbProperty<T, GrpcTransport.Builder> {
+public class YdbConnectionProperty<T> extends AbstractYdbProperty<T, GrpcTransportBuilder> {
     private static final PropertiesCollector<YdbConnectionProperty<?>> PROPERTIES = new PropertiesCollector<>();
 
     public static final YdbConnectionProperty<String> DATABASE =
@@ -21,7 +21,7 @@ public class YdbConnectionProperty<T> extends AbstractYdbProperty<T, GrpcTranspo
                     null,
                     String.class,
                     database -> !database.startsWith("/") ? ("/" + database) : database,
-                    GrpcTransport.Builder::withDataBase);
+                    GrpcTransportBuilder::withDataBase);
 
     public static final YdbConnectionProperty<Duration> ENDPOINT_DISCOVERY_PERIOD =
             new YdbConnectionProperty<>(
@@ -30,7 +30,7 @@ public class YdbConnectionProperty<T> extends AbstractYdbProperty<T, GrpcTranspo
                     null,
                     Duration.class,
                     PropertyConverter.durationValue(),
-                    GrpcTransport.Builder::withEndpointsDiscoveryPeriod);
+                    GrpcTransportBuilder::withEndpointsDiscoveryPeriod);
     public static final YdbConnectionProperty<String> LOCAL_DATACENTER =
             new YdbConnectionProperty<>(
                     "localDatacenter",
@@ -38,7 +38,7 @@ public class YdbConnectionProperty<T> extends AbstractYdbProperty<T, GrpcTranspo
                     null,
                     String.class,
                     PropertyConverter.stringValue(),
-                    GrpcTransport.Builder::withLocalDataCenter);
+                    GrpcTransportBuilder::withLocalDataCenter);
     public static final YdbConnectionProperty<Boolean> SECURE_CONNECTION =
             new YdbConnectionProperty<>(
                     "secureConnection",
@@ -58,7 +58,7 @@ public class YdbConnectionProperty<T> extends AbstractYdbProperty<T, GrpcTranspo
                     null,
                     byte[].class,
                     PropertyConverter.byteFileReference(),
-                    GrpcTransport.Builder::withSecureConnection);
+                    GrpcTransportBuilder::withSecureConnection);
     public static final YdbConnectionProperty<Duration> READ_TIMEOUT =
             new YdbConnectionProperty<>(
                     "readTimeout",
@@ -66,7 +66,7 @@ public class YdbConnectionProperty<T> extends AbstractYdbProperty<T, GrpcTranspo
                     null,
                     Duration.class,
                     PropertyConverter.durationValue(),
-                    GrpcTransport.Builder::withReadTimeout);
+                    GrpcTransportBuilder::withReadTimeout);
 
     public static final YdbConnectionProperty<TokenAuthProvider> TOKEN =
             new YdbConnectionProperty<>(
@@ -75,7 +75,7 @@ public class YdbConnectionProperty<T> extends AbstractYdbProperty<T, GrpcTranspo
                     null,
                     TokenAuthProvider.class,
                     value -> new TokenAuthProvider(PropertyConverter.stringFileReference().convert(value)),
-                    GrpcTransport.Builder::withAuthProvider);
+                    GrpcTransportBuilder::withAuthProvider);
 
     public static final YdbConnectionProperty<AuthProvider> AUTH_PROVIDER =
             new YdbConnectionProperty<>(
@@ -87,14 +87,14 @@ public class YdbConnectionProperty<T> extends AbstractYdbProperty<T, GrpcTranspo
                         throw new YdbConfigurationException("Property authProvider " +
                                 "must be configured with object, not a string");
                     },
-                    GrpcTransport.Builder::withAuthProvider);
+                    GrpcTransportBuilder::withAuthProvider);
 
     protected YdbConnectionProperty(String name,
                                     String description,
                                     @Nullable String defaultValue,
                                     Class<T> type,
                                     PropertyConverter<T> converter,
-                                    BiConsumer<GrpcTransport.Builder, T> setter) {
+                                    BiConsumer<GrpcTransportBuilder, T> setter) {
         super(name, description, defaultValue, type, converter, setter);
         PROPERTIES.register(this);
     }
