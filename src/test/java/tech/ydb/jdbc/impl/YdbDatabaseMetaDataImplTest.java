@@ -14,8 +14,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import tech.ydb.jdbc.TestHelper;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
@@ -24,18 +22,15 @@ import tech.ydb.jdbc.YdbDriverInfo;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.exception.YdbConfigurationException;
 import tech.ydb.jdbc.settings.YdbProperties;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static tech.ydb.jdbc.TestHelper.SKIP_DOCKER_TESTS;
-import static tech.ydb.jdbc.TestHelper.TRUE;
-import static tech.ydb.jdbc.TestHelper.assertThrowsMsg;
-import static tech.ydb.jdbc.impl.MappingResultSets.stableMap;
-import static tech.ydb.jdbc.impl.YdbDatabaseMetaDataImpl.SYSTEM_TABLE;
-import static tech.ydb.jdbc.impl.YdbDatabaseMetaDataImpl.TABLE;
 import static java.sql.DatabaseMetaData.bestRowSession;
 import static java.sql.DatabaseMetaData.sqlStateSQL;
 import static java.sql.ResultSet.CLOSE_CURSORS_AT_COMMIT;
@@ -52,6 +47,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static tech.ydb.jdbc.TestHelper.assertThrowsMsg;
+import static tech.ydb.jdbc.YdbIntegrationTest.SKIP_DOCKER_TESTS;
+import static tech.ydb.jdbc.YdbIntegrationTest.TRUE;
+import static tech.ydb.jdbc.impl.MappingResultSets.stableMap;
+import static tech.ydb.jdbc.impl.YdbDatabaseMetaDataImpl.SYSTEM_TABLE;
+import static tech.ydb.jdbc.impl.YdbDatabaseMetaDataImpl.TABLE;
 
 @DisabledIfSystemProperty(named = SKIP_DOCKER_TESTS, matches = TRUE)
 class YdbDatabaseMetaDataImplTest extends AbstractTest {
@@ -86,7 +87,7 @@ class YdbDatabaseMetaDataImplTest extends AbstractTest {
     void getURL() throws SQLException {
         String url = metaData.getURL();
         assertNotNull(url);
-        assertEquals(TestHelper.getTestUrl(), url);
+        assertEquals(jdbcURl(), url);
     }
 
     @Test

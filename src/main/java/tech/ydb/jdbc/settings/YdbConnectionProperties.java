@@ -1,30 +1,27 @@
 package tech.ydb.jdbc.settings;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
 import javax.annotation.Nullable;
 
-import com.google.common.base.Preconditions;
 import com.google.common.net.HostAndPort;
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
 
 @SuppressWarnings("UnstableApiUsage")
 public class YdbConnectionProperties {
-    private final List<HostAndPort> addresses;
+    private final HostAndPort address;
     private final Map<YdbConnectionProperty<?>, ParsedProperty> params;
 
-    public YdbConnectionProperties(List<HostAndPort> addresses,
+    public YdbConnectionProperties(HostAndPort address,
                                    Map<YdbConnectionProperty<?>, ParsedProperty> params) {
-        this.addresses = Objects.requireNonNull(addresses);
-        Preconditions.checkArgument(!addresses.isEmpty(), "Address list cannot be empty");
+        this.address = Objects.requireNonNull(address);
         this.params = Objects.requireNonNull(params);
     }
 
-    public List<HostAndPort> getAddresses() {
-        return addresses;
+    public HostAndPort getAddress() {
+        return address;
     }
 
     @Nullable
@@ -43,7 +40,7 @@ public class YdbConnectionProperties {
     }
 
     public GrpcTransport toGrpcTransport() {
-        GrpcTransportBuilder builder = GrpcTransport.forHosts(addresses);
+        GrpcTransportBuilder builder = GrpcTransport.forHost(address, getDatabase());
         for (Map.Entry<YdbConnectionProperty<?>, ParsedProperty> entry : params.entrySet()) {
             if (entry.getValue() != null) {
                 entry.getKey().getSetter().accept(builder, entry.getValue().getParsedValue());

@@ -27,6 +27,7 @@ import tech.ydb.table.values.ListType;
 import tech.ydb.table.values.ListValue;
 import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.table.values.PrimitiveValue;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,10 +36,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import static tech.ydb.jdbc.TestHelper.SKIP_DOCKER_TESTS;
-import static tech.ydb.jdbc.TestHelper.TRUE;
-import static tech.ydb.jdbc.TestHelper.assertThrowsMsg;
-import static tech.ydb.jdbc.TestHelper.assertThrowsMsgLike;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -46,6 +43,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static tech.ydb.jdbc.TestHelper.assertThrowsMsg;
+import static tech.ydb.jdbc.TestHelper.assertThrowsMsgLike;
+import static tech.ydb.jdbc.YdbIntegrationTest.SKIP_DOCKER_TESTS;
+import static tech.ydb.jdbc.YdbIntegrationTest.TRUE;
 
 @DisabledIfSystemProperty(named = SKIP_DOCKER_TESTS, matches = TRUE)
 class YdbConnectionImplTest extends AbstractTest {
@@ -559,8 +560,8 @@ class YdbConnectionImplTest extends AbstractTest {
                 "declare $list as List<Int32>;\n" +
                 "select * from unit_0_indexed view idx_value where value in $list;";
 
-        ListValue value = ListType.of(PrimitiveType.int32()).newValue(
-                Arrays.asList(PrimitiveValue.int32(1), PrimitiveValue.int32(2)));
+        ListValue value = ListType.of(PrimitiveType.Int32).newValue(
+                Arrays.asList(PrimitiveValue.newInt32(1), PrimitiveValue.newInt32(2)));
         YdbPreparedStatement ps = connection.prepareStatement(query);
         ps.setObject("list", value);
         YdbResultSet rs = ps.executeQuery();

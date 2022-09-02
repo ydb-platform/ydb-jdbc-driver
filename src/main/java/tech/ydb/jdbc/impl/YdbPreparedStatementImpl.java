@@ -286,7 +286,7 @@ public class YdbPreparedStatementImpl extends AbstractYdbPreparedStatementImpl {
     @SuppressWarnings("rawtypes")
     private static class MutableState {
         // Batches
-        private final List<Value> batch = new ArrayList<>();
+        private final List<Value<?>> batch = new ArrayList<>();
         private StructType batchStruct;
         private ListType batchList;
         private boolean executeBatch;

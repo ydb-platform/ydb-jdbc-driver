@@ -21,18 +21,21 @@ import javax.annotation.Nullable;
 
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CharStreams;
+
 import tech.ydb.jdbc.TestHelper;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbDriver;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static tech.ydb.jdbc.TestHelper.stringFileReference;
+import tech.ydb.jdbc.YdbIntegrationTest;
 
-public abstract class AbstractTest {
+public abstract class AbstractTest extends YdbIntegrationTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractTest.class);
 
     static final String CREATE_TABLE = stringFileReference("classpath:sql/create_table.sql");
@@ -96,7 +99,7 @@ public abstract class AbstractTest {
     protected static YdbConnection getTestConnection() throws SQLException {
         // TODO: must be session pool (but have to implement it first)
         if (connection == null || connection.isClosed()) {
-            connection = (YdbConnection) DriverManager.getConnection(TestHelper.getTestUrl());
+            connection = (YdbConnection) DriverManager.getConnection(jdbcURl());
         }
         return connection;
     }

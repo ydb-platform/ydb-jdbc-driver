@@ -33,13 +33,14 @@ import java.util.Set;
 import javax.sql.rowset.serial.SerialBlob;
 import javax.sql.rowset.serial.SerialClob;
 
-import com.google.common.base.Preconditions;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbResultSetMetaData;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.table.values.PrimitiveValue;
+
+import com.google.common.base.Preconditions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
@@ -47,11 +48,6 @@ import org.junit.jupiter.api.function.Executable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static tech.ydb.jdbc.TestHelper.SKIP_DOCKER_TESTS;
-import static tech.ydb.jdbc.TestHelper.TRUE;
-import static tech.ydb.jdbc.TestHelper.assertThrowsMsg;
-import static tech.ydb.jdbc.TestHelper.assertThrowsMsgLike;
-import static tech.ydb.jdbc.TestHelper.stringFileReference;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -59,6 +55,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static tech.ydb.jdbc.TestHelper.assertThrowsMsg;
+import static tech.ydb.jdbc.TestHelper.assertThrowsMsgLike;
+import static tech.ydb.jdbc.TestHelper.stringFileReference;
+import static tech.ydb.jdbc.YdbIntegrationTest.SKIP_DOCKER_TESTS;
+import static tech.ydb.jdbc.YdbIntegrationTest.TRUE;
 
 @DisabledIfSystemProperty(named = SKIP_DOCKER_TESTS, matches = TRUE)
 class YdbResultSetImplTest extends AbstractTest {
@@ -1172,91 +1173,91 @@ class YdbResultSetImplTest extends AbstractTest {
                 columnIndex -> resultSet.getNativeColumn(columnIndex).orElse(null),
                 columnLabel -> resultSet.getNativeColumn(columnLabel).orElse(null),
                 map(
-                        "key", PrimitiveValue.int32(1),
-                        "c_Bool", PrimitiveValue.bool(true),
-                        "c_Int32", PrimitiveValue.int32(2000000001),
-                        "c_Int64", PrimitiveValue.int64(2000000000001L),
-                        "c_Uint8", PrimitiveValue.uint8((byte) 100),
-                        "c_Uint32", PrimitiveValue.uint32(2000000002),
-                        "c_Uint64", PrimitiveValue.uint64(2000000000002L),
-                        "c_Float", PrimitiveValue.float32(123456.78f),
-                        "c_Double", PrimitiveValue.float64(123456789.123456789d),
-                        "c_String", PrimitiveValue.string("https://string".getBytes()),
-                        "c_Utf8", PrimitiveValue.utf8("file://utf8"),
-                        "c_Json", PrimitiveValue.json("{\"key\": \"value Json\"}"),
-                        "c_JsonDocument", PrimitiveValue.jsonDocument("{\"key\":\"value JsonDocument\"}"),
-                        "c_Yson", PrimitiveValue.yson("{key=\"value yson\"}".getBytes()),
-                        "c_Date", PrimitiveValue.date(LocalDate.parse("1978-07-09")),
-                        "c_Datetime", PrimitiveValue.datetime(Instant.parse("1970-02-06T00:11:51Z")),
-                        "c_Timestamp", PrimitiveValue.timestamp(Instant.parse("1970-01-01T00:00:03.111112Z")),
-                        "c_Interval", PrimitiveValue.interval(Duration.parse("PT3.111113S")),
+                        "key", PrimitiveValue.newInt32(1),
+                        "c_Bool", PrimitiveValue.newBool(true),
+                        "c_Int32", PrimitiveValue.newInt32(2000000001),
+                        "c_Int64", PrimitiveValue.newInt64(2000000000001L),
+                        "c_Uint8", PrimitiveValue.newUint8((byte) 100),
+                        "c_Uint32", PrimitiveValue.newUint32(2000000002),
+                        "c_Uint64", PrimitiveValue.newUint64(2000000000002L),
+                        "c_Float", PrimitiveValue.newFloat(123456.78f),
+                        "c_Double", PrimitiveValue.newDouble(123456789.123456789d),
+                        "c_String", PrimitiveValue.newBytes("https://string".getBytes()),
+                        "c_Utf8", PrimitiveValue.newText("file://utf8"),
+                        "c_Json", PrimitiveValue.newJson("{\"key\": \"value Json\"}"),
+                        "c_JsonDocument", PrimitiveValue.newJsonDocument("{\"key\":\"value JsonDocument\"}"),
+                        "c_Yson", PrimitiveValue.newYson("{key=\"value yson\"}".getBytes()),
+                        "c_Date", PrimitiveValue.newDate(LocalDate.parse("1978-07-09")),
+                        "c_Datetime", PrimitiveValue.newDatetime(Instant.parse("1970-02-06T00:11:51Z")),
+                        "c_Timestamp", PrimitiveValue.newTimestamp(Instant.parse("1970-01-01T00:00:03.111112Z")),
+                        "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT3.111113S")),
                         "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("3.335000000")
                 ),
                 map(
-                        "key", PrimitiveValue.int32(2),
-                        "c_Bool", PrimitiveValue.bool(false),
-                        "c_Int32", PrimitiveValue.int32(-2000000001),
-                        "c_Int64", PrimitiveValue.int64(-2000000000001L),
-                        "c_Uint8", PrimitiveValue.uint8((byte) 200),
-                        "c_Uint32", PrimitiveValue.uint32((int) 4000000002L),
-                        "c_Uint64", PrimitiveValue.uint64(4000000000002L),
-                        "c_Float", PrimitiveValue.float32(-123456.78f),
-                        "c_Double", PrimitiveValue.float64(-123456789.123456789d),
-                        "c_String", PrimitiveValue.string("".getBytes()),
-                        "c_Utf8", PrimitiveValue.utf8(""),
+                        "key", PrimitiveValue.newInt32(2),
+                        "c_Bool", PrimitiveValue.newBool(false),
+                        "c_Int32", PrimitiveValue.newInt32(-2000000001),
+                        "c_Int64", PrimitiveValue.newInt64(-2000000000001L),
+                        "c_Uint8", PrimitiveValue.newUint8((byte) 200),
+                        "c_Uint32", PrimitiveValue.newUint32((int) 4000000002L),
+                        "c_Uint64", PrimitiveValue.newUint64(4000000000002L),
+                        "c_Float", PrimitiveValue.newFloat(-123456.78f),
+                        "c_Double", PrimitiveValue.newDouble(-123456789.123456789d),
+                        "c_String", PrimitiveValue.newBytes("".getBytes()),
+                        "c_Utf8", PrimitiveValue.newText(""),
                         "c_Json", null,
                         "c_JsonDocument", null,
-                        "c_Yson", PrimitiveValue.yson("\"\"".getBytes()),
-                        "c_Date", PrimitiveValue.date(LocalDate.parse("1978-07-10")),
-                        "c_Datetime", PrimitiveValue.datetime(Instant.parse("1970-02-06T00:28:31Z")),
-                        "c_Timestamp", PrimitiveValue.timestamp(Instant.parse("1970-01-01T00:00:03.112112Z")),
-                        "c_Interval", PrimitiveValue.interval(Duration.parse("PT3.112113S")),
+                        "c_Yson", PrimitiveValue.newYson("\"\"".getBytes()),
+                        "c_Date", PrimitiveValue.newDate(LocalDate.parse("1978-07-10")),
+                        "c_Datetime", PrimitiveValue.newDatetime(Instant.parse("1970-02-06T00:28:31Z")),
+                        "c_Timestamp", PrimitiveValue.newTimestamp(Instant.parse("1970-01-01T00:00:03.112112Z")),
+                        "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT3.112113S")),
                         "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("-3.335000000")
                 ),
                 map(
-                        "key", PrimitiveValue.int32(3),
-                        "c_Bool", PrimitiveValue.bool(false),
-                        "c_Int32", PrimitiveValue.int32(0),
-                        "c_Int64", PrimitiveValue.int64(0),
-                        "c_Uint8", PrimitiveValue.uint8((byte) 0),
-                        "c_Uint32", PrimitiveValue.uint32(0),
-                        "c_Uint64", PrimitiveValue.uint64(0),
-                        "c_Float", PrimitiveValue.float32(0),
-                        "c_Double", PrimitiveValue.float64(0),
-                        "c_String", PrimitiveValue.string("0".getBytes()),
-                        "c_Utf8", PrimitiveValue.utf8("0"),
+                        "key", PrimitiveValue.newInt32(3),
+                        "c_Bool", PrimitiveValue.newBool(false),
+                        "c_Int32", PrimitiveValue.newInt32(0),
+                        "c_Int64", PrimitiveValue.newInt64(0),
+                        "c_Uint8", PrimitiveValue.newUint8((byte) 0),
+                        "c_Uint32", PrimitiveValue.newUint32(0),
+                        "c_Uint64", PrimitiveValue.newUint64(0),
+                        "c_Float", PrimitiveValue.newFloat(0),
+                        "c_Double", PrimitiveValue.newDouble(0),
+                        "c_String", PrimitiveValue.newBytes("0".getBytes()),
+                        "c_Utf8", PrimitiveValue.newText("0"),
                         "c_Json", null,
                         "c_JsonDocument", null,
-                        "c_Yson", PrimitiveValue.yson("0".getBytes()),
-                        "c_Date", PrimitiveValue.date(LocalDate.parse("1970-01-01")),
-                        "c_Datetime", PrimitiveValue.datetime(Instant.parse("1970-01-01T00:00:00Z")),
-                        "c_Timestamp", PrimitiveValue.timestamp(Instant.parse("1970-01-01T00:00:00Z")),
-                        "c_Interval", PrimitiveValue.interval(Duration.parse("PT0S")),
+                        "c_Yson", PrimitiveValue.newYson("0".getBytes()),
+                        "c_Date", PrimitiveValue.newDate(LocalDate.parse("1970-01-01")),
+                        "c_Datetime", PrimitiveValue.newDatetime(Instant.parse("1970-01-01T00:00:00Z")),
+                        "c_Timestamp", PrimitiveValue.newTimestamp(Instant.parse("1970-01-01T00:00:00Z")),
+                        "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT0S")),
                         "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue(0)
                 ),
                 map(
-                        "key", PrimitiveValue.int32(4),
-                        "c_Bool", PrimitiveValue.bool(true),
-                        "c_Int32", PrimitiveValue.int32(1),
-                        "c_Int64", PrimitiveValue.int64(1),
-                        "c_Uint8", PrimitiveValue.uint8((byte) 1),
-                        "c_Uint32", PrimitiveValue.uint32(1),
-                        "c_Uint64", PrimitiveValue.uint64(1),
-                        "c_Float", PrimitiveValue.float32(1),
-                        "c_Double", PrimitiveValue.float64(1),
-                        "c_String", PrimitiveValue.string("1".getBytes()),
-                        "c_Utf8", PrimitiveValue.utf8("1"),
+                        "key", PrimitiveValue.newInt32(4),
+                        "c_Bool", PrimitiveValue.newBool(true),
+                        "c_Int32", PrimitiveValue.newInt32(1),
+                        "c_Int64", PrimitiveValue.newInt64(1),
+                        "c_Uint8", PrimitiveValue.newUint8((byte) 1),
+                        "c_Uint32", PrimitiveValue.newUint32(1),
+                        "c_Uint64", PrimitiveValue.newUint64(1),
+                        "c_Float", PrimitiveValue.newFloat(1),
+                        "c_Double", PrimitiveValue.newDouble(1),
+                        "c_String", PrimitiveValue.newBytes("1".getBytes()),
+                        "c_Utf8", PrimitiveValue.newText("1"),
                         "c_Json", null,
                         "c_JsonDocument", null,
-                        "c_Yson", PrimitiveValue.yson("1".getBytes()),
-                        "c_Date", PrimitiveValue.date(LocalDate.parse("1970-01-02")),
-                        "c_Datetime", PrimitiveValue.datetime(Instant.parse("1970-01-01T00:00:01Z")),
-                        "c_Timestamp", PrimitiveValue.timestamp(Instant.parse("1970-01-01T00:00:00.000001Z")),
-                        "c_Interval", PrimitiveValue.interval(Duration.parse("PT0.000001S")),
+                        "c_Yson", PrimitiveValue.newYson("1".getBytes()),
+                        "c_Date", PrimitiveValue.newDate(LocalDate.parse("1970-01-02")),
+                        "c_Datetime", PrimitiveValue.newDatetime(Instant.parse("1970-01-01T00:00:01Z")),
+                        "c_Timestamp", PrimitiveValue.newTimestamp(Instant.parse("1970-01-01T00:00:00.000001Z")),
+                        "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT0.000001S")),
                         "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("1.000000000")
                 ),
                 map(
-                        "key", PrimitiveValue.int32(5),
+                        "key", PrimitiveValue.newInt32(5),
                         "c_Bool", null,
                         "c_Int32", null,
                         "c_Int64", null,

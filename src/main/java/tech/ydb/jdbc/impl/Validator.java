@@ -56,7 +56,7 @@ public class Validator {
     public <T, R extends Result<T>> R joinResult(Logger logger,
                                                  Supplier<String> operation,
                                                  Supplier<CompletableFuture<R>> action) throws SQLException {
-        return joinWrapped(logger, operation, action, Result::toStatus);
+        return joinWrapped(logger, operation, action, Result::getStatus);
     }
 
     private <T> T joinWrapped(Logger logger,

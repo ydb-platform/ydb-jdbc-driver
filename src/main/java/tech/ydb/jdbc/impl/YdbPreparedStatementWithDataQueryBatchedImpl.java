@@ -216,7 +216,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImpl extends AbstractYdbDat
 
     @SuppressWarnings("rawtypes")
     private static class StructMutableState {
-        private final List<Value> batch = new ArrayList<>();
+        private final List<Value<?>> batch = new ArrayList<>();
         private final StructBatchConfiguration cfg;
         private Value<?>[] members;
         private boolean modified;

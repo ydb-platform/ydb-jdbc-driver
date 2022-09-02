@@ -3,9 +3,9 @@ package tech.ydb.jdbc.settings;
 import java.util.Map;
 
 import javax.annotation.Nullable;
+import tech.ydb.core.grpc.GrpcTransport;
 
 import tech.ydb.table.TableClient;
-import tech.ydb.table.rpc.TableRpc;
 
 public class YdbClientProperties {
     private final Map<YdbClientProperty<?>, ParsedProperty> params;
@@ -23,8 +23,8 @@ public class YdbClientProperties {
         return params;
     }
 
-    public TableClient toTableClient(TableRpc rpc) {
-        TableClient.Builder builder = TableClient.newClient(rpc);
+    public TableClient toTableClient(GrpcTransport grpc) {
+        TableClient.Builder builder = TableClient.newClient(grpc);
         for (Map.Entry<YdbClientProperty<?>, ParsedProperty> entry : params.entrySet()) {
             if (entry.getValue() != null) {
                 entry.getKey().getSetter().accept(builder, entry.getValue().getParsedValue());

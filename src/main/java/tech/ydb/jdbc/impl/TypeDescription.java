@@ -42,8 +42,8 @@ public class TypeDescription {
     static {
         ofInternal(DecimalType.of()); // max
         ofInternal(DecimalType.of(22, 9)); // default for database
-        for (PrimitiveType.Id id : PrimitiveType.Id.values()) {
-            ofInternal(PrimitiveType.of(id)); // All primitive values
+        for (PrimitiveType type : PrimitiveType.values()) {
+            ofInternal(type); // All primitive values
         }
     }
 

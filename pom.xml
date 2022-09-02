@@ -19,7 +19,7 @@
         <junit.version>5.8.2</junit.version>
         <testcontainers.version>1.17.2</testcontainers.version>
 
-        <ydb.sdk.version>2.0.0-SNAPSHOT</ydb.sdk.version>
+        <ydb.sdk.version>2.0.0-RC1</ydb.sdk.version>
     </properties>
 
     <dependencies>
@@ -44,20 +44,6 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-    
-    <build>
-        <plugins>
-            <plugin>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.0.0-M4</version>
-                <configuration>
-                    <systemPropertyVariables>
-                        <SKIP_DOCKER_TESTS>true</SKIP_DOCKER_TESTS>
-                    </systemPropertyVariables>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
     
     <dependencyManagement>
         <dependencies>
@@ -85,4 +71,43 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>3.0.0-M4</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+    
+    <profiles>
+        <profile>
+            <!-- Profile will be activated if not availabled ydb receipt or docker socket -->
+            <id>disable-ydb-integration-tests</id>
+            <activation>
+                <file>
+                    <missing>/var/run/docker.sock</missing>
+                </file>
+                <property>
+                    <name>!YDB_DATABASE</name>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <systemPropertyVariables>
+                                <SKIP_DOCKER_TESTS>true</SKIP_DOCKER_TESTS>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+    
 </project>

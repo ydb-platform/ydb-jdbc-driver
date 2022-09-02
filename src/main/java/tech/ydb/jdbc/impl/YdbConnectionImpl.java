@@ -381,7 +381,7 @@ public class YdbConnectionImpl implements YdbConnection {
         Result<DataQuery> dataQuery = joinResultImpl(
                 () -> "Preparing Query >>\n" + sql,
                 () -> session.prepareDataQuery(sql, validator.init(cfg)));
-        DataQuery prepared = dataQuery.expect("Prepare statement");
+        DataQuery prepared = dataQuery.getValue();
 
         boolean requireBatch = mode == PreparedStatementMode.DATA_QUERY_BATCH;
         if (properties.isAutoPreparedBatches() || requireBatch) {
@@ -505,7 +505,7 @@ public class YdbConnectionImpl implements YdbConnection {
     private <T, R extends Result<T>> R joinResultImpl(Supplier<String> message,
                                                       Supplier<CompletableFuture<R>> action) throws SQLException {
         R result = validator.joinResult(LOGGER, message, action);
-        state.lastIssues = result.getIssues();
+        state.lastIssues = result.getStatus().getIssues();
         return result;
     }
 

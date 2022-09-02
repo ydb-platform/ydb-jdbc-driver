@@ -6,7 +6,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -997,13 +996,13 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     private short getSearchable(Type type) {
         if (type.getKind() == Type.Kind.PRIMITIVE) {
-            switch (((PrimitiveType) type).getId()) {
+            switch ((PrimitiveType) type) {
                 case Json:
                 case JsonDocument:
                 case Yson:
                     return typePredNone;
-                case String:
-                case Utf8:
+                case Bytes:
+                case Text:
                     return typeSearchable;
                 default:
                     return typePredBasic;
@@ -1015,7 +1014,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     private boolean getUnsigned(Type type) {
         if (type.getKind() == Type.Kind.PRIMITIVE) {
-            switch (((PrimitiveType) type).getId()) {
+            switch ((PrimitiveType) type) {
                 case Uint8:
                 case Uint16:
                 case Uint32:
@@ -1031,9 +1030,9 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     @Nullable
     private String getLiteral(Type type) {
         if (type.getKind() == Type.Kind.PRIMITIVE) {
-            switch (((PrimitiveType) type).getId()) {
-                case String:
-                case Utf8:
+            switch ((PrimitiveType) type) {
+                case Bytes:
+                case Text:
                 case Json:
                 case JsonDocument:
                 case Yson:
@@ -1323,7 +1322,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
             Result<TableDescription> result = validator.joinResult(LOGGER,
                     () -> "Get table description for " + table,
                     entry::getValue);
-            TableDescription desc = result.expect("Expect table description");
+            TableDescription desc = result.getValue();
             target.put(table, desc);
         }
         return target;
@@ -1357,11 +1356,11 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         return connection.getYdbScheme().listDirectory(path)
                 .thenApplyAsync(listResult -> {
                     try {
-                        Validator.validate(listResult, listResult.getCode());
+                        Validator.validate(listResult, listResult.getStatus().getCode());
                     } catch (SQLException sql) {
                         throw new YdbRuntimeException("Invalid listDirectory result: " + sql.getMessage(), sql);
                     }
-                    ListDirectoryResult result = listResult.expect("Expect directory result");
+                    ListDirectoryResult result = listResult.getValue();
 
                     String pathPrefix = withSuffix(path);
                     Collection<CompletableFuture<Result<ListDirectoryResult>>> futures = new ArrayList<>();
@@ -1409,7 +1408,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     private ResultSet fromEmptyResultSet() {
         YdbStatementImpl statement = new YdbStatementImpl(connection, ResultSet.TYPE_SCROLL_INSENSITIVE);
-        ResultSetReader reader = MappingResultSets.emptyReader(Collections.emptyMap());
+        ResultSetReader reader = MappingResultSets.emptyReader();
         return new YdbResultSetImpl(statement, reader);
     }
 

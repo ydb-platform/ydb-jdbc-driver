@@ -28,9 +28,7 @@ import tech.ydb.table.SchemeClient;
 import tech.ydb.table.Session;
 import tech.ydb.table.TableClient;
 import tech.ydb.table.rpc.SchemeRpc;
-import tech.ydb.table.rpc.TableRpc;
 import tech.ydb.table.rpc.grpc.GrpcSchemeRpc;
-import tech.ydb.table.rpc.grpc.GrpcTableRpc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -79,7 +77,7 @@ public class YdbDriver implements Driver {
         // TODO: support scheme client eager initialization
         return new YdbConnectionImpl(
                 clients.schemeClient,
-                session.expect("New Session Created"),
+                session.getValue(),
                 operationProperties,
                 validator,
                 url, // raw URL
@@ -149,20 +147,32 @@ public class YdbDriver implements Driver {
         }
     }
 
-    private static class Clients {
+    private static class Clients implements AutoCloseable {
+        private final GrpcTransport grpcTransport;
         private final TableClient tableClient;
         private final Supplier<SchemeClient> schemeClient;
 
-        private Clients(TableClient tableClient, Supplier<SchemeClient> schemeClient) {
+        private Clients(GrpcTransport grpcTransport, TableClient tableClient, Supplier<SchemeClient> schemeClient) {
+            this.grpcTransport = Objects.requireNonNull(grpcTransport);
             this.tableClient = Objects.requireNonNull(tableClient);
             this.schemeClient = Objects.requireNonNull(schemeClient);
+        }
+        
+        @Override
+        public void close() {
+            try {
+                tableClient.close();
+                grpcTransport.close();
+            } catch (Exception e) {
+                LOGGER.error("Unable to close client: " + e.getMessage(), e);
+            }
         }
     }
 
     public static class YdbConnectionsCache {
         private final Map<ConnectionConfig, Clients> cache = new HashMap<>();
 
-        public synchronized Clients getClients(ConnectionConfig config, YdbProperties properties) {
+        private synchronized Clients getClients(ConnectionConfig config, YdbProperties properties) {
             // TODO: implement cache based on connection and client properties only (excluding operation properties)
             YdbConnectionProperties connProperties = properties.getConnectionProperties();
 
@@ -171,7 +181,7 @@ public class YdbDriver implements Driver {
                     null; // not cached
             if (clients != null) {
                 LOGGER.debug("Reusing YDB connection to {}{}",
-                        connProperties.getAddresses(),
+                        connProperties.getAddress(),
                         Strings.nullToEmpty(connProperties.getDatabase()));
                 return clients;
             }
@@ -179,16 +189,13 @@ public class YdbDriver implements Driver {
             ParsedProperty tokenProperty = connProperties.getProperty(YdbConnectionProperty.TOKEN);
             boolean hasAuth = tokenProperty != null && tokenProperty.getParsedValue() != null;
             LOGGER.info("Creating new YDB connection to {}{}{}",
-                    connProperties.getAddresses(),
+                    connProperties.getAddress(),
                     Strings.nullToEmpty(connProperties.getDatabase()),
                     hasAuth ? " with auth" : " without auth");
 
             GrpcTransport grpcTransport = connProperties.toGrpcTransport();
 
-            TableRpc tableRpc = GrpcTableRpc.ownTransport(grpcTransport); // OWN
-            Preconditions.checkState(tableRpc != null, "TableRpc must be initialized");
-
-            TableClient tableClient = properties.getClientProperties().toTableClient(tableRpc);
+            TableClient tableClient = properties.getClientProperties().toTableClient(grpcTransport);
 
             Supplier<SchemeClient> schemeClient = Suppliers.memoize(() -> {
                 SchemeRpc schemeRpc = GrpcSchemeRpc.useTransport(grpcTransport); // USE
@@ -196,7 +203,7 @@ public class YdbDriver implements Driver {
                 return SchemeClient.newClient(schemeRpc).build();
             })::get;
 
-            clients = new Clients(tableClient, schemeClient);
+            clients = new Clients(grpcTransport, tableClient, schemeClient);
             cache.put(config, clients);
             return clients;
         }
@@ -207,13 +214,7 @@ public class YdbDriver implements Driver {
 
         public synchronized void close() {
             LOGGER.info("Closing {} cached connection(s)...", cache.size());
-            for (Clients clients : cache.values()) {
-                try {
-                    clients.tableClient.close();
-                } catch (Exception e) {
-                    LOGGER.error("Unable to close client: " + e.getMessage(), e);
-                }
-            }
+            cache.values().forEach(Clients::close);
             cache.clear();
         }
     }

@@ -1,7 +1,5 @@
 package tech.ydb.jdbc;
 
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.Set;
@@ -22,12 +20,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class TestHelper {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestHelper.class);
 
-    public static final String SKIP_DOCKER_TESTS = "SKIP_DOCKER_TESTS";
-    public static final String TRUE = "true";
-
-    private static final String RECIPE_DATABASE_FILE = "ydb_database.txt";
-    private static final String RECIPE_ENDPOINT_FILE = "ydb_endpoint.txt";
-
     // Significantly reduce total time spending in tests
     private static final boolean IGNORE_EXISTING_TABLE =
             Boolean.parseBoolean(System.getProperty("IGNORE_EXISTING_TABLE", "false"));
@@ -36,20 +28,6 @@ public class TestHelper {
 
     private TestHelper() {
         //
-    }
-
-    public static String getTestUrl() throws YdbConfigurationException {
-        String customUrl = System.getProperty("YDB_URL");
-        if (customUrl != null) {
-            return customUrl;
-        }
-        String defaultUrl;
-        if (isRecipe()) {
-            defaultUrl = String.format("jdbc:ydb:%s/%s", recipeEndpoint(), recipeDatabase());
-        } else {
-            defaultUrl = YdbDockerHelper.getContainerUrl(); // Local or machine docker instance
-        }
-        return defaultUrl;
     }
 
     public static void assertThrowsMsg(Class<? extends Throwable> type, Executable exec, String expectMessage) {
@@ -121,23 +99,6 @@ public class TestHelper {
         run.run();
         CONFIGURED.add(type);
     }
-
-    //
-
-    // Yandex infrastructure
-    private static String recipeEndpoint() throws YdbConfigurationException {
-        return YdbProperties.stringFileReference("file:" + RECIPE_ENDPOINT_FILE);
-    }
-
-    private static String recipeDatabase() throws YdbConfigurationException {
-        return YdbProperties.stringFileReference("file:" + RECIPE_DATABASE_FILE);
-    }
-
-    private static boolean isRecipe() {
-        return Files.exists(Paths.get(RECIPE_ENDPOINT_FILE));
-    }
-
-    //
 
     public interface SQLRun {
         void run(YdbConnection connection) throws SQLException;

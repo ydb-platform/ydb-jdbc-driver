@@ -12,7 +12,6 @@ import tech.ydb.ValueProtos.Type.PrimitiveTypeId;
 import tech.ydb.jdbc.exception.YdbRuntimeException;
 import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.result.impl.ProtoValueReaders;
-import tech.ydb.table.values.PrimitiveType;
 
 public class MappingResultSets {
 
@@ -35,7 +34,7 @@ public class MappingResultSets {
 
     static ResultSetReader readerFromList(List<Map<String, Object>> list) {
         if (list.isEmpty()) {
-            return emptyReader(Collections.emptyMap());
+            return emptyReader();
         }
         ValueProtos.ResultSet.Builder resultSet = ValueProtos.ResultSet.newBuilder();
         for (Map.Entry<String, Object> entry : list.iterator().next().entrySet()) {
@@ -86,21 +85,8 @@ public class MappingResultSets {
         return readerFromList(Collections.singletonList(map));
     }
 
-    static ResultSetReader emptyReader(Map<String, PrimitiveType.Id> keys) {
+    static ResultSetReader emptyReader() {
         ValueProtos.ResultSet.Builder resultSet = ValueProtos.ResultSet.newBuilder();
-
-        for (Map.Entry<String, PrimitiveType.Id> entry : keys.entrySet()) {
-            PrimitiveTypeId typeId = PrimitiveTypeId.forNumber(entry.getValue().getNumId());
-            if (typeId == null) {
-                throw new RuntimeException("Internal error. Unable to convert primitive type " + entry.getValue() +
-                        " to proto type");
-            }
-
-            resultSet.addColumnsBuilder()
-                    .setName(entry.getKey())
-                    .getTypeBuilder()
-                    .setTypeId(typeId);
-        }
         return ProtoValueReaders.forResultSet(resultSet.build());
     }
 

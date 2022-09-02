@@ -286,7 +286,7 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         () -> {
                             YdbPreparedStatement statement = getTestStatement(connection, "c_Utf8", "Utf8");
                             statement.setInt("key", 1);
-                            statement.setObject("c_Utf8", PrimitiveType.utf8().makeOptional().emptyValue());
+                            statement.setObject("c_Utf8", PrimitiveType.Text.makeOptional().emptyValue());
                             statement.execute();
                         },
                         "Missing required value for parameter"));
@@ -432,23 +432,23 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
             if (sqlTypeRequired()) {
                 YdbTypes types = connection.getYdbTypes();
                 if (modeJdbcType) {
-                    statement.setNull("c_Bool", types.wrapYdbJdbcType(PrimitiveType.bool()));
-                    statement.setNull("c_Int32", types.wrapYdbJdbcType(PrimitiveType.int32()));
-                    statement.setNull("c_Int64", types.wrapYdbJdbcType(PrimitiveType.int64()));
-                    statement.setNull("c_Uint8", types.wrapYdbJdbcType(PrimitiveType.uint8()));
-                    statement.setNull("c_Uint32", types.wrapYdbJdbcType(PrimitiveType.uint32()));
-                    statement.setNull("c_Uint64", types.wrapYdbJdbcType(PrimitiveType.uint64()));
-                    statement.setNull("c_Float", types.wrapYdbJdbcType(PrimitiveType.float32()));
-                    statement.setNull("c_Double", types.wrapYdbJdbcType(PrimitiveType.float64()));
-                    statement.setNull("c_String", types.wrapYdbJdbcType(PrimitiveType.string()));
-                    statement.setNull("c_Utf8", types.wrapYdbJdbcType(PrimitiveType.utf8()));
-                    statement.setNull("c_Json", types.wrapYdbJdbcType(PrimitiveType.json()));
-                    statement.setNull("c_JsonDocument", types.wrapYdbJdbcType(PrimitiveType.jsonDocument()));
-                    statement.setNull("c_Yson", types.wrapYdbJdbcType(PrimitiveType.yson()));
-                    statement.setNull("c_Date", types.wrapYdbJdbcType(PrimitiveType.date()));
-                    statement.setNull("c_Datetime", types.wrapYdbJdbcType(PrimitiveType.datetime()));
-                    statement.setNull("c_Timestamp", types.wrapYdbJdbcType(PrimitiveType.timestamp()));
-                    statement.setNull("c_Interval", types.wrapYdbJdbcType(PrimitiveType.interval()));
+                    statement.setNull("c_Bool", types.wrapYdbJdbcType(PrimitiveType.Bool));
+                    statement.setNull("c_Int32", types.wrapYdbJdbcType(PrimitiveType.Int32));
+                    statement.setNull("c_Int64", types.wrapYdbJdbcType(PrimitiveType.Int64));
+                    statement.setNull("c_Uint8", types.wrapYdbJdbcType(PrimitiveType.Uint8));
+                    statement.setNull("c_Uint32", types.wrapYdbJdbcType(PrimitiveType.Uint32));
+                    statement.setNull("c_Uint64", types.wrapYdbJdbcType(PrimitiveType.Uint64));
+                    statement.setNull("c_Float", types.wrapYdbJdbcType(PrimitiveType.Float));
+                    statement.setNull("c_Double", types.wrapYdbJdbcType(PrimitiveType.Double));
+                    statement.setNull("c_String", types.wrapYdbJdbcType(PrimitiveType.Bytes));
+                    statement.setNull("c_Utf8", types.wrapYdbJdbcType(PrimitiveType.Text));
+                    statement.setNull("c_Json", types.wrapYdbJdbcType(PrimitiveType.Json));
+                    statement.setNull("c_JsonDocument", types.wrapYdbJdbcType(PrimitiveType.JsonDocument));
+                    statement.setNull("c_Yson", types.wrapYdbJdbcType(PrimitiveType.Yson));
+                    statement.setNull("c_Date", types.wrapYdbJdbcType(PrimitiveType.Date));
+                    statement.setNull("c_Datetime", types.wrapYdbJdbcType(PrimitiveType.Datetime));
+                    statement.setNull("c_Timestamp", types.wrapYdbJdbcType(PrimitiveType.Timestamp));
+                    statement.setNull("c_Interval", types.wrapYdbJdbcType(PrimitiveType.Interval));
                     statement.setNull("c_Decimal", types.wrapYdbJdbcType(YdbTypes.DEFAULT_DECIMAL_TYPE));
                 } else {
                     statement.setNull("c_Bool", -1, "Bool");
@@ -518,23 +518,23 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
 
                 YdbTypes types = connection.getYdbTypes();
                 statement.setInt("key", 1);
-                statement.setNull("c_Bool", types.wrapYdbJdbcType(PrimitiveType.bool()));
-                statement.setNull("c_Int32", types.wrapYdbJdbcType(PrimitiveType.int32()));
-                statement.setNull("c_Int64", types.wrapYdbJdbcType(PrimitiveType.int64()));
-                statement.setNull("c_Uint8", types.wrapYdbJdbcType(PrimitiveType.uint8()));
-                statement.setNull("c_Uint32", types.wrapYdbJdbcType(PrimitiveType.uint32()));
-                statement.setNull("c_Uint64", types.wrapYdbJdbcType(PrimitiveType.uint64()));
-                statement.setNull("c_Float", types.wrapYdbJdbcType(PrimitiveType.float32()));
-                statement.setNull("c_Double", types.wrapYdbJdbcType(PrimitiveType.float64()));
-                statement.setNull("c_String", types.wrapYdbJdbcType(PrimitiveType.string()));
-                statement.setNull("c_Utf8", types.wrapYdbJdbcType(PrimitiveType.utf8()));
-                statement.setNull("c_Json", types.wrapYdbJdbcType(PrimitiveType.json()));
-                statement.setNull("c_JsonDocument", types.wrapYdbJdbcType(PrimitiveType.jsonDocument()));
-                statement.setNull("c_Yson", types.wrapYdbJdbcType(PrimitiveType.yson()));
-                statement.setNull("c_Date", types.wrapYdbJdbcType(PrimitiveType.date()));
-                statement.setNull("c_Datetime", types.wrapYdbJdbcType(PrimitiveType.datetime()));
-                statement.setNull("c_Timestamp", types.wrapYdbJdbcType(PrimitiveType.timestamp()));
-                statement.setNull("c_Interval", types.wrapYdbJdbcType(PrimitiveType.interval()));
+                statement.setNull("c_Bool", types.wrapYdbJdbcType(PrimitiveType.Bool));
+                statement.setNull("c_Int32", types.wrapYdbJdbcType(PrimitiveType.Int32));
+                statement.setNull("c_Int64", types.wrapYdbJdbcType(PrimitiveType.Int64));
+                statement.setNull("c_Uint8", types.wrapYdbJdbcType(PrimitiveType.Uint8));
+                statement.setNull("c_Uint32", types.wrapYdbJdbcType(PrimitiveType.Uint32));
+                statement.setNull("c_Uint64", types.wrapYdbJdbcType(PrimitiveType.Uint64));
+                statement.setNull("c_Float", types.wrapYdbJdbcType(PrimitiveType.Float));
+                statement.setNull("c_Double", types.wrapYdbJdbcType(PrimitiveType.Double));
+                statement.setNull("c_Bytes", types.wrapYdbJdbcType(PrimitiveType.Bytes));
+                statement.setNull("c_Text", types.wrapYdbJdbcType(PrimitiveType.Text));
+                statement.setNull("c_Json", types.wrapYdbJdbcType(PrimitiveType.Json));
+                statement.setNull("c_JsonDocument", types.wrapYdbJdbcType(PrimitiveType.JsonDocument));
+                statement.setNull("c_Yson", types.wrapYdbJdbcType(PrimitiveType.Yson));
+                statement.setNull("c_Date", types.wrapYdbJdbcType(PrimitiveType.Date));
+                statement.setNull("c_Datetime", types.wrapYdbJdbcType(PrimitiveType.Datetime));
+                statement.setNull("c_Timestamp", types.wrapYdbJdbcType(PrimitiveType.Timestamp));
+                statement.setNull("c_Interval", types.wrapYdbJdbcType(PrimitiveType.Interval));
                 statement.setNull("c_Decimal", types.wrapYdbJdbcType(YdbTypes.DEFAULT_DECIMAL_TYPE));
             }
 
@@ -612,12 +612,12 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                     case "c_Double":
                         expectClassName = Double.class.getName();
                         break;
-                    case "c_String":
-                    case "c_Utf8":
+                    case "c_Text":
                     case "c_Json":
                     case "c_JsonDocument":
                         expectClassName = String.class.getName();
                         break;
+                    case "c_Bytes":
                     case "c_Yson":
                         expectClassName = byte[].class.getName();
                         break;
@@ -673,14 +673,14 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         pair(0, false),
                         pair(1L, true),
                         pair(0L, false),
-                        pair(PrimitiveValue.bool(true), true),
-                        pair(PrimitiveValue.bool(false), false)
+                        pair(PrimitiveValue.newBool(true), true),
+                        pair(PrimitiveValue.newBool(false), false)
                 ),
                 Arrays.asList(
                         "",
                         "".getBytes(),
-                        PrimitiveValue.int32(1),
-                        PrimitiveValue.int32(1).makeOptional()
+                        PrimitiveValue.newInt32(1),
+                        PrimitiveValue.newInt32(1).makeOptional()
                 )
         );
     }
@@ -702,8 +702,8 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                 Arrays.asList(
                         pair(true, (byte) 1),
                         pair(false, (byte) 0),
-                        pair(PrimitiveValue.uint8((byte) 1), (byte) 1),
-                        pair(PrimitiveValue.uint8((byte) 0), (byte) 0)
+                        pair(PrimitiveValue.newUint8((byte) 1), (byte) 1),
+                        pair(PrimitiveValue.newUint8((byte) 0), (byte) 0)
                 ),
                 Arrays.asList(
                         "",
@@ -713,8 +713,8 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         7L,
                         8f,
                         9d,
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional()
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional()
                 )
         );
     }
@@ -745,9 +745,9 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         7L,
                         8f,
                         9d,
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.uint8((byte) 1)
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newUint8((byte) 1)
                 )
         );
     }
@@ -779,9 +779,9 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         "".getBytes(),
                         8f,
                         9d,
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.uint8((byte) 1),
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newUint8((byte) 1),
                         new BigDecimal("10")
                 )
         );
@@ -813,9 +813,9 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         7L,
                         8f,
                         9d,
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.int16((short) 1)
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newInt16((short) 1)
                 )
         );
     }
@@ -846,9 +846,9 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         "".getBytes(),
                         8f,
                         9d,
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.int16((short) 1)
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newInt16((short) 1)
                 )
         );
     }
@@ -879,9 +879,9 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         7L,
                         8f,
                         9d,
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.int16((short) 1)
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newInt16((short) 1)
                 )
         );
     }
@@ -912,9 +912,9 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         "".getBytes(),
                         8f,
                         9d,
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.int32(1)
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newInt32(1)
                 )
         );
     }
@@ -946,9 +946,9 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         "".getBytes(),
                         8f,
                         9d,
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.int32(1),
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newInt32(1),
                         new BigDecimal("123")
                 )
         );
@@ -973,16 +973,16 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         pair(6, 6f),
                         pair(true, 1f),
                         pair(false, 0f),
-                        pair(PrimitiveValue.float32(1.1f), 1.1f)
+                        pair(PrimitiveValue.newFloat(1.1f), 1.1f)
                 ),
                 Arrays.asList(
                         "",
                         "".getBytes(),
                         7L,
                         9d,
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float64(1)
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newDouble(1)
                 )
         );
     }
@@ -1008,14 +1008,14 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         pair(9d, 9d),
                         pair(true, 1d),
                         pair(false, 0d),
-                        pair(PrimitiveValue.float64(1.1f), (double) 1.1f) // lost double precision
+                        pair(PrimitiveValue.newDouble(1.1f), (double) 1.1f) // lost double precision
                 ),
                 Arrays.asList(
                         "",
                         "".getBytes(),
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float32(1)
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newFloat(1)
                 )
         );
     }
@@ -1041,14 +1041,14 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         pair(8f, 8d),
                         pair(true, 1d),
                         pair(false, 0d),
-                        pair(PrimitiveValue.float64(1.1d), 1.1d)
+                        pair(PrimitiveValue.newDouble(1.1d), 1.1d)
                 ),
                 Arrays.asList(
                         "",
                         "".getBytes(),
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float32(1)
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newFloat(1)
                 )
         );
     }
@@ -1093,9 +1093,9 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         8f,
                         9d,
                         "".getBytes(),
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float64(1)
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newDouble(1)
                 )
         );
     }
@@ -1132,10 +1132,10 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         )),
                 merge(unsupported,
                         Arrays.asList(
-                                PrimitiveValue.bool(true),
-                                PrimitiveValue.bool(true).makeOptional(),
-                                PrimitiveValue.float64(1.1d),
-                                PrimitiveValue.json("test")
+                                PrimitiveValue.newBool(true),
+                                PrimitiveValue.newBool(true).makeOptional(),
+                                PrimitiveValue.newDouble(1.1d),
+                                PrimitiveValue.newJson("test")
                         ))
         );
     }
@@ -1166,10 +1166,10 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                                 9d,
                                 true,
                                 false,
-                                PrimitiveValue.bool(true),
-                                PrimitiveValue.bool(true).makeOptional(),
-                                PrimitiveValue.float64(1.1d),
-                                PrimitiveValue.utf8("test")
+                                PrimitiveValue.newBool(true),
+                                PrimitiveValue.newBool(true).makeOptional(),
+                                PrimitiveValue.newDouble(1.1d),
+                                PrimitiveValue.newText("test")
                         ))
         );
     }
@@ -1204,10 +1204,10 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         pair(reader("test4"), "test4".getBytes())
                 ),
                 Arrays.asList(
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float64(1.1d),
-                        PrimitiveValue.json("test")
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newDouble(1.1d),
+                        PrimitiveValue.newJson("test")
                 )
         );
     }
@@ -1235,10 +1235,10 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         9d,
                         true,
                         false,
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float64(1.1d),
-                        PrimitiveValue.utf8("test")
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newDouble(1.1d),
+                        PrimitiveValue.newText("test")
                 )
         );
     }
@@ -1275,10 +1275,10 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         9d,
                         true,
                         false,
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float64(1.1d),
-                        PrimitiveValue.utf8("test")
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newDouble(1.1d),
+                        PrimitiveValue.newText("test")
                 )
         );
     }
@@ -1325,10 +1325,10 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         9d,
                         true,
                         false,
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float64(1.1d),
-                        PrimitiveValue.utf8("test"),
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newDouble(1.1d),
+                        PrimitiveValue.newText("test"),
                         LocalDate.of(1970, 1, 2)
                 )
         );
@@ -1376,10 +1376,10 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         9d,
                         true,
                         false,
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float64(1.1d),
-                        PrimitiveValue.utf8("test"),
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newDouble(1.1d),
+                        PrimitiveValue.newText("test"),
                         LocalDate.of(1970, 1, 2)
                 )
         );
@@ -1422,10 +1422,10 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         9d,
                         true,
                         false,
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float64(1.1d),
-                        PrimitiveValue.utf8("test"),
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newDouble(1.1d),
+                        PrimitiveValue.newText("test"),
                         LocalDate.of(1970, 1, 2)
                 )
         );
@@ -1468,10 +1468,10 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         9d,
                         true,
                         false,
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float64(1.1d),
-                        PrimitiveValue.utf8("test"),
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newDouble(1.1d),
+                        PrimitiveValue.newText("test"),
                         LocalDate.of(1970, 1, 2)
                 )
         );
@@ -1505,10 +1505,10 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         9d,
                         true,
                         false,
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float64(1.1d),
-                        PrimitiveValue.utf8("test")
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newDouble(1.1d),
+                        PrimitiveValue.newText("test")
                 )
         );
     }
@@ -1554,10 +1554,10 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         9d,
                         true,
                         false,
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float64(1.1d),
-                        PrimitiveValue.utf8("test"),
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newDouble(1.1d),
+                        PrimitiveValue.newText("test"),
                         LocalDate.of(1970, 1, 2)
                 )
         );
@@ -1604,10 +1604,10 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         9d,
                         true,
                         false,
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float64(1.1d),
-                        PrimitiveValue.utf8("test"),
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newDouble(1.1d),
+                        PrimitiveValue.newText("test"),
                         LocalDate.of(1970, 1, 2)
                 )
         );
@@ -1638,10 +1638,10 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         9d,
                         true,
                         false,
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float64(1.1d),
-                        PrimitiveValue.utf8("test"),
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newDouble(1.1d),
+                        PrimitiveValue.newText("test"),
                         LocalDate.of(1970, 1, 2),
                         new Timestamp(4),
                         new Date(10),
@@ -1683,9 +1683,9 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         pair(reader("[4]"), stream("[4]"))
                 ),
                 Arrays.asList(
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float64(1.1d)
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newDouble(1.1d)
                 )
         );
     }
@@ -1706,9 +1706,9 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         pair(reader("[4]"), stream("[4]"))
                 ),
                 Arrays.asList(
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float64(1.1d)
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newDouble(1.1d)
                 )
         );
     }
@@ -1729,9 +1729,9 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         pair(reader("[4]"), stream("[4]"))
                 ),
                 Arrays.asList(
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float64(1.1d)
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newDouble(1.1d)
                 )
         );
     }
@@ -1752,9 +1752,9 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         pair(reader("[4]"), stream("[4]"))
                 ),
                 Arrays.asList(
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float64(1.1d)
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newDouble(1.1d)
                 )
         );
     }
@@ -1775,9 +1775,9 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         pair(stream("[3]"), reader("[3]"))
                 ),
                 Arrays.asList(
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float64(1.1d)
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newDouble(1.1d)
                 )
         );
     }
@@ -1852,9 +1852,9 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         pair(reader("[4]"), stream("[4]"))
                 ),
                 Arrays.asList(
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float64(1.1d)
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newDouble(1.1d)
                 )
         );
     }
@@ -1898,9 +1898,9 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         pair(stream("[3]"), reader("[3]"))
                 ),
                 Arrays.asList(
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float64(1.1d)
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newDouble(1.1d)
                 )
         );
     }
@@ -1962,9 +1962,9 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         pair(reader("ftp://localhost"), new URL("ftp://localhost"))
                 ),
                 Arrays.asList(
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float64(1.1d)
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newDouble(1.1d)
                 )
         );
     }
@@ -2007,10 +2007,10 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         pair(reader("test4"), "test4")
                 ),
                 Arrays.asList(
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float64(1.1d),
-                        PrimitiveValue.json("test")
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newDouble(1.1d),
+                        PrimitiveValue.newJson("test")
                 )
         );
     }
@@ -2031,9 +2031,9 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         pair(stream("[3]"), reader("[3]"))
                 ),
                 Arrays.asList(
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float64(1.1d)
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newDouble(1.1d)
                 )
         );
     }
@@ -2069,9 +2069,9 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                         pair(stream("[3]"), reader("[3]"))
                 ),
                 Arrays.asList(
-                        PrimitiveValue.bool(true),
-                        PrimitiveValue.bool(true).makeOptional(),
-                        PrimitiveValue.float64(1.1d)
+                        PrimitiveValue.newBool(true),
+                        PrimitiveValue.newBool(true).makeOptional(),
+                        PrimitiveValue.newDouble(1.1d)
                 )
         );
     }
@@ -2137,10 +2137,10 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                 callSetObject,
                 merge(unsupported,
                         Arrays.asList(
-                                PrimitiveValue.bool(true),
-                                PrimitiveValue.bool(true).makeOptional(),
-                                PrimitiveValue.float64(1.1d),
-                                PrimitiveValue.json("test")
+                                PrimitiveValue.newBool(true),
+                                PrimitiveValue.newBool(true).makeOptional(),
+                                PrimitiveValue.newDouble(1.1d),
+                                PrimitiveValue.newJson("test")
                         ))
         );
     }
@@ -2169,16 +2169,16 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
             params.put("c_Bool", i % 2 == 0);
             params.put("c_Int32", prefix++);
             params.put("c_Int64", (long) prefix++);
-            params.put("c_Uint8", PrimitiveValue.uint8((byte) prefix++).makeOptional());
-            params.put("c_Uint32", PrimitiveValue.uint32(prefix++).makeOptional());
-            params.put("c_Uint64", PrimitiveValue.uint64(prefix++).makeOptional());
+            params.put("c_Uint8", PrimitiveValue.newUint8((byte) prefix++).makeOptional());
+            params.put("c_Uint32", PrimitiveValue.newUint32(prefix++).makeOptional());
+            params.put("c_Uint64", PrimitiveValue.newUint64(prefix++).makeOptional());
             params.put("c_Float", (float) prefix++);
             params.put("c_Double", (double) prefix++);
-            params.put("c_String", PrimitiveValue.string(String.valueOf(prefix++).getBytes()).makeOptional());
+            params.put("c_String", PrimitiveValue.newBytes(String.valueOf(prefix++).getBytes()).makeOptional());
             params.put("c_Utf8", String.valueOf(prefix++));
-            params.put("c_Json", PrimitiveValue.json("[" + (prefix++) + "]").makeOptional());
-            params.put("c_JsonDocument", PrimitiveValue.jsonDocument("[" + (prefix++) + "]").makeOptional());
-            params.put("c_Yson", PrimitiveValue.yson(("[" + (prefix++) + "]").getBytes()).makeOptional());
+            params.put("c_Json", PrimitiveValue.newJson("[" + (prefix++) + "]").makeOptional());
+            params.put("c_JsonDocument", PrimitiveValue.newJsonDocument("[" + (prefix++) + "]").makeOptional());
+            params.put("c_Yson", PrimitiveValue.newYson(("[" + (prefix++) + "]").getBytes()).makeOptional());
             params.put("c_Date", new Date(MILLIS_IN_DAY * (prefix++)));
             params.put("c_Datetime", new Time(MILLIS_IN_DAY * (prefix++) + 111000));
             params.put("c_Timestamp", Instant.ofEpochMilli(MILLIS_IN_DAY * (prefix++) + 112112));
@@ -2290,24 +2290,24 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
         return Arrays.asList(
                 Arguments.of("String",
                         Arrays.asList(
-                                pair(PrimitiveValue.string("test-bytes".getBytes()),
+                                pair(PrimitiveValue.newBytes("test-bytes".getBytes()),
                                         "test-bytes"),
-                                pair(PrimitiveValue.string("test-bytes".getBytes()).makeOptional(),
+                                pair(PrimitiveValue.newBytes("test-bytes".getBytes()).makeOptional(),
                                         "test-bytes")
                         ),
                         Arrays.asList(
-                                PrimitiveValue.utf8("test-utf8"),
-                                PrimitiveValue.utf8("test-utf8").makeOptional()
+                                PrimitiveValue.newText("test-utf8"),
+                                PrimitiveValue.newText("test-utf8").makeOptional()
                         )
                 ),
                 Arguments.of("Utf8",
                         Arrays.asList(
-                                pair(PrimitiveValue.utf8("test-utf8"), "test-utf8"),
-                                pair(PrimitiveValue.utf8("test-utf8").makeOptional(), "test-utf8")
+                                pair(PrimitiveValue.newText("test-utf8"), "test-utf8"),
+                                pair(PrimitiveValue.newText("test-utf8").makeOptional(), "test-utf8")
                         ),
                         Arrays.asList(
-                                PrimitiveValue.string("test-bytes".getBytes()),
-                                PrimitiveValue.string("test-bytes".getBytes()).makeOptional()
+                                PrimitiveValue.newBytes("test-bytes".getBytes()),
+                                PrimitiveValue.newBytes("test-bytes".getBytes()).makeOptional()
                         )
                 )
         );
@@ -2317,32 +2317,32 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
         return Arrays.asList(
                 Arguments.of("Json",
                         Arrays.asList(
-                                pair(PrimitiveValue.json("[1]"), "[1]"),
-                                pair(PrimitiveValue.json("[1]").makeOptional(), "[1]")
+                                pair(PrimitiveValue.newJson("[1]"), "[1]"),
+                                pair(PrimitiveValue.newJson("[1]").makeOptional(), "[1]")
                         ),
                         Arrays.asList(
-                                PrimitiveValue.utf8("test-utf8"),
-                                PrimitiveValue.utf8("test-utf8").makeOptional()
+                                PrimitiveValue.newText("test-utf8"),
+                                PrimitiveValue.newText("test-utf8").makeOptional()
                         )
                 ),
                 Arguments.of("JsonDocument",
                         Arrays.asList(
-                                pair(PrimitiveValue.jsonDocument("[1]"), "[1]"),
-                                pair(PrimitiveValue.jsonDocument("[1]").makeOptional(), "[1]")
+                                pair(PrimitiveValue.newJsonDocument("[1]"), "[1]"),
+                                pair(PrimitiveValue.newJsonDocument("[1]").makeOptional(), "[1]")
                         ),
                         Arrays.asList(
-                                PrimitiveValue.utf8("test-utf8"),
-                                PrimitiveValue.utf8("test-utf8").makeOptional()
+                                PrimitiveValue.newText("test-utf8"),
+                                PrimitiveValue.newText("test-utf8").makeOptional()
                         )
                 ),
                 Arguments.of("Yson",
                         Arrays.asList(
-                                pair(PrimitiveValue.yson("[1]".getBytes()), "[1]"),
-                                pair(PrimitiveValue.yson("[1]".getBytes()).makeOptional(), "[1]")
+                                pair(PrimitiveValue.newYson("[1]".getBytes()), "[1]"),
+                                pair(PrimitiveValue.newYson("[1]".getBytes()).makeOptional(), "[1]")
                         ),
                         Arrays.asList(
-                                PrimitiveValue.utf8("test-utf8"),
-                                PrimitiveValue.utf8("test-utf8").makeOptional()
+                                PrimitiveValue.newText("test-utf8"),
+                                PrimitiveValue.newText("test-utf8").makeOptional()
                         )
                 )
         );

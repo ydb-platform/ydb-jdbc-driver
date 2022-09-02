@@ -91,8 +91,12 @@ public class YdbProperties {
         url = url.substring(addressesUrl.length());
 
         List<HostAndPort> addresses = getAddresses(addressesUrl);
+        if (addresses.size() > 1) {
+            throw new SQLException("Multiple hosts are not supported");
+        }
+
         Properties properties = withQuery(url, origProperties, getDatabase(url));
-        YdbConnectionProperties connectionProperties = new YdbConnectionProperties(addresses,
+        YdbConnectionProperties connectionProperties = new YdbConnectionProperties(addresses.get(0),
                 parseProperties(properties, YdbConnectionProperty.properties()));
 
         YdbClientProperties ydbClientProperties = new YdbClientProperties(

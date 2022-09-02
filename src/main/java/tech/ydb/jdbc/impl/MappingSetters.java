@@ -46,42 +46,42 @@ public class MappingSetters {
         Type.Kind kind = type.getKind();
         // TODO: Separate setters for primitive values?
         if (kind == Type.Kind.PRIMITIVE) {
-            PrimitiveType.Id id = ((PrimitiveType) type).getId();
+            PrimitiveType id = (PrimitiveType) type;
             switch (id) {
-                case String:
-                    return x -> PrimitiveValue.stringOwn(castAsBytes(id, x));
-                case Utf8:
-                    return x -> PrimitiveValue.utf8(castAsString(id, x));
+                case Bytes:
+                    return x -> PrimitiveValue.newBytesOwn(castAsBytes(id, x));
+                case Text:
+                    return x -> PrimitiveValue.newText(castAsString(id, x));
                 case Json:
-                    return x -> PrimitiveValue.json(castAsJson(id, x));
+                    return x -> PrimitiveValue.newJson(castAsJson(id, x));
                 case JsonDocument:
-                    return x -> PrimitiveValue.jsonDocument(castAsJson(id, x));
+                    return x -> PrimitiveValue.newJsonDocument(castAsJson(id, x));
                 case Yson:
-                    return x -> PrimitiveValue.ysonOwn(castAsYson(id, x));
+                    return x -> PrimitiveValue.newYsonOwn(castAsYson(id, x));
                 case Uuid:
                     return x -> castAsUuid(id, x);
                 case Bool:
-                    return x -> PrimitiveValue.bool(castAsBoolean(id, x));
+                    return x -> PrimitiveValue.newBool(castAsBoolean(id, x));
                 case Int8:
-                    return x -> PrimitiveValue.int8(castAsByte(id, x));
+                    return x -> PrimitiveValue.newInt8(castAsByte(id, x));
                 case Uint8:
-                    return x -> PrimitiveValue.uint8(castAsByte(id, x));
+                    return x -> PrimitiveValue.newUint8(castAsByte(id, x));
                 case Int16:
-                    return x -> PrimitiveValue.int16(castAsShort(id, x));
+                    return x -> PrimitiveValue.newInt16(castAsShort(id, x));
                 case Uint16:
-                    return x -> PrimitiveValue.uint16(castAsShort(id, x));
+                    return x -> PrimitiveValue.newUint16(castAsShort(id, x));
                 case Int32:
-                    return x -> PrimitiveValue.int32(castAsInt(id, x));
+                    return x -> PrimitiveValue.newInt32(castAsInt(id, x));
                 case Uint32:
-                    return x -> PrimitiveValue.uint32(castAsInt(id, x));
+                    return x -> PrimitiveValue.newUint32(castAsInt(id, x));
                 case Int64:
-                    return x -> PrimitiveValue.int64(castAsLong(id, x));
+                    return x -> PrimitiveValue.newInt64(castAsLong(id, x));
                 case Uint64:
-                    return x -> PrimitiveValue.uint64(castAsLong(id, x));
-                case Float32:
-                    return x -> PrimitiveValue.float32(castAsFloat(id, x));
-                case Float64:
-                    return x -> PrimitiveValue.float64(castAsDouble(id, x));
+                    return x -> PrimitiveValue.newUint64(castAsLong(id, x));
+                case Float:
+                    return x -> PrimitiveValue.newFloat(castAsFloat(id, x));
+                case Double:
+                    return x -> PrimitiveValue.newDouble(castAsDouble(id, x));
                 case Date:
                     return x -> castToDate(id, x);
                 case Datetime:
@@ -91,11 +91,11 @@ public class MappingSetters {
                 case Interval:
                     return x -> castToInterval(id, x);
                 case TzDate:
-                    return x -> PrimitiveValue.tzDate(castAsZonedDateTime(id, x));
+                    return x -> PrimitiveValue.newTzDate(castAsZonedDateTime(id, x));
                 case TzDatetime:
-                    return x -> PrimitiveValue.tzDatetime(castAsZonedDateTime(id, x));
+                    return x -> PrimitiveValue.newTzDatetime(castAsZonedDateTime(id, x));
                 case TzTimestamp:
-                    return x -> PrimitiveValue.tzTimestamp(castAsZonedDateTime(id, x));
+                    return x -> PrimitiveValue.newTzTimestamp(castAsZonedDateTime(id, x));
                 default:
                     return x -> {
                         throw castNotSupported(id, x);
@@ -120,11 +120,11 @@ public class MappingSetters {
         return x == null ? "null" : (x.getClass() + ": " + x);
     }
 
-    private static SQLException castNotSupported(PrimitiveType.Id type, Object x, Exception cause) {
+    private static SQLException castNotSupported(PrimitiveType type, Object x, Exception cause) {
         return new SQLException(String.format(UNABLE_TO_CAST, toString(x), type), cause);
     }
 
-    private static SQLException castNotSupported(PrimitiveType.Id type, Object x) {
+    private static SQLException castNotSupported(PrimitiveType type, Object x) {
         return new SQLException(String.format(UNABLE_TO_CAST, toString(x), type));
     }
 
@@ -156,7 +156,7 @@ public class MappingSetters {
         }
     }
 
-    private static byte[] castAsBytes(PrimitiveType.Id type, Object x) throws SQLException {
+    private static byte[] castAsBytes(PrimitiveType type, Object x) throws SQLException {
         if (x instanceof byte[]) {
             return (byte[]) x;
         } else if (x instanceof String) {
@@ -174,7 +174,7 @@ public class MappingSetters {
         }
     }
 
-    private static byte[] castAsYson(PrimitiveType.Id type, Object x) throws SQLException {
+    private static byte[] castAsYson(PrimitiveType type, Object x) throws SQLException {
         if (x instanceof byte[]) {
             return (byte[]) x;
         } else if (x instanceof String) {
@@ -192,7 +192,7 @@ public class MappingSetters {
     }
 
     @SuppressWarnings("unused")
-    private static String castAsString(PrimitiveType.Id type, Object x) throws SQLException {
+    private static String castAsString(PrimitiveType type, Object x) throws SQLException {
         if (x instanceof String) {
             return (String) x;
         } else if (x instanceof byte[]) {
@@ -210,7 +210,7 @@ public class MappingSetters {
         }
     }
 
-    private static String castAsJson(PrimitiveType.Id type, Object x) throws SQLException {
+    private static String castAsJson(PrimitiveType type, Object x) throws SQLException {
         if (x instanceof String) {
             return (String) x;
         } else if (x instanceof byte[]) {
@@ -227,18 +227,18 @@ public class MappingSetters {
         throw castNotSupported(type, x);
     }
 
-    private static PrimitiveValue castAsUuid(PrimitiveType.Id type, Object x) throws SQLException {
+    private static PrimitiveValue castAsUuid(PrimitiveType type, Object x) throws SQLException {
         if (x instanceof String) {
-            return PrimitiveValue.uuid((String) x);
+            return PrimitiveValue.newUuid((String) x);
         } else if (x instanceof byte[]) {
-            return PrimitiveValue.uuid(new String((byte[]) x));
+            return PrimitiveValue.newUuid(new String((byte[]) x));
         } else if (x instanceof UUID) {
-            return PrimitiveValue.uuid((UUID) x);
+            return PrimitiveValue.newUuid((UUID) x);
         }
         throw castNotSupported(type, x);
     }
 
-    private static byte castAsByte(PrimitiveType.Id type, Object x) throws SQLException {
+    private static byte castAsByte(PrimitiveType type, Object x) throws SQLException {
         if (x instanceof Byte) {
             return (Byte) x;
         } else if (x instanceof Boolean) {
@@ -247,7 +247,7 @@ public class MappingSetters {
         throw castNotSupported(type, x);
     }
 
-    private static short castAsShort(PrimitiveType.Id type, Object x) throws SQLException {
+    private static short castAsShort(PrimitiveType type, Object x) throws SQLException {
         if (x instanceof Short) {
             return (Short) x;
         } else if (x instanceof Byte) {
@@ -258,7 +258,7 @@ public class MappingSetters {
         throw castNotSupported(type, x);
     }
 
-    private static int castAsInt(PrimitiveType.Id type, Object x) throws SQLException {
+    private static int castAsInt(PrimitiveType type, Object x) throws SQLException {
         if (x instanceof Integer) {
             return (Integer) x;
         } else if (x instanceof Short) {
@@ -271,7 +271,7 @@ public class MappingSetters {
         throw castNotSupported(type, x);
     }
 
-    private static long castAsLong(PrimitiveType.Id type, Object x) throws SQLException {
+    private static long castAsLong(PrimitiveType type, Object x) throws SQLException {
         if (x instanceof Long) {
             return (Long) x;
         } else if (x instanceof Integer) {
@@ -288,7 +288,7 @@ public class MappingSetters {
         throw castNotSupported(type, x);
     }
 
-    private static float castAsFloat(PrimitiveType.Id type, Object x) throws SQLException {
+    private static float castAsFloat(PrimitiveType type, Object x) throws SQLException {
         if (x instanceof Float) {
             return (Float) x;
         } else if (x instanceof Integer) {
@@ -303,7 +303,7 @@ public class MappingSetters {
         throw castNotSupported(type, x);
     }
 
-    private static double castAsDouble(PrimitiveType.Id type, Object x) throws SQLException {
+    private static double castAsDouble(PrimitiveType type, Object x) throws SQLException {
         if (x instanceof Double) {
             return (Double) x;
         } else if (x instanceof Float) {
@@ -322,7 +322,7 @@ public class MappingSetters {
         throw castNotSupported(type, x);
     }
 
-    private static boolean castAsBoolean(PrimitiveType.Id type, Object x) throws SQLException {
+    private static boolean castAsBoolean(PrimitiveType type, Object x) throws SQLException {
         if (x instanceof Boolean) {
             return (boolean) x;
         } else if (x instanceof Number) {
@@ -332,18 +332,18 @@ public class MappingSetters {
         throw castNotSupported(type, x);
     }
 
-    private static ZonedDateTime castAsZonedDateTime(PrimitiveType.Id type, Object x) throws SQLException {
+    private static ZonedDateTime castAsZonedDateTime(PrimitiveType type, Object x) throws SQLException {
         if (x instanceof ZonedDateTime) {
             return (ZonedDateTime) x;
         }
         throw castNotSupported(type, x);
     }
 
-    private static PrimitiveValue castToInterval(PrimitiveType.Id type, Object x) throws SQLException {
+    private static PrimitiveValue castToInterval(PrimitiveType type, Object x) throws SQLException {
         if (x instanceof Duration) {
-            return PrimitiveValue.interval((Duration) x);
+            return PrimitiveValue.newInterval((Duration) x);
         } else if (x instanceof Long) {
-            return PrimitiveValue.interval((Long) x);
+            return PrimitiveValue.newInterval((Long) x);
         } else if (x instanceof String) {
             Duration parsed;
             try {
@@ -351,22 +351,22 @@ public class MappingSetters {
             } catch (DateTimeParseException e) {
                 throw castNotSupported(type, x, e);
             }
-            return PrimitiveValue.interval(parsed);
+            return PrimitiveValue.newInterval(parsed);
         }
         throw castNotSupported(type, x);
     }
 
-    private static PrimitiveValue castToDate(PrimitiveType.Id type, Object x) throws SQLException {
+    private static PrimitiveValue castToDate(PrimitiveType type, Object x) throws SQLException {
         if (x instanceof Instant) {
-            return PrimitiveValue.date((Instant) x);
+            return PrimitiveValue.newDate((Instant) x);
         } else if (x instanceof LocalDate) {
-            return PrimitiveValue.date((LocalDate) x);
+            return PrimitiveValue.newDate((LocalDate) x);
         } else if (x instanceof Long) {
-            return PrimitiveValue.date(TimeUnit.MILLISECONDS.toDays((Long) x));
+            return PrimitiveValue.newDate(TimeUnit.MILLISECONDS.toDays((Long) x));
         } else if (x instanceof Date) {
-            return PrimitiveValue.date(TimeUnit.MILLISECONDS.toDays(((Date) x).getTime()));
+            return PrimitiveValue.newDate(TimeUnit.MILLISECONDS.toDays(((Date) x).getTime()));
         } else if (x instanceof Timestamp) {
-            return PrimitiveValue.date(TimeUnit.MILLISECONDS.toDays(((Timestamp) x).getTime()));
+            return PrimitiveValue.newDate(TimeUnit.MILLISECONDS.toDays(((Timestamp) x).getTime()));
         } else if (x instanceof String) {
             Instant parsed;
             try {
@@ -374,22 +374,22 @@ public class MappingSetters {
             } catch (DateTimeParseException e) {
                 throw castNotSupported(type, x, e);
             }
-            return PrimitiveValue.date(parsed);
+            return PrimitiveValue.newDate(parsed);
         }
         throw castNotSupported(type, x);
     }
 
-    private static PrimitiveValue castToDateTime(PrimitiveType.Id type, Object x) throws SQLException {
+    private static PrimitiveValue castToDateTime(PrimitiveType type, Object x) throws SQLException {
         if (x instanceof Instant) {
-            return PrimitiveValue.datetime((Instant) x);
+            return PrimitiveValue.newDatetime((Instant) x);
         } else if (x instanceof LocalDateTime) {
-            return PrimitiveValue.datetime((LocalDateTime) x);
+            return PrimitiveValue.newDatetime((LocalDateTime) x);
         } else if (x instanceof Long) {
-            return PrimitiveValue.datetime(TimeUnit.MILLISECONDS.toSeconds((Long) x));
+            return PrimitiveValue.newDatetime(TimeUnit.MILLISECONDS.toSeconds((Long) x));
         } else if (x instanceof Date) {
-            return PrimitiveValue.datetime(TimeUnit.MILLISECONDS.toSeconds(((Date) x).getTime()));
+            return PrimitiveValue.newDatetime(TimeUnit.MILLISECONDS.toSeconds(((Date) x).getTime()));
         } else if (x instanceof Timestamp) {
-            return PrimitiveValue.datetime(TimeUnit.MILLISECONDS.toSeconds(((Timestamp) x).getTime()));
+            return PrimitiveValue.newDatetime(TimeUnit.MILLISECONDS.toSeconds(((Timestamp) x).getTime()));
         } else if (x instanceof String) {
             Instant parsed;
             try {
@@ -397,20 +397,20 @@ public class MappingSetters {
             } catch (DateTimeParseException e) {
                 throw castNotSupported(type, x, e);
             }
-            return PrimitiveValue.datetime(parsed);
+            return PrimitiveValue.newDatetime(parsed);
         }
         throw castNotSupported(type, x);
     }
 
-    private static PrimitiveValue castToTimestamp(PrimitiveType.Id type, Object x) throws SQLException {
+    private static PrimitiveValue castToTimestamp(PrimitiveType type, Object x) throws SQLException {
         if (x instanceof Instant) {
-            return PrimitiveValue.timestamp((Instant) x);
+            return PrimitiveValue.newTimestamp((Instant) x);
         } else if (x instanceof Long) {
-            return PrimitiveValue.timestamp(TimeUnit.MILLISECONDS.toMicros((Long) x));
+            return PrimitiveValue.newTimestamp(TimeUnit.MILLISECONDS.toMicros((Long) x));
         } else if (x instanceof Date) {
-            return PrimitiveValue.timestamp(TimeUnit.MILLISECONDS.toMicros(((Date) x).getTime()));
+            return PrimitiveValue.newTimestamp(TimeUnit.MILLISECONDS.toMicros(((Date) x).getTime()));
         } else if (x instanceof Timestamp) {
-            return PrimitiveValue.timestamp(TimeUnit.MILLISECONDS.toMicros(((Timestamp) x).getTime()));
+            return PrimitiveValue.newTimestamp(TimeUnit.MILLISECONDS.toMicros(((Timestamp) x).getTime()));
         } else if (x instanceof String) {
             Instant parsed;
             try {
@@ -418,7 +418,7 @@ public class MappingSetters {
             } catch (DateTimeParseException e) {
                 throw castNotSupported(type, x, e);
             }
-            return PrimitiveValue.timestamp(parsed);
+            return PrimitiveValue.newTimestamp(parsed);
         }
         throw castNotSupported(type, x);
     }

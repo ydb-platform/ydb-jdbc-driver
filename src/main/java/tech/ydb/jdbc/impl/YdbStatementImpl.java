@@ -432,9 +432,9 @@ public class YdbStatementImpl implements YdbStatement {
             throw e;
         }
 
-        state.lastIssues = result.getIssues();
+        state.lastIssues = result.getStatus().getIssues();
 
-        DataQueryResult dataQueryResult = result.expect("Result set");
+        DataQueryResult dataQueryResult = result.getValue();
         connection.setTx(dataQueryResult.getTxId());
 
         printResultSetDetails(dataQueryResult);
@@ -497,9 +497,9 @@ public class YdbStatementImpl implements YdbStatement {
         Result<ExplainDataQueryResult> result = validator.joinResult(logger,
                 () -> QueryType.EXPLAIN_QUERY + " >>\n" + sql,
                 () -> session.explainDataQuery(sql, settings));
-        state.lastIssues = result.getIssues();
+        state.lastIssues = result.getStatus().getIssues();
 
-        ExplainDataQueryResult explainDataQuery = result.expect("Explain Data Query");
+        ExplainDataQueryResult explainDataQuery = result.getValue();
 
         Map<String, Object> params = MappingResultSets.stableMap(
                 YdbConst.EXPLAIN_COLUMN_AST, explainDataQuery.getQueryAst(),

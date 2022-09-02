@@ -33,7 +33,7 @@ public class MappingGetters {
 
     static Getters buildGetters(Type type) {
         Type.Kind kind = type.getKind();
-        @Nullable PrimitiveType.Id id = type.getKind() == Type.Kind.PRIMITIVE ? ((PrimitiveType) type).getId() : null;
+        @Nullable PrimitiveType id = type.getKind() == Type.Kind.PRIMITIVE ? ((PrimitiveType) type) : null;
         return new Getters(
                 valueToString(kind, id),
                 valueToBoolean(kind, id),
@@ -52,14 +52,14 @@ public class MappingGetters {
                 valueToReader(kind, id));
     }
 
-    private static ValueToString valueToString(Type.Kind kind, @Nullable PrimitiveType.Id id) {
+    private static ValueToString valueToString(Type.Kind kind, @Nullable PrimitiveType id) {
         Class<?> javaType = String.class;
         if (kind == Type.Kind.PRIMITIVE) {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
             switch (id) {
-                case String:
+                case Bytes:
                     return value -> new String(value.getString());
-                case Utf8:
+                case Text:
                     return PrimitiveReader::getUtf8;
                 case Json:
                     return PrimitiveReader::getJson;
@@ -87,9 +87,9 @@ public class MappingGetters {
                     return value -> String.valueOf(value.getInt64());
                 case Uint64:
                     return value -> String.valueOf(value.getUint64());
-                case Float32:
+                case Float:
                     return value -> String.valueOf(value.getFloat32());
-                case Float64:
+                case Double:
                     return value -> String.valueOf(value.getFloat64());
                 case Date:
                     return value -> String.valueOf(value.getDate());
@@ -118,7 +118,7 @@ public class MappingGetters {
         }
     }
 
-    private static ValueToBoolean valueToBoolean(Type.Kind kind, @Nullable PrimitiveType.Id id) {
+    private static ValueToBoolean valueToBoolean(Type.Kind kind, @Nullable PrimitiveType id) {
         Class<?> javaType = boolean.class;
         if (kind == Type.Kind.PRIMITIVE) {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
@@ -141,7 +141,7 @@ public class MappingGetters {
                     return value -> value.getInt64() > 0;
                 case Uint64:
                     return value -> value.getUint64() > 0;
-                case String:
+                case Bytes:
                     return value -> {
                         byte[] stringValue = value.getString();
                         if (stringValue.length == 0) {
@@ -155,7 +155,7 @@ public class MappingGetters {
                         }
                         throw cannotConvert(id, javaType, new String(stringValue));
                     };
-                case Utf8:
+                case Text:
                     return value -> {
                         String utfValue = value.getUtf8();
                         if (utfValue.isEmpty()) {
@@ -181,7 +181,7 @@ public class MappingGetters {
         }
     }
 
-    private static ValueToByte valueToByte(Type.Kind kind, @Nullable PrimitiveType.Id id) {
+    private static ValueToByte valueToByte(Type.Kind kind, @Nullable PrimitiveType id) {
         Class<?> javaType = byte.class;
         if (kind == Type.Kind.PRIMITIVE) {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
@@ -204,7 +204,7 @@ public class MappingGetters {
         }
     }
 
-    private static ValueToShort valueToShort(Type.Kind kind, @Nullable PrimitiveType.Id id) {
+    private static ValueToShort valueToShort(Type.Kind kind, @Nullable PrimitiveType id) {
         Class<?> javaType = short.class;
         if (kind == Type.Kind.PRIMITIVE) {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
@@ -231,7 +231,7 @@ public class MappingGetters {
         }
     }
 
-    private static ValueToInt valueToInt(Type.Kind kind, @Nullable PrimitiveType.Id id) {
+    private static ValueToInt valueToInt(Type.Kind kind, @Nullable PrimitiveType id) {
         Class<?> javaType = int.class;
         if (kind == Type.Kind.PRIMITIVE) {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
@@ -262,7 +262,7 @@ public class MappingGetters {
         }
     }
 
-    private static ValueToLong valueToLong(Type.Kind kind, @Nullable PrimitiveType.Id id) {
+    private static ValueToLong valueToLong(Type.Kind kind, @Nullable PrimitiveType id) {
         Class<?> javaType = long.class;
         if (kind == Type.Kind.PRIMITIVE) {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
@@ -309,7 +309,7 @@ public class MappingGetters {
         }
     }
 
-    private static ValueToFloat valueToFloat(Type.Kind kind, @Nullable PrimitiveType.Id id) {
+    private static ValueToFloat valueToFloat(Type.Kind kind, @Nullable PrimitiveType id) {
         Class<?> javaType = float.class;
         if (kind == Type.Kind.PRIMITIVE) {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
@@ -328,7 +328,7 @@ public class MappingGetters {
                     return PrimitiveReader::getInt32;
                 case Uint32:
                     return PrimitiveReader::getUint32;
-                case Float32:
+                case Float:
                     return PrimitiveReader::getFloat32;
                 default:
                     return value -> {
@@ -344,7 +344,7 @@ public class MappingGetters {
         }
     }
 
-    private static ValueToDouble valueToDouble(Type.Kind kind, @Nullable PrimitiveType.Id id) {
+    private static ValueToDouble valueToDouble(Type.Kind kind, @Nullable PrimitiveType id) {
         Class<?> javaType = double.class;
         if (kind == Type.Kind.PRIMITIVE) {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
@@ -367,9 +367,9 @@ public class MappingGetters {
                     return PrimitiveReader::getInt64;
                 case Uint64:
                     return PrimitiveReader::getUint64;
-                case Float32:
+                case Float:
                     return PrimitiveReader::getFloat32;
-                case Float64:
+                case Double:
                     return PrimitiveReader::getFloat64;
                 default:
                     return value -> {
@@ -385,14 +385,14 @@ public class MappingGetters {
         }
     }
 
-    private static ValueToBytes valueToBytes(Type.Kind kind, @Nullable PrimitiveType.Id id) {
+    private static ValueToBytes valueToBytes(Type.Kind kind, @Nullable PrimitiveType id) {
         Class<?> javaType = byte[].class;
         if (kind == Type.Kind.PRIMITIVE) {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
             switch (id) {
-                case String:
+                case Bytes:
                     return PrimitiveReader::getString;
-                case Utf8:
+                case Text:
                     // TODO: pretty ineffective conversion (bytes -> string -> bytes)
                     return value -> value.getUtf8().getBytes();
                 case Json:
@@ -415,7 +415,7 @@ public class MappingGetters {
         }
     }
 
-    private static ValueToDateMillis valueToDateMillis(Type.Kind kind, @Nullable PrimitiveType.Id id) {
+    private static ValueToDateMillis valueToDateMillis(Type.Kind kind, @Nullable PrimitiveType id) {
         Class<?> javaType = long.class;
         if (kind == Type.Kind.PRIMITIVE) {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
@@ -448,14 +448,14 @@ public class MappingGetters {
         }
     }
 
-    private static ValueToNString valueToNString(Type.Kind kind, @Nullable PrimitiveType.Id id) {
+    private static ValueToNString valueToNString(Type.Kind kind, @Nullable PrimitiveType id) {
         Class<?> javaType = String.class;
         if (kind == Type.Kind.PRIMITIVE) {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
             switch (id) {
-                case String:
+                case Bytes:
                     return value -> new String(value.getString());
-                case Utf8:
+                case Text:
                     return PrimitiveReader::getUtf8;
                 case Json:
                     return PrimitiveReader::getJson;
@@ -477,14 +477,14 @@ public class MappingGetters {
         }
     }
 
-    private static ValueToURL valueToURL(Type.Kind kind, @Nullable PrimitiveType.Id id) {
+    private static ValueToURL valueToURL(Type.Kind kind, @Nullable PrimitiveType id) {
         Class<?> javaType = URL.class;
         if (kind == Type.Kind.PRIMITIVE) {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
             switch (id) {
-                case String:
+                case Bytes:
                     return value -> new String(value.getString());
-                case Utf8:
+                case Text:
                     return PrimitiveReader::getUtf8;
                 default:
                     return value -> {
@@ -498,7 +498,7 @@ public class MappingGetters {
         }
     }
 
-    private static ValueToBigDecimal valueToBigDecimal(Type.Kind kind, @Nullable PrimitiveType.Id id) {
+    private static ValueToBigDecimal valueToBigDecimal(Type.Kind kind, @Nullable PrimitiveType id) {
         Class<?> javaType = BigDecimal.class;
         if (kind == Type.Kind.PRIMITIVE) {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
@@ -521,9 +521,9 @@ public class MappingGetters {
                     return value -> BigDecimal.valueOf(value.getInt64());
                 case Uint64:
                     return value -> BigDecimal.valueOf(value.getUint64());
-                case Float32:
+                case Float:
                     return value -> BigDecimal.valueOf(value.getFloat32());
-                case Float64:
+                case Double:
                     return value -> BigDecimal.valueOf(value.getFloat64());
                 default:
                     return value -> {
@@ -539,14 +539,14 @@ public class MappingGetters {
         }
     }
 
-    private static ValueToReader valueToReader(Type.Kind kind, @Nullable PrimitiveType.Id id) {
+    private static ValueToReader valueToReader(Type.Kind kind, @Nullable PrimitiveType id) {
         Class<?> javaType = Reader.class;
         if (kind == Type.Kind.PRIMITIVE) {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
             switch (id) {
-                case String:
+                case Bytes:
                     return value -> new InputStreamReader(new ByteArrayInputStream(value.getString()));
-                case Utf8:
+                case Text:
                     return value -> new StringReader(value.getUtf8());
                 case Json:
                     return value -> new StringReader(value.getJson());
@@ -575,11 +575,11 @@ public class MappingGetters {
         int sqlType = YdbTypesImpl.getInstance().toSqlType(type);
 
         if (kind == Type.Kind.PRIMITIVE) {
-            PrimitiveType.Id id = ((PrimitiveType) type).getId();
+            PrimitiveType id = (PrimitiveType) type;
             final Class<?> javaType;
             switch (id) {
-                case String:
-                case Utf8:
+                case Bytes:
+                case Text:
                 case Json:
                 case JsonDocument:
                 case Uuid:
@@ -607,10 +607,10 @@ public class MappingGetters {
                 case Uint64:
                     javaType = Long.class;
                     break;
-                case Float32:
+                case Float:
                     javaType = Float.class;
                     break;
-                case Float64:
+                case Double:
                     javaType = Double.class;
                     break;
                 case Date:
@@ -641,14 +641,14 @@ public class MappingGetters {
         }
     }
 
-    private static ValueToObject valueToObject(Type.Kind kind, @Nullable PrimitiveType.Id id) {
+    private static ValueToObject valueToObject(Type.Kind kind, @Nullable PrimitiveType id) {
         Class<?> javaType = Object.class;
         if (kind == Type.Kind.PRIMITIVE) {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
             switch (id) {
-                case String:
+                case Bytes:
                     return valueReader -> new String(valueReader.getString());
-                case Utf8:
+                case Text:
                     return PrimitiveReader::getUtf8;
                 case Json:
                     return PrimitiveReader::getJson;
@@ -676,9 +676,9 @@ public class MappingGetters {
                     return PrimitiveReader::getInt64;
                 case Uint64:
                     return PrimitiveReader::getUint64;
-                case Float32:
+                case Float:
                     return PrimitiveReader::getFloat32;
-                case Float64:
+                case Double:
                     return PrimitiveReader::getFloat64;
                 case Date:
                     return PrimitiveReader::getDate;
@@ -708,11 +708,11 @@ public class MappingGetters {
     }
 
 
-    private static SQLException cannotConvert(PrimitiveType.Id type, Class<?> javaType, Object value) {
+    private static SQLException cannotConvert(PrimitiveType type, Class<?> javaType, Object value) {
         return new SQLException(String.format(UNABLE_TO_CONVERT, type, value, javaType));
     }
 
-    private static SQLException dataTypeNotSupported(PrimitiveType.Id type, Class<?> javaType) {
+    private static SQLException dataTypeNotSupported(PrimitiveType type, Class<?> javaType) {
         return new SQLException(String.format(UNABLE_TO_CAST, type, javaType));
     }
 
