@@ -32,6 +32,18 @@ import java.util.concurrent.TimeUnit;
 
 import javax.sql.rowset.serial.SerialBlob;
 
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.opentest4j.MultipleFailuresError;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import tech.ydb.jdbc.TestHelper;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
@@ -46,21 +58,7 @@ import tech.ydb.table.values.DecimalType;
 import tech.ydb.table.values.DecimalValue;
 import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.table.values.PrimitiveValue;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.function.Executable;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.ValueSource;
-import org.opentest4j.MultipleFailuresError;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import static tech.ydb.jdbc.TestHelper.assertThrowsMsg;
-import static tech.ydb.jdbc.TestHelper.assertThrowsMsgLike;
-import static tech.ydb.jdbc.impl.AbstractYdbPreparedStatementImplTest.Pair.pair;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -68,6 +66,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static tech.ydb.jdbc.TestHelper.assertThrowsMsg;
+import static tech.ydb.jdbc.TestHelper.assertThrowsMsgLike;
+import static tech.ydb.jdbc.impl.AbstractYdbPreparedStatementImplTest.Pair.pair;
 
 public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest {
     protected final Logger logger = LoggerFactory.getLogger(getClass());
@@ -1070,22 +1071,22 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                 YdbPreparedStatement::setBigDecimal,
                 ResultSet::getBigDecimal,
                 Arrays.asList(
-                        pair(new BigDecimal("0.0"), new BigDecimal("0E-9")),
-                        pair(new BigDecimal("1.3"), new BigDecimal("1.3E-8"))
+                        pair(new BigDecimal("0.0"), new BigDecimal("0")),
+                        pair(new BigDecimal("1.3"), new BigDecimal("1.3"))
                 ),
                 Arrays.asList(
-                        pair(1, new BigDecimal("1E-9")),
-                        pair(0, new BigDecimal("0E-9")),
-                        pair(-1, new BigDecimal("-1E-9")),
-                        pair(127, new BigDecimal("1.27E-7")),
-                        pair((byte) 4, new BigDecimal("4E-9")),
-                        pair((short) 5, new BigDecimal("5E-9")),
-                        pair(6, new BigDecimal("6E-9")),
-                        pair(7L, new BigDecimal("7E-9")),
+                        pair(1, new BigDecimal("1")),
+                        pair(0, new BigDecimal("0")),
+                        pair(-1, new BigDecimal("-1")),
+                        pair(127, new BigDecimal("1.27")),
+                        pair((byte) 4, new BigDecimal("4")),
+                        pair((short) 5, new BigDecimal("5")),
+                        pair(6, new BigDecimal("6")),
+                        pair(7L, new BigDecimal("7")),
                         pair("1", new BigDecimal("1.000000000")),
                         pair("1.1", new BigDecimal("1.100000000")),
                         pair(DecimalType.of(22, 9).newValue("1.2"), new BigDecimal("1.200000000")),
-                        pair(new BigInteger("2"), new BigDecimal("2E-9"))
+                        pair(new BigInteger("2"), new BigDecimal("2"))
                 ),
                 Arrays.asList(
                         true,

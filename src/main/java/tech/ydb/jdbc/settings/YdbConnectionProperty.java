@@ -23,14 +23,6 @@ public class YdbConnectionProperty<T> extends AbstractYdbProperty<T, GrpcTranspo
                     database -> !database.startsWith("/") ? ("/" + database) : database,
                     (b, v) -> {});
 
-    public static final YdbConnectionProperty<Duration> ENDPOINT_DISCOVERY_PERIOD =
-            new YdbConnectionProperty<>(
-                    "endpointDiscoveryPeriod",
-                    "Endpoint discovery period",
-                    null,
-                    Duration.class,
-                    PropertyConverter.durationValue(),
-                    GrpcTransportBuilder::withEndpointsDiscoveryPeriod);
     public static final YdbConnectionProperty<String> LOCAL_DATACENTER =
             new YdbConnectionProperty<>(
                     "localDatacenter",

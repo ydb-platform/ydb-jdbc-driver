@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 import com.google.common.base.Preconditions;
+
 import tech.ydb.table.result.PrimitiveReader;
 import tech.ydb.table.result.ValueReader;
 import tech.ydb.table.values.DecimalValue;
@@ -58,9 +59,9 @@ public class MappingGetters {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
             switch (id) {
                 case Bytes:
-                    return value -> new String(value.getString());
+                    return value -> new String(value.getBytes());
                 case Text:
-                    return PrimitiveReader::getUtf8;
+                    return PrimitiveReader::getText;
                 case Json:
                     return PrimitiveReader::getJson;
                 case JsonDocument:
@@ -88,9 +89,9 @@ public class MappingGetters {
                 case Uint64:
                     return value -> String.valueOf(value.getUint64());
                 case Float:
-                    return value -> String.valueOf(value.getFloat32());
+                    return value -> String.valueOf(value.getFloat());
                 case Double:
-                    return value -> String.valueOf(value.getFloat64());
+                    return value -> String.valueOf(value.getDouble());
                 case Date:
                     return value -> String.valueOf(value.getDate());
                 case Datetime:
@@ -143,7 +144,7 @@ public class MappingGetters {
                     return value -> value.getUint64() > 0;
                 case Bytes:
                     return value -> {
-                        byte[] stringValue = value.getString();
+                        byte[] stringValue = value.getBytes();
                         if (stringValue.length == 0) {
                             return false;
                         } else if (stringValue.length == 1) {
@@ -157,7 +158,7 @@ public class MappingGetters {
                     };
                 case Text:
                     return value -> {
-                        String utfValue = value.getUtf8();
+                        String utfValue = value.getText();
                         if (utfValue.isEmpty()) {
                             return false;
                         } else if (utfValue.length() == 1) {
@@ -329,7 +330,7 @@ public class MappingGetters {
                 case Uint32:
                     return PrimitiveReader::getUint32;
                 case Float:
-                    return PrimitiveReader::getFloat32;
+                    return PrimitiveReader::getFloat;
                 default:
                     return value -> {
                         throw dataTypeNotSupported(id, javaType);
@@ -368,9 +369,9 @@ public class MappingGetters {
                 case Uint64:
                     return PrimitiveReader::getUint64;
                 case Float:
-                    return PrimitiveReader::getFloat32;
+                    return PrimitiveReader::getFloat;
                 case Double:
-                    return PrimitiveReader::getFloat64;
+                    return PrimitiveReader::getDouble;
                 default:
                     return value -> {
                         throw dataTypeNotSupported(id, javaType);
@@ -391,10 +392,10 @@ public class MappingGetters {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
             switch (id) {
                 case Bytes:
-                    return PrimitiveReader::getString;
+                    return PrimitiveReader::getBytes;
                 case Text:
                     // TODO: pretty ineffective conversion (bytes -> string -> bytes)
-                    return value -> value.getUtf8().getBytes();
+                    return value -> value.getText().getBytes();
                 case Json:
                     return value -> value.getJson().getBytes();
                 case JsonDocument:
@@ -454,9 +455,9 @@ public class MappingGetters {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
             switch (id) {
                 case Bytes:
-                    return value -> new String(value.getString());
+                    return value -> new String(value.getBytes());
                 case Text:
-                    return PrimitiveReader::getUtf8;
+                    return PrimitiveReader::getText;
                 case Json:
                     return PrimitiveReader::getJson;
                 case JsonDocument:
@@ -483,9 +484,9 @@ public class MappingGetters {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
             switch (id) {
                 case Bytes:
-                    return value -> new String(value.getString());
+                    return value -> new String(value.getBytes());
                 case Text:
-                    return PrimitiveReader::getUtf8;
+                    return PrimitiveReader::getText;
                 default:
                     return value -> {
                         throw dataTypeNotSupported(id, javaType);
@@ -522,9 +523,9 @@ public class MappingGetters {
                 case Uint64:
                     return value -> BigDecimal.valueOf(value.getUint64());
                 case Float:
-                    return value -> BigDecimal.valueOf(value.getFloat32());
+                    return value -> BigDecimal.valueOf(value.getFloat());
                 case Double:
-                    return value -> BigDecimal.valueOf(value.getFloat64());
+                    return value -> BigDecimal.valueOf(value.getDouble());
                 default:
                     return value -> {
                         throw dataTypeNotSupported(id, javaType);
@@ -545,9 +546,9 @@ public class MappingGetters {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
             switch (id) {
                 case Bytes:
-                    return value -> new InputStreamReader(new ByteArrayInputStream(value.getString()));
+                    return value -> new InputStreamReader(new ByteArrayInputStream(value.getBytes()));
                 case Text:
-                    return value -> new StringReader(value.getUtf8());
+                    return value -> new StringReader(value.getText());
                 case Json:
                     return value -> new StringReader(value.getJson());
                 case JsonDocument:
@@ -647,9 +648,9 @@ public class MappingGetters {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
             switch (id) {
                 case Bytes:
-                    return valueReader -> new String(valueReader.getString());
+                    return valueReader -> new String(valueReader.getBytes());
                 case Text:
-                    return PrimitiveReader::getUtf8;
+                    return PrimitiveReader::getText;
                 case Json:
                     return PrimitiveReader::getJson;
                 case JsonDocument:
@@ -677,9 +678,9 @@ public class MappingGetters {
                 case Uint64:
                     return PrimitiveReader::getUint64;
                 case Float:
-                    return PrimitiveReader::getFloat32;
+                    return PrimitiveReader::getFloat;
                 case Double:
-                    return PrimitiveReader::getFloat64;
+                    return PrimitiveReader::getDouble;
                 case Date:
                     return PrimitiveReader::getDate;
                 case Datetime:

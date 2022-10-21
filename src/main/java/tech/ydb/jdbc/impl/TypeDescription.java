@@ -40,7 +40,7 @@ public class TypeDescription {
     private static final Map<Type, TypeDescription> TYPES = new ConcurrentHashMap<>();
 
     static {
-        ofInternal(DecimalType.of()); // max
+        ofInternal(DecimalType.of(DecimalType.MAX_PRECISION)); // max
         ofInternal(DecimalType.of(22, 9)); // default for database
         for (PrimitiveType type : PrimitiveType.values()) {
             ofInternal(type); // All primitive values

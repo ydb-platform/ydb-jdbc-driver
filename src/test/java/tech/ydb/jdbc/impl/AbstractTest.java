@@ -21,19 +21,18 @@ import javax.annotation.Nullable;
 
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CharStreams;
-
-import tech.ydb.jdbc.TestHelper;
-import tech.ydb.jdbc.YdbConnection;
-import tech.ydb.jdbc.YdbConst;
-import tech.ydb.jdbc.YdbDriver;
-
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static tech.ydb.jdbc.TestHelper.stringFileReference;
+import tech.ydb.jdbc.TestHelper;
+import tech.ydb.jdbc.YdbConnection;
+import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.YdbDriver;
 import tech.ydb.jdbc.YdbIntegrationTest;
+
+import static tech.ydb.jdbc.TestHelper.stringFileReference;
 
 public abstract class AbstractTest extends YdbIntegrationTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractTest.class);
@@ -177,6 +176,7 @@ public abstract class AbstractTest extends YdbIntegrationTest {
                 .collect(Collectors.toList());
     }
 
+    @SafeVarargs
     protected static <T> Set<T> set(T... values) {
         return new HashSet<>(Arrays.asList(values));
     }

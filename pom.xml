@@ -19,7 +19,7 @@
         <junit.version>5.8.2</junit.version>
         <testcontainers.version>1.17.2</testcontainers.version>
 
-        <ydb.sdk.version>2.0.0-RC1</ydb.sdk.version>
+        <ydb.sdk.version>2.1.0-SNAPSHOT</ydb.sdk.version>
     </properties>
 
     <dependencies>
@@ -44,7 +44,7 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-    
+
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -79,10 +79,22 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>3.0.0-M4</version>
                 </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.6.0</version>
+                    <configuration>
+                        <target>1.8</target>
+                        <source>1.8</source>
+                        <compilerArgs>
+                            <arg>-Xlint</arg>
+                        </compilerArgs>
+                    </configuration>
+                </plugin>
             </plugins>
         </pluginManagement>
     </build>
-    
+
     <profiles>
         <profile>
             <!-- Profile will be activated if not availabled ydb receipt or docker socket -->
@@ -109,5 +121,5 @@
             </build>
         </profile>
     </profiles>
-    
+
 </project>

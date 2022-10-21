@@ -18,18 +18,6 @@ import javax.annotation.Nullable;
 
 import com.google.common.io.Files;
 import com.google.common.net.HostAndPort;
-
-import tech.ydb.core.auth.AuthProvider;
-import tech.ydb.core.auth.TokenAuthProvider;
-import tech.ydb.jdbc.exception.YdbConfigurationException;
-import tech.ydb.jdbc.settings.ParsedProperty;
-import tech.ydb.jdbc.settings.YdbClientProperty;
-import tech.ydb.jdbc.settings.YdbConnectionProperties;
-import tech.ydb.jdbc.settings.YdbConnectionProperty;
-import tech.ydb.jdbc.settings.YdbOperationProperties;
-import tech.ydb.jdbc.settings.YdbOperationProperty;
-import tech.ydb.jdbc.settings.YdbProperties;
-
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,8 +28,15 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static tech.ydb.jdbc.TestHelper.assertThrowsMsg;
-import static tech.ydb.jdbc.TestHelper.assertThrowsMsgLike;
+import tech.ydb.core.auth.AuthProvider;
+import tech.ydb.jdbc.exception.YdbConfigurationException;
+import tech.ydb.jdbc.settings.ParsedProperty;
+import tech.ydb.jdbc.settings.YdbClientProperty;
+import tech.ydb.jdbc.settings.YdbConnectionProperties;
+import tech.ydb.jdbc.settings.YdbConnectionProperty;
+import tech.ydb.jdbc.settings.YdbOperationProperties;
+import tech.ydb.jdbc.settings.YdbOperationProperty;
+import tech.ydb.jdbc.settings.YdbProperties;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -49,6 +44,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static tech.ydb.jdbc.TestHelper.assertThrowsMsg;
+import static tech.ydb.jdbc.TestHelper.assertThrowsMsgLike;
 
 class YdbDriverTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(YdbDriverTest.class);
@@ -208,7 +205,7 @@ class YdbDriverTest {
 
     @Test
     public void getPropertyInfoAuthProvider() throws SQLException {
-        AuthProvider customAuthProvider = () -> "any";
+        AuthProvider customAuthProvider = (rpc) -> () -> "any";
 
         Properties properties = new Properties();
         properties.put(YdbConnectionProperty.AUTH_PROVIDER.getName(), customAuthProvider);
@@ -247,8 +244,8 @@ class YdbDriverTest {
         YdbProperties ydbProperties = YdbProperties.from(url, properties);
 
         YdbConnectionProperties props = ydbProperties.getConnectionProperties();
-        assertEquals(expectValue,
-                ((TokenAuthProvider) props.getProperty(YdbConnectionProperty.TOKEN).getParsedValue()).getToken());
+        assertEquals(expectValue, ((AuthProvider)props.getProperty(YdbConnectionProperty.TOKEN).getParsedValue())
+                .createAuthIdentity(null).getToken());
     }
 
     @ParameterizedTest
@@ -318,7 +315,7 @@ class YdbDriverTest {
 
     @Test
     public void getMajorVersion() {
-        assertEquals(1, driver.getMajorVersion());
+        assertEquals(2, driver.getMajorVersion());
     }
 
     @Test
@@ -351,7 +348,6 @@ class YdbDriverTest {
     static DriverPropertyInfo[] defaultPropertyInfo(@Nullable String localDatacenter) {
         return new DriverPropertyInfo[]{
                 YdbConnectionProperty.DATABASE.toDriverPropertyInfo("/ru-prestable/ci/testing/ci"),
-                YdbConnectionProperty.ENDPOINT_DISCOVERY_PERIOD.toDriverPropertyInfo(null),
                 YdbConnectionProperty.LOCAL_DATACENTER.toDriverPropertyInfo(localDatacenter),
                 YdbConnectionProperty.SECURE_CONNECTION.toDriverPropertyInfo(null),
                 YdbConnectionProperty.SECURE_CONNECTION_CERTIFICATE.toDriverPropertyInfo(null),
@@ -388,7 +384,6 @@ class YdbDriverTest {
 
     static Properties customizedProperties() {
         Properties properties = new Properties();
-        properties.setProperty("endpointDiscoveryPeriod", "1m");
         properties.setProperty("localDatacenter", "sas");
         properties.setProperty("secureConnection", "true");
         properties.setProperty("readTimeout", "2m");
@@ -424,7 +419,6 @@ class YdbDriverTest {
     static DriverPropertyInfo[] customizedPropertyInfo() {
         return new DriverPropertyInfo[]{
                 YdbConnectionProperty.DATABASE.toDriverPropertyInfo("/ru-prestable/ci/testing/ci"),
-                YdbConnectionProperty.ENDPOINT_DISCOVERY_PERIOD.toDriverPropertyInfo("1m"),
                 YdbConnectionProperty.LOCAL_DATACENTER.toDriverPropertyInfo("sas"),
                 YdbConnectionProperty.SECURE_CONNECTION.toDriverPropertyInfo("true"),
                 YdbConnectionProperty.SECURE_CONNECTION_CERTIFICATE.toDriverPropertyInfo(null),
@@ -559,7 +553,6 @@ class YdbDriverTest {
 
     static Collection<Arguments> invalidDurationParams() {
         return Arrays.asList(
-                Arguments.of("endpointDiscoveryPeriod"),
                 Arguments.of("readTimeout"),
                 Arguments.of("sessionKeepAliveTime"),
                 Arguments.of("sessionMaxIdleTime"),
