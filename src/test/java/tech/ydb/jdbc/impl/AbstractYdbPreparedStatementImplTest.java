@@ -1071,22 +1071,22 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
                 YdbPreparedStatement::setBigDecimal,
                 ResultSet::getBigDecimal,
                 Arrays.asList(
-                        pair(new BigDecimal("0.0"), new BigDecimal("0")),
-                        pair(new BigDecimal("1.3"), new BigDecimal("1.3"))
+                        pair(new BigDecimal("0.0"), new BigDecimal("0.000000000")),
+                        pair(new BigDecimal("1.3"), new BigDecimal("1.300000000"))
                 ),
                 Arrays.asList(
-                        pair(1, new BigDecimal("1")),
-                        pair(0, new BigDecimal("0")),
-                        pair(-1, new BigDecimal("-1")),
-                        pair(127, new BigDecimal("1.27")),
-                        pair((byte) 4, new BigDecimal("4")),
-                        pair((short) 5, new BigDecimal("5")),
-                        pair(6, new BigDecimal("6")),
-                        pair(7L, new BigDecimal("7")),
+                        pair(1, new BigDecimal("1.000000000")),
+                        pair(0, new BigDecimal("0.000000000")),
+                        pair(-1, new BigDecimal("-1.000000000")),
+                        pair(127, new BigDecimal("127.000000000")),
+                        pair((byte) 4, new BigDecimal("4.000000000")),
+                        pair((short) 5, new BigDecimal("5.000000000")),
+                        pair(6, new BigDecimal("6.000000000")),
+                        pair(7L, new BigDecimal("7.000000000")),
                         pair("1", new BigDecimal("1.000000000")),
                         pair("1.1", new BigDecimal("1.100000000")),
                         pair(DecimalType.of(22, 9).newValue("1.2"), new BigDecimal("1.200000000")),
-                        pair(new BigInteger("2"), new BigDecimal("2"))
+                        pair(new BigInteger("2"), new BigDecimal("2.000000000"))
                 ),
                 Arrays.asList(
                         true,

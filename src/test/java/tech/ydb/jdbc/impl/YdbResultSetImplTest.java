@@ -225,7 +225,7 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Datetime", "1970-01-01T00:00",
                         "c_Timestamp", "1970-01-01T00:00:00Z",
                         "c_Interval", "PT0S",
-                        "c_Decimal", "0.000000000"
+                        "c_Decimal", "0" // Zero always converts without scale
                 ),
                 map(
                         "key", "4",
@@ -440,7 +440,7 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint8", 100L,
                         "c_Uint32", 2000000002L,
                         "c_Uint64", 2000000000002L,
-                        "c_Decimal", 3335000000L,
+                        "c_Decimal", 3L,
                         "c_Date", 3111L * 86400 * 1000,
                         "c_Datetime", 3111111L * 1000,
                         "c_Timestamp", 3111L,
@@ -454,7 +454,7 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint8", 200L,
                         "c_Uint32", 4000000002L,
                         "c_Uint64", 4000000000002L,
-                        "c_Decimal", -3335000000L,
+                        "c_Decimal", -3L,
                         "c_Date", 3112L * 86400 * 1000,
                         "c_Datetime", 3112111L * 1000,
                         "c_Timestamp", 3112L,
@@ -482,7 +482,7 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint8", 1L,
                         "c_Uint32", 1L,
                         "c_Uint64", 1L,
-                        "c_Decimal", 1000000000L,
+                        "c_Decimal", 1L,
                         "c_Date", 86400000L,
                         "c_Datetime", 1000L,
                         "c_Timestamp", 0L,
