@@ -2,22 +2,22 @@
   {
     "COLUMN_NAME": "TABLE_CAT",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   },
   {
     "COLUMN_NAME": "TABLE_SCHEM",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   },
   {
     "COLUMN_NAME": "TABLE_NAME",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   },
   {
     "COLUMN_NAME": "COLUMN_NAME",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   },
   {
     "COLUMN_NAME": "DATA_TYPE",
@@ -27,7 +27,7 @@
   {
     "COLUMN_NAME": "TYPE_NAME",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   },
   {
     "COLUMN_NAME": "COLUMN_SIZE",
@@ -57,12 +57,12 @@
   {
     "COLUMN_NAME": "REMARKS",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   },
   {
     "COLUMN_NAME": "COLUMN_DEF",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   },
   {
     "COLUMN_NAME": "SQL_DATA_TYPE",
@@ -87,22 +87,22 @@
   {
     "COLUMN_NAME": "IS_NULLABLE",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   },
   {
     "COLUMN_NAME": "SCOPE_CATALOG",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   },
   {
     "COLUMN_NAME": "SCOPE_SCHEMA",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   },
   {
     "COLUMN_NAME": "SCOPE_TABLE",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   },
   {
     "COLUMN_NAME": "SOURCE_DATA_TYPE",
@@ -112,11 +112,11 @@
   {
     "COLUMN_NAME": "IS_AUTOINCREMENT",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   },
   {
     "COLUMN_NAME": "IS_GENERATEDCOLUMN",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   }
 ]

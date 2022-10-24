@@ -6,16 +6,16 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
+
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.jdbc.exception.YdbNonRetryableException;
 import tech.ydb.jdbc.exception.YdbResultTruncatedException;
 import tech.ydb.table.values.PrimitiveType;
-
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,19 +35,19 @@ class YdbPreparedStatementImplTest extends AbstractYdbPreparedStatementImplTest 
         retry(connection ->
                 assertThrowsMsgLike(SQLException.class,
                         () -> {
-                            YdbPreparedStatement statement = getTestStatement(connection, "c_Utf8", "Utf8");
+                            YdbPreparedStatement statement = getTestStatement(connection, "c_Text", "Utf8");
                             statement.setInt("key", 1);
-                            statement.setObject("c_Utf8", PrimitiveType.Text.makeOptional().emptyValue());
+                            statement.setObject("c_Text", PrimitiveType.Text.makeOptional().emptyValue());
                             statement.execute();
                         },
-                        "Parameter $c_Utf8 type mismatch, expected: Utf8, actual:"));
+                        "Parameter $c_Text type mismatch, expected: Utf8, actual:"));
     }
 
     @Test
     @Override
     void unknownColumns() throws SQLException {
         retry(connection -> {
-            YdbPreparedStatement statement = getUtf8Statement(connection);
+            YdbPreparedStatement statement = getTextStatement(connection);
             statement.setObject("column0", "value");
             statement.execute();
         }); // Not an error - we don't know if this column is known or not
@@ -57,13 +57,13 @@ class YdbPreparedStatementImplTest extends AbstractYdbPreparedStatementImplTest 
     @Test
     void executeWithoutBatch() throws SQLException {
         retry(connection -> {
-            YdbPreparedStatement statement = getUtf8Statement(connection);
+            YdbPreparedStatement statement = getTextStatement(connection);
             statement.setInt("key", 1);
-            statement.setString("c_Utf8", "value-1");
+            statement.setString("c_Text", "value-1");
             statement.addBatch();
 
             statement.setInt("key", 2);
-            statement.setString("c_Utf8", "value-2");
+            statement.setString("c_Text", "value-2");
 
             assertThrowsMsg(YdbExecutionException.class,
                     statement::execute,
@@ -71,11 +71,11 @@ class YdbPreparedStatementImplTest extends AbstractYdbPreparedStatementImplTest 
 
             // clear will be called automatically
             statement.setInt("key", 1);
-            statement.setString("c_Utf8", "value-1");
+            statement.setString("c_Text", "value-1");
             statement.execute();
 
             statement.setInt("key", 2);
-            statement.setString("c_Utf8", "value-2");
+            statement.setString("c_Text", "value-2");
             statement.execute();
 
             connection.commit();
@@ -89,15 +89,15 @@ class YdbPreparedStatementImplTest extends AbstractYdbPreparedStatementImplTest 
         retry(connection -> {
             YdbPreparedStatement statement = getUtf8StatementAsBatch(connection);
             statement.setInt("key", 1);
-            statement.setString("c_Utf8", "value-1");
+            statement.setString("c_Text", "value-1");
             statement.addBatch();
 
             statement.setInt("key", 10);
-            statement.setString("c_Utf8", "value-11");
+            statement.setString("c_Text", "value-11");
             statement.clearParameters();
 
             statement.setInt("key", 2);
-            statement.setString("c_Utf8", "value-2");
+            statement.setString("c_Text", "value-2");
             statement.addBatch();
 
             statement.executeBatch();
@@ -112,16 +112,16 @@ class YdbPreparedStatementImplTest extends AbstractYdbPreparedStatementImplTest 
         retry(connection -> {
             YdbPreparedStatement statement = getUtf8StatementAsBatch(connection);
             statement.setInt("key", 1);
-            statement.setString("c_Utf8", "value-1");
+            statement.setString("c_Text", "value-1");
             statement.addBatch();
 
             statement.setInt("key", 2);
-            statement.setString("c_Utf8", "value-2");
+            statement.setString("c_Text", "value-2");
             statement.addBatch();
 
             // No add batch, must be skipped
             statement.setInt("key", 3);
-            statement.setString("c_Utf8", "value-3");
+            statement.setString("c_Text", "value-3");
 
             assertArrayEquals(new int[]{Statement.SUCCESS_NO_INFO, Statement.SUCCESS_NO_INFO},
                     statement.executeBatch());
@@ -140,17 +140,17 @@ class YdbPreparedStatementImplTest extends AbstractYdbPreparedStatementImplTest 
         retry(connection -> {
             YdbPreparedStatement statement = getUtf8StatementAsBatch(connection);
             statement.setInt("key", 1);
-            statement.setString("c_Utf8", "value-1");
+            statement.setString("c_Text", "value-1");
             statement.addBatch();
             statement.executeBatch();
 
             statement.setInt("key", 11);
-            statement.setString("c_Utf8", "value-11");
+            statement.setString("c_Text", "value-11");
             statement.addBatch();
             statement.clearBatch();
 
             statement.setInt("key", 2);
-            statement.setString("c_Utf8", "value-2");
+            statement.setString("c_Text", "value-2");
             statement.addBatch();
             statement.executeBatch();
 
@@ -191,7 +191,7 @@ class YdbPreparedStatementImplTest extends AbstractYdbPreparedStatementImplTest 
                 expect.add(value);
 
                 statement.setInt("key", i);
-                statement.setString("c_Utf8", value);
+                statement.setString("c_Text", value);
                 statement.addBatch();
             }
             statement.executeBatch();
@@ -199,7 +199,7 @@ class YdbPreparedStatementImplTest extends AbstractYdbPreparedStatementImplTest 
 
             assertEquals(5000, expect.size());
 
-            YdbPreparedStatement select = connection.prepareStatement("select key, c_Utf8 from unit_2");
+            YdbPreparedStatement select = connection.prepareStatement("select key, c_Text from unit_2");
 
             // Result is truncated (and we catch that)
             try {
@@ -222,7 +222,7 @@ class YdbPreparedStatementImplTest extends AbstractYdbPreparedStatementImplTest 
     @Test
     void testStatement() throws SQLException {
         retry(connection -> Assertions.assertTrue(
-                getUtf8Statement(connection) instanceof YdbPreparedStatementImpl));
+                getTextStatement(connection) instanceof YdbPreparedStatementImpl));
     }
 
     @Override
@@ -253,7 +253,7 @@ class YdbPreparedStatementImplTest extends AbstractYdbPreparedStatementImplTest 
     }
 
     protected YdbPreparedStatement getUtf8StatementAsBatch(YdbConnection connection) throws SQLException {
-        return getTestStatementAsBatch(connection, "c_Utf8", "Utf8?");
+        return getTestStatementAsBatch(connection, "c_Text", "Utf8?");
     }
 
     protected YdbPreparedStatement getTestStatementAsBatch(YdbConnection connection,

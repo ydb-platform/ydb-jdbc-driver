@@ -5,16 +5,17 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Properties;
 
-import tech.ydb.jdbc.exception.YdbRetryableException;
-import tech.ydb.jdbc.impl.YdbConnectionImpl;
-import tech.ydb.table.SchemeClient;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import tech.ydb.jdbc.exception.YdbRetryableException;
+import tech.ydb.jdbc.impl.YdbConnectionImpl;
+import tech.ydb.table.SchemeClient;
 
 /**
  *
@@ -32,7 +33,7 @@ public class YdbDriverIntegrationTest extends YdbIntegrationTest {
     }
 
     @Test
-    void connect() throws SQLException {
+    public void connect() throws SQLException {
         try ( YdbConnection connection = driver.connect(jdbcURl(), new Properties())) {
             Assertions.assertTrue(connection instanceof YdbConnectionImpl);
 
@@ -46,6 +47,7 @@ public class YdbDriverIntegrationTest extends YdbIntegrationTest {
     }
 
     @Test
+    @Disabled // disabled because session.close() releases session but don't close it
     public void connectAndCloseMultipleTimes() throws SQLException {
         try ( YdbConnection ydbConnection = driver.connect(jdbcURl(), new Properties())) {
             ydbConnection.getYdbSession().close();
@@ -84,12 +86,12 @@ public class YdbDriverIntegrationTest extends YdbIntegrationTest {
             }
             connection.createStatement()
                     .execute("--jdbc:SCHEME\n" +
-                            "create table table_sample(id Int32, value Utf8, primary key (id))");
+                            "create table table_sample(id Int32, value Text, primary key (id))");
 
             YdbPreparedStatement ps = connection
                     .prepareStatement("" +
                             "declare $p1 as Int32;\n" +
-                            "declare $p2 as Utf8;\n" +
+                            "declare $p2 as Text;\n" +
                             "upsert into table_sample (id, value) values ($p1, $p2)");
             ps.setInt(1, 1);
             ps.setString(2, "value-1");
@@ -110,7 +112,7 @@ public class YdbDriverIntegrationTest extends YdbIntegrationTest {
 
             YdbPreparedStatement psBatch = connection
                     .prepareStatement("" +
-                            "declare $values as List<Struct<id:Int32,value:Utf8>>;\n" +
+                            "declare $values as List<Struct<id:Int32,value:Text>>;\n" +
                             "upsert into table_sample select * from as_table($values)");
             psBatch.setInt("id", 3);
             psBatch.setString("value", "value-3");

@@ -20,20 +20,20 @@ import java.util.Map;
 
 import javax.annotation.Nullable;
 
+import io.netty.util.collection.IntObjectHashMap;
+import io.netty.util.collection.IntObjectMap;
+
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.exception.YdbRuntimeException;
 import tech.ydb.table.values.DecimalValue;
 import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.table.values.Type;
-import io.netty.util.collection.IntObjectHashMap;
-import io.netty.util.collection.IntObjectMap;
 
 public class YdbTypesImpl implements YdbTypes {
 
     private static final YdbTypesImpl INSTANCE = new YdbTypesImpl();
 
-//    private final IntObjectMap<PrimitiveType> primitiveTypeByNumId;
     private final IntObjectMap<Type> typeBySqlType;
     private final Map<PrimitiveType, Integer> sqlTypeByPrimitiveNumId;
     private final Map<Class<?>, Type> typeByClass;
@@ -41,14 +41,17 @@ public class YdbTypesImpl implements YdbTypes {
 
     private YdbTypesImpl() {
         PrimitiveType[] values = PrimitiveType.values();
-//        primitiveTypeByNumId = new IntObjectHashMap<>(values.length);
         typeByTypeName = new HashMap<>(values.length + 1);
         for (PrimitiveType type : values) {
-//            PrimitiveType type = PrimitiveType.of(id);
-//            primitiveTypeByNumId.put(id.getNumId(), type);
             typeByTypeName.put(type.toString(), type);
         }
+
         typeByTypeName.put(DEFAULT_DECIMAL_TYPE.toString(), DEFAULT_DECIMAL_TYPE);
+
+        // Add deprecated type names
+        typeByTypeName.put("String" , PrimitiveType.Bytes);
+        typeByTypeName.put("Utf8" , PrimitiveType.Text);
+
 
         typeBySqlType = new IntObjectHashMap<>(16);
         typeBySqlType.put(Types.VARCHAR, PrimitiveType.Text);
@@ -158,18 +161,18 @@ public class YdbTypesImpl implements YdbTypes {
             sqlTypeByPrimitiveNumId.put(id, sqlType);
         }
 
-//        this.selfValidate();
+        this.selfValidate();
     }
 
-//    private void selfValidate() {
-//        for (IntObjectMap.PrimitiveEntry<Integer> entry : sqlTypeByPrimitiveNumId.entries()) {
-//            int sqlType = entry.value();
-//            if (sqlType != Types.JAVA_OBJECT && !typeBySqlType.containsKey(sqlType)) {
-//                throw new IllegalStateException("Internal error. SQL type " + sqlType +
-//                        " by YDB type id " + entry.key() + " is not registered in #typeBySqlType");
-//            }
-//        }
-//    }
+    private void selfValidate() {
+        for (Map.Entry<PrimitiveType, Integer> entry : sqlTypeByPrimitiveNumId.entrySet()) {
+            int sqlType = entry.getValue();
+            if (sqlType != Types.JAVA_OBJECT && !typeBySqlType.containsKey(sqlType)) {
+                throw new IllegalStateException("Internal error. SQL type " + sqlType +
+                        " by YDB type id " + entry.getKey() + " is not registered in #typeBySqlType");
+            }
+        }
+    }
 
     @Override
     public int toWrappedSqlType(Class<?> type) {
@@ -204,7 +207,7 @@ public class YdbTypesImpl implements YdbTypes {
         if (sqlType >= YdbConst.SQL_KIND_PRIMITIVE && sqlType < YdbConst.SQL_KIND_DECIMAL) {
             int idType = sqlType - YdbConst.SQL_KIND_PRIMITIVE;
             PrimitiveType type = PrimitiveType.values()[idType];
-            
+
             Integer value = sqlTypeByPrimitiveNumId.get(type);
             if (value == null) {
                 throw new YdbRuntimeException("Internal error. Unsupported YDB type: " + idType +

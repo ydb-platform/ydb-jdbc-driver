@@ -33,13 +33,6 @@ import java.util.Set;
 import javax.sql.rowset.serial.SerialBlob;
 import javax.sql.rowset.serial.SerialClob;
 
-import tech.ydb.jdbc.YdbConnection;
-import tech.ydb.jdbc.YdbResultSet;
-import tech.ydb.jdbc.YdbResultSetMetaData;
-import tech.ydb.jdbc.YdbStatement;
-import tech.ydb.jdbc.YdbTypes;
-import tech.ydb.table.values.PrimitiveValue;
-
 import com.google.common.base.Preconditions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,6 +40,13 @@ import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 import org.junit.jupiter.api.function.Executable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import tech.ydb.jdbc.YdbConnection;
+import tech.ydb.jdbc.YdbResultSet;
+import tech.ydb.jdbc.YdbResultSetMetaData;
+import tech.ydb.jdbc.YdbStatement;
+import tech.ydb.jdbc.YdbTypes;
+import tech.ydb.table.values.PrimitiveValue;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -133,22 +133,22 @@ class YdbResultSetImplTest extends AbstractTest {
                 "Current row index is out of bounds: 0");
 
         assertThrowsMsg(SQLException.class,
-                () -> resultSet.getString("c_Utf8"),
+                () -> resultSet.getString("c_Text"),
                 "Current row index is out of bounds: 0");
     }
 
     @Test
     void columnWithInvalidCase() {
         assertThrowsMsg(SQLException.class,
-                () -> resultSet.getString("c_utf8"),
-                "Column not found: c_utf8");
+                () -> resultSet.getString("c_text"),
+                "Column not found: c_text");
 
         assertThrowsMsg(SQLException.class,
-                () -> resultSet.getString("C_UTF8"),
-                "Column not found: C_UTF8");
+                () -> resultSet.getString("C_TEXT"),
+                "Column not found: C_TEXT");
 
         assertThrowsMsg(SQLException.class,
-                () -> resultSet.getString("c_Utf8"),
+                () -> resultSet.getString("c_Text"),
                 "Current row index is out of bounds: 0"); // And this is pretty normal column name
     }
 
@@ -174,8 +174,8 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint64", "2000000000002",
                         "c_Float", "123456.78",
                         "c_Double", "1.2345678912345679E8",
-                        "c_String", "https://string",
-                        "c_Utf8", "file://utf8",
+                        "c_Bytes", "https://string",
+                        "c_Text", "file://utf8",
                         "c_Json", "{\"key\": \"value Json\"}",
                         "c_JsonDocument", "{\"key\":\"value JsonDocument\"}",
                         "c_Yson", "{key=\"value yson\"}",
@@ -195,8 +195,8 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint64", "4000000000002",
                         "c_Float", "-123456.78",
                         "c_Double", "-1.2345678912345679E8",
-                        "c_String", "",
-                        "c_Utf8", "",
+                        "c_Bytes", "",
+                        "c_Text", "",
                         "c_Json", null,
                         "c_JsonDocument", null,
                         "c_Yson", "\"\"",
@@ -216,8 +216,8 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint64", "0",
                         "c_Float", "0.0",
                         "c_Double", "0.0",
-                        "c_String", "0",
-                        "c_Utf8", "0",
+                        "c_Bytes", "0",
+                        "c_Text", "0",
                         "c_Json", null,
                         "c_JsonDocument", null,
                         "c_Yson", "0",
@@ -237,8 +237,8 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint64", "1",
                         "c_Float", "1.0",
                         "c_Double", "1.0",
-                        "c_String", "1",
-                        "c_Utf8", "1",
+                        "c_Bytes", "1",
+                        "c_Text", "1",
                         "c_Json", null,
                         "c_JsonDocument", null,
                         "c_Yson", "1",
@@ -258,8 +258,8 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint64", null,
                         "c_Float", null,
                         "c_Double", null,
-                        "c_String", null,
-                        "c_Utf8", null,
+                        "c_Bytes", null,
+                        "c_Text", null,
                         "c_Json", null,
                         "c_JsonDocument", null,
                         "c_Yson", null,
@@ -293,8 +293,8 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint8", true,
                         "c_Uint32", true,
                         "c_Uint64", true,
-                        "c_String", false,
-                        "c_Utf8", false
+                        "c_Bytes", false,
+                        "c_Text", false
                 ),
                 map(
                         "key", true,
@@ -304,8 +304,8 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint8", false,
                         "c_Uint32", false,
                         "c_Uint64", false,
-                        "c_String", false,
-                        "c_Utf8", false
+                        "c_Bytes", false,
+                        "c_Text", false
                 ),
                 map(
                         "key", true,
@@ -315,8 +315,8 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint8", true,
                         "c_Uint32", true,
                         "c_Uint64", true,
-                        "c_String", true,
-                        "c_Utf8", true
+                        "c_Bytes", true,
+                        "c_Text", true
                 ),
                 map(
                         "key", true,
@@ -326,8 +326,8 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint8", NullType.of(false),
                         "c_Uint32", NullType.of(false),
                         "c_Uint64", NullType.of(false),
-                        "c_String", NullType.of(false),
-                        "c_Utf8", NullType.of(false)
+                        "c_Bytes", NullType.of(false),
+                        "c_Text", NullType.of(false)
                 ));
     }
 
@@ -698,36 +698,36 @@ class YdbResultSetImplTest extends AbstractTest {
                 resultSet::getBytes,
                 resultSet::getBytes,
                 map(
-                        "c_String", "https://string".getBytes(),
-                        "c_Utf8", "file://utf8".getBytes(),
+                        "c_Bytes", "https://string".getBytes(),
+                        "c_Text", "file://utf8".getBytes(),
                         "c_Json", "{\"key\": \"value Json\"}".getBytes(),
                         "c_JsonDocument", "{\"key\":\"value JsonDocument\"}".getBytes(),
                         "c_Yson", "{key=\"value yson\"}".getBytes()
                 ),
                 map(
-                        "c_String", "".getBytes(),
-                        "c_Utf8", "".getBytes(),
+                        "c_Bytes", "".getBytes(),
+                        "c_Text", "".getBytes(),
                         "c_Json", null,
                         "c_JsonDocument", null,
                         "c_Yson", "\"\"".getBytes()
                 ),
                 map(
-                        "c_String", "0".getBytes(),
-                        "c_Utf8", "0".getBytes(),
+                        "c_Bytes", "0".getBytes(),
+                        "c_Text", "0".getBytes(),
                         "c_Json", null,
                         "c_JsonDocument", null,
                         "c_Yson", "0".getBytes()
                 ),
                 map(
-                        "c_String", "1".getBytes(),
-                        "c_Utf8", "1".getBytes(),
+                        "c_Bytes", "1".getBytes(),
+                        "c_Text", "1".getBytes(),
                         "c_Json", null,
                         "c_JsonDocument", null,
                         "c_Yson", "1".getBytes()
                 ),
                 map(
-                        "c_String", null,
-                        "c_Utf8", null,
+                        "c_Bytes", null,
+                        "c_Text", null,
                         "c_Json", null,
                         "c_JsonDocument", null,
                         "c_Yson", null
@@ -877,36 +877,36 @@ class YdbResultSetImplTest extends AbstractTest {
                 resultSet::getUnicodeStream,
                 resultSet::getUnicodeStream,
                 map(
-                        "c_String", stream("https://string"),
-                        "c_Utf8", stream("file://utf8"),
+                        "c_Bytes", stream("https://string"),
+                        "c_Text", stream("file://utf8"),
                         "c_Json", stream("{\"key\": \"value Json\"}"),
                         "c_JsonDocument", stream("{\"key\":\"value JsonDocument\"}"),
                         "c_Yson", stream("{key=\"value yson\"}")
                 ),
                 map(
-                        "c_String", stream(""),
-                        "c_Utf8", stream(""),
+                        "c_Bytes", stream(""),
+                        "c_Text", stream(""),
                         "c_Json", stream(null),
                         "c_JsonDocument", stream(null),
                         "c_Yson", stream("\"\"")
                 ),
                 map(
-                        "c_String", stream("0"),
-                        "c_Utf8", stream("0"),
+                        "c_Bytes", stream("0"),
+                        "c_Text", stream("0"),
                         "c_Json", stream(null),
                         "c_JsonDocument", stream(null),
                         "c_Yson", stream("0")
                 ),
                 map(
-                        "c_String", stream("1"),
-                        "c_Utf8", stream("1"),
+                        "c_Bytes", stream("1"),
+                        "c_Text", stream("1"),
                         "c_Json", stream(null),
                         "c_JsonDocument", stream(null),
                         "c_Yson", stream("1")
                 ),
                 map(
-                        "c_String", stream(null),
-                        "c_Utf8", stream(null),
+                        "c_Bytes", stream(null),
+                        "c_Text", stream(null),
                         "c_Json", stream(null),
                         "c_JsonDocument", stream(null),
                         "c_Yson", stream(null)
@@ -919,36 +919,36 @@ class YdbResultSetImplTest extends AbstractTest {
                 resultSet::getBinaryStream,
                 resultSet::getBinaryStream,
                 map(
-                        "c_String", stream("https://string"),
-                        "c_Utf8", stream("file://utf8"),
+                        "c_Bytes", stream("https://string"),
+                        "c_Text", stream("file://utf8"),
                         "c_Json", stream("{\"key\": \"value Json\"}"),
                         "c_JsonDocument", stream("{\"key\":\"value JsonDocument\"}"),
                         "c_Yson", stream("{key=\"value yson\"}")
                 ),
                 map(
-                        "c_String", stream(""),
-                        "c_Utf8", stream(""),
+                        "c_Bytes", stream(""),
+                        "c_Text", stream(""),
                         "c_Json", stream(null),
                         "c_JsonDocument", stream(null),
                         "c_Yson", stream("\"\"")
                 ),
                 map(
-                        "c_String", stream("0"),
-                        "c_Utf8", stream("0"),
+                        "c_Bytes", stream("0"),
+                        "c_Text", stream("0"),
                         "c_Json", stream(null),
                         "c_JsonDocument", stream(null),
                         "c_Yson", stream("0")
                 ),
                 map(
-                        "c_String", stream("1"),
-                        "c_Utf8", stream("1"),
+                        "c_Bytes", stream("1"),
+                        "c_Text", stream("1"),
                         "c_Json", stream(null),
                         "c_JsonDocument", stream(null),
                         "c_Yson", stream("1")
                 ),
                 map(
-                        "c_String", stream(null),
-                        "c_Utf8", stream(null),
+                        "c_Bytes", stream(null),
+                        "c_Text", stream(null),
                         "c_Json", stream(null),
                         "c_JsonDocument", stream(null),
                         "c_Yson", stream(null)
@@ -1050,8 +1050,8 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint64", 2000000000002L,
                         "c_Float", 123456.78f,
                         "c_Double", 123456789.123456789d,
-                        "c_String", "https://string",
-                        "c_Utf8", "file://utf8",
+                        "c_Bytes", "https://string",
+                        "c_Text", "file://utf8",
                         "c_Json", "{\"key\": \"value Json\"}",
                         "c_JsonDocument", "{\"key\":\"value JsonDocument\"}",
                         "c_Yson", "{key=\"value yson\"}".getBytes(),
@@ -1071,8 +1071,8 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint64", 4000000000002L,
                         "c_Float", -123456.78f,
                         "c_Double", -123456789.123456789d,
-                        "c_String", "",
-                        "c_Utf8", "",
+                        "c_Bytes", "",
+                        "c_Text", "",
                         "c_Json", null,
                         "c_JsonDocument", null,
                         "c_Yson", "\"\"".getBytes(),
@@ -1092,8 +1092,8 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint64", 0L,
                         "c_Float", 0.0f,
                         "c_Double", 0.0d,
-                        "c_String", "0",
-                        "c_Utf8", "0",
+                        "c_Bytes", "0",
+                        "c_Text", "0",
                         "c_Json", null,
                         "c_JsonDocument", null,
                         "c_Yson", "0".getBytes(),
@@ -1113,8 +1113,8 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint64", 1L,
                         "c_Float", 1.0f,
                         "c_Double", 1.0d,
-                        "c_String", "1",
-                        "c_Utf8", "1",
+                        "c_Bytes", "1",
+                        "c_Text", "1",
                         "c_Json", null,
                         "c_JsonDocument", null,
                         "c_Yson", "1".getBytes(),
@@ -1134,8 +1134,8 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint64", null,
                         "c_Float", null,
                         "c_Double", null,
-                        "c_String", null,
-                        "c_Utf8", null,
+                        "c_Bytes", null,
+                        "c_Text", null,
                         "c_Json", null,
                         "c_JsonDocument", null,
                         "c_Yson", null,
@@ -1182,8 +1182,8 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint64", PrimitiveValue.newUint64(2000000000002L),
                         "c_Float", PrimitiveValue.newFloat(123456.78f),
                         "c_Double", PrimitiveValue.newDouble(123456789.123456789d),
-                        "c_String", PrimitiveValue.newBytes("https://string".getBytes()),
-                        "c_Utf8", PrimitiveValue.newText("file://utf8"),
+                        "c_Bytes", PrimitiveValue.newBytes("https://string".getBytes()),
+                        "c_Text", PrimitiveValue.newText("file://utf8"),
                         "c_Json", PrimitiveValue.newJson("{\"key\": \"value Json\"}"),
                         "c_JsonDocument", PrimitiveValue.newJsonDocument("{\"key\":\"value JsonDocument\"}"),
                         "c_Yson", PrimitiveValue.newYson("{key=\"value yson\"}".getBytes()),
@@ -1203,8 +1203,8 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint64", PrimitiveValue.newUint64(4000000000002L),
                         "c_Float", PrimitiveValue.newFloat(-123456.78f),
                         "c_Double", PrimitiveValue.newDouble(-123456789.123456789d),
-                        "c_String", PrimitiveValue.newBytes("".getBytes()),
-                        "c_Utf8", PrimitiveValue.newText(""),
+                        "c_Bytes", PrimitiveValue.newBytes("".getBytes()),
+                        "c_Text", PrimitiveValue.newText(""),
                         "c_Json", null,
                         "c_JsonDocument", null,
                         "c_Yson", PrimitiveValue.newYson("\"\"".getBytes()),
@@ -1224,8 +1224,8 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint64", PrimitiveValue.newUint64(0),
                         "c_Float", PrimitiveValue.newFloat(0),
                         "c_Double", PrimitiveValue.newDouble(0),
-                        "c_String", PrimitiveValue.newBytes("0".getBytes()),
-                        "c_Utf8", PrimitiveValue.newText("0"),
+                        "c_Bytes", PrimitiveValue.newBytes("0".getBytes()),
+                        "c_Text", PrimitiveValue.newText("0"),
                         "c_Json", null,
                         "c_JsonDocument", null,
                         "c_Yson", PrimitiveValue.newYson("0".getBytes()),
@@ -1245,8 +1245,8 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint64", PrimitiveValue.newUint64(1),
                         "c_Float", PrimitiveValue.newFloat(1),
                         "c_Double", PrimitiveValue.newDouble(1),
-                        "c_String", PrimitiveValue.newBytes("1".getBytes()),
-                        "c_Utf8", PrimitiveValue.newText("1"),
+                        "c_Bytes", PrimitiveValue.newBytes("1".getBytes()),
+                        "c_Text", PrimitiveValue.newText("1"),
                         "c_Json", null,
                         "c_JsonDocument", null,
                         "c_Yson", PrimitiveValue.newYson("1".getBytes()),
@@ -1266,8 +1266,8 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint64", null,
                         "c_Float", null,
                         "c_Double", null,
-                        "c_String", null,
-                        "c_Utf8", null,
+                        "c_Bytes", null,
+                        "c_Text", null,
                         "c_Json", null,
                         "c_JsonDocument", null,
                         "c_Yson", null,
@@ -1283,7 +1283,7 @@ class YdbResultSetImplTest extends AbstractTest {
     @Test
     void findColumn() throws SQLException {
         assertEquals(1, resultSet.findColumn("key"));
-        assertEquals(11, resultSet.findColumn("c_Utf8"));
+        assertEquals(11, resultSet.findColumn("c_Text"));
     }
 
     @Test
@@ -1299,36 +1299,36 @@ class YdbResultSetImplTest extends AbstractTest {
                 resultSet::getCharacterStream,
                 resultSet::getCharacterStream,
                 map(
-                        "c_String", reader("https://string"),
-                        "c_Utf8", reader("file://utf8"),
+                        "c_Bytes", reader("https://string"),
+                        "c_Text", reader("file://utf8"),
                         "c_Json", reader("{\"key\": \"value Json\"}"),
                         "c_JsonDocument", reader("{\"key\":\"value JsonDocument\"}"),
                         "c_Yson", reader("{key=\"value yson\"}")
                 ),
                 map(
-                        "c_String", reader(""),
-                        "c_Utf8", reader(""),
+                        "c_Bytes", reader(""),
+                        "c_Text", reader(""),
                         "c_Json", reader(null),
                         "c_JsonDocument", reader(null),
                         "c_Yson", reader("\"\"")
                 ),
                 map(
-                        "c_String", reader("0"),
-                        "c_Utf8", reader("0"),
+                        "c_Bytes", reader("0"),
+                        "c_Text", reader("0"),
                         "c_Json", reader(null),
                         "c_JsonDocument", reader(null),
                         "c_Yson", reader("0")
                 ),
                 map(
-                        "c_String", reader("1"),
-                        "c_Utf8", reader("1"),
+                        "c_Bytes", reader("1"),
+                        "c_Text", reader("1"),
                         "c_Json", reader(null),
                         "c_JsonDocument", reader(null),
                         "c_Yson", reader("1")
                 ),
                 map(
-                        "c_String", reader(null),
-                        "c_Utf8", reader(null),
+                        "c_Bytes", reader(null),
+                        "c_Text", reader(null),
                         "c_Json", reader(null),
                         "c_JsonDocument", reader(null),
                         "c_Yson", reader(null)
@@ -1644,15 +1644,15 @@ class YdbResultSetImplTest extends AbstractTest {
                 resultSet::getURL,
                 resultSet::getURL,
                 map(
-                        "c_String", new URL("https://string"),
-                        "c_Utf8", new URL("file://utf8")
+                        "c_Bytes", new URL("https://string"),
+                        "c_Text", new URL("file://utf8")
                 ),
                 map(),
                 map(),
                 map(),
                 map(
-                        "c_String", null,
-                        "c_Utf8", null
+                        "c_Bytes", null,
+                        "c_Text", null
                 ));
     }
 
@@ -1687,36 +1687,36 @@ class YdbResultSetImplTest extends AbstractTest {
                 resultSet::getNString,
                 resultSet::getNString,
                 map(
-                        "c_String", "https://string",
-                        "c_Utf8", "file://utf8",
+                        "c_Bytes", "https://string",
+                        "c_Text", "file://utf8",
                         "c_Json", "{\"key\": \"value Json\"}",
                         "c_JsonDocument", "{\"key\":\"value JsonDocument\"}",
                         "c_Yson", "{key=\"value yson\"}"
                 ),
                 map(
-                        "c_String", "",
-                        "c_Utf8", "",
+                        "c_Bytes", "",
+                        "c_Text", "",
                         "c_Json", null,
                         "c_JsonDocument", null,
                         "c_Yson", "\"\""
                 ),
                 map(
-                        "c_String", "0",
-                        "c_Utf8", "0",
+                        "c_Bytes", "0",
+                        "c_Text", "0",
                         "c_Json", null,
                         "c_JsonDocument", null,
                         "c_Yson", "0"
                 ),
                 map(
-                        "c_String", "1",
-                        "c_Utf8", "1",
+                        "c_Bytes", "1",
+                        "c_Text", "1",
                         "c_Json", null,
                         "c_JsonDocument", null,
                         "c_Yson", "1"
                 ),
                 map(
-                        "c_String", null,
-                        "c_Utf8", null,
+                        "c_Bytes", null,
+                        "c_Text", null,
                         "c_Json", null,
                         "c_JsonDocument", null,
                         "c_Yson", null
@@ -1729,36 +1729,36 @@ class YdbResultSetImplTest extends AbstractTest {
                 resultSet::getNCharacterStream,
                 resultSet::getNCharacterStream,
                 map(
-                        "c_String", reader("https://string"),
-                        "c_Utf8", reader("file://utf8"),
+                        "c_Bytes", reader("https://string"),
+                        "c_Text", reader("file://utf8"),
                         "c_Json", reader("{\"key\": \"value Json\"}"),
                         "c_JsonDocument", reader("{\"key\":\"value JsonDocument\"}"),
                         "c_Yson", reader("{key=\"value yson\"}")
                 ),
                 map(
-                        "c_String", reader(""),
-                        "c_Utf8", reader(""),
+                        "c_Bytes", reader(""),
+                        "c_Text", reader(""),
                         "c_Json", reader(null),
                         "c_JsonDocument", reader(null),
                         "c_Yson", reader("\"\"")
                 ),
                 map(
-                        "c_String", reader("0"),
-                        "c_Utf8", reader("0"),
+                        "c_Bytes", reader("0"),
+                        "c_Text", reader("0"),
                         "c_Json", reader(null),
                         "c_JsonDocument", reader(null),
                         "c_Yson", reader("0")
                 ),
                 map(
-                        "c_String", reader("1"),
-                        "c_Utf8", reader("1"),
+                        "c_Bytes", reader("1"),
+                        "c_Text", reader("1"),
                         "c_Json", reader(null),
                         "c_JsonDocument", reader(null),
                         "c_Yson", reader("1")
                 ),
                 map(
-                        "c_String", reader(null),
-                        "c_Utf8", reader(null),
+                        "c_Bytes", reader(null),
+                        "c_Text", reader(null),
                         "c_Json", reader(null),
                         "c_JsonDocument", reader(null),
                         "c_Yson", reader(null)

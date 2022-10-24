@@ -15,6 +15,14 @@ import java.util.Properties;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbDatabaseMetaData;
@@ -27,14 +35,6 @@ import tech.ydb.table.values.ListType;
 import tech.ydb.table.values.ListValue;
 import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.table.values.PrimitiveValue;
-
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -273,8 +273,8 @@ class YdbConnectionImplTest extends AbstractTest {
         cleanupSimpleTestTable();
 
         Statement statement = connection.createStatement();
-        statement.execute("upsert into unit_1(key, c_Utf8) values (1, '2')");
-        statement.execute("upsert into unit_1(key, c_Utf8) values (1, '2')");
+        statement.execute("upsert into unit_1(key, c_Text) values (1, '2')");
+        statement.execute("upsert into unit_1(key, c_Text) values (1, '2')");
 
         assertThrowsMsgLike(YdbNonRetryableException.class,
                 () -> statement.executeQuery("select * from unit_1"),
@@ -295,7 +295,7 @@ class YdbConnectionImplTest extends AbstractTest {
         cleanupSimpleTestTable();
 
         Statement statement = connection.createStatement();
-        statement.execute("insert into unit_1(key, c_Utf8) values (1, '2')");
+        statement.execute("insert into unit_1(key, c_Text) values (1, '2')");
 
         assertThrowsMsg(YdbNonRetryableException.class,
                 () -> statement.executeQuery("select * from unit_1"),
@@ -536,7 +536,7 @@ class YdbConnectionImplTest extends AbstractTest {
     void testDDLInsideTransaction() throws SQLException {
         YdbStatement statement = connection.createStatement();
 
-        statement.execute("upsert into unit_1(key, c_Utf8) values (1, '2')");
+        statement.execute("upsert into unit_1(key, c_Text) values (1, '2')");
         statement.executeSchemeQuery("create table unit_11(id Int32, value Int32, primary key(id))");
         try {
             // No commits in case of ddl
@@ -591,13 +591,13 @@ class YdbConnectionImplTest extends AbstractTest {
     @Test
     void testAnsiLexerForIdea() throws SQLException {
         YdbStatement statement = connection.createStatement();
-        statement.execute("upsert into unit_1(key, c_Utf8) values (1, '2')");
+        statement.execute("upsert into unit_1(key, c_Text) values (1, '2')");
         connection.commit();
 
         YdbResultSet rs = statement.executeQuery("--!ansi_lexer\n" +
-                "select t.c_Utf8 from \"unit_1\" as t where t.key = 1"); // TODO: Must be "unit_1" t, see YQL-12618
+                "select t.c_Text from \"unit_1\" as t where t.key = 1"); // TODO: Must be "unit_1" t, see YQL-12618
         assertTrue(rs.next());
-        assertEquals("2", rs.getString("c_Utf8"));
+        assertEquals("2", rs.getString("c_Text"));
     }
 
     //
@@ -617,7 +617,7 @@ class YdbConnectionImplTest extends AbstractTest {
         assertTrue(statement.execute("select * from unit_1"));
         assertEquals(txId, connection.getYdbTxId());
 
-        assertFalse(statement.execute("upsert into unit_1(key, c_Utf8) values (1, '2')"));
+        assertFalse(statement.execute("upsert into unit_1(key, c_Text) values (1, '2')"));
         assertEquals(txId, connection.getYdbTxId());
 
         assertTrue(statement.execute("select 2 + 2"));

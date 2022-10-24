@@ -2,7 +2,7 @@
   {
     "COLUMN_NAME": "TYPE_NAME",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   },
   {
     "COLUMN_NAME": "DATA_TYPE",
@@ -17,17 +17,17 @@
   {
     "COLUMN_NAME": "LITERAL_PREFIX",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   },
   {
     "COLUMN_NAME": "LITERAL_SUFFIX",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   },
   {
     "COLUMN_NAME": "CREATE_PARAMS",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   },
   {
     "COLUMN_NAME": "NULLABLE",
@@ -62,7 +62,7 @@
   {
     "COLUMN_NAME": "LOCAL_TYPE_NAME",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   },
   {
     "COLUMN_NAME": "MINIMUM_SCALE",

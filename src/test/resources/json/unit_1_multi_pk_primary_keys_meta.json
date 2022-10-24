@@ -2,22 +2,22 @@
   {
     "COLUMN_NAME": "TABLE_CAT",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   },
   {
     "COLUMN_NAME": "TABLE_SCHEM",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   },
   {
     "COLUMN_NAME": "TABLE_NAME",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   },
   {
     "COLUMN_NAME": "COLUMN_NAME",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   },
   {
     "COLUMN_NAME": "KEY_SEQ",
@@ -27,6 +27,6 @@
   {
     "COLUMN_NAME": "PK_NAME",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   }
 ]

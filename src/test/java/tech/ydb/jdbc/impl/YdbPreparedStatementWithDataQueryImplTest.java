@@ -23,7 +23,7 @@ class YdbPreparedStatementWithDataQueryImplTest extends AbstractYdbPreparedState
     @Test
     void addBatch() throws SQLException {
         retry(connection -> {
-            YdbPreparedStatement statement = getUtf8Statement(connection);
+            YdbPreparedStatement statement = getTextStatement(connection);
 
             assertThrowsMsg(SQLFeatureNotSupportedException.class,
                     statement::addBatch,
@@ -42,7 +42,7 @@ class YdbPreparedStatementWithDataQueryImplTest extends AbstractYdbPreparedState
     @Test
     void testStatement() throws SQLException {
         retry(connection -> Assertions.assertTrue(
-                getUtf8Statement(connection) instanceof YdbPreparedStatementWithDataQueryImpl));
+                getTextStatement(connection) instanceof YdbPreparedStatementWithDataQueryImpl));
     }
 
     @Override

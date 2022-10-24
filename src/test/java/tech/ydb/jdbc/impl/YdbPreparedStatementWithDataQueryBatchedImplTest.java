@@ -6,15 +6,15 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
+
 import tech.ydb.jdbc.TestHelper;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.exception.YdbNonRetryableException;
 import tech.ydb.jdbc.exception.YdbResultTruncatedException;
-
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,13 +33,13 @@ class YdbPreparedStatementWithDataQueryBatchedImplTest extends AbstractYdbPrepar
     @Test
     void executeWithoutBatch() throws SQLException {
         retry(connection -> {
-            YdbPreparedStatement statement = getUtf8Statement(connection);
+            YdbPreparedStatement statement = getTextStatement(connection);
             statement.setInt("key", 1);
-            statement.setString("c_Utf8", "value-1");
+            statement.setString("c_Text", "value-1");
             statement.addBatch();
 
             statement.setInt("key", 2);
-            statement.setString("c_Utf8", "value-2");
+            statement.setString("c_Text", "value-2");
 
             statement.execute(); // Just added silently
             connection.commit();
@@ -51,17 +51,17 @@ class YdbPreparedStatementWithDataQueryBatchedImplTest extends AbstractYdbPrepar
     @Test
     void addBatchClearParameters() throws SQLException {
         retry(connection -> {
-            YdbPreparedStatement statement = getUtf8Statement(connection);
+            YdbPreparedStatement statement = getTextStatement(connection);
             statement.setInt("key", 1);
-            statement.setString("c_Utf8", "value-1");
+            statement.setString("c_Text", "value-1");
             statement.addBatch();
 
             statement.setInt("key", 10);
-            statement.setString("c_Utf8", "value-11");
+            statement.setString("c_Text", "value-11");
             statement.clearParameters();
 
             statement.setInt("key", 2);
-            statement.setString("c_Utf8", "value-2");
+            statement.setString("c_Text", "value-2");
             statement.addBatch();
 
             statement.executeBatch();
@@ -74,18 +74,18 @@ class YdbPreparedStatementWithDataQueryBatchedImplTest extends AbstractYdbPrepar
     @Test
     void addBatch() throws SQLException {
         retry(connection -> {
-            YdbPreparedStatement statement = getUtf8Statement(connection);
+            YdbPreparedStatement statement = getTextStatement(connection);
             statement.setInt("key", 1);
-            statement.setString("c_Utf8", "value-1");
+            statement.setString("c_Text", "value-1");
             statement.addBatch();
 
             statement.setInt("key", 2);
-            statement.setString("c_Utf8", "value-2");
+            statement.setString("c_Text", "value-2");
             statement.addBatch();
 
             // No add batch, must be skipped
             statement.setInt("key", 3);
-            statement.setString("c_Utf8", "value-3");
+            statement.setString("c_Text", "value-3");
 
             assertArrayEquals(new int[]{Statement.SUCCESS_NO_INFO, Statement.SUCCESS_NO_INFO},
                     statement.executeBatch());
@@ -102,19 +102,19 @@ class YdbPreparedStatementWithDataQueryBatchedImplTest extends AbstractYdbPrepar
     @Test
     void addAndClearBatch() throws SQLException {
         retry(connection -> {
-            YdbPreparedStatement statement = getUtf8Statement(connection);
+            YdbPreparedStatement statement = getTextStatement(connection);
             statement.setInt("key", 1);
-            statement.setString("c_Utf8", "value-1");
+            statement.setString("c_Text", "value-1");
             statement.addBatch();
             statement.executeBatch();
 
             statement.setInt("key", 11);
-            statement.setString("c_Utf8", "value-11");
+            statement.setString("c_Text", "value-11");
             statement.addBatch();
             statement.clearBatch();
 
             statement.setInt("key", 2);
-            statement.setString("c_Utf8", "value-2");
+            statement.setString("c_Text", "value-2");
             statement.addBatch();
             statement.executeBatch();
 
@@ -129,7 +129,7 @@ class YdbPreparedStatementWithDataQueryBatchedImplTest extends AbstractYdbPrepar
         retry(connection ->
                 TestHelper.assertThrowsMsgLike(YdbNonRetryableException.class,
                         () -> connection.prepareStatement(
-                                "declare $values as List<Struct<key:Int32,c_Utf8:Utf8,key:Int32>>; \n" +
+                                "declare $values as List<Struct<key:Int32,c_Text:Utf8,key:Int32>>; \n" +
                                         "upsert into unit_2 select * from as_table($values)",
                                 YdbConnection.PreparedStatementMode.DATA_QUERY_BATCH),
                         "Duplicated member: key"));
@@ -138,7 +138,7 @@ class YdbPreparedStatementWithDataQueryBatchedImplTest extends AbstractYdbPrepar
     @Test
     void executeEmpty() throws SQLException {
         retry(connection -> {
-            YdbPreparedStatement statement = getUtf8Statement(connection);
+            YdbPreparedStatement statement = getTextStatement(connection);
             statement.execute();
             connection.commit();
             checkNoResultSet(connection);
@@ -157,7 +157,7 @@ class YdbPreparedStatementWithDataQueryBatchedImplTest extends AbstractYdbPrepar
     void executeEmptyNoResultSet() throws SQLException {
         retry(connection ->
                 assertThrowsMsg(SQLException.class,
-                        () -> getUtf8Statement(connection).executeQuery(),
+                        () -> getTextStatement(connection).executeQuery(),
                         "Query must return ResultSet"));
     }
 
@@ -168,13 +168,13 @@ class YdbPreparedStatementWithDataQueryBatchedImplTest extends AbstractYdbPrepar
             int rowCount = 5000;
             List<String> expect = new ArrayList<>();
 
-            YdbPreparedStatement statement = getUtf8Statement(connection);
+            YdbPreparedStatement statement = getTextStatement(connection);
             for (int i = 1; i <= rowCount; i++) {
                 String value = "Row#" + i;
                 expect.add(value);
 
                 statement.setInt("key", i);
-                statement.setString("c_Utf8", value);
+                statement.setString("c_Text", value);
                 statement.addBatch();
             }
             statement.executeBatch();
@@ -182,7 +182,7 @@ class YdbPreparedStatementWithDataQueryBatchedImplTest extends AbstractYdbPrepar
 
             assertEquals(5000, expect.size());
 
-            YdbPreparedStatement select = connection.prepareStatement("select key, c_Utf8 from unit_2");
+            YdbPreparedStatement select = connection.prepareStatement("select key, c_Text from unit_2");
 
             // Result is truncated (and we catch that)
             try {
@@ -206,7 +206,7 @@ class YdbPreparedStatementWithDataQueryBatchedImplTest extends AbstractYdbPrepar
     void testPrepareWithAutoBatch() throws SQLException {
         retry(connection -> {
             YdbPreparedStatement statement = connection.prepareStatement(
-                    "declare $values as List<Struct<key:Int32,c_Utf8:Utf8>>; \n" +
+                    "declare $values as List<Struct<key:Int32,c_Text:Utf8>>; \n" +
                             "upsert into unit_2 select * from as_table($values)");
             assertTrue(statement instanceof YdbPreparedStatementWithDataQueryBatchedImpl);
         });
@@ -219,7 +219,7 @@ class YdbPreparedStatementWithDataQueryBatchedImplTest extends AbstractYdbPrepar
                         () -> connection.prepareStatement(
                                 "declare $key as Int32; \n" +
                                         "declare $value as Utf8; \n" +
-                                        "upsert into unit_2 (key, c_Utf8) values ($key, $value)",
+                                        "upsert into unit_2 (key, c_Text) values ($key, $value)",
                                 YdbConnection.PreparedStatementMode.DATA_QUERY_BATCH),
                         "Statement cannot be executed as batch statement"));
     }
@@ -227,7 +227,7 @@ class YdbPreparedStatementWithDataQueryBatchedImplTest extends AbstractYdbPrepar
     @Test
     void testStatement() throws SQLException {
         retry(connection -> Assertions.assertTrue(
-                getUtf8Statement(connection) instanceof YdbPreparedStatementWithDataQueryBatchedImpl));
+                getTextStatement(connection) instanceof YdbPreparedStatementWithDataQueryBatchedImpl));
     }
 
     @Override

@@ -285,13 +285,13 @@
     "IS_AUTOINCREMENT": "NO",
     "IS_GENERATEDCOLUMN": "NO"
   },
-  "c_String": {
+  "c_Bytes": {
     "TABLE_CAT": null,
     "TABLE_SCHEM": null,
     "TABLE_NAME": "unit_1",
-    "COLUMN_NAME": "c_String",
+    "COLUMN_NAME": "c_Bytes",
     "DATA_TYPE": -2,
-    "TYPE_NAME": "String",
+    "TYPE_NAME": "Bytes",
     "COLUMN_SIZE": 4194304,
     "BUFFER_LENGTH": 0,
     "DECIMAL_DIGITS": 0,
@@ -415,13 +415,13 @@
     "IS_AUTOINCREMENT": "NO",
     "IS_GENERATEDCOLUMN": "NO"
   },
-  "c_Utf8": {
+  "c_Text": {
     "TABLE_CAT": null,
     "TABLE_SCHEM": null,
     "TABLE_NAME": "unit_1",
-    "COLUMN_NAME": "c_Utf8",
+    "COLUMN_NAME": "c_Text",
     "DATA_TYPE": 12,
-    "TYPE_NAME": "Utf8",
+    "TYPE_NAME": "Text",
     "COLUMN_SIZE": 4194304,
     "BUFFER_LENGTH": 0,
     "DECIMAL_DIGITS": 0,

@@ -7,7 +7,7 @@
   {
     "COLUMN_NAME": "COLUMN_NAME",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   },
   {
     "COLUMN_NAME": "DATA_TYPE",
@@ -17,7 +17,7 @@
   {
     "COLUMN_NAME": "TYPE_NAME",
     "COLUMN_TYPE": 12,
-    "COLUMN_TYPE_NAME": "Utf8"
+    "COLUMN_TYPE_NAME": "Text"
   },
   {
     "COLUMN_NAME": "COLUMN_SIZE",
