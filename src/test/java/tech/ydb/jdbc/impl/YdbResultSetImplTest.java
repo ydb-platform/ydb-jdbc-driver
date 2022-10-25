@@ -1036,7 +1036,7 @@ class YdbResultSetImplTest extends AbstractTest {
     }
 
     @Test
-    void getObject() throws SQLException {
+    public void getObject() throws SQLException {
         checkRows(
                 resultSet::getObject,
                 resultSet::getObject,
@@ -1050,7 +1050,7 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint64", 2000000000002L,
                         "c_Float", 123456.78f,
                         "c_Double", 123456789.123456789d,
-                        "c_Bytes", "https://string",
+                        "c_Bytes", "https://string".getBytes(),
                         "c_Text", "file://utf8",
                         "c_Json", "{\"key\": \"value Json\"}",
                         "c_JsonDocument", "{\"key\":\"value JsonDocument\"}",
@@ -1071,7 +1071,7 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint64", 4000000000002L,
                         "c_Float", -123456.78f,
                         "c_Double", -123456789.123456789d,
-                        "c_Bytes", "",
+                        "c_Bytes", new byte[0],
                         "c_Text", "",
                         "c_Json", null,
                         "c_JsonDocument", null,
@@ -1092,7 +1092,7 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint64", 0L,
                         "c_Float", 0.0f,
                         "c_Double", 0.0d,
-                        "c_Bytes", "0",
+                        "c_Bytes", "0".getBytes(),
                         "c_Text", "0",
                         "c_Json", null,
                         "c_JsonDocument", null,
@@ -1113,7 +1113,7 @@ class YdbResultSetImplTest extends AbstractTest {
                         "c_Uint64", 1L,
                         "c_Float", 1.0f,
                         "c_Double", 1.0d,
-                        "c_Bytes", "1",
+                        "c_Bytes", "1".getBytes(),
                         "c_Text", "1",
                         "c_Json", null,
                         "c_JsonDocument", null,

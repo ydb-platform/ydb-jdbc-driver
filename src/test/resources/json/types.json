@@ -80,7 +80,7 @@
     "NUM_PREC_RADIX": 10
   },
   {
-    "TYPE_NAME": "String",
+    "TYPE_NAME": "Bytes",
     "DATA_TYPE": -2,
     "PRECISION": 4194304,
     "LITERAL_PREFIX": "\u0027",
@@ -220,7 +220,7 @@
     "NUM_PREC_RADIX": 10
   },
   {
-    "TYPE_NAME": "Utf8",
+    "TYPE_NAME": "Text",
     "DATA_TYPE": 12,
     "PRECISION": 4194304,
     "LITERAL_PREFIX": "\u0027",

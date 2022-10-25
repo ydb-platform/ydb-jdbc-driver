@@ -579,13 +579,13 @@ public class MappingGetters {
             PrimitiveType id = (PrimitiveType) type;
             final Class<?> javaType;
             switch (id) {
-                case Bytes:
                 case Text:
                 case Json:
                 case JsonDocument:
                 case Uuid:
                     javaType = String.class;
                     break;
+                case Bytes:
                 case Yson:
                     javaType = byte[].class;
                     break;
@@ -648,7 +648,7 @@ public class MappingGetters {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
             switch (id) {
                 case Bytes:
-                    return valueReader -> new String(valueReader.getBytes());
+                    return PrimitiveReader::getBytes;
                 case Text:
                     return PrimitiveReader::getText;
                 case Json:

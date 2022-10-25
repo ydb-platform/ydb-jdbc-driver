@@ -511,7 +511,7 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
     }
 
     @Test
-    void testParametersMeta() throws SQLException {
+    public void testParametersMeta() throws SQLException {
         retry(connection -> {
             YdbPreparedStatement statement = getTestAllValuesStatement(connection);
             if (sqlTypeRequired()) {
