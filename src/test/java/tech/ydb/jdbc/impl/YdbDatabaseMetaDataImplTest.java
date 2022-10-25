@@ -14,15 +14,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import tech.ydb.jdbc.TestHelper;
-import tech.ydb.jdbc.YdbConnection;
-import tech.ydb.jdbc.YdbConst;
-import tech.ydb.jdbc.YdbDatabaseMetaData;
-import tech.ydb.jdbc.YdbDriverInfo;
-import tech.ydb.jdbc.YdbStatement;
-import tech.ydb.jdbc.exception.YdbConfigurationException;
-import tech.ydb.jdbc.settings.YdbProperties;
-
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +21,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import tech.ydb.jdbc.YdbConnection;
+import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.YdbDatabaseMetaData;
+import tech.ydb.jdbc.YdbDriverInfo;
+import tech.ydb.jdbc.YdbStatement;
+import tech.ydb.jdbc.exception.YdbConfigurationException;
+import tech.ydb.jdbc.settings.YdbProperties;
 
 import static java.sql.DatabaseMetaData.bestRowSession;
 import static java.sql.DatabaseMetaData.sqlStateSQL;
@@ -150,7 +149,7 @@ class YdbDatabaseMetaDataImplTest extends AbstractTest {
     @Test
     void getDriverMajorVersion() {
         assertEquals(YdbDriverInfo.DRIVER_MAJOR_VERSION, metaData.getDriverMajorVersion());
-        assertEquals(1, metaData.getDriverMajorVersion());
+        assertEquals(2, metaData.getDriverMajorVersion());
     }
 
     @Test
@@ -912,7 +911,7 @@ class YdbDatabaseMetaDataImplTest extends AbstractTest {
     @Test
     void getIndexInfo() throws SQLException {
         createTestTable("unit_1_multi_idx",
-                "create table ${tableName} (key1 Int32, key2 Utf8, value1 Int32, value2 Utf8, value3 Int32, " +
+                "create table ${tableName} (key1 Int32, key2 Text, value1 Int32, value2 Text, value3 Int32, " +
                         "primary key(key1, key2), " +
                         "index idx_2 global on (value1, value2)," +
                         "index idx_1 global on (value3))");

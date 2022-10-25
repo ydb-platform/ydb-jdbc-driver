@@ -5,6 +5,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Properties;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -30,6 +31,11 @@ public class YdbDriverIntegrationTest extends YdbIntegrationTest {
     @BeforeEach
     public void beforeEach() {
         driver = new YdbDriver();
+    }
+
+    @AfterEach
+    public void afterEach() {
+        YdbDriver.getConnectionsCache().close();
     }
 
     @Test
