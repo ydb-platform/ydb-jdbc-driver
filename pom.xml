@@ -27,6 +27,10 @@
             <groupId>tech.ydb</groupId>
             <artifactId>ydb-sdk-table</artifactId>
         </dependency>
+        <dependency>
+            <groupId>tech.ydb</groupId>
+            <artifactId>ydb-sdk-scheme</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -49,8 +53,10 @@
         <dependencies>
             <dependency>
                 <groupId>tech.ydb</groupId>
-                <artifactId>ydb-sdk-table</artifactId>
+                <artifactId>ydb-sdk-bom</artifactId>
                 <version>${ydb.sdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
 
             <!-- Test dependencies -->
@@ -77,12 +83,12 @@
             <plugins>
                 <plugin>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.0.0-M4</version>
+                    <version>3.0.0-M7</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.6.0</version>
+                    <version>3.10.1</version>
                     <configuration>
                         <target>1.8</target>
                         <source>1.8</source>
@@ -91,8 +97,64 @@
                         </compilerArgs>
                     </configuration>
                 </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-shade-plugin</artifactId>
+                    <version>3.4.0</version>
+                    <configuration>
+                        <shadedArtifactAttached>true</shadedArtifactAttached>
+                        <promoteTransitiveDependencies>true</promoteTransitiveDependencies>
+                        <shadedClassifierName>shaded</shadedClassifierName>
+                        <createDependencyReducedPom>false</createDependencyReducedPom>
+                        <transformers>
+                            <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer" />
+                            <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheNoticeResourceTransformer" />
+                            <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+                            <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                <manifestEntries>
+                                    <Automatic-Module-Name>${project.groupId}.jdbc</Automatic-Module-Name>
+                                    <Specification-Title>${spec.title}</Specification-Title>
+                                    <Specification-Version>${spec.version}</Specification-Version>
+                                </manifestEntries>
+                            </transformer>
+                        </transformers>
+
+                        <filters>
+                            <filter>
+                                <artifact>*:*</artifact>
+                                <excludes>
+                                    <exclude>mozilla/**</exclude>
+                                    <exclude>**/darwin/**</exclude>
+                                    <exclude>**/linux/**</exclude>
+                                    <exclude>**/win32/**</exclude>
+                                    <exclude>**/module-info.class</exclude>
+                                    <exclude>META-INF/DEPENDENCIES</exclude>
+                                    <exclude>META-INF/MANIFEST.MF</exclude>
+                                    <exclude>META-INF/maven/**</exclude>
+                                    <exclude>META-INF/native-image/**</exclude>
+                                    <exclude>META-INF/*.xml</exclude>
+                                </excludes>
+                            </filter>
+                        </filters>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <phase>package</phase>
+                            <goals>
+                                <goal>shade</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
             </plugins>
         </pluginManagement>
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+            </plugin>
+        </plugins>
     </build>
 
     <profiles>

@@ -27,6 +27,9 @@ import javax.annotation.Nullable;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Strings;
 import com.google.common.base.Suppliers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import tech.ydb.core.Result;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
@@ -37,15 +40,13 @@ import tech.ydb.jdbc.exception.YdbRuntimeException;
 import tech.ydb.jdbc.impl.YdbFunctions.Builtin;
 import tech.ydb.jdbc.impl.YdbFunctions.Udf;
 import tech.ydb.scheme.SchemeOperationProtos;
-import tech.ydb.table.description.ListDirectoryResult;
+import tech.ydb.scheme.description.ListDirectoryResult;
 import tech.ydb.table.description.TableColumn;
 import tech.ydb.table.description.TableDescription;
 import tech.ydb.table.description.TableIndex;
 import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.table.values.Type;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static tech.ydb.jdbc.YdbConst.CANNOT_UNWRAP_TO;
 import static tech.ydb.jdbc.impl.MappingResultSets.stableMap;

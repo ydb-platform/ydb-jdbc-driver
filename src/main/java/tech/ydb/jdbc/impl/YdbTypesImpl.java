@@ -20,8 +20,8 @@ import java.util.Map;
 
 import javax.annotation.Nullable;
 
-import io.netty.util.collection.IntObjectHashMap;
-import io.netty.util.collection.IntObjectMap;
+import io.grpc.netty.shaded.io.netty.util.collection.IntObjectHashMap;
+import io.grpc.netty.shaded.io.netty.util.collection.IntObjectMap;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbTypes;

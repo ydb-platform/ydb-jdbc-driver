@@ -26,6 +26,9 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 import com.google.common.base.Suppliers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import tech.ydb.core.Issue;
 import tech.ydb.core.Result;
 import tech.ydb.core.Status;
@@ -40,7 +43,7 @@ import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.jdbc.exception.YdbRetryableException;
 import tech.ydb.jdbc.impl.YdbPreparedStatementWithDataQueryBatchedImpl.StructBatchConfiguration;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
-import tech.ydb.table.SchemeClient;
+import tech.ydb.scheme.SchemeClient;
 import tech.ydb.table.Session;
 import tech.ydb.table.query.DataQuery;
 import tech.ydb.table.settings.CommitTxSettings;
@@ -48,8 +51,6 @@ import tech.ydb.table.settings.KeepAliveSessionSettings;
 import tech.ydb.table.settings.PrepareDataQuerySettings;
 import tech.ydb.table.settings.RollbackTxSettings;
 import tech.ydb.table.transaction.TxControl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static tech.ydb.jdbc.YdbConst.ABORT_UNSUPPORTED;
 import static tech.ydb.jdbc.YdbConst.ARRAYS_UNSUPPORTED;

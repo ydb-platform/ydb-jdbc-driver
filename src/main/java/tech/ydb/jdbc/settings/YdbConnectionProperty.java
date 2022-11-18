@@ -6,8 +6,8 @@ import java.util.function.BiConsumer;
 
 import javax.annotation.Nullable;
 
-import tech.ydb.core.auth.AuthProvider;
-import tech.ydb.core.auth.TokenAuthProvider;
+import tech.ydb.auth.AuthProvider;
+import tech.ydb.auth.TokenAuthProvider;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
 import tech.ydb.jdbc.exception.YdbConfigurationException;
 

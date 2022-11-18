@@ -28,7 +28,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import tech.ydb.core.auth.AuthProvider;
+import tech.ydb.auth.AuthProvider;
 import tech.ydb.jdbc.exception.YdbConfigurationException;
 import tech.ydb.jdbc.settings.ParsedProperty;
 import tech.ydb.jdbc.settings.YdbClientProperty;
@@ -205,7 +205,7 @@ class YdbDriverTest {
 
     @Test
     public void getPropertyInfoAuthProvider() throws SQLException {
-        AuthProvider customAuthProvider = (rpc) -> () -> "any";
+        AuthProvider customAuthProvider = () -> () -> "any";
 
         Properties properties = new Properties();
         properties.put(YdbConnectionProperty.AUTH_PROVIDER.getName(), customAuthProvider);

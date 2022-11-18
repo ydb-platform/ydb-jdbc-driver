@@ -6,7 +6,7 @@ import java.sql.SQLException;
 import javax.annotation.Nullable;
 
 import tech.ydb.jdbc.settings.YdbOperationProperties;
-import tech.ydb.table.SchemeClient;
+import tech.ydb.scheme.SchemeClient;
 import tech.ydb.table.Session;
 
 public interface YdbConnection extends Connection {

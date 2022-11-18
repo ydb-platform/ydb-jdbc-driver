@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory;
 
 import tech.ydb.jdbc.exception.YdbRetryableException;
 import tech.ydb.jdbc.impl.YdbConnectionImpl;
-import tech.ydb.table.SchemeClient;
+import tech.ydb.scheme.SchemeClient;
 
 /**
  *

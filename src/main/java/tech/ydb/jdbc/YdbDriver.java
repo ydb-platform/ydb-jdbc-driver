@@ -12,9 +12,11 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.function.Supplier;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Suppliers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import tech.ydb.core.Result;
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.jdbc.impl.Validator;
@@ -24,13 +26,9 @@ import tech.ydb.jdbc.settings.YdbConnectionProperties;
 import tech.ydb.jdbc.settings.YdbConnectionProperty;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.jdbc.settings.YdbProperties;
-import tech.ydb.table.SchemeClient;
+import tech.ydb.scheme.SchemeClient;
 import tech.ydb.table.Session;
 import tech.ydb.table.TableClient;
-import tech.ydb.table.rpc.SchemeRpc;
-import tech.ydb.table.rpc.grpc.GrpcSchemeRpc;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static tech.ydb.jdbc.YdbConst.JDBC_YDB_PREFIX;
 import static tech.ydb.jdbc.YdbConst.YDB_DRIVER_USES_SL4J;
@@ -157,7 +155,7 @@ public class YdbDriver implements Driver {
             this.tableClient = Objects.requireNonNull(tableClient);
             this.schemeClient = Objects.requireNonNull(schemeClient);
         }
-        
+
         @Override
         public void close() {
             try {
@@ -198,9 +196,7 @@ public class YdbDriver implements Driver {
             TableClient tableClient = properties.getClientProperties().toTableClient(grpcTransport);
 
             Supplier<SchemeClient> schemeClient = Suppliers.memoize(() -> {
-                SchemeRpc schemeRpc = GrpcSchemeRpc.useTransport(grpcTransport); // USE
-                Preconditions.checkState(schemeRpc != null, "SchemeRpc must be initialized");
-                return SchemeClient.newClient(schemeRpc).build();
+                return SchemeClient.newClient(grpcTransport).build();
             })::get;
 
             clients = new Clients(grpcTransport, tableClient, schemeClient);
