@@ -1,10 +1,10 @@
-package tech.ydb.jdbc.impl;
+package tech.ydb.jdbc.impl.types;
 
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.util.Map;
 
-class ArrayImpl implements Array {
+public class ArrayImpl implements Array {
 
     @Override
     public String getBaseTypeName() {

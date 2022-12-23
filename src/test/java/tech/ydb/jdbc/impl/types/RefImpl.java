@@ -1,9 +1,9 @@
-package tech.ydb.jdbc.impl;
+package tech.ydb.jdbc.impl.types;
 
 import java.sql.Ref;
 import java.util.Map;
 
-class RefImpl implements Ref {
+public class RefImpl implements Ref {
 
     @Override
     public String getBaseTypeName() {

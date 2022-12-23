@@ -10,23 +10,31 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import tech.ydb.jdbc.exception.YdbRetryableException;
 import tech.ydb.jdbc.impl.YdbConnectionImpl;
+import tech.ydb.jdbc.impl.helper.TestHelper;
 import tech.ydb.scheme.SchemeClient;
+import tech.ydb.test.junit5.YdbHelperExtention;
 
 /**
  *
  * @author Aleksandr Gorshenin
  */
-@DisabledIfSystemProperty(named = YdbIntegrationTest.SKIP_DOCKER_TESTS, matches = YdbIntegrationTest.TRUE)
-public class YdbDriverIntegrationTest extends YdbIntegrationTest {
-    private static final Logger LOGGER = LoggerFactory.getLogger(YdbDriverIntegrationTest.class);
+public class YdbDriverIntegrationTest {
+    private static final Logger logger = LoggerFactory.getLogger(YdbDriverIntegrationTest.class);
+
+    @RegisterExtension
+    private static final YdbHelperExtention ydb = new YdbHelperExtention();
 
     private YdbDriver driver;
+
+    private static String jdbcURl() {
+        return String.format("jdbc:ydb:%s%s", ydb.endpoint(), ydb.database());
+    }
 
     @BeforeEach
     public void beforeEach() {
@@ -43,17 +51,17 @@ public class YdbDriverIntegrationTest extends YdbIntegrationTest {
         try ( YdbConnection connection = driver.connect(jdbcURl(), new Properties())) {
             Assertions.assertTrue(connection instanceof YdbConnectionImpl);
 
-            LOGGER.info("Session opened: {}", connection.getYdbSession());
+            logger.info("Session opened: {}", connection.getYdbSession());
 
             SchemeClient schemeClient = connection.getYdbScheme();
-            LOGGER.info("Scheme client: {}", schemeClient);
+            logger.info("Scheme client: {}", schemeClient);
 
             Assertions.assertSame(schemeClient, connection.getYdbScheme());
         }
     }
 
     @Test
-    @Disabled // disabled because session.close() releases session but don't close it
+    @Disabled
     public void connectAndCloseMultipleTimes() throws SQLException {
         try ( YdbConnection ydbConnection = driver.connect(jdbcURl(), new Properties())) {
             ydbConnection.getYdbSession().close();
@@ -70,9 +78,9 @@ public class YdbDriverIntegrationTest extends YdbIntegrationTest {
         YdbDriver.getConnectionsCache().close();
         String url = jdbcURl();
         try ( YdbConnection connection1 = driver.connect(url, new Properties())) {
-            LOGGER.info("Session 1 opened: {}", connection1.getYdbSession());
+            logger.info("Session 1 opened: {}", connection1.getYdbSession());
             try ( YdbConnection connection2 = driver.connect(url, new Properties())) {
-                LOGGER.info("Session 2 opened: {}", connection2.getYdbSession());
+                logger.info("Session 2 opened: {}", connection2.getYdbSession());
 
                 // Expect only single connection
                 Assertions.assertEquals(1, YdbDriver.getConnectionsCache().getConnectionCount());
@@ -84,15 +92,15 @@ public class YdbDriverIntegrationTest extends YdbIntegrationTest {
     public void testYdb() throws SQLException {
         try (YdbConnection connection = (YdbConnection) DriverManager.getConnection(jdbcURl())) {
             try {
-                connection.createStatement()
-                        .execute("--jdbc:SCHEME\n" +
-                                "drop table table_sample");
+                connection.createStatement().execute(
+                        "--jdbc:SCHEME\n"
+                        + "drop table table_sample");
             } catch (SQLException e) {
                 //
             }
             connection.createStatement()
-                    .execute("--jdbc:SCHEME\n" +
-                            "create table table_sample(id Int32, value Text, primary key (id))");
+                    .execute("--jdbc:SCHEME\n"
+                            + "create table table_sample(id Int32, value Text, primary key (id))");
 
             YdbPreparedStatement ps = connection
                     .prepareStatement("" +

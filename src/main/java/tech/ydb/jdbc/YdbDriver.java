@@ -26,6 +26,7 @@ import tech.ydb.jdbc.settings.YdbConnectionProperties;
 import tech.ydb.jdbc.settings.YdbConnectionProperty;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.jdbc.settings.YdbProperties;
+import tech.ydb.jdbc.settings.YdbJdbcTools;
 import tech.ydb.scheme.SchemeClient;
 import tech.ydb.table.Session;
 import tech.ydb.table.TableClient;
@@ -60,7 +61,7 @@ public class YdbDriver implements Driver {
         // logging should be after acceptsURL, otherwise we can log properties with secrets of another database
         LOGGER.info("About to connect to [{}] using properties {}", url, info);
 
-        YdbProperties properties = YdbProperties.from(url, info);
+        YdbProperties properties = YdbJdbcTools.from(url, info);
         Clients clients = CONNECTIONS.getClients(new ConnectionConfig(url, info), properties);
 
         YdbOperationProperties operationProperties = properties.getOperationProperties();
@@ -84,13 +85,13 @@ public class YdbDriver implements Driver {
 
     @Override
     public boolean acceptsURL(String url) {
-        return YdbProperties.isYdb(url);
+        return YdbJdbcTools.isYdb(url);
     }
 
     @Override
     public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) throws SQLException {
         String targetUrl = acceptsURL(url) ? url : JDBC_YDB_PREFIX;
-        return YdbProperties.from(targetUrl, info).toDriverProperties();
+        return YdbJdbcTools.from(targetUrl, info).toDriverProperties();
     }
 
     @Override

@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.impl;
+package tech.ydb.jdbc.impl.types;
 
 import java.io.InputStream;
 import java.io.OutputStream;

@@ -16,9 +16,9 @@ import java.util.Set;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,7 +28,7 @@ import tech.ydb.jdbc.YdbDatabaseMetaData;
 import tech.ydb.jdbc.YdbDriverInfo;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.exception.YdbConfigurationException;
-import tech.ydb.jdbc.settings.YdbProperties;
+import tech.ydb.jdbc.settings.YdbLookup;
 
 import static java.sql.DatabaseMetaData.bestRowSession;
 import static java.sql.DatabaseMetaData.sqlStateSQL;
@@ -46,14 +46,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static tech.ydb.jdbc.TestHelper.assertThrowsMsg;
-import static tech.ydb.jdbc.YdbIntegrationTest.SKIP_DOCKER_TESTS;
-import static tech.ydb.jdbc.YdbIntegrationTest.TRUE;
 import static tech.ydb.jdbc.impl.MappingResultSets.stableMap;
 import static tech.ydb.jdbc.impl.YdbDatabaseMetaDataImpl.SYSTEM_TABLE;
 import static tech.ydb.jdbc.impl.YdbDatabaseMetaDataImpl.TABLE;
+import static tech.ydb.jdbc.impl.helper.TestHelper.assertThrowsMsg;
 
-@DisabledIfSystemProperty(named = SKIP_DOCKER_TESTS, matches = TRUE)
 class YdbDatabaseMetaDataImplTest extends AbstractTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(YdbDatabaseMetaDataImplTest.class);
 
@@ -66,10 +63,15 @@ class YdbDatabaseMetaDataImplTest extends AbstractTest {
     private YdbDatabaseMetaData metaData;
 
     @BeforeEach
-    void beforeEach() throws SQLException {
-        connection = getTestConnection();
+    public void beforeEach() throws SQLException {
+        connection = createTestConnection();
         metaData = connection.getMetaData();
-        configureOnce(AbstractTest::recreateSimpleTestTable);
+//        configureOnce(AbstractTest::recreateSimpleTestTable);
+    }
+
+    @AfterEach
+    public void afterEach() throws SQLException {
+        connection.close();
     }
 
     @Test
@@ -1223,8 +1225,8 @@ class YdbDatabaseMetaDataImplTest extends AbstractTest {
         return new ResultSetData<>(result.metadata, map);
     }
 
-    private String readJson(String resource) throws YdbConfigurationException {
-        return YdbProperties.stringFileReference(resource);
+    private String readJson(String resource) {
+        return YdbLookup.stringFileReference(resource);
     }
 
     private void checkEmptyMap(ResultSetData<? extends Map<?, ?>> resultSetData) {

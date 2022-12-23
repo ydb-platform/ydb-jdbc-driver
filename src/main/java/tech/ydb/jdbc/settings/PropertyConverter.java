@@ -42,10 +42,10 @@ interface PropertyConverter<T> {
     }
 
     static PropertyConverter<String> stringFileReference() {
-        return YdbProperties::stringFileReference;
+        return YdbLookup::stringFileReference;
     }
 
     static PropertyConverter<byte[]> byteFileReference() {
-        return YdbProperties::byteFileReference;
+        return YdbLookup::byteFileReference;
     }
 }

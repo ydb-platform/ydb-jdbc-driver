@@ -34,9 +34,11 @@ import javax.sql.rowset.serial.SerialBlob;
 import javax.sql.rowset.serial.SerialClob;
 
 import com.google.common.base.Preconditions;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 import org.junit.jupiter.api.function.Executable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,6 +48,12 @@ import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbResultSetMetaData;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTypes;
+import tech.ydb.jdbc.impl.types.ArrayImpl;
+import tech.ydb.jdbc.impl.types.NClobImpl;
+import tech.ydb.jdbc.impl.types.RefImpl;
+import tech.ydb.jdbc.impl.types.RowIdImpl;
+import tech.ydb.jdbc.impl.types.SQLXMLImpl;
+import tech.ydb.jdbc.settings.YdbLookup;
 import tech.ydb.table.values.PrimitiveValue;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -55,17 +63,15 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static tech.ydb.jdbc.TestHelper.assertThrowsMsg;
-import static tech.ydb.jdbc.TestHelper.assertThrowsMsgLike;
-import static tech.ydb.jdbc.TestHelper.stringFileReference;
-import static tech.ydb.jdbc.YdbIntegrationTest.SKIP_DOCKER_TESTS;
-import static tech.ydb.jdbc.YdbIntegrationTest.TRUE;
+import static tech.ydb.jdbc.impl.helper.StringTools.reader;
+import static tech.ydb.jdbc.impl.helper.StringTools.stream;
+import static tech.ydb.jdbc.impl.helper.TestHelper.assertThrowsMsg;
+import static tech.ydb.jdbc.impl.helper.TestHelper.assertThrowsMsgLike;
 
-@DisabledIfSystemProperty(named = SKIP_DOCKER_TESTS, matches = TRUE)
 class YdbResultSetImplTest extends AbstractTest {
 
-    static final String SELECT_ALL_VALUES = stringFileReference("classpath:sql/select_all_values.sql");
-    static final String UPSERT_ALL_VALUES = stringFileReference("classpath:sql/upsert_all_values.sql");
+    static final String SELECT_ALL_VALUES = YdbLookup.stringFileReference("classpath:sql/select_all_values.sql");
+    static final String UPSERT_ALL_VALUES = YdbLookup.stringFileReference("classpath:sql/upsert_all_values.sql");
 
     static {
         Locale.setDefault(Locale.US);
@@ -73,25 +79,37 @@ class YdbResultSetImplTest extends AbstractTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(YdbResultSetImplTest.class);
 
-    private static boolean configured;
+    private YdbConnection connection;
+    private YdbStatement statement;
     private YdbResultSet resultSet;
 
-    @BeforeEach
-    void beforeEach() throws SQLException {
-        configureOnce(() -> {
-            recreateSimpleTestTable();
+    @BeforeAll
+    public static void beforeAllResult() throws SQLException {
+        recreateSimpleTestTable();
 
-            YdbConnection connection = getTestConnection();
-            YdbStatement statement = connection.createStatement();
-            statement.execute("delete from unit_1");
-            statement.execute(subst("unit_1", UPSERT_ALL_VALUES));
+        try (YdbConnection connection = createTestConnection()) {
+            try (YdbStatement statement = connection.createStatement()) {
+                statement.execute("delete from unit_1");
+                statement.execute(subst("unit_1", UPSERT_ALL_VALUES));
+            }
             connection.commit();
-        });
-        resultSet = getTestConnection().createStatement().executeQuery(subst("unit_1", SELECT_ALL_VALUES));
+        }
     }
 
-    // TODO: check reading other database types, not supported by table storage itself?
-    // See YdbConnectionImplSet#unsupportedTypes
+    @BeforeEach
+    public void beforeEach() throws SQLException {
+        connection = createTestConnection();
+
+        statement = connection.createStatement();
+        resultSet = statement.executeQuery(subst("unit_1", SELECT_ALL_VALUES));
+    }
+
+    @AfterEach
+    public void afterEach() throws SQLException {
+        statement.close();
+        connection.commit(); // TODO: conection must be cleaned
+        connection.close();
+    }
 
     @Test
     void next() throws SQLException {
@@ -120,7 +138,7 @@ class YdbResultSetImplTest extends AbstractTest {
     }
 
     @Test
-    void close() throws SQLException {
+    public void close() throws SQLException  {
         assertFalse(resultSet.isClosed());
         resultSet.close();
         assertTrue(resultSet.isClosed());
@@ -956,21 +974,21 @@ class YdbResultSetImplTest extends AbstractTest {
     }
 
     @Test
-    void warnings() throws SQLException {
+    public void warnings() throws SQLException {
         assertNull(resultSet.getWarnings());
         resultSet.clearWarnings();
         assertNull(resultSet.getWarnings());
     }
 
     @Test
-    void getCursorName() {
+    public void getCursorName() {
         assertThrowsMsg(SQLFeatureNotSupportedException.class,
                 () -> resultSet.getCursorName(),
                 "Named cursors are not supported");
     }
 
     @Test
-    void getMetaData() throws SQLException {
+    public void getMetaData() throws SQLException {
         YdbResultSetMetaData metadata = resultSet.getMetaData();
         assertSame(metadata, resultSet.getMetaData(), "Metadata is cached");
 
@@ -1149,7 +1167,7 @@ class YdbResultSetImplTest extends AbstractTest {
     }
 
     @Test
-    void getObjectUnsupported() {
+    public void getObjectUnsupported() {
         assertThrowsMsg(SQLFeatureNotSupportedException.class,
                 () -> resultSet.getObject(1, Integer.class),
                 "Object with type conversion is not supported yet");
@@ -1168,7 +1186,7 @@ class YdbResultSetImplTest extends AbstractTest {
     }
 
     @Test
-    void getNativeColumn() throws SQLException {
+    public void getNativeColumn() throws SQLException {
         checkRows(
                 columnIndex -> resultSet.getNativeColumn(columnIndex).orElse(null),
                 columnLabel -> resultSet.getNativeColumn(columnLabel).orElse(null),
@@ -1591,11 +1609,12 @@ class YdbResultSetImplTest extends AbstractTest {
     }
 
     @Test
+    @Disabled
     void getStatement() throws SQLException {
         assertNotNull(resultSet.getStatement());
 
-        YdbStatement statement = getTestConnection().createStatement();
-        assertSame(statement, statement.executeQuery("select 1 + 2").getStatement());
+//        YdbStatement statement = getTestConnection().createStatement();
+//        assertSame(statement, statement.executeQuery("select 1 + 2").getStatement());
     }
 
     @Test

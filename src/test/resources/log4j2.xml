@@ -6,10 +6,7 @@
         </Console>
     </Appenders>
     <Loggers>
-        <Logger name="tech.ydb.core" level="info" additivity="false">
-            <AppenderRef ref="Console"/>
-        </Logger>
-        <Logger name="tech.ydb.table" level="info" additivity="false">
+        <Logger name="tech.ydb" level="info" additivity="false">
             <AppenderRef ref="Console"/>
         </Logger>
         <Logger name="tech.ydb.jdbc" level="debug" additivity="false">

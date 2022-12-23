@@ -1,10 +1,8 @@
 package tech.ydb.jdbc.impl;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
-import java.io.StringReader;
 import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -17,94 +15,37 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import javax.annotation.Nullable;
-
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CharStreams;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
-import tech.ydb.jdbc.TestHelper;
 import tech.ydb.jdbc.YdbConnection;
-import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbDriver;
-import tech.ydb.jdbc.YdbIntegrationTest;
+import tech.ydb.jdbc.impl.helper.TestHelper;
+import tech.ydb.jdbc.settings.YdbLookup;
+import tech.ydb.test.junit5.YdbHelperExtention;
 
-import static tech.ydb.jdbc.TestHelper.stringFileReference;
 
-public abstract class AbstractTest extends YdbIntegrationTest {
-    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractTest.class);
+public abstract class AbstractTest {
+    protected static final String CREATE_TABLE = YdbLookup.stringFileReference("classpath:sql/create_table.sql");
+    private static final String SIMPLE_TABLE = "unit_1";
+    private static final String PREPARED_TABLE = "unit_2";
 
-    static final String CREATE_TABLE = stringFileReference("classpath:sql/create_table.sql");
-    static final String SIMPLE_TABLE = "unit_1";
-    static final String PREPARED_TABLE = "unit_2";
-
-    // TODO: test fast connection reuse
-    private static final boolean reuseConnection = Boolean.parseBoolean(System.getProperty("REUSE_CONNECTION", "true"));
-    private static YdbConnection connection;
-
-    @Nullable
-    static InputStream stream(@Nullable String value) {
-        return value == null ? null : new ByteArrayInputStream(value.getBytes()) {
-            @Override
-            public void close() {
-                this.reset();
-            }
-        };
-    }
-
-    @Nullable
-    static Reader reader(@Nullable String value) {
-        return value == null ? null : new StringReader(value) {
-            @Override
-            public void close() {
-                try {
-                    this.reset();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        };
-    }
-
-    @AfterEach
-    void afterEach() throws SQLException {
-        if (connection != null) {
-            if (reuseConnection) {
-                if (!connection.isClosed()) {
-                    try {
-                        connection.rollback();
-                    } catch (Exception e) {
-                        LOGGER.warn("Unable to rollback", e);
-                    }
-                    connection.setAutoCommit(false);
-                    connection.setTransactionIsolation(YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE);
-                    connection.setReadOnly(false);
-                }
-            } else {
-                connection.close();
-            }
-        }
-    }
+    @RegisterExtension
+    private static final YdbHelperExtention ydb = new YdbHelperExtention();
 
     @AfterAll
-    static void afterAll() {
-        connection = null;
+    public static void cleanUp() {
         YdbDriver.getConnectionsCache().close();
     }
 
-    protected static YdbConnection getTestConnection() throws SQLException {
-        // TODO: must be session pool (but have to implement it first)
-        if (connection == null || connection.isClosed()) {
-            connection = (YdbConnection) DriverManager.getConnection(jdbcURl());
-        }
-        return connection;
+    protected static String jdbcURl() {
+        return String.format("jdbc:ydb:%s%s", ydb.endpoint(), ydb.database());
     }
 
-    protected void configureOnce(TestHelper.SQLSimpleRun run) throws SQLException {
-        TestHelper.configureOnce(this.getClass(), run);
+    protected static YdbConnection createTestConnection() throws SQLException {
+        return (YdbConnection) DriverManager.getConnection(jdbcURl());
     }
 
     protected void cleanupSimpleTestTable() throws SQLException {
@@ -112,9 +53,10 @@ public abstract class AbstractTest extends YdbIntegrationTest {
     }
 
     protected void cleanupTable(String table) throws SQLException {
-        YdbConnection connection = getTestConnection();
-        connection.createStatement().executeUpdate("delete from " + table);
-        connection.commit();
+        try (YdbConnection connection = createTestConnection()) {
+            connection.createStatement().executeUpdate("delete from " + table);
+            connection.commit();
+        }
     }
 
     protected static void recreatePreparedTestTable() throws SQLException {
@@ -126,7 +68,9 @@ public abstract class AbstractTest extends YdbIntegrationTest {
     }
 
     protected static void createTestTable(String tableName, String expression) throws SQLException {
-        TestHelper.initTable(getTestConnection(), tableName, expression);
+        try (YdbConnection connection = createTestConnection()) {
+            TestHelper.initTable(connection, tableName, expression);
+        }
     }
 
     protected static String subst(String tableName, String sql) {

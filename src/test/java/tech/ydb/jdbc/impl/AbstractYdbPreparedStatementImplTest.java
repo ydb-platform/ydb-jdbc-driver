@@ -32,7 +32,7 @@ import java.util.concurrent.TimeUnit;
 
 import javax.sql.rowset.serial.SerialBlob;
 
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -44,7 +44,6 @@ import org.opentest4j.MultipleFailuresError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import tech.ydb.jdbc.TestHelper;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbParameterMetaData;
@@ -54,6 +53,12 @@ import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
 import tech.ydb.jdbc.exception.YdbNonRetryableException;
 import tech.ydb.jdbc.exception.YdbRetryableException;
+import tech.ydb.jdbc.impl.helper.TestHelper;
+import tech.ydb.jdbc.impl.types.ArrayImpl;
+import tech.ydb.jdbc.impl.types.NClobImpl;
+import tech.ydb.jdbc.impl.types.RefImpl;
+import tech.ydb.jdbc.impl.types.RowIdImpl;
+import tech.ydb.jdbc.impl.types.SQLXMLImpl;
 import tech.ydb.table.values.DecimalType;
 import tech.ydb.table.values.DecimalValue;
 import tech.ydb.table.values.PrimitiveType;
@@ -66,9 +71,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static tech.ydb.jdbc.TestHelper.assertThrowsMsg;
-import static tech.ydb.jdbc.TestHelper.assertThrowsMsgLike;
 import static tech.ydb.jdbc.impl.AbstractYdbPreparedStatementImplTest.Pair.pair;
+import static tech.ydb.jdbc.impl.helper.StringTools.reader;
+import static tech.ydb.jdbc.impl.helper.StringTools.stream;
+import static tech.ydb.jdbc.impl.helper.TestHelper.assertThrowsMsg;
+import static tech.ydb.jdbc.impl.helper.TestHelper.assertThrowsMsgLike;
 
 public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest {
     protected final Logger logger = LoggerFactory.getLogger(getClass());
@@ -76,9 +83,9 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
     static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
     static final long MICROS_IN_DAY = TimeUnit.DAYS.toMicros(1);
 
-    @BeforeEach
-    void beforeEach() throws SQLException {
-        configureOnce(AbstractTest::recreatePreparedTestTable);
+    @BeforeAll
+    public static void beforeEach() throws SQLException {
+        recreatePreparedTestTable();
     }
 
     @Test
@@ -2607,32 +2614,18 @@ public abstract class AbstractYdbPreparedStatementImplTest extends AbstractTest 
     protected void retry(boolean cleanup, TestHelper.SQLRun run) throws SQLException {
         // TODO: must be external retry framework (but have to implement it first)
 
-        int maxRetry = 10;
-        int retry = 0;
-        while (true) {
-            YdbConnection connection = null;
-            try {
-                connection = getTestConnection();
+//        int maxRetry = 10;
+//        int retry = 0;
+//        while (true) {
+            try (YdbConnection connection = createTestConnection()) {
                 if (cleanup) {
                     deleteRows(connection);
                 }
                 run.run(connection);
-                return; // ---
-            } catch (Throwable e) {
-                if (shouldRetry(e)) {
-                    retry++;
-                    if (retry > maxRetry) {
-                        throw e;
-                    }
-                    logger.error("Retry #{}", retry, e);
-                    if (connection != null) {
-                        connection.close();
-                    }
-                } else {
-                    throw e;
-                }
+
+                connection.commit();
             }
-        }
+//        }
     }
 
     private static boolean shouldRetry(Throwable e) {

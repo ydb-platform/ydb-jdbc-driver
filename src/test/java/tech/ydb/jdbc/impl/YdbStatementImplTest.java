@@ -6,9 +6,10 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,23 +29,31 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static tech.ydb.jdbc.TestHelper.assertThrowsMsg;
-import static tech.ydb.jdbc.TestHelper.assertThrowsMsgLike;
-import static tech.ydb.jdbc.YdbIntegrationTest.SKIP_DOCKER_TESTS;
-import static tech.ydb.jdbc.YdbIntegrationTest.TRUE;
+import static tech.ydb.jdbc.impl.helper.TestHelper.assertThrowsMsg;
+import static tech.ydb.jdbc.impl.helper.TestHelper.assertThrowsMsgLike;
 
-@DisabledIfSystemProperty(named = SKIP_DOCKER_TESTS, matches = TRUE)
 class YdbStatementImplTest extends AbstractTest {
-    private static final Logger LOGGER = LoggerFactory.getLogger(YdbStatementImplTest.class);
+    private static final Logger logger = LoggerFactory.getLogger(YdbStatementImplTest.class);
 
     private YdbConnection connection;
     private YdbStatement statement;
 
+    @BeforeAll
+    public static void beforeAll() throws SQLException {
+        recreateSimpleTestTable();
+    }
+
     @BeforeEach
-    void beforeEach() throws SQLException {
-        this.connection = getTestConnection();
+    public void beforeEach() throws SQLException {
+        this.connection = createTestConnection();
         this.statement = connection.createStatement();
-        this.configureOnce(AbstractTest::recreateSimpleTestTable);
+    }
+
+    @AfterEach
+    public void afterEach() throws SQLException {
+        this.statement.close();
+        this.connection.commit();
+        this.connection.close();
     }
 
     @Test
@@ -119,11 +128,11 @@ class YdbStatementImplTest extends AbstractTest {
 
         // FOR TESTING PURPOSES
         ResultSetReader reader = rs.getYdbResultSetReader();
-        LOGGER.info("Reader: {}", reader);
+        logger.info("Reader: {}", reader);
         Field field = reader.getClass().getDeclaredField("resultSet");
         field.setAccessible(true);
 
-        LOGGER.info("Original proto object: {}", field.get(reader));
+        logger.info("Original proto object: {}", field.get(reader));
 
         assertTrue(rs.next());
         assertEquals(4, rs.getInt(1));
@@ -201,21 +210,21 @@ class YdbStatementImplTest extends AbstractTest {
         assertTrue(rs.next());
         assertNotNull(rs.getString(ast));
         assertNotNull(rs.getString(plan));
-        LOGGER.info("AST: {}", rs.getString(ast));
-        LOGGER.info("PLAN: {}", rs.getString(plan));
+        logger.info("AST: {}", rs.getString(ast));
+        logger.info("PLAN: {}", rs.getString(plan));
         assertFalse(rs.next());
 
         rs = statement.executeQuery("--jdbc:EXPLAIN\n" +
                 "upsert into unit_1(key, c_Text) values (1, '2')");
         assertTrue(rs.next());
-        LOGGER.info("AST: {}", rs.getString(ast));
-        LOGGER.info("PLAN: {}", rs.getString(plan));
+        logger.info("AST: {}", rs.getString(ast));
+        logger.info("PLAN: {}", rs.getString(plan));
         assertFalse(rs.next());
 
         rs = statement.executeExplainQuery("select * from unit_1");
         assertTrue(rs.next());
-        LOGGER.info("AST: {}", rs.getString(ast));
-        LOGGER.info("PLAN: {}", rs.getString(plan));
+        logger.info("AST: {}", rs.getString(ast));
+        logger.info("PLAN: {}", rs.getString(plan));
         assertFalse(rs.next());
     }
 

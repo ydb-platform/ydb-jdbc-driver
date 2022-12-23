@@ -15,10 +15,11 @@ import java.util.Properties;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -43,19 +44,28 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static tech.ydb.jdbc.TestHelper.assertThrowsMsg;
-import static tech.ydb.jdbc.TestHelper.assertThrowsMsgLike;
-import static tech.ydb.jdbc.YdbIntegrationTest.SKIP_DOCKER_TESTS;
-import static tech.ydb.jdbc.YdbIntegrationTest.TRUE;
+import static tech.ydb.jdbc.impl.helper.TestHelper.assertThrowsMsg;
+import static tech.ydb.jdbc.impl.helper.TestHelper.assertThrowsMsgLike;
 
-@DisabledIfSystemProperty(named = SKIP_DOCKER_TESTS, matches = TRUE)
-class YdbConnectionImplTest extends AbstractTest {
+public class YdbConnectionImplTest extends AbstractTest {
     private YdbConnection connection;
 
+    @BeforeAll
+    static void beforeEach() throws SQLException {
+        recreateSimpleTestTable();
+    }
+
     @BeforeEach
-    void beforeEach() throws SQLException {
-        connection = getTestConnection();
-        this.configureOnce(AbstractTest::recreateSimpleTestTable);
+    public void initTest() throws SQLException {
+        connection = createTestConnection();
+    }
+
+    @AfterEach
+    public void closeTest() throws SQLException {
+        if (!connection.isClosed()) {
+            connection.commit();
+            connection.close();
+        }
     }
 
     @Test
@@ -458,11 +468,7 @@ class YdbConnectionImplTest extends AbstractTest {
     void isValid() throws SQLException {
         assertTrue(connection.isValid(1));
         YdbDriver.getConnectionsCache().close();
-        try {
-            assertFalse(connection.isValid(1));
-        } finally {
-            connection = null;
-        }
+        assertFalse(connection.isValid(1));
     }
 
     @Test

@@ -3,22 +3,18 @@ package tech.ydb.jdbc.impl;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 
-import tech.ydb.jdbc.YdbConnection;
-import tech.ydb.jdbc.YdbPreparedStatement;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 
-import static tech.ydb.jdbc.TestHelper.assertThrowsMsg;
-import static tech.ydb.jdbc.TestHelper.stringFileReference;
-import static tech.ydb.jdbc.YdbIntegrationTest.SKIP_DOCKER_TESTS;
-import static tech.ydb.jdbc.YdbIntegrationTest.TRUE;
+import tech.ydb.jdbc.YdbConnection;
+import tech.ydb.jdbc.YdbPreparedStatement;
+import tech.ydb.jdbc.settings.YdbLookup;
 
-@DisabledIfSystemProperty(named = SKIP_DOCKER_TESTS, matches = TRUE)
+import static tech.ydb.jdbc.impl.helper.TestHelper.assertThrowsMsg;
+
 class YdbPreparedStatementWithDataQueryImplTest extends AbstractYdbPreparedStatementImplTest {
 
-    static final String PREPARE_ALL = stringFileReference("classpath:sql/prepare_all_values.sql");
+    static final String PREPARE_ALL = YdbLookup.stringFileReference("classpath:sql/prepare_all_values.sql");
 
     @Test
     void addBatch() throws SQLException {

@@ -8,29 +8,26 @@ import java.util.List;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.jdbc.exception.YdbNonRetryableException;
 import tech.ydb.jdbc.exception.YdbResultTruncatedException;
+import tech.ydb.jdbc.settings.YdbLookup;
 import tech.ydb.table.values.PrimitiveType;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static tech.ydb.jdbc.TestHelper.assertThrowsMsg;
-import static tech.ydb.jdbc.TestHelper.assertThrowsMsgLike;
-import static tech.ydb.jdbc.TestHelper.stringFileReference;
-import static tech.ydb.jdbc.YdbIntegrationTest.SKIP_DOCKER_TESTS;
-import static tech.ydb.jdbc.YdbIntegrationTest.TRUE;
+import static tech.ydb.jdbc.impl.helper.TestHelper.assertThrowsMsg;
+import static tech.ydb.jdbc.impl.helper.TestHelper.assertThrowsMsgLike;
 
-@DisabledIfSystemProperty(named = SKIP_DOCKER_TESTS, matches = TRUE)
 class YdbPreparedStatementImplTest extends AbstractYdbPreparedStatementImplTest {
 
-    static final String PREPARE_ALL = stringFileReference("classpath:sql/prepare_all_values_nullable.sql");
+    static final String PREPARE_ALL = YdbLookup.stringFileReference("classpath:sql/prepare_all_values_nullable.sql");
 
     @Test
+    @Override
     void executeRequired() throws SQLException {
         retry(connection ->
                 assertThrowsMsgLike(SQLException.class,
