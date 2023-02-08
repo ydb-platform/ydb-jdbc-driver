@@ -15,6 +15,9 @@ import java.util.function.Supplier;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
+import io.grpc.Context;
+import org.slf4j.Logger;
+
 import tech.ydb.core.Issue;
 import tech.ydb.core.Result;
 import tech.ydb.core.Status;
@@ -25,8 +28,6 @@ import tech.ydb.jdbc.exception.YdbNonRetryableException;
 import tech.ydb.jdbc.exception.YdbRetryableException;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.table.settings.RequestSettings;
-import io.grpc.Context;
-import org.slf4j.Logger;
 
 import static tech.ydb.jdbc.YdbConst.DATABASE_QUERY_INTERRUPTED;
 import static tech.ydb.jdbc.YdbConst.DATABASE_UNAVAILABLE;

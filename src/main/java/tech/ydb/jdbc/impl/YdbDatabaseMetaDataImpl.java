@@ -18,15 +18,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import javax.annotation.Nullable;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Strings;
-import com.google.common.base.Suppliers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,8 +34,6 @@ import tech.ydb.jdbc.YdbDatabaseMetaData;
 import tech.ydb.jdbc.YdbDriverInfo;
 import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.exception.YdbRuntimeException;
-import tech.ydb.jdbc.impl.YdbFunctions.Builtin;
-import tech.ydb.jdbc.impl.YdbFunctions.Udf;
 import tech.ydb.scheme.SchemeOperationProtos;
 import tech.ydb.scheme.description.ListDirectoryResult;
 import tech.ydb.table.description.TableColumn;
@@ -53,45 +48,6 @@ import static tech.ydb.jdbc.impl.MappingResultSets.stableMap;
 
 public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     private static final Logger LOGGER = LoggerFactory.getLogger(YdbDatabaseMetaDataImpl.class);
-
-    private static final Supplier<String> STRING_FUNCTIONS =
-            Suppliers.memoize(() -> Stream.of(
-                    Udf.Hyperscans.functions(),
-                    Udf.Pires.functions(),
-                    Udf.Re2s.functions(),
-                    Udf.Strings.functions(),
-                    Udf.Unicodes.functions(),
-                    Udf.Urls.functions(),
-                    Udf.Ips.functions(),
-                    Udf.Digests.functions(),
-                    Udf.Ysons.functions(),
-                    Builtin.Strings.functions())
-                    .flatMap(Collection::stream)
-                    .collect(Collectors.joining(","))
-            )::get;
-
-    private static final Supplier<String> NUMERIC_FUNCTIONS =
-            Suppliers.memoize(() -> Stream.of(
-                    Udf.Maths.functions(),
-                    Builtin.Numerics.functions())
-                    .flatMap(Collection::stream)
-                    .collect(Collectors.joining(","))
-            )::get;
-
-    private static final Supplier<String> SYSTEM_FUNCTIONS =
-            Suppliers.memoize(() -> Stream.of(
-                    Builtin.Systems.functions())
-                    .flatMap(Collection::stream)
-                    .collect(Collectors.joining(","))
-            )::get;
-
-    private static final Supplier<String> DATETIME_FUNCTIONS =
-            Suppliers.memoize(() -> Stream.of(
-                    Udf.DateTimes.functions(),
-                    Builtin.Dates.functions())
-                    .flatMap(Collection::stream)
-                    .collect(Collectors.joining(","))
-            )::get;
 
     static final String TABLE = "TABLE";
     static final String SYSTEM_TABLE = "SYSTEM TABLE";
@@ -245,22 +201,22 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     @Override
     public String getNumericFunctions() {
-        return NUMERIC_FUNCTIONS.get();
+        return YdbFunctions.NUMERIC_FUNCTIONS;
     }
 
     @Override
     public String getStringFunctions() {
-        return STRING_FUNCTIONS.get();
+        return YdbFunctions.STRING_FUNCTIONS;
     }
 
     @Override
     public String getSystemFunctions() {
-        return SYSTEM_FUNCTIONS.get();
+        return YdbFunctions.SYSTEM_FUNCTIONS;
     }
 
     @Override
     public String getTimeDateFunctions() {
-        return DATETIME_FUNCTIONS.get();
+        return YdbFunctions.DATETIME_FUNCTIONS;
     }
 
     @Override
@@ -745,13 +701,12 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
             return fromEmptyResultSet();
         }
 
-        String sysPrefix = ".sys/";
         List<Map<String, Object>> rows = listTables(tableNamePattern).stream()
                 .map(tableName -> stableMap(
                         "TABLE_CAT", null,
                         "TABLE_SCHEM", null,
                         "TABLE_NAME", tableName,
-                        "TABLE_TYPE", tableName.startsWith(sysPrefix) ? SYSTEM_TABLE : TABLE,
+                        "TABLE_TYPE", getTableType(tableName),
                         "REMARKS", null,
                         "TYPE_CAT", null,
                         "TYPE_SCHEM", null,
@@ -767,6 +722,13 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
                 .collect(Collectors.toList());
 
         return fromRows(rows);
+    }
+
+    private String getTableType(String tableName) {
+        if (tableName.startsWith(".sys/") || tableName.startsWith(".sys_health/")) {
+            return SYSTEM_TABLE;
+        }
+        return TABLE;
     }
 
     @Override
@@ -889,12 +851,18 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
                     Map<String, TableColumn> columnMap = tableDesc.getColumns().stream()
                             .collect(Collectors.toMap(TableColumn::getName, Function.identity()));
                     for (String key : tableDesc.getPrimaryKeys()) {
+
                         TableColumn column = columnMap.get(key);
+                        Type type = column.getType();
+                        if (type.getKind() == Type.Kind.OPTIONAL) {
+                            type = type.unwrapOptional();
+                        }
+
                         rows.add(stableMap(
-                                "SCOPE", scope,
+                                "SCOPE", (short)scope,
                                 "COLUMN_NAME", key,
-                                "DATA_TYPE", types.toSqlType(column.getType()),
-                                "TYPE_NAME", column.getType().toString(),
+                                "DATA_TYPE", types.toSqlType(type),
+                                "TYPE_NAME", type.toString(),
                                 "COLUMN_SIZE", 0,
                                 "BUFFER_LENGTH", 0,
                                 "DECIMAL_DIGITS", (short) 0, // unknown

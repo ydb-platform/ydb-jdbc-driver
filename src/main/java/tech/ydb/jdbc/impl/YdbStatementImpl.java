@@ -18,6 +18,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Function;
 
 import com.google.common.base.Preconditions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import tech.ydb.core.Issue;
 import tech.ydb.core.Result;
 import tech.ydb.core.Status;
@@ -39,8 +42,6 @@ import tech.ydb.table.settings.ExecuteScanQuerySettings;
 import tech.ydb.table.settings.ExecuteSchemeQuerySettings;
 import tech.ydb.table.settings.ExplainDataQuerySettings;
 import tech.ydb.table.transaction.TxControl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static tech.ydb.jdbc.YdbConst.AUTO_GENERATED_KEYS_UNSUPPORTED;
 import static tech.ydb.jdbc.YdbConst.CANNOT_UNWRAP_TO;
@@ -598,7 +599,7 @@ public class YdbStatementImpl implements YdbStatement {
         }
     }
 
-    interface DataQueryExecutor {
+    protected interface DataQueryExecutor {
         CompletableFuture<Result<DataQueryResult>> executeDataQuery(TxControl<?> txControl,
                                                                     Params params,
                                                                     ExecuteDataQuerySettings settings);

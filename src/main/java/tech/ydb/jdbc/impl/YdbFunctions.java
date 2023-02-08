@@ -875,4 +875,30 @@ public final class YdbFunctions {
         }
     }
 
+    public static final String STRING_FUNCTIONS = Stream.of(
+            Udf.Hyperscans.functions(),
+            Udf.Pires.functions(),
+            Udf.Re2s.functions(),
+            Udf.Strings.functions(),
+            Udf.Unicodes.functions(),
+            Udf.Urls.functions(),
+            Udf.Ips.functions(),
+            Udf.Digests.functions(),
+            Udf.Ysons.functions(),
+            Builtin.Strings.functions()
+    ).flatMap(Collection::stream).collect(Collectors.joining(","));
+
+    public static final String NUMERIC_FUNCTIONS = Stream.of(
+            Udf.Maths.functions(),
+            Builtin.Numerics.functions()
+    ).flatMap(Collection::stream).collect(Collectors.joining(","));
+
+    public static final String SYSTEM_FUNCTIONS = Stream.of(
+            Builtin.Systems.functions()
+    ).flatMap(Collection::stream).collect(Collectors.joining(","));
+
+    public static final String DATETIME_FUNCTIONS = Stream.of(
+            Udf.DateTimes.functions(),
+            Builtin.Dates.functions()
+    ).flatMap(Collection::stream).collect(Collectors.joining(","));
 }

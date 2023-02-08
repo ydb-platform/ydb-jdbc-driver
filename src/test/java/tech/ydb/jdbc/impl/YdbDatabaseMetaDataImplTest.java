@@ -1,37 +1,30 @@
 package tech.ydb.jdbc.impl;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.RowIdLifetime;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
-import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbDatabaseMetaData;
 import tech.ydb.jdbc.YdbDriverInfo;
 import tech.ydb.jdbc.YdbStatement;
-import tech.ydb.jdbc.exception.YdbConfigurationException;
-import tech.ydb.jdbc.settings.YdbLookup;
+import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
+import tech.ydb.jdbc.impl.helper.TableAssert;
+import tech.ydb.jdbc.impl.helper.TestConsts;
+import tech.ydb.test.junit5.YdbHelperExtention;
 
-import static java.sql.DatabaseMetaData.bestRowSession;
-import static java.sql.DatabaseMetaData.sqlStateSQL;
 import static java.sql.ResultSet.CLOSE_CURSORS_AT_COMMIT;
 import static java.sql.ResultSet.CONCUR_READ_ONLY;
 import static java.sql.ResultSet.CONCUR_UPDATABLE;
@@ -43,624 +36,224 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static tech.ydb.jdbc.impl.MappingResultSets.stableMap;
-import static tech.ydb.jdbc.impl.YdbDatabaseMetaDataImpl.SYSTEM_TABLE;
-import static tech.ydb.jdbc.impl.YdbDatabaseMetaDataImpl.TABLE;
-import static tech.ydb.jdbc.impl.helper.TestHelper.assertThrowsMsg;
 
-class YdbDatabaseMetaDataImplTest extends AbstractTest {
-    private static final Logger LOGGER = LoggerFactory.getLogger(YdbDatabaseMetaDataImplTest.class);
+public class YdbDatabaseMetaDataImplTest {
+    @RegisterExtension
+    private static final YdbHelperExtention ydb = new YdbHelperExtention();
 
-    private static final Gson GSON = new GsonBuilder()
-            .serializeNulls()
-            .setPrettyPrinting()
-            .create();
+    @RegisterExtension
+    private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb);
 
-    private YdbConnection connection;
-    private YdbDatabaseMetaData metaData;
+    private static final String TABLE_TYPE = "TABLE";
+    private static final String SYSTEM_TABLE_TYPE = "SYSTEM TABLE";
+
+    private static final String ALL_TYPES_TABLE = "all_types";
+    private static final String INDEXES_TABLE = "table_keys";
+
+    private DatabaseMetaData metaData;
+
+    @BeforeAll
+    public static void createTables() throws SQLException {
+        try (Statement statement = jdbc.connection().createStatement();) {
+            // create simple tables
+            statement.execute("--jdbc:SCHEME\n"
+                    + "create table t1 (id Int32, value Int32, primary key (id));\n"
+                    + "create table `dir1/t1` (id Int32, value Int32, primary key (id));\n"
+                    + "create table `dir1/t2` (id Int32, value Int32, primary key (id));\n"
+                    + "create table `dir2/t1` (id Int32, value Int32, primary key (id));\n"
+                    + "create table `dir2/dir1/t1` (id Int32, value Int32, primary key (id));\n"
+                    + "create table " + INDEXES_TABLE + "("
+                            + "key1 Int32, key2 Text, value1 Int32, value2 Text, value3 Int32, "
+                            + "primary key(key1, key2), "
+                            + "index idx_2 global on (value1, value2),"
+                            + "index idx_1 global on (value3));\n"
+                    + TestConsts.allTypesTable(ALL_TYPES_TABLE)
+            );
+        }
+    }
 
     @BeforeEach
-    public void beforeEach() throws SQLException {
-        connection = createTestConnection();
-        metaData = connection.getMetaData();
-//        configureOnce(AbstractTest::recreateSimpleTestTable);
-    }
-
-    @AfterEach
-    public void afterEach() throws SQLException {
-        connection.close();
+    public void loadMetaData() throws SQLException {
+        this.metaData = jdbc.connection().getMetaData();
     }
 
     @Test
-    void allProceduresAreCallable() throws SQLException {
-        assertFalse(metaData.allProceduresAreCallable());
+    public void isReadOnly() throws SQLException {
+        assertFalse(jdbc.connection().getMetaData().isReadOnly());
+        jdbc.connection().setTransactionIsolation(YdbConst.ONLINE_CONSISTENT_READ_ONLY);
+        assertTrue(jdbc.connection().getMetaData().isReadOnly());
     }
 
     @Test
-    void allTablesAreSelectable() throws SQLException {
-        assertTrue(metaData.allTablesAreSelectable());
-    }
+    public void jdbcConnectionTest() throws SQLException {
+        assertSame(jdbc.connection(), metaData.getConnection());
 
-    @Test
-    void getURL() throws SQLException {
         String url = metaData.getURL();
         assertNotNull(url);
-        assertEquals(jdbcURl(), url);
+        assertEquals(jdbc.jdbcURL(), url);
     }
 
     @Test
-    void getUserName() throws SQLException {
+    public void metaDataUnwrapTest() throws SQLException {
+        assertTrue(metaData.isWrapperFor(YdbDatabaseMetaData.class));
+        assertSame(metaData, metaData.unwrap(YdbDatabaseMetaData.class));
+
+        assertFalse(metaData.isWrapperFor(YdbStatement.class));
+
+        SQLException ex = assertThrows(SQLException.class, () -> metaData.unwrap(YdbStatement.class));
+        assertEquals("Cannot unwrap to interface tech.ydb.jdbc.YdbStatement", ex.getMessage());
+    }
+
+
+    @Test
+    public void metaDataValuesTest() throws SQLException {
+        assertFalse(metaData.allProceduresAreCallable());
+        assertTrue(metaData.allTablesAreSelectable());
         assertEquals("", metaData.getUserName());
-    }
-
-    @Test
-    void isReadOnly() throws SQLException {
-        assertFalse(metaData.isReadOnly());
-        connection.setTransactionIsolation(YdbConst.ONLINE_CONSISTENT_READ_ONLY);
-        assertTrue(metaData.isReadOnly());
-    }
-
-    @Test
-    void nullsAreSortedHigh() throws SQLException {
         assertTrue(metaData.nullsAreSortedHigh());
-    }
-
-    @Test
-    void nullsAreSortedLow() throws SQLException {
         assertFalse(metaData.nullsAreSortedLow());
-    }
-
-    @Test
-    void nullsAreSortedAtStart() throws SQLException {
         assertFalse(metaData.nullsAreSortedAtStart());
-    }
-
-    @Test
-    void nullsAreSortedAtEnd() throws SQLException {
         assertFalse(metaData.nullsAreSortedAtEnd());
-    }
-
-    @Test
-    void getDatabaseProductName() throws SQLException {
         assertEquals("YDB", metaData.getDatabaseProductName());
-    }
-
-    @Test
-    void getDatabaseProductVersion() throws SQLException {
         assertEquals("unspecified", metaData.getDatabaseProductVersion());
-    }
 
-    @Test
-    void getDriverName() throws SQLException {
         assertEquals(YdbDriverInfo.DRIVER_NAME, metaData.getDriverName());
-    }
-
-    @Test
-    void getDriverVersion() throws SQLException {
         assertEquals(YdbDriverInfo.DRIVER_VERSION, metaData.getDriverVersion());
+        assertEquals(YdbDriverInfo.DRIVER_MAJOR_VERSION, metaData.getDriverMajorVersion());
+        assertEquals(YdbDriverInfo.DRIVER_MINOR_VERSION, metaData.getDriverMinorVersion());
+
         if (YdbDriverInfo.DRIVER_MINOR_VERSION == 0) {
             assertEquals(YdbVersionCollector.LATEST_VERSION, metaData.getDriverVersion());
         } else {
             assertNotEquals(YdbVersionCollector.LATEST_VERSION, metaData.getDriverVersion());
         }
-    }
 
-    @Test
-    void getDriverMajorVersion() {
-        assertEquals(YdbDriverInfo.DRIVER_MAJOR_VERSION, metaData.getDriverMajorVersion());
-        assertEquals(2, metaData.getDriverMajorVersion());
-    }
+        assertEquals(0, metaData.getDatabaseMajorVersion());
+        assertEquals(0, metaData.getDatabaseMinorVersion());
 
-    @Test
-    void getDriverMinorVersion() {
-        assertEquals(YdbDriverInfo.DRIVER_MINOR_VERSION, metaData.getDriverMinorVersion());
-        assertTrue(metaData.getDriverMajorVersion() >= 0);
-    }
+        assertEquals(YdbDriverInfo.JDBC_MAJOR_VERSION, metaData.getJDBCMajorVersion());
+        assertEquals(YdbDriverInfo.JDBC_MINOR_VERSION, metaData.getJDBCMinorVersion());
 
-    @Test
-    void usesLocalFiles() throws SQLException {
         assertFalse(metaData.usesLocalFiles());
-    }
-
-    @Test
-    void usesLocalFilePerTable() throws SQLException {
         assertFalse(metaData.usesLocalFilePerTable());
-    }
-
-    @Test
-    void supportsMixedCaseIdentifiers() throws SQLException {
         assertTrue(metaData.supportsMixedCaseIdentifiers());
-    }
-
-    @Test
-    void storesUpperCaseIdentifiers() throws SQLException {
         assertFalse(metaData.storesUpperCaseIdentifiers());
-    }
-
-    @Test
-    void storesLowerCaseIdentifiers() throws SQLException {
         assertFalse(metaData.storesLowerCaseIdentifiers());
-    }
-
-    @Test
-    void storesMixedCaseIdentifiers() throws SQLException {
         assertTrue(metaData.storesMixedCaseIdentifiers());
-    }
-
-    @Test
-    void supportsMixedCaseQuotedIdentifiers() throws SQLException {
         assertTrue(metaData.supportsMixedCaseQuotedIdentifiers());
-    }
-
-    @Test
-    void storesUpperCaseQuotedIdentifiers() throws SQLException {
         assertFalse(metaData.storesUpperCaseQuotedIdentifiers());
-    }
-
-    @Test
-    void storesLowerCaseQuotedIdentifiers() throws SQLException {
         assertFalse(metaData.storesLowerCaseQuotedIdentifiers());
-    }
-
-    @Test
-    void storesMixedCaseQuotedIdentifiers() throws SQLException {
         assertTrue(metaData.storesMixedCaseQuotedIdentifiers());
-    }
 
-    @Test
-    void getIdentifierQuoteString() throws SQLException {
         assertEquals("`", metaData.getIdentifierQuoteString());
-    }
-
-    @Test
-    void getSQLKeywords() throws SQLException {
         assertEquals("", metaData.getSQLKeywords());
-    }
 
-    @Test
-    void getNumericFunctions() throws SQLException {
-        LOGGER.info("getNumericFunctions: {}", metaData.getNumericFunctions());
-        assertSame(metaData.getNumericFunctions(), metaData.getNumericFunctions());
-    }
+        assertSame(YdbFunctions.NUMERIC_FUNCTIONS, metaData.getNumericFunctions());
+        assertSame(YdbFunctions.STRING_FUNCTIONS, metaData.getStringFunctions());
+        assertSame(YdbFunctions.SYSTEM_FUNCTIONS, metaData.getSystemFunctions());
+        assertSame(YdbFunctions.DATETIME_FUNCTIONS, metaData.getTimeDateFunctions());
 
-    @Test
-    void getStringFunctions() throws SQLException {
-        LOGGER.info("getNumericFunctions: {}", metaData.getStringFunctions());
-        assertSame(metaData.getStringFunctions(), metaData.getStringFunctions());
-
-        assertNotEquals(metaData.getNumericFunctions(), metaData.getStringFunctions());
-    }
-
-    @Test
-    void getSystemFunctions() throws SQLException {
-        LOGGER.info("getSystemFunctions: {}", metaData.getSystemFunctions());
-        assertSame(metaData.getSystemFunctions(), metaData.getSystemFunctions());
-
-        assertNotEquals(metaData.getNumericFunctions(), metaData.getSystemFunctions());
         assertNotEquals(metaData.getStringFunctions(), metaData.getSystemFunctions());
-    }
-
-    @Test
-    void getTimeDateFunctions() throws SQLException {
-        LOGGER.info("getTimeDateFunctions: {}", metaData.getTimeDateFunctions());
-        assertSame(metaData.getTimeDateFunctions(), metaData.getTimeDateFunctions());
-
+        assertNotEquals(metaData.getStringFunctions(), metaData.getNumericFunctions());
+        assertNotEquals(metaData.getSystemFunctions(), metaData.getNumericFunctions());
         assertNotEquals(metaData.getNumericFunctions(), metaData.getTimeDateFunctions());
         assertNotEquals(metaData.getStringFunctions(), metaData.getTimeDateFunctions());
         assertNotEquals(metaData.getSystemFunctions(), metaData.getTimeDateFunctions());
-    }
 
-    @Test
-    void getSearchStringEscape() throws SQLException {
         assertEquals("\\", metaData.getSearchStringEscape());
-    }
-
-    @Test
-    void getExtraNameCharacters() throws SQLException {
         assertEquals("", metaData.getExtraNameCharacters());
-    }
-
-    @Test
-    void supportsAlterTableWithAddColumn() throws SQLException {
         assertTrue(metaData.supportsAlterTableWithAddColumn());
-    }
-
-    @Test
-    void supportsAlterTableWithDropColumn() throws SQLException {
         assertTrue(metaData.supportsAlterTableWithDropColumn());
-    }
-
-    @Test
-    void supportsColumnAliasing() throws SQLException {
         assertTrue(metaData.supportsColumnAliasing());
-    }
-
-    @Test
-    void nullPlusNonNullIsNull() throws SQLException {
         assertTrue(metaData.nullPlusNonNullIsNull());
-    }
-
-    @Test
-    void supportsConvert() throws SQLException {
         assertFalse(metaData.supportsConvert());
         assertFalse(metaData.supportsConvert(Types.INTEGER, Types.BIGINT));
-    }
-
-    @Test
-    void supportsTableCorrelationNames() throws SQLException {
         assertTrue(metaData.supportsTableCorrelationNames());
-    }
-
-    @Test
-    void supportsDifferentTableCorrelationNames() throws SQLException {
         assertFalse(metaData.supportsDifferentTableCorrelationNames());
-    }
-
-    @Test
-    void supportsExpressionsInOrderBy() throws SQLException {
         assertTrue(metaData.supportsExpressionsInOrderBy());
-    }
-
-    @Test
-    void supportsOrderByUnrelated() throws SQLException {
         assertFalse(metaData.supportsOrderByUnrelated());
-    }
 
-    @Test
-    void supportsGroupBy() throws SQLException {
         assertTrue(metaData.supportsGroupBy());
-    }
-
-    @Test
-    void supportsGroupByUnrelated() throws SQLException {
         assertTrue(metaData.supportsGroupByUnrelated());
-    }
-
-    @Test
-    void supportsGroupByBeyondSelect() throws SQLException {
         assertTrue(metaData.supportsGroupByBeyondSelect());
-    }
-
-    @Test
-    void supportsLikeEscapeClause() throws SQLException {
         assertTrue(metaData.supportsLikeEscapeClause());
-    }
-
-    @Test
-    void supportsMultipleResultSets() throws SQLException {
         assertTrue(metaData.supportsMultipleResultSets());
-    }
-
-    @Test
-    void supportsMultipleTransactions() throws SQLException {
         assertTrue(metaData.supportsMultipleTransactions());
-    }
 
-    @Test
-    void supportsNonNullableColumns() throws SQLException {
         assertFalse(metaData.supportsNonNullableColumns());
-    }
 
-    @Test
-    void supportsMinimumSQLGrammar() throws SQLException {
         assertTrue(metaData.supportsMinimumSQLGrammar());
-    }
-
-    @Test
-    void supportsCoreSQLGrammar() throws SQLException {
         assertFalse(metaData.supportsCoreSQLGrammar());
-    }
-
-    @Test
-    void supportsExtendedSQLGrammar() throws SQLException {
         assertFalse(metaData.supportsExtendedSQLGrammar());
-    }
-
-    @Test
-    void supportsANSI92EntryLevelSQL() throws SQLException {
         assertFalse(metaData.supportsANSI92EntryLevelSQL());
-    }
-
-    @Test
-    void supportsANSI92IntermediateSQL() throws SQLException {
         assertFalse(metaData.supportsANSI92IntermediateSQL());
-    }
-
-    @Test
-    void supportsANSI92FullSQL() throws SQLException {
         assertFalse(metaData.supportsANSI92FullSQL());
-    }
-
-    @Test
-    void supportsIntegrityEnhancementFacility() throws SQLException {
         assertFalse(metaData.supportsIntegrityEnhancementFacility());
-    }
-
-    @Test
-    void supportsOuterJoins() throws SQLException {
         assertTrue(metaData.supportsOuterJoins());
-    }
-
-    @Test
-    void supportsFullOuterJoins() throws SQLException {
         assertTrue(metaData.supportsFullOuterJoins());
-    }
-
-    @Test
-    void supportsLimitedOuterJoins() throws SQLException {
         assertTrue(metaData.supportsLimitedOuterJoins());
-    }
 
-    @Test
-    void getSchemaTerm() throws SQLException {
         assertEquals("Database", metaData.getSchemaTerm());
-    }
-
-    @Test
-    void getProcedureTerm() throws SQLException {
         assertEquals("", metaData.getProcedureTerm());
-    }
-
-    @Test
-    void getCatalogTerm() throws SQLException {
         assertEquals("Path", metaData.getCatalogTerm());
-    }
-
-    @Test
-    void isCatalogAtStart() throws SQLException {
         assertTrue(metaData.isCatalogAtStart());
-    }
-
-    @Test
-    void getCatalogSeparator() throws SQLException {
         assertEquals("/", metaData.getCatalogSeparator());
-    }
 
-    @Test
-    void supportsSchemasInDataManipulation() throws SQLException {
         assertFalse(metaData.supportsSchemasInDataManipulation());
-    }
-
-    @Test
-    void supportsSchemasInProcedureCalls() throws SQLException {
         assertFalse(metaData.supportsSchemasInProcedureCalls());
-    }
-
-    @Test
-    void supportsSchemasInTableDefinitions() throws SQLException {
         assertFalse(metaData.supportsSchemasInTableDefinitions());
-    }
-
-    @Test
-    void supportsSchemasInIndexDefinitions() throws SQLException {
         assertFalse(metaData.supportsSchemasInIndexDefinitions());
-    }
-
-    @Test
-    void supportsSchemasInPrivilegeDefinitions() throws SQLException {
         assertFalse(metaData.supportsSchemasInIndexDefinitions());
-    }
 
-    @Test
-    void supportsCatalogsInDataManipulation() throws SQLException {
         assertTrue(metaData.supportsCatalogsInDataManipulation());
-    }
-
-    @Test
-    void supportsCatalogsInProcedureCalls() throws SQLException {
         assertTrue(metaData.supportsCatalogsInProcedureCalls());
-    }
-
-    @Test
-    void supportsCatalogsInTableDefinitions() throws SQLException {
         assertTrue(metaData.supportsCatalogsInTableDefinitions());
-    }
-
-    @Test
-    void supportsCatalogsInIndexDefinitions() throws SQLException {
         assertTrue(metaData.supportsCatalogsInIndexDefinitions());
-    }
-
-    @Test
-    void supportsCatalogsInPrivilegeDefinitions() throws SQLException {
         assertTrue(metaData.supportsCatalogsInPrivilegeDefinitions());
-    }
 
-    @Test
-    void supportsPositionedDelete() throws SQLException {
         assertFalse(metaData.supportsPositionedDelete());
-    }
-
-    @Test
-    void supportsPositionedUpdate() throws SQLException {
         assertFalse(metaData.supportsPositionedUpdate());
-    }
-
-    @Test
-    void supportsSelectForUpdate() throws SQLException {
         assertFalse(metaData.supportsSelectForUpdate());
-    }
-
-    @Test
-    void supportsStoredProcedures() throws SQLException {
         assertFalse(metaData.supportsStoredProcedures());
-    }
 
-    @Test
-    void supportsSubqueriesInComparisons() throws SQLException {
         assertTrue(metaData.supportsSubqueriesInComparisons());
-    }
-
-    @Test
-    void supportsSubqueriesInExists() throws SQLException {
         assertTrue(metaData.supportsSubqueriesInExists());
-    }
-
-    @Test
-    void supportsSubqueriesInIns() throws SQLException {
         assertTrue(metaData.supportsSubqueriesInIns());
-    }
-
-    @Test
-    void supportsSubqueriesInQuantifieds() throws SQLException {
         assertTrue(metaData.supportsSubqueriesInQuantifieds());
-    }
-
-    @Test
-    void supportsCorrelatedSubqueries() throws SQLException {
         assertTrue(metaData.supportsCorrelatedSubqueries());
-    }
-
-    @Test
-    void supportsUnion() throws SQLException {
         assertFalse(metaData.supportsUnion());
-    }
-
-    @Test
-    void supportsUnionAll() throws SQLException {
         assertTrue(metaData.supportsUnionAll());
-    }
-
-    @Test
-    void supportsOpenCursorsAcrossCommit() throws SQLException {
         assertTrue(metaData.supportsOpenCursorsAcrossCommit());
-    }
-
-    @Test
-    void supportsOpenCursorsAcrossRollback() throws SQLException {
         assertTrue(metaData.supportsOpenCursorsAcrossRollback());
-    }
-
-    @Test
-    void supportsOpenStatementsAcrossCommit() throws SQLException {
         assertTrue(metaData.supportsOpenStatementsAcrossCommit());
-    }
-
-    @Test
-    void supportsOpenStatementsAcrossRollback() throws SQLException {
         assertTrue(metaData.supportsOpenStatementsAcrossRollback());
-    }
-
-    @Test
-    void getMaxBinaryLiteralLength() throws SQLException {
         assertEquals(YdbConst.MAX_COLUMN_SIZE, metaData.getMaxBinaryLiteralLength());
-    }
-
-    @Test
-    void getMaxCharLiteralLength() throws SQLException {
         assertEquals(YdbConst.MAX_COLUMN_SIZE, metaData.getMaxCharLiteralLength());
-    }
-
-    @Test
-    void getMaxColumnNameLength() throws SQLException {
         assertEquals(YdbConst.MAX_COLUMN_NAME_LENGTH, metaData.getMaxColumnNameLength());
-    }
-
-    @Test
-    void getMaxColumnsInGroupBy() throws SQLException {
         assertEquals(YdbConst.MAX_COLUMNS, metaData.getMaxColumnsInGroupBy());
-    }
-
-    @Test
-    void getMaxColumnsInIndex() throws SQLException {
         assertEquals(YdbConst.MAX_COLUMNS_IN_PRIMARY_KEY, metaData.getMaxColumnsInIndex());
-    }
-
-    @Test
-    void getMaxColumnsInOrderBy() throws SQLException {
         assertEquals(YdbConst.MAX_COLUMNS, metaData.getMaxColumnsInOrderBy());
-    }
-
-    @Test
-    void getMaxColumnsInSelect() throws SQLException {
         assertEquals(YdbConst.MAX_COLUMNS, metaData.getMaxColumnsInSelect());
-    }
-
-    @Test
-    void getMaxColumnsInTable() throws SQLException {
         assertEquals(YdbConst.MAX_COLUMNS, metaData.getMaxColumnsInTable());
-    }
-
-    @Test
-    void getMaxConnections() throws SQLException {
         assertEquals(YdbConst.MAX_CONNECTIONS, metaData.getMaxConnections());
-    }
-
-    @Test
-    void getMaxCursorNameLength() throws SQLException {
         assertEquals(YdbConst.MAX_ELEMENT_NAME_LENGTH, metaData.getMaxCursorNameLength());
-    }
-
-    @Test
-    void getMaxIndexLength() throws SQLException {
         assertEquals(YdbConst.MAX_PRIMARY_KEY_SIZE, metaData.getMaxIndexLength());
-    }
-
-    @Test
-    void getMaxSchemaNameLength() throws SQLException {
         assertEquals(YdbConst.MAX_ELEMENT_NAME_LENGTH, metaData.getMaxSchemaNameLength());
-    }
-
-    @Test
-    void getMaxProcedureNameLength() throws SQLException {
         assertEquals(YdbConst.MAX_ELEMENT_NAME_LENGTH, metaData.getMaxProcedureNameLength());
-    }
-
-    @Test
-    void getMaxCatalogNameLength() throws SQLException {
         assertEquals(YdbConst.MAX_ELEMENT_NAME_LENGTH, metaData.getMaxCatalogNameLength());
-    }
-
-    @Test
-    void getMaxRowSize() throws SQLException {
         assertEquals(YdbConst.MAX_ROW_SIZE, metaData.getMaxRowSize());
-    }
-
-    @Test
-    void doesMaxRowSizeIncludeBlobs() throws SQLException {
         assertTrue(metaData.doesMaxRowSizeIncludeBlobs());
-    }
-
-    @Test
-    void getMaxStatementLength() throws SQLException {
         assertEquals(YdbConst.MAX_STATEMENT_LENGTH, metaData.getMaxStatementLength());
-    }
-
-    @Test
-    void getMaxStatements() throws SQLException {
         assertEquals(0, metaData.getMaxStatements());
-    }
-
-    @Test
-    void getMaxTableNameLength() throws SQLException {
         assertEquals(YdbConst.MAX_ELEMENT_NAME_LENGTH, metaData.getMaxTableNameLength());
-    }
-
-    @Test
-    void getMaxTablesInSelect() throws SQLException {
         assertEquals(0, metaData.getMaxStatements());
-    }
-
-    @Test
-    void getMaxUserNameLength() throws SQLException {
         assertEquals(YdbConst.MAX_ELEMENT_NAME_LENGTH, metaData.getMaxTableNameLength());
-    }
-
-    @Test
-    void getDefaultTransactionIsolation() throws SQLException {
         assertEquals(YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE, metaData.getDefaultTransactionIsolation());
-    }
 
-    @Test
-    void supportsTransactions() throws SQLException {
         assertTrue(metaData.supportsTransactions());
-    }
-
-    @Test
-    void supportsTransactionIsolationLevel() throws SQLException {
         assertTrue(metaData.supportsTransactionIsolationLevel(YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE));
         assertTrue(metaData.supportsTransactionIsolationLevel(YdbConst.ONLINE_CONSISTENT_READ_ONLY));
         assertTrue(metaData.supportsTransactionIsolationLevel(YdbConst.ONLINE_INCONSISTENT_READ_ONLY));
@@ -668,633 +261,448 @@ class YdbDatabaseMetaDataImplTest extends AbstractTest {
 
         assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_UNCOMMITTED));
         assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_NONE));
-    }
 
-    @Test
-    void supportsDataDefinitionAndDataManipulationTransactions() throws SQLException {
         assertTrue(metaData.supportsDataDefinitionAndDataManipulationTransactions());
-    }
-
-    @Test
-    void supportsDataManipulationTransactionsOnly() throws SQLException {
         assertTrue(metaData.supportsDataManipulationTransactionsOnly());
-    }
-
-    @Test
-    void dataDefinitionCausesTransactionCommit() throws SQLException {
         assertFalse(metaData.dataDefinitionCausesTransactionCommit());
-    }
-
-    @Test
-    void dataDefinitionIgnoredInTransactions() throws SQLException {
         assertTrue(metaData.dataDefinitionIgnoredInTransactions());
-    }
 
-    @Test
-    void getProcedures() throws SQLException {
-        checkNoResult(metaData.getProcedures(null, null, null));
-    }
-
-    @Test
-    void getProcedureColumns() throws SQLException {
-        checkNoResult(metaData.getProcedureColumns(null, null, null, null));
-    }
-
-    @Test
-    void getTables() throws SQLException {
-        YdbStatement statement = connection.createStatement();
-        statement.executeSchemeQuery("create table t1 (id Int32, value Int32, primary key (id))");
-        statement.executeSchemeQuery("create table `dir1/t1` (id Int32, value Int32, primary key (id))");
-        statement.executeSchemeQuery("create table `dir1/t2` (id Int32, value Int32, primary key (id))");
-        statement.executeSchemeQuery("create table `dir2/t1` (id Int32, value Int32, primary key (id))");
-        statement.executeSchemeQuery("create table `dir2/dir1/t1` (id Int32, value Int32, primary key (id))");
-
-        ResultSetData<Map<String, Map<String, Map<String, Object>>>> allSet =
-                collectTables(metaData.getTables(null, null, null, null));
-        Set<String> expectTableNames = set(
-                "t1",
-                "dir1/t1",
-                "dir1/t2",
-                "dir2/t1",
-                "dir2/dir1/t1");
-
-        Map<String, Map<String, Object>> tables = allSet.rows.get(TABLE);
-        assertTrue(tables.keySet().containsAll(expectTableNames),
-                () -> tables.keySet() + " must contains all elements of " + expectTableNames);
-
-        Map<String, Map<String, Object>> expectTables = new LinkedHashMap<>(tables);
-        expectTables.keySet().removeIf(name -> !expectTableNames.contains(name));
-
-        checkResultSet("expect_tables", new ResultSetData<>(allSet.metadata, expectTables));
-
-        Map<String, Map<String, Object>> systemTables = allSet.rows.get(SYSTEM_TABLE);
-        assertNotEquals(Collections.emptySet(), systemTables);
-        //
-
-        ResultSetData<Map<String, Map<String, Map<String, Object>>>> tablesOnly =
-                collectTables(metaData.getTables(null, null, null, new String[]{TABLE}));
-        assertEquals(allSet.metadata, tablesOnly.metadata);
-        assertEquals(allSet.rows.get(TABLE), tablesOnly.rows.get(TABLE));
-        assertNull(tablesOnly.rows.get(SYSTEM_TABLE));
-
-        ResultSetData<Map<String, Map<String, Map<String, Object>>>> systemTablesOnly =
-                collectTables(metaData.getTables(null, null, null, new String[]{SYSTEM_TABLE}));
-        assertEquals(allSet.metadata, systemTablesOnly.metadata);
-        assertNull(systemTablesOnly.rows.get(TABLE));
-        assertEquals(allSet.rows.get(SYSTEM_TABLE), systemTablesOnly.rows.get(SYSTEM_TABLE));
-
-        ResultSetData<Map<String, Map<String, Map<String, Object>>>> allSetExact =
-                collectTables(metaData.getTables(null, null, null, new String[]{TABLE, "some string", SYSTEM_TABLE}));
-        assertEquals(allSet, allSetExact);
-
-        ResultSetData<Map<String, Map<String, Map<String, Object>>>> nameOnly =
-                collectTables(metaData.getTables(null, null, "dir1/t1", new String[]{TABLE}));
-        assertEquals(allSet.metadata, nameOnly.metadata);
-        assertEquals(set("dir1/t1"), nameOnly.rows.get(TABLE).keySet());
-        assertNull(nameOnly.rows.get(SYSTEM_TABLE));
-
-        ResultSetData<Map<String, Map<String, Map<String, Object>>>> nameOnlyButSystem =
-                collectTables(metaData.getTables(null, null, "dir1/t1", new String[]{SYSTEM_TABLE}));
-        checkEmptyMap(nameOnlyButSystem);
-
-    }
-
-    @Test
-    void getTablesEmpty() throws SQLException {
-        checkEmptyMap(collectTables(metaData.getTables("-", null, null, null)));
-        checkEmptyMap(collectTables(metaData.getTables(null, "-", null, null)));
-        checkEmptyMap(collectTables(metaData.getTables(null, "-", "unknown-table", null)));
-        checkEmptyMap(collectTables(metaData.getTables(null, "-", null, new String[]{"U-1"})));
-        checkEmptyMap(collectTables(metaData.getTables(null, "-", null, new String[0])));
-    }
-
-    @Test
-    void getSchemas() throws SQLException {
-        checkNoResult(metaData.getSchemas());
-    }
-
-    @Test
-    void getCatalogs() throws SQLException {
-        checkNoResult(metaData.getCatalogs());
-    }
-
-    @Test
-    void getTableTypes() throws SQLException {
-        ResultSetData<List<Map<String, Object>>> schemas = collectResultSet(metaData.getTableTypes());
-        checkResultSet("table_types", schemas);
-    }
-
-    @Test
-    void getColumns() throws SQLException {
-        String singleTable = "unit_1";
-        ResultSetData<Map<String, Map<String, Map<String, Object>>>> singleTableColumns =
-                collectColumns(metaData.getColumns(null, null, singleTable, null));
-        assertEquals(set(singleTable), singleTableColumns.rows.keySet());
-
-        Map<String, Map<String, Object>> expectColumns = singleTableColumns.rows.get(singleTable);
-        // GSON cannot deserialize numbers as integer/short, so let's compare objects as string
-
-        // TODO: temporary until complete migration with docker
-        checkResultSet("unit_1_columns", singleValue(singleTableColumns, singleTable), true);
-
-        ResultSetData<Map<String, Map<String, Map<String, Object>>>> allColumns =
-                collectColumns(metaData.getColumns(null, null, null, null));
-        assertEquals(singleTableColumns.metadata, allColumns.metadata);
-        assertEquals(expectColumns, allColumns.rows.get(singleTable));
-
-        String testColumn = "c_JsonDocument";
-        ResultSetData<Map<String, Map<String, Map<String, Object>>>> singleColumn =
-                collectColumns(metaData.getColumns(null, null, singleTable, testColumn));
-        assertEquals(set(testColumn), singleColumn.rows.get(singleTable).keySet());
-        assertEquals(allColumns.metadata, singleColumn.metadata);
-        assertEquals(expectColumns.get(testColumn),
-                singleColumn.rows.get(singleTable).get(testColumn));
-    }
-
-    @Test
-    void getColumnsEmpty() throws SQLException {
-        checkEmptyMap(collectColumns(metaData.getColumns("-", null, null, null)));
-        checkEmptyMap(collectColumns(metaData.getColumns(null, "-", null, null)));
-        checkEmptyMap(collectColumns(metaData.getColumns(null, "-", "unknown-table", null)));
-        checkEmptyMap(collectColumns(metaData.getColumns(null, "-", null, "x-column-unknown")));
-    }
-
-    @Test
-    void getColumnPrivileges() throws SQLException {
-        checkNoResult(metaData.getColumnPrivileges(null, null, null, null));
-    }
-
-    @Test
-    void getTablePrivileges() throws SQLException {
-        checkNoResult(metaData.getTablePrivileges(null, null, null));
-    }
-
-    @Test
-    void getBestRowIdentifier() throws SQLException {
-        String singleTable = "unit_1";
-        ResultSetData<List<Map<String, Object>>> table1 =
-                collectResultSet(metaData.getBestRowIdentifier(null, null, singleTable, bestRowSession, true));
-        checkResultSet("unit_1_best_row", table1);
-    }
-
-    @Test
-    void getBestRowIdentifierEmpty() throws SQLException {
-        String singleTable = "unit_1";
-
-        checkEmptyList(collectResultSet(metaData.getBestRowIdentifier("-", null, null, bestRowSession, true)));
-        checkEmptyList(collectResultSet(metaData.getBestRowIdentifier(null, "-", null, bestRowSession, true)));
-        checkEmptyList(collectResultSet(metaData.getBestRowIdentifier(null, null, "-", bestRowSession, true)));
-
-        // expect exact column name
-        checkEmptyList(collectResultSet(metaData.getBestRowIdentifier(null, null, null, bestRowSession, true)));
-
-        // only nullable columns supported
-        checkEmptyList(collectResultSet(metaData.getBestRowIdentifier(null, null, singleTable, bestRowSession, false)));
-
-    }
-
-    @Test
-    void getVersionColumns() throws SQLException {
-        checkNoResult(metaData.getVersionColumns(null, null, null));
-    }
-
-    @Test
-    void getPrimaryKeys() throws SQLException {
-        createTestTable("unit_1_multi_pk",
-                "create table ${tableName} (key1 Int32, key2 Utf8, value Int32, primary key(key1, key2))");
-
-        String singleTable1 = "unit_1";
-        String singleTableMpk1 = "unit_1_multi_pk";
-
-        ResultSetData<Map<String, Map<String, Map<String, Object>>>> columns1 =
-                collectPrimaryKeys(metaData.getPrimaryKeys(null, null, singleTable1));
-        assertEquals(set(singleTable1), columns1.rows.keySet());
-        checkResultSet("unit_1_primary_keys", singleValue(columns1, singleTable1));
-
-        ResultSetData<Map<String, Map<String, Map<String, Object>>>> columnsMpk1 =
-                collectPrimaryKeys(metaData.getPrimaryKeys(null, null, singleTableMpk1));
-        assertEquals(set(singleTableMpk1), columnsMpk1.rows.keySet());
-        checkResultSet("unit_1_multi_pk_primary_keys", singleValue(columnsMpk1, singleTableMpk1));
-
-        assertEquals(columns1.metadata, columnsMpk1.metadata);
-    }
-
-    @Test
-    void getPrimaryKeysEmpty() throws SQLException {
-        checkEmptyMap(collectPrimaryKeys(metaData.getPrimaryKeys("-", null, null)));
-        checkEmptyMap(collectPrimaryKeys(metaData.getPrimaryKeys(null, "-", null)));
-        checkEmptyMap(collectPrimaryKeys(metaData.getPrimaryKeys(null, null, "-")));
-
-        // table name is a must
-        checkEmptyMap(collectPrimaryKeys(metaData.getPrimaryKeys(null, null, null)));
-    }
-
-    @Test
-    void getImportedKeys() throws SQLException {
-        checkNoResult(metaData.getImportedKeys(null, null, null));
-    }
-
-    @Test
-    void getExportedKeys() throws SQLException {
-        checkNoResult(metaData.getExportedKeys(null, null, null));
-    }
-
-    @Test
-    void getCrossReference() throws SQLException {
-        checkNoResult(metaData.getCrossReference(null, null, null, null, null, null));
-    }
-
-    @Test
-    void getTypeInfo() throws SQLException {
-        ResultSetData<List<Map<String, Object>>> types = collectResultSet(metaData.getTypeInfo());
-        checkResultSet("types", types);
-    }
-
-    @Test
-    void getIndexInfo() throws SQLException {
-        createTestTable("unit_1_multi_idx",
-                "create table ${tableName} (key1 Int32, key2 Text, value1 Int32, value2 Text, value3 Int32, " +
-                        "primary key(key1, key2), " +
-                        "index idx_2 global on (value1, value2)," +
-                        "index idx_1 global on (value3))");
-
-        String singleTable1 = "unit_1";
-        String singleTableMpi1 = "unit_1_multi_idx";
-
-        ResultSetData<Map<String, List<Map<String, Object>>>> columns1 =
-                collectIndexes(metaData.getIndexInfo(null, null, singleTable1, false, false));
-        checkEmptyMap(columns1);
-
-        ResultSetData<Map<String, List<Map<String, Object>>>> columnsMpi1 =
-                collectIndexes(metaData.getIndexInfo(null, null, singleTableMpi1, false, false));
-        assertEquals(set(singleTableMpi1), columnsMpi1.rows.keySet());
-        checkResultSet("unit_1_multi_idx_indexes", singleValue(columnsMpi1, singleTableMpi1));
-    }
-
-    @Test
-    void getIndexInfoEmpty() throws SQLException {
-        checkEmptyMap(collectIndexes(metaData.getIndexInfo("-", null, null, false, false)));
-        checkEmptyMap(collectIndexes(metaData.getIndexInfo(null, "-", null, false, false)));
-        checkEmptyMap(collectIndexes(metaData.getIndexInfo(null, null, "-", false, false)));
-
-        // no unique indexes
-        checkEmptyMap(collectIndexes(metaData.getIndexInfo(null, null, null, true, false)));
-
-        // table name is a must
-        checkEmptyMap(collectIndexes(metaData.getIndexInfo(null, null, null, false, false)));
-    }
-
-    @Test
-    void supportsResultSetType() throws SQLException {
         assertTrue(metaData.supportsResultSetType(TYPE_FORWARD_ONLY));
         assertTrue(metaData.supportsResultSetType(TYPE_SCROLL_INSENSITIVE));
 
         assertFalse(metaData.supportsResultSetType(TYPE_SCROLL_SENSITIVE));
-    }
 
-    @Test
-    void supportsResultSetConcurrency() throws SQLException {
         assertTrue(metaData.supportsResultSetConcurrency(TYPE_FORWARD_ONLY, CONCUR_READ_ONLY));
         assertTrue(metaData.supportsResultSetConcurrency(TYPE_SCROLL_INSENSITIVE, CONCUR_READ_ONLY));
 
         assertFalse(metaData.supportsResultSetConcurrency(TYPE_SCROLL_SENSITIVE, CONCUR_READ_ONLY));
         assertFalse(metaData.supportsResultSetConcurrency(TYPE_FORWARD_ONLY, CONCUR_UPDATABLE));
         assertFalse(metaData.supportsResultSetConcurrency(TYPE_SCROLL_INSENSITIVE, CONCUR_UPDATABLE));
-    }
 
-    @Test
-    void ownUpdatesAreVisible() throws SQLException {
         assertFalse(metaData.ownUpdatesAreVisible(TYPE_SCROLL_INSENSITIVE));
-    }
-
-    @Test
-    void ownDeletesAreVisible() throws SQLException {
         assertFalse(metaData.ownDeletesAreVisible(TYPE_SCROLL_INSENSITIVE));
-    }
-
-    @Test
-    void ownInsertsAreVisible() throws SQLException {
         assertFalse(metaData.ownInsertsAreVisible(TYPE_SCROLL_INSENSITIVE));
-    }
-
-    @Test
-    void othersUpdatesAreVisible() throws SQLException {
         assertFalse(metaData.othersUpdatesAreVisible(TYPE_SCROLL_INSENSITIVE));
-    }
-
-    @Test
-    void othersDeletesAreVisible() throws SQLException {
         assertFalse(metaData.othersDeletesAreVisible(TYPE_SCROLL_INSENSITIVE));
-    }
-
-    @Test
-    void othersInsertsAreVisible() throws SQLException {
         assertFalse(metaData.othersInsertsAreVisible(TYPE_SCROLL_INSENSITIVE));
-    }
-
-    @Test
-    void updatesAreDetected() throws SQLException {
         assertFalse(metaData.updatesAreDetected(TYPE_SCROLL_INSENSITIVE));
-    }
-
-    @Test
-    void deletesAreDetected() throws SQLException {
         assertFalse(metaData.deletesAreDetected(TYPE_SCROLL_INSENSITIVE));
-    }
-
-    @Test
-    void insertsAreDetected() throws SQLException {
         assertFalse(metaData.insertsAreDetected(TYPE_SCROLL_INSENSITIVE));
-    }
 
-    @Test
-    void supportsBatchUpdates() throws SQLException {
         assertTrue(metaData.supportsBatchUpdates());
-    }
-
-    @Test
-    void getUDTs() throws SQLException {
-        checkNoResult(metaData.getUDTs(null, null, null, null));
-    }
-
-    @Test
-    void getConnection() throws SQLException {
-        assertSame(connection, metaData.getConnection());
-    }
-
-    @Test
-    void supportsSavepoints() throws SQLException {
         assertFalse(metaData.supportsSavepoints());
-    }
-
-    @Test
-    void supportsNamedParameters() throws SQLException {
         assertFalse(metaData.supportsNamedParameters());
-    }
-
-    @Test
-    void supportsMultipleOpenResults() throws SQLException {
         assertFalse(metaData.supportsMultipleOpenResults());
-    }
-
-    @Test
-    void supportsGetGeneratedKeys() throws SQLException {
         assertFalse(metaData.supportsGetGeneratedKeys());
-    }
+        assertFalse(metaData.generatedKeyAlwaysReturned());
 
-    @Test
-    void getSuperTypes() throws SQLException {
-        checkNoResult(metaData.getSuperTypes(null, null, null));
-    }
-
-    @Test
-    void getSuperTables() throws SQLException {
-        checkNoResult(metaData.getSuperTables(null, null, null));
-    }
-
-    @Test
-    void getAttributes() throws SQLException {
-        checkNoResult(metaData.getAttributes(null, null, null, null));
-    }
-
-    @Test
-    void supportsResultSetHoldability() throws SQLException {
         assertTrue(metaData.supportsResultSetHoldability(HOLD_CURSORS_OVER_COMMIT));
         assertFalse(metaData.supportsResultSetHoldability(CLOSE_CURSORS_AT_COMMIT));
-    }
-
-    @Test
-    void getResultSetHoldability() throws SQLException {
         assertEquals(HOLD_CURSORS_OVER_COMMIT, metaData.getResultSetHoldability());
-    }
 
-    @Test
-    void getDatabaseMajorVersion() throws SQLException {
-        assertEquals(0, metaData.getDatabaseMajorVersion());
-    }
-
-    @Test
-    void getDatabaseMinorVersion() throws SQLException {
-        assertEquals(0, metaData.getDatabaseMinorVersion());
-    }
-
-    @Test
-    void getJDBCMajorVersion() throws SQLException {
-        assertEquals(YdbDriverInfo.JDBC_MAJOR_VERSION, metaData.getJDBCMajorVersion());
-    }
-
-    @Test
-    void getJDBCMinorVersion() throws SQLException {
-        assertEquals(YdbDriverInfo.JDBC_MINOR_VERSION, metaData.getJDBCMinorVersion());
-    }
-
-    @Test
-    void getSQLStateType() throws SQLException {
-        assertEquals(sqlStateSQL, metaData.getSQLStateType());
-    }
-
-    @Test
-    void locatorsUpdateCopy() throws SQLException {
+        assertEquals(DatabaseMetaData.sqlStateSQL, metaData.getSQLStateType());
         assertFalse(metaData.locatorsUpdateCopy());
-    }
-
-    @Test
-    void supportsStatementPooling() throws SQLException {
         assertTrue(metaData.supportsStatementPooling());
-    }
 
-    @Test
-    void getRowIdLifetime() throws SQLException {
         assertEquals(RowIdLifetime.ROWID_UNSUPPORTED, metaData.getRowIdLifetime());
-    }
 
-    @Test
-    void supportsStoredFunctionsUsingCallSyntax() throws SQLException {
         assertFalse(metaData.supportsStoredFunctionsUsingCallSyntax());
-    }
-
-    @Test
-    void autoCommitFailureClosesAllResultSets() throws SQLException {
         assertFalse(metaData.autoCommitFailureClosesAllResultSets());
     }
 
     @Test
-    void getClientInfoProperties() throws SQLException {
-        checkNoResult(metaData.getClientInfoProperties());
+    public void unsupportedListsTest() throws SQLException {
+        TableAssert.assertEmpty(metaData.getAttributes(null, null, null, null));
+        TableAssert.assertEmpty(metaData.getClientInfoProperties());
+
+        TableAssert.assertEmpty(metaData.getSchemas());
+        TableAssert.assertEmpty(metaData.getCatalogs());
+
+        TableAssert.assertEmpty(metaData.getProcedures(null, null, null));
+        TableAssert.assertEmpty(metaData.getProcedureColumns(null, null, null, null));
+
+        TableAssert.assertEmpty(metaData.getSuperTypes(null, null, null));
+        TableAssert.assertEmpty(metaData.getSuperTables(null, null, null));
+
+        TableAssert.assertEmpty(metaData.getFunctions(null, null, null));
+        TableAssert.assertEmpty(metaData.getFunctionColumns(null, null, null, null));
+
+        TableAssert.assertEmpty(metaData.getPseudoColumns(null, null, null, null));
+        TableAssert.assertEmpty(metaData.getVersionColumns(null, null, null));
+
+        TableAssert.assertEmpty(metaData.getUDTs(null, null, null, null));
+
+        TableAssert.assertEmpty(metaData.getImportedKeys(null, null, null));
+        TableAssert.assertEmpty(metaData.getExportedKeys(null, null, null));
+
+        TableAssert.assertEmpty(metaData.getCrossReference(null, null, null, null, null, null));
+
+        TableAssert.assertEmpty(metaData.getColumnPrivileges(null, null, null, null));
+        TableAssert.assertEmpty(metaData.getTablePrivileges(null, null, null));
     }
 
     @Test
-    void getFunctions() throws SQLException {
-        checkNoResult(metaData.getFunctions(null, null, null));
+    public void getTableTypes() throws SQLException {
+        TableAssert types = new TableAssert();
+        TableAssert.TextColumn tableType = types.addTextColumn("TABLE_TYPE", "Text");
+
+        types.check(metaData.getTableTypes())
+                .assertMetaColumns()
+                .nextRow(tableType.eq(TABLE_TYPE)).assertAll()
+                .nextRow(tableType.eq(SYSTEM_TABLE_TYPE)).assertAll()
+                .assertNoRows();
     }
 
     @Test
-    void getFunctionColumns() throws SQLException {
-        checkNoResult(metaData.getFunctionColumns(null, null, null, null));
+    public void getTypeInfo() throws SQLException {
+        short searchNone = (short)DatabaseMetaData.typePredNone;
+        short searchBasic = (short)DatabaseMetaData.typePredBasic;
+        short searchFull = (short)DatabaseMetaData.typeSearchable;
+
+        TableAssert types = new TableAssert();
+        TableAssert.TextColumn name = types.addTextColumn("TYPE_NAME", "Text");
+        TableAssert.IntColumn type = types.addIntColumn("DATA_TYPE", "Int32");
+        TableAssert.IntColumn precision = types.addIntColumn("PRECISION", "Int32");
+        TableAssert.TextColumn prefix = types.addTextColumn("LITERAL_PREFIX", "Text").defaultNull();
+        TableAssert.TextColumn suffix = types.addTextColumn("LITERAL_SUFFIX", "Text").defaultNull();
+        /* createParams = */types.addTextColumn("CREATE_PARAMS", "Text").defaultNull();
+        /* nullable = */types.addIntColumn("NULLABLE", "Int32").defaultValue(DatabaseMetaData.typeNullable);
+        /* caseSensitive = */types.addBoolColumn("CASE_SENSITIVE", "Bool").defaultValue(true);
+        TableAssert.ShortColumn searchable = types.addShortColumn("SEARCHABLE", "Int16").defaultValue(searchBasic);
+        TableAssert.BoolColumn unsigned = types.addBoolColumn("UNSIGNED_ATTRIBUTE", "Bool");
+        TableAssert.BoolColumn fixedPrec = types.addBoolColumn("FIXED_PREC_SCALE", "Bool").defaultValue(false);
+        /* autoIncrement = */types.addBoolColumn("AUTO_INCREMENT", "Bool").defaultValue(false);
+        /* localName = */types.addTextColumn("LOCAL_TYPE_NAME", "Text").defaultNull();
+        TableAssert.IntColumn minScale = types.addIntColumn("MINIMUM_SCALE", "Int32").defaultValue(0);
+        TableAssert.IntColumn maxScale = types.addIntColumn("MAXIMUM_SCALE", "Int32").defaultValue(0);
+        /* sqlDataType = */types.addIntColumn("SQL_DATA_TYPE", "Int32").defaultValue(0);
+        /* sqlDatetimeSub = */types.addIntColumn("SQL_DATETIME_SUB", "Int32").defaultValue(0);
+        /* numPrecRadix = */types.addIntColumn("NUM_PREC_RADIX", "Int32").defaultValue(10);
+
+        TableAssert.ResultSetAssert rs = types.check(metaData.getTypeInfo())
+                .assertMetaColumns();
+
+        rs.nextRow(name.eq("Int64"), type.eq(Types.BIGINT), precision.eq(8), unsigned.eq(false)).assertAll();
+        rs.nextRow(name.eq("Uint32"), type.eq(Types.BIGINT), precision.eq(4), unsigned.eq(true)).assertAll();
+        rs.nextRow(name.eq("Uint64"), type.eq(Types.BIGINT), precision.eq(8), unsigned.eq(true)).assertAll();
+        rs.nextRow(name.eq("Interval"), type.eq(Types.BIGINT), precision.eq(8), unsigned.eq(false)).assertAll();
+
+        rs.nextRow(name.eq("Bytes"), type.eq(Types.BINARY), precision.eq(YdbConst.MAX_COLUMN_SIZE),
+                prefix.eq("'"), suffix.eq("'"), unsigned.eq(false), searchable.eq(searchFull)).assertAll();
+        rs.nextRow(name.eq("Yson"), type.eq(Types.BINARY), precision.eq(YdbConst.MAX_COLUMN_SIZE),
+                prefix.eq("'"), suffix.eq("'"), unsigned.eq(false), searchable.eq(searchNone)).assertAll();
+        rs.nextRow(name.eq("Decimal(22, 9)"), type.eq(Types.DECIMAL), precision.eq(16),
+                unsigned.eq(false), fixedPrec.eq(true), minScale.eq(9), maxScale.eq(9)).assertAll();
+
+        rs.nextRow(name.eq("Int32"), type.eq(Types.INTEGER), precision.eq(4), unsigned.eq(false)).assertAll();
+        rs.nextRow(name.eq("Uint8"), type.eq(Types.INTEGER), precision.eq(1), unsigned.eq(true)).assertAll();
+        rs.nextRow(name.eq("Float"), type.eq(Types.FLOAT), precision.eq(4), unsigned.eq(false)).assertAll();
+        rs.nextRow(name.eq("Double"), type.eq(Types.DOUBLE), precision.eq(8), unsigned.eq(false)).assertAll();
+
+        rs.nextRow(name.eq("Text"), type.eq(Types.VARCHAR), precision.eq(YdbConst.MAX_COLUMN_SIZE),
+                prefix.eq("'"), suffix.eq("'"), unsigned.eq(false), searchable.eq(searchFull)).assertAll();
+        rs.nextRow(name.eq("Json"), type.eq(Types.VARCHAR), precision.eq(YdbConst.MAX_COLUMN_SIZE),
+                prefix.eq("'"), suffix.eq("'"), unsigned.eq(false), searchable.eq(searchNone)).assertAll();
+        rs.nextRow(name.eq("JsonDocument"), type.eq(Types.VARCHAR), precision.eq(YdbConst.MAX_COLUMN_SIZE),
+                prefix.eq("'"), suffix.eq("'"), unsigned.eq(false), searchable.eq(searchNone)).assertAll();
+
+        rs.nextRow(name.eq("Bool"), type.eq(Types.BOOLEAN), precision.eq(1), unsigned.eq(false)).assertAll();
+        rs.nextRow(name.eq("Date"), type.eq(Types.DATE), precision.eq(10), unsigned.eq(false)).assertAll();
+        rs.nextRow(name.eq("Datetime"), type.eq(Types.TIME), precision.eq(19), unsigned.eq(false)).assertAll();
+        rs.nextRow(name.eq("Timestamp"), type.eq(Types.TIMESTAMP), precision.eq(26), unsigned.eq(false)).assertAll();
+
+        rs.assertNoRows();
     }
 
     @Test
-    void getPseudoColumns() throws SQLException {
-        checkNoResult(metaData.getPseudoColumns(null, null, null, null));
+    public void getTables() throws SQLException {
+        List<String> simpleTables = Arrays.asList(
+                "dir1/t1",
+                "dir1/t2",
+                "dir2/dir1/t1",
+                "dir2/t1",
+                "t1",
+                "table_keys",
+                "all_types"
+        );
+
+        TableAssert tables  = new TableAssert();
+        /* tableCatalog = */ tables.addTextColumn("TABLE_CAT", "Text").defaultNull();
+        /* tableSchema = */  tables.addTextColumn("TABLE_SCHEM", "Text").defaultNull();
+        TableAssert.TextColumn tableName = tables.addTextColumn("TABLE_NAME", "Text");
+        TableAssert.TextColumn tableType = tables.addTextColumn("TABLE_TYPE", "Text");
+        /* remarks = */ tables.addTextColumn("REMARKS", "Text").defaultNull();
+        /* typeCatalog = */ tables.addTextColumn("TYPE_CAT", "Text").defaultNull();
+        /* typeSchema = */ tables.addTextColumn("TYPE_SCHEM", "Text").defaultNull();
+        /* typeName = */ tables.addTextColumn("TYPE_NAME", "Text").defaultNull();
+        /* selfRefColName = */ tables.addTextColumn("SELF_REFERENCING_COL_NAME", "Text").defaultNull();
+        /* refGeneration = */ tables.addTextColumn("REF_GENERATION", "Text").defaultNull();
+
+        // wrong filters
+        TableAssert.assertEmpty(metaData.getTables("-", null, null, null));
+        TableAssert.assertEmpty(metaData.getTables(null, "-", null, null));
+        TableAssert.assertEmpty(metaData.getTables(null, "-", "unknown-table", null));
+        TableAssert.assertEmpty(metaData.getTables(null, "-", null, asArray("U-1")));
+        TableAssert.assertEmpty(metaData.getTables(null, "-", null, new String[0]));
+
+        // fetch system tables
+        List<String> systemTables = new ArrayList<>();
+
+        ResultSet fetchSystem = metaData.getTables(null, null, null, asArray(SYSTEM_TABLE_TYPE));
+        tables.check(fetchSystem).assertMetaColumns();
+        while (fetchSystem.next()) {
+            systemTables.add(fetchSystem.getString(tableName.name()));
+        }
+
+        // read all tables
+        TableAssert.ResultSetAssert rs = tables.check(metaData.getTables(null, null, null, null))
+                .assertMetaColumns();
+        // system tables are first
+        for (String name: systemTables) {
+            rs.nextRow(tableName.eq(name), tableType.eq(SYSTEM_TABLE_TYPE));
+        }
+        for (String name: simpleTables) {
+            rs.nextRow(tableName.eq(name), tableType.eq(TABLE_TYPE));
+        }
+        rs.assertNoRows();
+
+        // read only non system tables
+        rs = tables.check(metaData.getTables(null, null, null, asArray(TABLE_TYPE)))
+                .assertMetaColumns();
+        for (String name: simpleTables) {
+            rs.nextRow(tableName.eq(name), tableType.eq(TABLE_TYPE));
+        }
+        rs.assertNoRows();
+
+        // read multipli filters
+        rs = tables.check(metaData.getTables(null, null, null, asArray(TABLE_TYPE, "some string", SYSTEM_TABLE_TYPE)))
+                .assertMetaColumns();
+        // system tables are first
+        for (String name: systemTables) {
+            rs.nextRow(tableName.eq(name), tableType.eq(SYSTEM_TABLE_TYPE));
+        }
+        for (String name: simpleTables) {
+            rs.nextRow(tableName.eq(name), tableType.eq(TABLE_TYPE));
+        }
+        rs.assertNoRows();
+
+        // filter by name
+        rs = tables.check(metaData.getTables(null, null, ALL_TYPES_TABLE, asArray(TABLE_TYPE)))
+                .assertMetaColumns();
+        rs.nextRow(tableName.eq(ALL_TYPES_TABLE), tableType.eq(TABLE_TYPE));
+        rs.assertNoRows();
+
+        // filter by name
+        TableAssert.assertEmpty(metaData.getTables(null, null, "dir1/t1", asArray(SYSTEM_TABLE_TYPE)));
     }
 
     @Test
-    void generatedKeyAlwaysReturned() throws SQLException {
-        assertFalse(metaData.generatedKeyAlwaysReturned());
+    public void getColumns() throws SQLException {
+        TableAssert.assertEmpty(metaData.getColumns("-", null, null, null));
+        TableAssert.assertEmpty(metaData.getColumns(null, "-", null, null));
+        TableAssert.assertEmpty(metaData.getColumns(null, "-", "unknown-table", null));
+        TableAssert.assertEmpty(metaData.getColumns(null, "-", null, "x-column-unknown"));
+
+        TableAssert columns = new TableAssert();
+        columns.addTextColumn("TABLE_CAT", "Text").defaultNull();
+        columns.addTextColumn("TABLE_SCHEM", "Text").defaultNull();
+        columns.addTextColumn("TABLE_NAME", "Text").defaultValue(ALL_TYPES_TABLE);
+        TableAssert.TextColumn columnName = columns.addTextColumn("COLUMN_NAME", "Text");
+        TableAssert.IntColumn dataType = columns.addIntColumn("DATA_TYPE", "Int32");
+        TableAssert.TextColumn typeName = columns.addTextColumn("TYPE_NAME", "Text");
+        TableAssert.IntColumn columnSize = columns.addIntColumn("COLUMN_SIZE", "Int32");
+        columns.addIntColumn("BUFFER_LENGTH", "Int32").defaultValue(0);
+        TableAssert.IntColumn decimalDigits = columns.addIntColumn("DECIMAL_DIGITS", "Int32").defaultValue(0);
+        columns.addIntColumn("NUM_PREC_RADIX", "Int32").defaultValue(10);
+        columns.addIntColumn("NULLABLE", "Int32").defaultValue(DatabaseMetaData.columnNullable);
+        columns.addTextColumn("REMARKS", "Text").defaultNull();
+        columns.addTextColumn("COLUMN_DEF", "Text").defaultNull();
+        columns.addIntColumn("SQL_DATA_TYPE", "Int32").defaultValue(0);
+        columns.addIntColumn("SQL_DATETIME_SUB", "Int32").defaultValue(0);
+        columns.addIntColumn("CHAR_OCTET_LENGTH", "Int32").defaultValue(0);
+        TableAssert.ShortColumn ordinal = columns.addShortColumn("ORDINAL_POSITION", "Int16");
+        columns.addTextColumn("IS_NULLABLE", "Text").defaultValue("YES");
+        columns.addTextColumn("SCOPE_CATALOG", "Text").defaultNull();
+        columns.addTextColumn("SCOPE_SCHEMA", "Text").defaultNull();
+        columns.addTextColumn("SCOPE_TABLE", "Text").defaultNull();
+        columns.addShortColumn("SOURCE_DATA_TYPE", "Int16").defaultValue((short)0);
+        columns.addTextColumn("IS_AUTOINCREMENT", "Text").defaultValue("NO");
+        columns.addTextColumn("IS_GENERATEDCOLUMN", "Text").defaultValue("NO");
+
+        // get all columns for ALL_TYPES_TABLE
+        TableAssert.ResultSetAssert rs = columns.check(metaData.getColumns(null, null, ALL_TYPES_TABLE, null))
+                .assertMetaColumns();
+
+        rs.nextRow(columnName.eq("key"), dataType.eq(Types.INTEGER), typeName.eq("Int32"),
+                columnSize.eq(4), ordinal.eq((short)1)).assertAll();
+
+        rs.nextRow(columnName.eq("c_Bool"), dataType.eq(Types.BOOLEAN), typeName.eq("Bool"),
+                columnSize.eq(1), ordinal.eq((short)2)).assertAll();
+        rs.nextRow(columnName.eq("c_Int32"), dataType.eq(Types.INTEGER), typeName.eq("Int32"),
+                columnSize.eq(4), ordinal.eq((short)3)).assertAll();
+        rs.nextRow(columnName.eq("c_Int64"), dataType.eq(Types.BIGINT), typeName.eq("Int64"),
+                columnSize.eq(8), ordinal.eq((short)4)).assertAll();
+        rs.nextRow(columnName.eq("c_Uint8"), dataType.eq(Types.INTEGER), typeName.eq("Uint8"),
+                columnSize.eq(1), ordinal.eq((short)5)).assertAll();
+        rs.nextRow(columnName.eq("c_Uint32"), dataType.eq(Types.BIGINT), typeName.eq("Uint32"),
+                columnSize.eq(4), ordinal.eq((short)6)).assertAll();
+        rs.nextRow(columnName.eq("c_Uint64"), dataType.eq(Types.BIGINT), typeName.eq("Uint64"),
+                columnSize.eq(8), ordinal.eq((short)7)).assertAll();
+        rs.nextRow(columnName.eq("c_Float"), dataType.eq(Types.FLOAT), typeName.eq("Float"),
+                columnSize.eq(4), ordinal.eq((short)8)).assertAll();
+        rs.nextRow(columnName.eq("c_Double"), dataType.eq(Types.DOUBLE), typeName.eq("Double"),
+                columnSize.eq(8), ordinal.eq((short)9)).assertAll();
+        rs.nextRow(columnName.eq("c_Bytes"), dataType.eq(Types.BINARY), typeName.eq("Bytes"),
+                columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq((short)10)).assertAll();
+        rs.nextRow(columnName.eq("c_Text"), dataType.eq(Types.VARCHAR), typeName.eq("Text"),
+                columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq((short)11)).assertAll();
+        rs.nextRow(columnName.eq("c_Json"), dataType.eq(Types.VARCHAR), typeName.eq("Json"),
+                columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq((short)12)).assertAll();
+        rs.nextRow(columnName.eq("c_JsonDocument"), dataType.eq(Types.VARCHAR), typeName.eq("JsonDocument"),
+                columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq((short)13)).assertAll();
+        rs.nextRow(columnName.eq("c_Yson"), dataType.eq(Types.BINARY), typeName.eq("Yson"),
+                columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq((short)14)).assertAll();
+        rs.nextRow(columnName.eq("c_Date"), dataType.eq(Types.DATE), typeName.eq("Date"),
+                columnSize.eq(10), ordinal.eq((short)15)).assertAll();
+        rs.nextRow(columnName.eq("c_Datetime"), dataType.eq(Types.TIME), typeName.eq("Datetime"),
+                columnSize.eq(19), ordinal.eq((short)16)).assertAll();
+        rs.nextRow(columnName.eq("c_Timestamp"), dataType.eq(Types.TIMESTAMP), typeName.eq("Timestamp"),
+                columnSize.eq(26), ordinal.eq((short)17)).assertAll();
+        rs.nextRow(columnName.eq("c_Interval"), dataType.eq(Types.BIGINT), typeName.eq("Interval"),
+                columnSize.eq(8), ordinal.eq((short)18)).assertAll();
+        rs.nextRow(columnName.eq("c_Decimal"), dataType.eq(Types.DECIMAL), typeName.eq("Decimal(22, 9)"),
+                columnSize.eq(16), ordinal.eq((short)19), decimalDigits.eq(22)).assertAll();
+
+        rs.assertNoRows();
+
+        // find only one column
+        rs = columns.check(metaData.getColumns(null, null, ALL_TYPES_TABLE, "c_JsonDocument"))
+            .assertMetaColumns();
+        rs.nextRow(columnName.eq("c_JsonDocument"), dataType.eq(Types.VARCHAR), typeName.eq("JsonDocument"),
+                columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq((short)13)).assertAll();
+        rs.assertNoRows();
     }
 
     @Test
-    void unwrap() throws SQLException {
-        assertTrue(metaData.isWrapperFor(YdbDatabaseMetaData.class));
-        assertSame(metaData, metaData.unwrap(YdbDatabaseMetaData.class));
+    public void getPrimaryKeys() throws SQLException {
+        TableAssert.assertEmpty(metaData.getPrimaryKeys("-", null, null));
+        TableAssert.assertEmpty(metaData.getPrimaryKeys(null, "-", null));
+        TableAssert.assertEmpty(metaData.getPrimaryKeys(null, null, "-"));
 
-        assertFalse(metaData.isWrapperFor(YdbStatement.class));
-        assertThrowsMsg(SQLException.class,
-                () -> metaData.unwrap(YdbStatement.class),
-                "Cannot unwrap to " + YdbStatement.class);
+        // table name is a must
+        TableAssert.assertEmpty(metaData.getPrimaryKeys(null, null, null));
+
+        TableAssert primaryKeys = new TableAssert();
+        primaryKeys.addTextColumn("TABLE_CAT", "Text").defaultNull();
+        primaryKeys.addTextColumn("TABLE_SCHEM", "Text").defaultNull();
+        TableAssert.TextColumn table = primaryKeys.addTextColumn("TABLE_NAME", "Text");
+        TableAssert.TextColumn name = primaryKeys.addTextColumn("COLUMN_NAME", "Text");
+        TableAssert.ShortColumn keySeq = primaryKeys.addShortColumn("KEY_SEQ", "Int16");
+        primaryKeys.addTextColumn("PK_NAME", "Text").defaultNull();
+
+        // ALL_TYPES_TABLE has simple primary key
+        primaryKeys.check(metaData.getPrimaryKeys(null, null, ALL_TYPES_TABLE))
+                .assertMetaColumns()
+                .nextRow(table.eq(ALL_TYPES_TABLE), name.eq("key"), keySeq.eq((short)1)).assertAll()
+                .assertNoRows();
+
+        // INDEXES_TABLE has composite primary key
+        primaryKeys.check(metaData.getPrimaryKeys(null, null, INDEXES_TABLE))
+                .assertMetaColumns()
+                .nextRow(table.eq(INDEXES_TABLE), name.eq("key1"), keySeq.eq((short)1)).assertAll()
+                .nextRow(table.eq(INDEXES_TABLE), name.eq("key2"), keySeq.eq((short)2)).assertAll()
+                .assertNoRows();
     }
 
-    //
+    @Test
+    public void getIndexInfo() throws SQLException {
+        TableAssert.assertEmpty(metaData.getIndexInfo("-", null, null, false, false));
+        TableAssert.assertEmpty(metaData.getIndexInfo(null, "-", null, false, false));
+        TableAssert.assertEmpty(metaData.getIndexInfo(null, null, "-", false, false));
 
-    private void checkNoResult(ResultSet rs) throws SQLException {
-        assertFalse(rs.next());
+        // no unique indexes
+        TableAssert.assertEmpty(metaData.getIndexInfo(null, null, null, true, false));
+
+        // table name is a must
+        TableAssert.assertEmpty(metaData.getIndexInfo(null, null, null, false, false));
+
+        TableAssert indexes = new TableAssert();
+        indexes.addTextColumn("TABLE_CAT", "Text").defaultNull();
+        indexes.addTextColumn("TABLE_SCHEM", "Text").defaultNull();
+        TableAssert.TextColumn tableName = indexes.addTextColumn("TABLE_NAME", "Text");
+        indexes.addBoolColumn("NON_UNIQUE", "Bool").defaultValue(true);
+        indexes.addTextColumn("INDEX_QUALIFIER", "Text").defaultNull();
+        TableAssert.TextColumn indexName = indexes.addTextColumn("INDEX_NAME", "Text");
+        TableAssert.ShortColumn type = indexes.addShortColumn("TYPE", "Int16");
+        TableAssert.ShortColumn ordinal = indexes.addShortColumn("ORDINAL_POSITION", "Int16");
+        TableAssert.TextColumn columnName = indexes.addTextColumn("COLUMN_NAME", "Text");
+        indexes.addTextColumn("ASC_OR_DESC", "Text").defaultNull();
+        indexes.addIntColumn("CARDINALITY", "Int32").defaultValue(0);
+        indexes.addIntColumn("PAGES", "Int32").defaultValue(0);
+        indexes.addTextColumn("FILTER_CONDITION", "Text").defaultNull();
+
+        indexes.check(metaData.getIndexInfo(null, null, INDEXES_TABLE, false, false))
+                .assertMetaColumns()
+                .nextRow(tableName.eq(INDEXES_TABLE), indexName.eq("idx_1"), columnName.eq("value3"),
+                        type.eq(DatabaseMetaData.tableIndexHashed), ordinal.eq((short)1)).assertAll()
+                .nextRow(tableName.eq(INDEXES_TABLE), indexName.eq("idx_2"), columnName.eq("value1"),
+                        type.eq(DatabaseMetaData.tableIndexHashed), ordinal.eq((short)1)).assertAll()
+                .nextRow(tableName.eq(INDEXES_TABLE), indexName.eq("idx_2"), columnName.eq("value2"),
+                        type.eq(DatabaseMetaData.tableIndexHashed), ordinal.eq((short)2)).assertAll()
+                .assertNoRows();
+
+        indexes.check(metaData.getIndexInfo(null, null, ALL_TYPES_TABLE, false, false))
+                .assertNoRows();
     }
 
+    @Test
+    public void getBestRowIdentifier() throws SQLException {
+        TableAssert.assertEmpty(metaData.getBestRowIdentifier("-", null, null, DatabaseMetaData.bestRowSession, true));
+        TableAssert.assertEmpty(metaData.getBestRowIdentifier(null, "-", null, DatabaseMetaData.bestRowSession, true));
+        TableAssert.assertEmpty(metaData.getBestRowIdentifier(null, null, "-", DatabaseMetaData.bestRowSession, true));
 
-    private ResultSetData<List<Map<String, Object>>> collectResultSet(ResultSet rs) throws SQLException {
-        ResultSetMetaData meta = rs.getMetaData();
-        int columnCount = meta.getColumnCount();
-        List<Map<String, Object>> metaMap = new ArrayList<>(columnCount);
-        for (int i = 1; i <= columnCount; i++) {
-            metaMap.add(stableMap(
-                    "COLUMN_NAME", meta.getColumnName(i),
-                    "COLUMN_TYPE", meta.getColumnType(i),
-                    "COLUMN_TYPE_NAME", meta.getColumnTypeName(i)));
-        }
+        // expect exact column name
+        TableAssert.assertEmpty(metaData.getBestRowIdentifier(null, null, null, DatabaseMetaData.bestRowSession, true));
 
-        List<Map<String, Object>> rows = new ArrayList<>(16);
-        while (rs.next()) {
-            Map<String, Object> map = new LinkedHashMap<>(columnCount);
-            rows.add(map);
-            for (int i = 1; i <= columnCount; i++) {
-                String columnName = meta.getColumnName(i);
-                map.put(columnName, rs.getObject(i));
-            }
-        }
-        return new ResultSetData<>(metaMap, rows);
+        // only nullable columns supported
+        TableAssert.assertEmpty(metaData
+                .getBestRowIdentifier(null, null, ALL_TYPES_TABLE, DatabaseMetaData.bestRowSession, false));
+
+        TableAssert rowIdentifiers = new TableAssert();
+        TableAssert.ShortColumn scope = rowIdentifiers.addShortColumn("SCOPE", "Int16");
+        TableAssert.TextColumn name = rowIdentifiers.addTextColumn("COLUMN_NAME", "Text");
+        TableAssert.IntColumn dataType = rowIdentifiers.addIntColumn("DATA_TYPE", "Int32");
+        TableAssert.TextColumn typeName = rowIdentifiers.addTextColumn("TYPE_NAME", "Text");
+        rowIdentifiers.addIntColumn("COLUMN_SIZE", "Int32").defaultValue(0);
+        rowIdentifiers.addIntColumn("BUFFER_LENGTH", "Int32").defaultValue(0);
+        rowIdentifiers.addShortColumn("DECIMAL_DIGITS", "Int16").defaultValue((short)0);
+        rowIdentifiers.addIntColumn("PSEUDO_COLUMN", "Int32").defaultValue(DatabaseMetaData.bestRowNotPseudo);
+
+        rowIdentifiers.check(metaData
+                .getBestRowIdentifier(null, null, ALL_TYPES_TABLE, DatabaseMetaData.bestRowSession, true))
+                .assertMetaColumns()
+                .nextRow(name.eq("key"), dataType.eq(Types.INTEGER), typeName.eq("Int32"),
+                        scope.eq((short)DatabaseMetaData.bestRowSession)).assertAll()
+                .assertNoRows();
+
+        rowIdentifiers.check(metaData
+                .getBestRowIdentifier(null, null, ALL_TYPES_TABLE, DatabaseMetaData.bestRowTransaction, true))
+                .assertMetaColumns()
+                .nextRow(name.eq("key"), dataType.eq(Types.INTEGER), typeName.eq("Int32"),
+                        scope.eq((short)DatabaseMetaData.bestRowTransaction)).assertAll()
+                .assertNoRows();
+
+        rowIdentifiers.check(metaData
+                .getBestRowIdentifier(null, null, INDEXES_TABLE, DatabaseMetaData.bestRowTemporary, true))
+                .assertMetaColumns()
+                .nextRow(name.eq("key1"), dataType.eq(Types.INTEGER), typeName.eq("Int32"),
+                        scope.eq((short)DatabaseMetaData.bestRowTemporary)).assertAll()
+                .nextRow(name.eq("key2"), dataType.eq(Types.VARCHAR), typeName.eq("Text"),
+                        scope.eq((short)DatabaseMetaData.bestRowTemporary)).assertAll()
+                .assertNoRows();
     }
 
-    private ResultSetData<Map<String, Map<String, Map<String, Object>>>> collectResultSet(
-            ResultSet rs, String key1, String key2) throws SQLException {
-        ResultSetData<List<Map<String, Object>>> result = collectResultSet(rs);
-
-        Map<String, Map<String, Map<String, Object>>> map = new LinkedHashMap<>();
-        for (Map<String, Object> table : result.rows) {
-            String type = (String) table.get(key1);
-            String name = (String) table.get(key2);
-            map.computeIfAbsent(type, t -> new LinkedHashMap<>()).put(name, table);
-        }
-        return new ResultSetData<>(result.metadata, map);
-    }
-
-    // <Table type, <Table name, Table metadata>>
-    private ResultSetData<Map<String, Map<String, Map<String, Object>>>> collectTables(
-            ResultSet rs) throws SQLException {
-        return collectResultSet(rs, "TABLE_TYPE", "TABLE_NAME");
-    }
-
-    // <Table name, <Column name, Column metadata>>
-    private ResultSetData<Map<String, Map<String, Map<String, Object>>>> collectColumns(
-            ResultSet rs) throws SQLException {
-        return collectResultSet(rs, "TABLE_NAME", "COLUMN_NAME");
-    }
-
-    private ResultSetData<Map<String, Map<String, Map<String, Object>>>> collectPrimaryKeys(
-            ResultSet rs) throws SQLException {
-        return collectResultSet(rs, "TABLE_NAME", "COLUMN_NAME");
-    }
-
-    private ResultSetData<Map<String, List<Map<String, Object>>>> collectIndexes(
-            ResultSet rs) throws SQLException {
-        ResultSetData<List<Map<String, Object>>> result = collectResultSet(rs);
-        Map<String, List<Map<String, Object>>> map = new LinkedHashMap<>();
-        for (Map<String, Object> index : result.rows) {
-            String type = (String) index.get("TABLE_NAME");
-            map.computeIfAbsent(type, t -> new ArrayList<>()).add(index);
-        }
-        return new ResultSetData<>(result.metadata, map);
-    }
-
-    private String readJson(String resource) {
-        return YdbLookup.stringFileReference(resource);
-    }
-
-    private void checkEmptyMap(ResultSetData<? extends Map<?, ?>> resultSetData) {
-        assertEquals(Collections.emptyMap(), resultSetData.rows);
-        assertEquals(Collections.emptyList(), resultSetData.metadata);
-    }
-
-    private void checkEmptyList(ResultSetData<? extends List<?>> resultSetData) {
-        assertEquals(Collections.emptyList(), resultSetData.rows);
-        assertEquals(Collections.emptyList(), resultSetData.metadata);
-    }
-
-    private <T> void checkResultSet(String resource, ResultSetData<T> resultSetData) throws YdbConfigurationException {
-        checkResultSet(resource, resultSetData, false);
-    }
-
-    private <T> void checkResultSet(String resource, ResultSetData<T> resultSetData, boolean tryNewVersion)
-            throws YdbConfigurationException {
-        assertEquals(readJson("classpath:json/" + resource + "_meta.json"), GSON.toJson(resultSetData.metadata));
-
-        String expect = readJson("classpath:json/" + resource + ".json");
-        String actual = GSON.toJson(resultSetData.rows);
-        if (tryNewVersion) {
-            if (!expect.equals(actual)) {
-                assertEquals(readJson("classpath:json/" + resource + "-new.json"), actual);
-            }
-        } else {
-            assertEquals(expect, actual);
-        }
-    }
-
-    private static <T> ResultSetData<T> singleValue(ResultSetData<Map<String, T>> result, String key) {
-        return new ResultSetData<>(result.metadata, result.rows.get(key));
-    }
-
-    private static class ResultSetData<T> {
-        private final List<Map<String, Object>> metadata;
-        private final T rows;
-
-        private ResultSetData(List<Map<String, Object>> metadata, T rows) {
-            this.metadata = Objects.requireNonNull(metadata);
-            this.rows = Objects.requireNonNull(rows);
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (!(o instanceof ResultSetData)) {
-                return false;
-            }
-            ResultSetData<?> that = (ResultSetData<?>) o;
-            return Objects.equals(metadata, that.metadata) &&
-                    Objects.equals(rows, that.rows);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(metadata, rows);
-        }
-
-        @Override
-        public String toString() {
-            return "ResultSetData{" +
-                    "metadata=" + metadata +
-                    ", rows=" + rows +
-                    '}';
-        }
+    private static String[] asArray(String... args) {
+        return args;
     }
 }
