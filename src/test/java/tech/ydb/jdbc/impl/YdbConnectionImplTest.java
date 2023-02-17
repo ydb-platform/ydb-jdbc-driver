@@ -1,6 +1,7 @@
 package tech.ydb.jdbc.impl;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -9,657 +10,666 @@ import java.sql.SQLWarning;
 import java.sql.Statement;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbDatabaseMetaData;
 import tech.ydb.jdbc.YdbDriver;
 import tech.ydb.jdbc.YdbPreparedStatement;
-import tech.ydb.jdbc.YdbResultSet;
-import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.exception.YdbNonRetryableException;
+import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
+import tech.ydb.jdbc.impl.helper.TableAssert;
+import tech.ydb.jdbc.impl.helper.TestConsts;
 import tech.ydb.table.values.ListType;
 import tech.ydb.table.values.ListValue;
 import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.table.values.PrimitiveValue;
+import tech.ydb.test.junit5.YdbHelperExtention;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static tech.ydb.jdbc.impl.helper.TestHelper.assertThrowsMsg;
-import static tech.ydb.jdbc.impl.helper.TestHelper.assertThrowsMsgLike;
+public class YdbConnectionImplTest {
+    @RegisterExtension
+    private static final YdbHelperExtention ydb = new YdbHelperExtention();
 
-public class YdbConnectionImplTest extends AbstractTest {
-    private YdbConnection connection;
+    @RegisterExtension
+    private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb);
+
+    private static final String TEST_TABLE = "ydb_connection_test";
+
+    private static final TableAssert simpleTable = new TableAssert();
+    private static final TableAssert.IntColumn simpleResult = simpleTable.addIntColumn("column0", "Int32");
 
     @BeforeAll
-    static void beforeEach() throws SQLException {
-        recreateSimpleTestTable();
+    public static void createTable() throws SQLException {
+        try (Statement statement = jdbc.connection().createStatement();) {
+            // create simple tables
+            statement.execute("--jdbc:SCHEME\n" + TestConsts.allTypesTable(TEST_TABLE));
+        }
+    }
+
+    @AfterAll
+    public static void dropTable() throws SQLException {
+        try (Statement statement = jdbc.connection().createStatement();) {
+            // drop simple tables
+            statement.execute("--jdbc:SCHEME\n drop table " + TEST_TABLE + ";");
+        }
     }
 
     @BeforeEach
-    public void initTest() throws SQLException {
-        connection = createTestConnection();
+    public void checkTransactionState() throws SQLException {
+        Assertions.assertNull(currentTxId(), "Transaction must be empty before test");
     }
 
     @AfterEach
-    public void closeTest() throws SQLException {
-        if (!connection.isClosed()) {
-            connection.commit();
-            connection.close();
+    public void checkTableIsEmpty() throws SQLException {
+        if (jdbc.connection().isClosed()) {
+            return;
+        }
+
+        try (Statement statement = jdbc.connection().createStatement();) {
+            try (ResultSet result = statement.executeQuery("select * from " + TEST_TABLE)) {
+                Assertions.assertFalse(result.next(), "Table must be empty after test");
+            }
+        }
+        jdbc.connection().commit(); // MUST be auto rollbacked
+        jdbc.connection().close();
+    }
+
+    private void assertResult(int value, ResultSet rs) throws SQLException {
+        simpleTable.check(rs).assertMetaColumns()
+                .nextRow(simpleResult.eq(value)).assertAll()
+                .assertNoRows();
+    }
+
+    private void assertSQLFeatureNotSupported(String message, Executable exec) {
+        SQLFeatureNotSupportedException ex = Assertions.assertThrows(SQLFeatureNotSupportedException.class, exec,
+                "Invalid statement must throw SQLFeatureNotSupportedException"
+        );
+        Assertions.assertEquals(message, ex.getMessage());
+    }
+
+    private void assertYdbNonRetryable(String message, Executable exec) {
+        YdbNonRetryableException ex = Assertions.assertThrows(YdbNonRetryableException.class, exec,
+                "Invalid statement must throw YdbNonRetryableException"
+        );
+        Assertions.assertTrue(ex.getMessage().contains(message), "Exception doesn't contain message");
+    }
+
+    private void assertSQLException(String message, Executable exec) {
+        SQLException ex = Assertions.assertThrows(SQLException.class, exec,
+                "Invalid statement must throw SQLException"
+        );
+        Assertions.assertTrue(ex.getMessage().contains(message), "Exception doesn't contain message");
+    }
+
+    private String currentTxId() throws SQLException {
+        return jdbc.connection().unwrap(YdbConnection.class).getYdbTxId();
+    }
+
+    @Test
+    public void connectionUnwrapTest() throws SQLException {
+        Assertions.assertTrue(jdbc.connection().isWrapperFor(YdbConnection.class));
+        Assertions.assertSame(jdbc.connection(), jdbc.connection().unwrap(YdbConnection.class));
+
+        Assertions.assertFalse(jdbc.connection().isWrapperFor(YdbDatabaseMetaData.class));
+
+        SQLException ex = Assertions.assertThrows(SQLException.class,
+                () -> jdbc.connection().unwrap(YdbDatabaseMetaData.class));
+        Assertions.assertEquals("Cannot unwrap to interface tech.ydb.jdbc.YdbDatabaseMetaData", ex.getMessage());
+    }
+
+    @Test
+    public void createStatement() throws SQLException {
+        try (Statement statement = jdbc.connection().createStatement()) {
+            assertResult(4, statement.executeQuery("select 1 + 3"));
+        }
+        try (Statement statement = jdbc.connection().createStatement(
+                ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
+            assertResult(5, statement.executeQuery("select 2 + 3"));
+        }
+        try (Statement statement = jdbc.connection().createStatement(
+                ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY)) {
+            assertResult(3, statement.executeQuery("select 2 + 1"));
+        }
+        try (Statement statement = jdbc.connection().createStatement(
+                ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY, ResultSet.HOLD_CURSORS_OVER_COMMIT)) {
+            assertResult(2, statement.executeQuery("select 1 + 1"));
         }
     }
 
     @Test
-    void createStatement() throws SQLException {
-        Statement statement = connection.createStatement();
-        assertTrue(statement.execute("select 2 + 2"));
+    public void createStatementInvalid() {
+        assertSQLFeatureNotSupported(
+                "resultSetType must be ResultSet.TYPE_FORWARD_ONLY or ResultSet.TYPE_SCROLL_INSENSITIVE",
+                () -> jdbc.connection().createStatement(
+                        ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY, ResultSet.HOLD_CURSORS_OVER_COMMIT
+                )
+        );
+
+        assertSQLFeatureNotSupported(
+                "resultSetConcurrency must be ResultSet.CONCUR_READ_ONLY",
+                () -> jdbc.connection().createStatement(
+                        ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_UPDATABLE, ResultSet.HOLD_CURSORS_OVER_COMMIT
+                )
+        );
+
+        assertSQLFeatureNotSupported(
+                "resultSetHoldability must be ResultSet.HOLD_CURSORS_OVER_COMMIT",
+                () -> jdbc.connection().createStatement(
+                        ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY, ResultSet.CLOSE_CURSORS_AT_COMMIT
+                )
+        );
     }
 
     @Test
-    void createStatement2() throws SQLException {
-        Statement statement = connection.createStatement(ResultSet.TYPE_FORWARD_ONLY,
-                ResultSet.CONCUR_READ_ONLY);
-        assertTrue(statement.execute("select 2 + 2"));
+    public void prepareStatement() throws SQLException {
+        try (PreparedStatement statement = jdbc.connection().prepareStatement("select 1 + 3")) {
+            assertResult(4, statement.executeQuery());
+        }
+        try (PreparedStatement statement = jdbc.connection().prepareStatement("select 2 + 3",
+                ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
+            assertResult(5, statement.executeQuery());
+        }
+        try (PreparedStatement statement = jdbc.connection().prepareStatement("select 2 + 1",
+                ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY)) {
+            assertResult(3, statement.executeQuery());
+        }
+        try (PreparedStatement statement = jdbc.connection().prepareStatement("select 1 + 1",
+                ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY, ResultSet.HOLD_CURSORS_OVER_COMMIT)) {
+            assertResult(2, statement.executeQuery());
+        }
     }
 
     @Test
-    void createStatement2s() throws SQLException {
-        Statement statement = connection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,
-                ResultSet.CONCUR_READ_ONLY);
-        assertTrue(statement.execute("select 2 + 2"));
+    public void prepareStatementInvalid() throws SQLException {
+        assertSQLFeatureNotSupported("Auto-generated keys are not supported",
+                () -> jdbc.connection().prepareStatement("select 2 + 2", new int[] {})
+        );
+
+        assertSQLFeatureNotSupported("Auto-generated keys are not supported",
+                () -> jdbc.connection().prepareStatement("select 2 + 2", new String[] {})
+        );
+
+        assertSQLFeatureNotSupported("Auto-generated keys are not supported",
+                () -> jdbc.connection().prepareStatement("select 2 + 2", Statement.RETURN_GENERATED_KEYS)
+        );
+
+        assertSQLFeatureNotSupported(
+                "resultSetType must be ResultSet.TYPE_FORWARD_ONLY or ResultSet.TYPE_SCROLL_INSENSITIVE",
+                () -> jdbc.connection().prepareStatement("select 2 + 2",
+                        ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY, ResultSet.HOLD_CURSORS_OVER_COMMIT
+                )
+        );
+
+        assertSQLFeatureNotSupported(
+                "resultSetConcurrency must be ResultSet.CONCUR_READ_ONLY",
+                () -> jdbc.connection().prepareStatement("select 2 + 2",
+                        ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_UPDATABLE, ResultSet.HOLD_CURSORS_OVER_COMMIT
+                )
+        );
+
+        assertSQLFeatureNotSupported(
+                "resultSetHoldability must be ResultSet.HOLD_CURSORS_OVER_COMMIT",
+                () -> jdbc.connection().prepareStatement("select 2 + 2",
+                        ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY, ResultSet.CLOSE_CURSORS_AT_COMMIT
+                )
+        );
     }
 
     @Test
-    void createStatement3() throws SQLException {
-        Statement statement = connection.createStatement(ResultSet.TYPE_FORWARD_ONLY,
-                ResultSet.CONCUR_READ_ONLY,
-                ResultSet.HOLD_CURSORS_OVER_COMMIT);
-        assertTrue(statement.execute("select 2 + 2"));
-    }
+    public void prepareCallNotSupported() {
+        assertSQLFeatureNotSupported("Prepared calls are not supported",
+                () -> jdbc.connection().prepareCall("select 2 + 2")
+        );
 
-    @SuppressWarnings("MagicConstant")
-    @Test
-    void createStatementInvalid() {
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> connection.createStatement(
-                        ResultSet.TYPE_SCROLL_SENSITIVE,
-                        ResultSet.CONCUR_READ_ONLY,
-                        ResultSet.HOLD_CURSORS_OVER_COMMIT),
-                "resultSetType must be ResultSet.TYPE_FORWARD_ONLY or ResultSet.TYPE_SCROLL_INSENSITIVE");
+        assertSQLFeatureNotSupported("Prepared calls are not supported",
+                () -> jdbc.connection().prepareCall("select 2 + 2",
+                        ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)
+        );
 
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> connection.createStatement(
-                        ResultSet.TYPE_FORWARD_ONLY,
-                        ResultSet.CONCUR_READ_ONLY + 1,
-                        ResultSet.HOLD_CURSORS_OVER_COMMIT),
-                "resultSetConcurrency must be ResultSet.CONCUR_READ_ONLY");
-
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> connection.createStatement(
-                        ResultSet.TYPE_FORWARD_ONLY,
-                        ResultSet.CONCUR_READ_ONLY,
-                        ResultSet.HOLD_CURSORS_OVER_COMMIT + 1),
-                "resultSetHoldability must be ResultSet.HOLD_CURSORS_OVER_COMMIT");
+        assertSQLFeatureNotSupported("Prepared calls are not supported",
+                () -> jdbc.connection().prepareCall("select 2 + 2",
+                        ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY, ResultSet.HOLD_CURSORS_OVER_COMMIT)
+        );
     }
 
     @Test
-    void prepareStatement() throws SQLException {
-        PreparedStatement ps = connection.prepareStatement("select 2 + 2");
-        assertFalse(ps.isClosed());
+    public void nativeSQL() throws SQLException {
+        Assertions.assertEquals("select ? + ?", jdbc.connection().nativeSQL("select ? + ?"));
     }
 
     @Test
-    void prepareStatement1() throws SQLException {
-        PreparedStatement ps = connection.prepareStatement("select 2 + 2", Statement.NO_GENERATED_KEYS);
-        assertFalse(ps.isClosed());
-    }
-
-    @Test
-    void prepareStatement2() throws SQLException {
-        PreparedStatement ps = connection.prepareStatement("select 2 + 2",
-                ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-        assertFalse(ps.isClosed());
-    }
-
-    @Test
-    void prepareStatement2s() throws SQLException {
-        PreparedStatement ps = connection.prepareStatement("select 2 + 2",
-                ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
-        assertFalse(ps.isClosed());
-    }
-
-    @Test
-    void prepareStatement3() throws SQLException {
-        PreparedStatement ps = connection.prepareStatement("select 2 + 2",
-                ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY, ResultSet.HOLD_CURSORS_OVER_COMMIT);
-        assertFalse(ps.isClosed());
-    }
-
-    @SuppressWarnings("MagicConstant")
-    @Test
-    void prepareStatementInvalid() {
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> connection.prepareStatement("select 2 + 2", new int[0]),
-                "Auto-generated keys are not supported");
-
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> connection.prepareStatement("select 2 + 2", new String[0]),
-                "Auto-generated keys are not supported");
-
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> connection.prepareStatement("select 2 + 2", Statement.RETURN_GENERATED_KEYS),
-                "Auto-generated keys are not supported");
-
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> connection.prepareStatement("select 2 + 2",
-                        ResultSet.TYPE_SCROLL_SENSITIVE,
-                        ResultSet.CONCUR_READ_ONLY,
-                        ResultSet.HOLD_CURSORS_OVER_COMMIT),
-                "resultSetType must be ResultSet.TYPE_FORWARD_ONLY or ResultSet.TYPE_SCROLL_INSENSITIVE");
-
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> connection.prepareStatement("select 2 + 2",
-                        ResultSet.TYPE_FORWARD_ONLY,
-                        ResultSet.CONCUR_READ_ONLY + 1,
-                        ResultSet.HOLD_CURSORS_OVER_COMMIT),
-                "resultSetConcurrency must be ResultSet.CONCUR_READ_ONLY");
-
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> connection.prepareStatement("select 2 + 2",
-                        ResultSet.TYPE_FORWARD_ONLY,
-                        ResultSet.CONCUR_READ_ONLY,
-                        ResultSet.HOLD_CURSORS_OVER_COMMIT + 1),
-                "resultSetHoldability must be ResultSet.HOLD_CURSORS_OVER_COMMIT");
-    }
-
-    @Test
-    void prepareCall() {
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> connection.prepareCall("select 2 + 2"),
-                "Prepared calls are not supported");
-
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> connection.prepareCall("select 2 + 2",
-                        ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY),
-                "Prepared calls are not supported");
-
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> connection.prepareCall("select 2 + 2",
-                        ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY, ResultSet.HOLD_CURSORS_OVER_COMMIT),
-                "Prepared calls are not supported");
-    }
-
-    @Test
-    void nativeSQL() throws SQLException {
-        assertEquals("select ? + ?", connection.nativeSQL("select ? + ?"));
-    }
-
-    @Test
-    void invalidSQLCancelTransaction() throws SQLException {
-        Statement statement = connection.createStatement();
-        statement.execute("select 2 + 2");
-        String txId = connection.getYdbTxId();
-        assertNotNull(txId);
-
-        assertThrowsMsgLike(YdbNonRetryableException.class,
-                () -> statement.execute("select 2 + x"),
-                "Column reference 'x'");
-        statement.execute("select 2 + 2");
-        assertNotNull(connection.getYdbTxId());
-        assertNotEquals(txId, connection.getYdbTxId());
-    }
-
-    @Test
-    void autoCommit() throws SQLException {
-        Statement statement = connection.createStatement();
-        statement.execute("select 2 + 2");
-        String txId = connection.getYdbTxId();
-        assertNotNull(txId);
-
-        assertFalse(connection.getAutoCommit());
-
-        connection.setAutoCommit(false);
-        assertFalse(connection.getAutoCommit());
-        assertEquals(txId, connection.getYdbTxId());
-
-        connection.setAutoCommit(true);
-        assertTrue(connection.getAutoCommit());
-        assertNull(connection.getYdbTxId());
-
-        statement.execute("select 2 + 2");
-        assertNull(connection.getYdbTxId());
-
-        statement.execute("select 2 + 2");
-        assertNull(connection.getYdbTxId());
-
-        connection.setAutoCommit(false);
-        assertFalse(connection.getAutoCommit());
-        assertNull(connection.getYdbTxId());
-    }
-
-    @Test
-    void commit() throws SQLException {
-        this.initTestTable();
-
-        connection.commit();
-        assertNull(connection.getYdbTxId());
-
-        connection.commit(); // does nothing
-        assertNull(connection.getYdbTxId());
-    }
-
-    @Test
-    void rollback() throws SQLException {
-        this.initTestTable();
-
-        connection.rollback();
-        assertNull(connection.getYdbTxId());
-
-        connection.rollback(); // does nothing
-        assertNull(connection.getYdbTxId());
-    }
-
-    @Test
-    void commitInvalidTx() throws SQLException {
-        cleanupSimpleTestTable();
-
-        Statement statement = connection.createStatement();
-        statement.execute("upsert into unit_1(key, c_Text) values (1, '2')");
-        statement.execute("upsert into unit_1(key, c_Text) values (1, '2')");
-
-        assertThrowsMsgLike(YdbNonRetryableException.class,
-                () -> statement.executeQuery("select * from unit_1"),
-                "Data modifications previously made to table");
-
-        assertNull(connection.getYdbTxId());
-
-        connection.commit(); // Nothing to commit, transaction was rolled back already
-        assertNull(connection.getYdbTxId());
-
-        YdbResultSet result = (YdbResultSet) statement.executeQuery("select * from unit_1");
-        assertEquals(0, result.getYdbResultSetReader().getRowCount());
-
-    }
-
-    @Test
-    void rollbackInvalidTx() throws SQLException {
-        cleanupSimpleTestTable();
-
-        Statement statement = connection.createStatement();
-        statement.execute("insert into unit_1(key, c_Text) values (1, '2')");
-
-        assertThrowsMsg(YdbNonRetryableException.class,
-                () -> statement.executeQuery("select * from unit_1"),
-                e -> Assertions.assertTrue(e.getMessage().contains("Data modifications previously made to table")),
-                null);
-
-        assertNull(connection.getYdbTxId());
-
-        connection.rollback();
-
-        assertNull(connection.getYdbTxId());
-
-        YdbResultSet result = (YdbResultSet) statement.executeQuery("select * from unit_1");
-        assertEquals(0, result.getYdbResultSetReader().getRowCount());
-
-    }
-
-    @Test
-    void close() throws SQLException {
-        connection.close();
-        connection.close(); // no effect
-    }
-
-    @Test
-    void isClosed() throws SQLException {
-        assertFalse(connection.isClosed());
-        connection.close();
-        assertTrue(connection.isClosed());
-    }
-
-    @Test
-    void getMetaData() throws SQLException {
-        YdbDatabaseMetaData metaData = connection.getMetaData();
-        assertNotNull(metaData);
-    }
-
-    @Test
-    void readOnly() throws SQLException {
-        assertFalse(connection.isReadOnly());
-        assertEquals(Connection.TRANSACTION_SERIALIZABLE, connection.getTransactionIsolation());
-
-        connection.setReadOnly(true);
-
-        assertTrue(connection.isReadOnly());
-        assertEquals(Connection.TRANSACTION_REPEATABLE_READ, connection.getTransactionIsolation());
-
-        connection.setReadOnly(false);
-        assertFalse(connection.isReadOnly());
-        assertEquals(Connection.TRANSACTION_SERIALIZABLE, connection.getTransactionIsolation());
-    }
-
-    @Test
-    void catalog() throws SQLException {
-        connection.setCatalog("any");
-        assertNull(connection.getCatalog());
-    }
-
-    @ParameterizedTest
-    @MethodSource("supportedIsolations")
-    void transactionIsolation(int level) throws SQLException {
-        connection.setTransactionIsolation(level);
-        assertEquals(level, connection.getTransactionIsolation());
-
-        Statement statement = connection.createStatement();
-        statement.execute("select 2 + 2");
-    }
-
-    @ParameterizedTest
-    @MethodSource("unsupportedIsolations")
-    void transactionIsolationInvalid(int level) {
-        assertThrows(SQLException.class,
-                () -> connection.setTransactionIsolation(level),
-                "Unsupported transaction level: " + level);
-    }
-
-    @Test
-    void getWarnings() throws SQLException {
-        // TODO: generate warnings
-        assertNull(connection.getWarnings());
-    }
-
-    @Test
-    void clearWarnings() throws SQLException {
-        assertNull(connection.getWarnings());
-        connection.clearWarnings();
-        assertNull(connection.getWarnings());
-    }
-
-    @Test
-    void typeMap() throws SQLException {
-        assertEquals(new HashMap<>(), connection.getTypeMap());
-
-        Map<String, Class<?>> newMap = new HashMap<>();
-        newMap.put("type1", String.class);
-        connection.setTypeMap(newMap);
-
-        // not implemented
-        assertEquals(new HashMap<>(), connection.getTypeMap());
-    }
-
-
-    @Test
-    void holdability() throws SQLException {
-        assertEquals(ResultSet.HOLD_CURSORS_OVER_COMMIT, connection.getHoldability());
-        connection.setHoldability(ResultSet.HOLD_CURSORS_OVER_COMMIT);
-
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> connection.setHoldability(ResultSet.HOLD_CURSORS_OVER_COMMIT + 1),
-                "resultSetHoldability must be ResultSet.HOLD_CURSORS_OVER_COMMIT");
-    }
-
-
-    @Test
-    void setSavepoint() {
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> connection.setSavepoint(),
-                "Savepoints are not supported");
-
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> connection.setSavepoint("name"),
-                "Savepoints are not supported");
-    }
-
-    @Test
-    void releaseSavepoint() {
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> connection.releaseSavepoint(null),
-                "Savepoints are not supported");
-    }
-
-    @Test
-    void createClob() {
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> connection.createClob(),
-                "Clobs are not supported");
-    }
-
-    @Test
-    void createBlob() {
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> connection.createBlob(),
-                "Blobs are not supported");
-    }
-
-    @Test
-    void createNClob() {
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> connection.createNClob(),
-                "NClobs are not supported");
-    }
-
-    @Test
-    void createSQLXML() {
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> connection.createSQLXML(),
-                "SQLXMLs are not supported");
-    }
-
-    @Test
-    void isValid() throws SQLException {
-        assertTrue(connection.isValid(1));
+    @Disabled("WRONG LOGIC")
+    public void isValid() throws SQLException {
+        Assertions.assertTrue(jdbc.connection().isValid(1));
         YdbDriver.getConnectionsCache().close();
-        assertFalse(connection.isValid(1));
+        Assertions.assertFalse(jdbc.connection().isValid(1));
     }
 
     @Test
-    void clientInfo() throws SQLException {
-        assertEquals(new Properties(), connection.getClientInfo());
+    public void clientInfo() throws SQLException {
+        Assertions.assertEquals(new Properties(), jdbc.connection().getClientInfo());
 
         Properties properties = new Properties();
         properties.setProperty("key", "value");
-        connection.setClientInfo(properties);
+        jdbc.connection().setClientInfo(properties);
 
-        assertEquals(new Properties(), connection.getClientInfo());
-        connection.setClientInfo("key", "value");
+        Assertions.assertEquals(new Properties(), jdbc.connection().getClientInfo());
+        jdbc.connection().setClientInfo("key", "value");
 
-        assertEquals(new Properties(), connection.getClientInfo());
-        assertNull(connection.getClientInfo("key"));
+        Assertions.assertEquals(new Properties(), jdbc.connection().getClientInfo());
+        Assertions.assertNull(jdbc.connection().getClientInfo("key"));
     }
 
     @Test
-    void createArrayOf() {
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> connection.createArrayOf("type", new Object[0]),
-                "Arrays are not supported");
-    }
+    public void invalidSQLCancelTransaction() throws SQLException {
+        try (Statement statement = jdbc.connection().createStatement()) {
+            statement.execute("select 2 + 2");
+            String txId = currentTxId();
+            Assertions.assertNotNull(txId);
 
-    @Test
-    void createStruct() {
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> connection.createStruct("type", new Object[0]),
-                "Structs are not supported");
-    }
+            assertYdbNonRetryable("Column reference 'x' (S_ERROR)", () -> statement.execute("select 2 + x"));
 
-    @Test
-    void schema() throws SQLException {
-        assertNull(connection.getSchema());
-        connection.setSchema("test");
-        assertNull(connection.getSchema());
-    }
-
-
-    @Test
-    void abort() {
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> connection.abort(null),
-                "Abort operation is not supported yet");
-    }
-
-    @Test
-    void setNetworkTimeout() {
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> connection.setNetworkTimeout(null, 1),
-                "Set network timeout is not supported yet");
-    }
-
-    @Test
-    void getNetworkTimeout() throws SQLException {
-        assertEquals(0, connection.getNetworkTimeout());
-    }
-
-    @ParameterizedTest
-    @MethodSource("unsupportedTypes")
-    void testUnsupportedTableTypes(String paramName, String sqlExpression, String expectedError) {
-        String tableName = "unsupported_" + paramName;
-        String sql = String.format("--jdbc:SCHEME\ncreate table ${tableName} (key Int32, %s %s, primary key(key))",
-                paramName, sqlExpression);
-        assertThrowsMsgLike(YdbNonRetryableException.class,
-                () -> createTestTable(tableName, sql),
-                expectedError);
-    }
-
-    @Test
-    void testDDLInsideTransaction() throws SQLException {
-        YdbStatement statement = connection.createStatement();
-
-        statement.execute("upsert into unit_1(key, c_Text) values (1, '2')");
-        statement.executeSchemeQuery("create table unit_11(id Int32, value Int32, primary key(id))");
-        try {
-            // No commits in case of ddl
-            assertThrowsMsgLike(YdbNonRetryableException.class,
-                    () -> statement.executeQuery("select * from unit_1"),
-                    "Data modifications previously made to table");
-        } finally {
-            statement.executeSchemeQuery("drop table unit_11");
+            statement.execute("select 2 + 2");
+            Assertions.assertNotNull(currentTxId());
+            Assertions.assertNotEquals(txId, currentTxId());
         }
     }
 
     @Test
-    void testWarningInIndexUsage() throws SQLException {
-        connection.createStatement().executeSchemeQuery("--!syntax_v1\n" +
-                "create table unit_0_indexed (" +
-                "id Int32, value Int32, " +
-                "primary key (id), " +
-                "index idx_value global on (value))");
+    public void autoCommit() throws SQLException {
+        try (Statement statement = jdbc.connection().createStatement()) {
+            statement.execute("select 2 + 2");
+            String txId = currentTxId();
+            Assertions.assertNotNull(txId);
 
-        String query = "--!syntax_v1\n" +
-                "declare $list as List<Int32>;\n" +
-                "select * from unit_0_indexed view idx_value where value in $list;";
+            Assertions.assertFalse(jdbc.connection().getAutoCommit());
 
-        ListValue value = ListType.of(PrimitiveType.Int32).newValue(
-                Arrays.asList(PrimitiveValue.newInt32(1), PrimitiveValue.newInt32(2)));
-        YdbPreparedStatement ps = connection.prepareStatement(query);
-        ps.setObject("list", value);
-        YdbResultSet rs = ps.executeQuery();
-        assertFalse(rs.next());
+            jdbc.connection().setAutoCommit(false);
+            Assertions.assertFalse(jdbc.connection().getAutoCommit());
+            Assertions.assertEquals(txId, currentTxId());
 
-        SQLWarning warnings = ps.getWarnings();
-        assertNotNull(warnings);
+            jdbc.connection().setAutoCommit(true);
+            Assertions.assertTrue(jdbc.connection().getAutoCommit());
+            Assertions.assertNull(currentTxId());
 
-        assertEquals("#1030 Type annotation (S_WARNING)\n" +
-                "  1:3 - 1:3: At function: RemovePrefixMembers, At function: RemoveSystemMembers, At function: " +
-                "PersistableRepr, At function: SqlProject (S_WARNING)\n" +
-                "  35:3 - 35:3: At function: Filter, At function: Coalesce (S_WARNING)\n" +
-                "  51:3 - 51:3: At function: SqlIn (S_WARNING)\n" +
-                "  51:3 - 51:3: #1108 IN may produce unexpected result when used with nullable arguments. Consider " +
-                "adding 'PRAGMA AnsiInForEmptyOrNullableItemsCollections;' (S_WARNING)", warnings.getMessage());
-        assertNull(warnings.getNextWarning());
+            statement.execute("select 2 + 2");
+            Assertions.assertNull(currentTxId());
+
+            statement.execute("select 2 + 2");
+            Assertions.assertNull(currentTxId());
+
+            jdbc.connection().setAutoCommit(false);
+            Assertions.assertFalse(jdbc.connection().getAutoCommit());
+            Assertions.assertNull(currentTxId());
+        }
     }
 
     @Test
-    void testAnsiLexer() throws SQLException {
-        YdbResultSet rs = connection.createStatement().executeQuery("--!ansi_lexer\n" +
-                "select 'string value' as \"name with space\"");
-        assertTrue(rs.next());
-        assertEquals("string value", rs.getString("name with space"));
+    public void commit() throws SQLException {
+        try (Statement statement = jdbc.connection().createStatement()) {
+            Assertions.assertTrue(statement.execute("select 2 + 2"));
+            String txId = currentTxId();
+            Assertions.assertNotNull(txId);
+
+            Assertions.assertTrue(statement.execute("select 2 + 2"));
+            Assertions.assertEquals(txId, currentTxId());
+
+            Assertions.assertTrue(statement.execute("select * from " + TEST_TABLE));
+            Assertions.assertEquals(txId, currentTxId());
+
+            Assertions.assertFalse(statement.execute("upsert into " + TEST_TABLE + "(key, c_Text) values (1, '2')"));
+            Assertions.assertEquals(txId, currentTxId());
+
+            Assertions.assertTrue(statement.execute("select 2 + 2"));
+            Assertions.assertEquals(txId, currentTxId());
+
+            jdbc.connection().commit();
+            Assertions.assertNull(currentTxId());
+
+            jdbc.connection().commit(); // does nothing
+            Assertions.assertNull(currentTxId());
+
+            try (ResultSet result = statement.executeQuery("select * from " + TEST_TABLE)) {
+                Assertions.assertTrue(result.next());
+            }
+
+            // clean simple tables
+            statement.execute("delete from " + TEST_TABLE + ";");
+            jdbc.connection().commit();
+        }
     }
 
     @Test
-    void testAnsiLexerForIdea() throws SQLException {
-        YdbStatement statement = connection.createStatement();
-        statement.execute("upsert into unit_1(key, c_Text) values (1, '2')");
-        connection.commit();
+    public void rollback() throws SQLException {
+        try (Statement statement = jdbc.connection().createStatement()) {
+            Assertions.assertTrue(statement.execute("select 2 + 2"));
+            String txId = currentTxId();
+            Assertions.assertNotNull(txId);
 
-        YdbResultSet rs = statement.executeQuery("--!ansi_lexer\n" +
-                "select t.c_Text from \"unit_1\" as t where t.key = 1"); // TODO: Must be "unit_1" t, see YQL-12618
-        assertTrue(rs.next());
-        assertEquals("2", rs.getString("c_Text"));
+            Assertions.assertTrue(statement.execute("select 2 + 2"));
+            Assertions.assertEquals(txId, currentTxId());
+
+            Assertions.assertTrue(statement.execute("select * from " + TEST_TABLE));
+            Assertions.assertEquals(txId, currentTxId());
+
+            Assertions.assertFalse(statement.execute("upsert into " + TEST_TABLE + "(key, c_Text) values (1, '2')"));
+            Assertions.assertEquals(txId, currentTxId());
+
+            Assertions.assertTrue(statement.execute("select 2 + 2"));
+            Assertions.assertEquals(txId, currentTxId());
+
+            jdbc.connection().rollback();
+            Assertions.assertNull(currentTxId());
+
+            jdbc.connection().rollback(); // does nothing
+            Assertions.assertNull(currentTxId());
+
+            try (ResultSet result = statement.executeQuery("select * from " + TEST_TABLE)) {
+                Assertions.assertFalse(result.next());
+            }
+        }
     }
 
-    //
+    @Test
+    public void commitInvalidTx() throws SQLException {
+        try (Statement statement = jdbc.connection().createStatement()) {
+            statement.execute("upsert into " + TEST_TABLE + "(key, c_Text) values (1, '2')");
+            statement.execute("upsert into " + TEST_TABLE + "(key, c_Text) values (1, '2')");
 
+            assertYdbNonRetryable("Data modifications previously made to table",
+                    () -> statement.executeQuery("select * from " + TEST_TABLE));
 
-    private void initTestTable() throws SQLException {
-        assertNull(connection.getYdbTxId());
+            Assertions.assertNull(currentTxId());
 
-        Statement statement = connection.createStatement();
-        assertTrue(statement.execute("select 2 + 2"));
-        String txId = connection.getYdbTxId();
-        assertNotNull(txId);
-
-        assertTrue(statement.execute("select 2 + 2"));
-        assertEquals(txId, connection.getYdbTxId());
-
-        assertTrue(statement.execute("select * from unit_1"));
-        assertEquals(txId, connection.getYdbTxId());
-
-        assertFalse(statement.execute("upsert into unit_1(key, c_Text) values (1, '2')"));
-        assertEquals(txId, connection.getYdbTxId());
-
-        assertTrue(statement.execute("select 2 + 2"));
-        assertEquals(txId, connection.getYdbTxId());
+            jdbc.connection().commit(); // Nothing to commit, transaction was rolled back already
+            Assertions.assertNull(currentTxId());
+        }
     }
 
-    static List<Integer> supportedIsolations() {
-        return Arrays.asList(
-                YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE,
-                YdbConst.ONLINE_CONSISTENT_READ_ONLY,
-                YdbConst.ONLINE_INCONSISTENT_READ_ONLY,
-                YdbConst.STALE_CONSISTENT_READ_ONLY);
+    @Test
+    public void rollbackInvalidTx() throws SQLException {
+        try (Statement statement = jdbc.connection().createStatement()) {
+            ResultSet result = statement.executeQuery("select * from " + TEST_TABLE);
+            Assertions.assertFalse(result.next());
+
+            statement.execute("insert into " + TEST_TABLE + "(key, c_Text) values (1, '2')");
+
+            assertYdbNonRetryable("Data modifications previously made to table",
+                    () -> statement.executeQuery("select * from " + TEST_TABLE));
+
+            Assertions.assertNull(currentTxId());
+            jdbc.connection().rollback();
+            Assertions.assertNull(currentTxId());
+        }
     }
 
-    static List<Integer> unsupportedIsolations() {
-        List<Integer> unsupported = IntStream.range(0, 10).boxed().collect(Collectors.toList());
-        unsupported.removeAll(supportedIsolations());
-        assertEquals(6, unsupported.size());
-        return unsupported;
+    @Test
+    public void closeTest() throws SQLException {
+        Assertions.assertFalse(jdbc.connection().isClosed());
+        jdbc.connection().close();
+        Assertions.assertTrue(jdbc.connection().isClosed());
+        jdbc.connection().close(); // no effect
     }
 
-    static List<Arguments> unsupportedTypes() {
-        String simpleTypeError = "is not supported by storage";
-        String complexTypeError = "Only core YQL data types are currently supported";
-        return Arrays.asList(
-                Arguments.of("c_Int8", "Int8", simpleTypeError),
-                Arguments.of("c_Int16", "Int16", simpleTypeError),
-                Arguments.of("c_Uint16", "Uint16", simpleTypeError),
-                Arguments.of("c_Uuid", "Uuid", simpleTypeError),
-                Arguments.of("c_TzDate", "TzDate", simpleTypeError),
-                Arguments.of("c_TzDatetime", "TzDatetime", simpleTypeError),
-                Arguments.of("c_TzTimestamp", "TzTimestamp", simpleTypeError),
-                Arguments.of("c_List", "List<Int32>", complexTypeError),
-                Arguments.of("c_Struct", "Struct<name:Int32>", complexTypeError),
-                Arguments.of("c_Tuple", "Tuple<Int32>", complexTypeError),
-                Arguments.of("c_Dict", "Dict<Utf8,Int32>", complexTypeError));
+    @Test
+    public void getMetaData() throws SQLException {
+        DatabaseMetaData metaData = jdbc.connection().getMetaData();
+        Assertions.assertNotNull(metaData);
     }
 
+    @Test
+    public void readOnly() throws SQLException {
+        Assertions.assertFalse(jdbc.connection().isReadOnly());
+        Assertions.assertEquals(Connection.TRANSACTION_SERIALIZABLE, jdbc.connection().getTransactionIsolation());
+
+        jdbc.connection().setReadOnly(true);
+
+        Assertions.assertTrue(jdbc.connection().isReadOnly());
+        Assertions.assertEquals(Connection.TRANSACTION_REPEATABLE_READ, jdbc.connection().getTransactionIsolation());
+
+        jdbc.connection().setReadOnly(false);
+        Assertions.assertFalse(jdbc.connection().isReadOnly());
+        Assertions.assertEquals(Connection.TRANSACTION_SERIALIZABLE, jdbc.connection().getTransactionIsolation());
+    }
+
+    @Test
+    public void catalog() throws SQLException {
+        Assertions.assertNull(jdbc.connection().getCatalog());
+        jdbc.connection().setCatalog("any"); // catalogs are not supported
+        Assertions.assertNull(jdbc.connection().getCatalog());
+    }
+
+    @Test
+    public void schema() throws SQLException {
+        Assertions.assertNull(jdbc.connection().getSchema());
+        jdbc.connection().setSchema("test"); // schemas are not supported
+        Assertions.assertNull(jdbc.connection().getSchema());
+    }
+
+    @ParameterizedTest(name = "Check supported isolation level {0}")
+    @ValueSource(ints = {
+        YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE, // 8
+        YdbConst.ONLINE_CONSISTENT_READ_ONLY, // 4
+        YdbConst.ONLINE_INCONSISTENT_READ_ONLY, // 2
+        YdbConst.STALE_CONSISTENT_READ_ONLY // 3
+    })
+    public void supportedTransactionIsolations(int level) throws SQLException {
+        jdbc.connection().setTransactionIsolation(level);
+        Assertions.assertEquals(level, jdbc.connection().getTransactionIsolation());
+
+        try (Statement statement = jdbc.connection().createStatement()) {
+            assertResult(4, statement.executeQuery("select 2 + 2"));
+        }
+    }
+
+    @ParameterizedTest(name = "Check supported isolation level {0}")
+    @ValueSource(ints = { 0, 1, /*2, 3, 4,*/ 5, 6, 7, /*8,*/ 9, 10 })
+    public void unsupportedTransactionIsolations(int level) throws SQLException {
+        assertSQLException("Unsupported transaction level: " + level,
+                () -> jdbc.connection().setTransactionIsolation(level)
+        );
+    }
+
+    @Test
+    public void clearWarnings() throws SQLException {
+        // TODO: generate warnings
+        Assertions.assertNull(jdbc.connection().getWarnings());
+        jdbc.connection().clearWarnings();
+        Assertions.assertNull(jdbc.connection().getWarnings());
+    }
+
+    @Test
+    public void typeMap() throws SQLException {
+        Assertions.assertTrue(jdbc.connection().getTypeMap().isEmpty());
+
+        Map<String, Class<?>> newMap = new HashMap<>();
+        newMap.put("type1", String.class);
+        jdbc.connection().setTypeMap(newMap);
+
+        // not implemented
+        Assertions.assertTrue(jdbc.connection().getTypeMap().isEmpty());
+    }
+
+    @Test
+    public void holdability() throws SQLException {
+        Assertions.assertEquals(ResultSet.HOLD_CURSORS_OVER_COMMIT, jdbc.connection().getHoldability());
+        jdbc.connection().setHoldability(ResultSet.HOLD_CURSORS_OVER_COMMIT);
+
+        assertSQLFeatureNotSupported("resultSetHoldability must be ResultSet.HOLD_CURSORS_OVER_COMMIT",
+                () -> jdbc.connection().setHoldability(ResultSet.CLOSE_CURSORS_AT_COMMIT));
+    }
+
+    @Test
+    public void networkTimeout() throws SQLException {
+        Assertions.assertEquals(0, jdbc.connection().getNetworkTimeout());
+        assertSQLFeatureNotSupported("Set network timeout is not supported yet",
+                () -> jdbc.connection().setNetworkTimeout(null, 1));
+    }
+
+    @Test
+    public void savepoints() {
+        assertSQLFeatureNotSupported("Savepoints are not supported", () -> jdbc.connection().setSavepoint());
+        assertSQLFeatureNotSupported("Savepoints are not supported", () -> jdbc.connection().setSavepoint("name"));
+        assertSQLFeatureNotSupported("Savepoints are not supported", () -> jdbc.connection().releaseSavepoint(null));
+    }
+
+    @Test
+    public void unsupportedTypes() {
+        assertSQLFeatureNotSupported("Clobs are not supported", () -> jdbc.connection().createClob());
+        assertSQLFeatureNotSupported("Blobs are not supported", () -> jdbc.connection().createBlob());
+        assertSQLFeatureNotSupported("NClobs are not supported", () -> jdbc.connection().createNClob());
+        assertSQLFeatureNotSupported("SQLXMLs are not supported", () -> jdbc.connection().createSQLXML());
+        assertSQLFeatureNotSupported("Arrays are not supported",
+                () -> jdbc.connection().createArrayOf("type", new Object[] { })
+        );
+        assertSQLFeatureNotSupported("Structs are not supported",
+                () -> jdbc.connection().createStruct("type", new Object[] { })
+        );
+    }
+
+    @Test
+    public void abort() {
+        assertSQLFeatureNotSupported("Abort operation is not supported yet",  () -> jdbc.connection().abort(null));
+    }
+    @Test
+    public void testDDLInsideTransaction() throws SQLException {
+        String tempTable = "temp_" + TEST_TABLE;
+        try (Statement statement = jdbc.connection().createStatement()) {
+            statement.execute("upsert into " + TEST_TABLE + "(key, c_Text) values (1, '2')");
+            statement.execute("--jdbc:SCHEME\n"
+                    + "create table " + tempTable + "(id Int32, value Int32, primary key(id))");
+
+            try {
+                // No commits in case of ddl
+                assertYdbNonRetryable("Data modifications previously made to table",
+                        () -> statement.executeQuery("select * from " + TEST_TABLE));
+            } finally {
+                statement.execute("--jdbc:SCHEME\ndrop table " + tempTable);
+            }
+        }
+    }
+
+    @Test
+    public void testWarningInIndexUsage() throws SQLException {
+        try (Statement statement = jdbc.connection().createStatement()) {
+            statement.execute("--jdbc:SCHEME\n" +
+                    "create table unit_0_indexed (" +
+                    "id Int32, value Int32, " +
+                    "primary key (id), " +
+                    "index idx_value global on (value))");
+
+            String query = "--!syntax_v1\n" +
+                    "declare $list as List<Int32>;\n" +
+                    "select * from unit_0_indexed view idx_value where value in $list;";
+
+            ListValue value = ListType.of(PrimitiveType.Int32).newValue(
+                    Arrays.asList(PrimitiveValue.newInt32(1), PrimitiveValue.newInt32(2)));
+            try (PreparedStatement ps = jdbc.connection().prepareStatement(query)) {
+                ps.unwrap(YdbPreparedStatement.class).setObject("list", value);
+
+                ResultSet rs = ps.executeQuery();
+                Assertions.assertFalse(rs.next());
+
+                SQLWarning warnings = ps.getWarnings();
+                Assertions.assertNotNull(warnings);
+
+                Assertions.assertEquals("#1030 Type annotation (S_WARNING)\n"
+                        + "  1:3 - 1:3: At function: RemovePrefixMembers, At function: RemoveSystemMembers, "
+                        + "At function: PersistableRepr, At function: SqlProject (S_WARNING)\n"
+                        + "  35:3 - 35:3: At function: Filter, At function: Coalesce (S_WARNING)\n"
+                        + "  51:3 - 51:3: At function: SqlIn (S_WARNING)\n"
+                        + "  51:3 - 51:3: #1108 IN may produce unexpected result when used with nullable arguments. "
+                        + "Consider adding 'PRAGMA AnsiInForEmptyOrNullableItemsCollections;' (S_WARNING)",
+                        warnings.getMessage());
+                Assertions.assertNull(warnings.getNextWarning());
+            }
+        }
+    }
+
+    @Test
+    public void testAnsiLexer() throws SQLException {
+        try (Statement statement = jdbc.connection().createStatement()) {
+            ResultSet rs = statement.executeQuery("--!ansi_lexer\n" +
+                    "select 'string value' as \"name with space\"");
+            Assertions.assertTrue(rs.next());
+            Assertions.assertEquals("string value", rs.getString("name with space"));
+        }
+    }
+
+    @Test
+    public void testAnsiLexerForIdea() throws SQLException {
+        try (Statement statement = jdbc.connection().createStatement()) {
+            statement.execute("upsert into " + TEST_TABLE + "(key, c_Text) values (1, '2')");
+            jdbc.connection().commit();
+
+            // TODO: Must be "unit_1" t, see YQL-12618
+            try (ResultSet rs = statement.executeQuery("--!ansi_lexer\n" +
+                    "select t.c_Text from \"" + TEST_TABLE + "\" as t where t.key = 1")) {
+                Assertions.assertTrue(rs.next());
+                Assertions.assertEquals("2", rs.getString("c_Text"));
+            }
+
+            try (ResultSet rs = statement.executeQuery("--!ansi_lexer\n" +
+                    "select t.c_Text from " + TEST_TABLE + " t where t.key = 1")) {
+                Assertions.assertTrue(rs.next());
+                Assertions.assertEquals("2", rs.getString("c_Text"));
+            }
+        } finally {
+            try (Statement statement = jdbc.connection().createStatement()) {
+                statement.execute("delete from " + TEST_TABLE);
+                jdbc.connection().commit();
+            }
+        }
+    }
+
+    @ParameterizedTest(name = "Check unsupported by storage type {0}")
+    @ValueSource(strings = {
+        "Int8",
+        "Int16",
+        "Uint16",
+        "Uuid",
+        "TzDate",
+        "TzDatetime",
+        "TzTimestamp",
+    })
+    public void testUnsupportedByStorageTableTypes(String type) throws SQLException {
+        String tableName = "unsupported_" + type;
+        String sql = "--jdbc:SCHEME\n"
+                + "create table " + tableName + " (key Int32, payload " + type + ", primary key(key))";
+
+        try (Statement statement = jdbc.connection().createStatement()) {
+            assertYdbNonRetryable("is not supported by storage", () -> statement.execute(sql));
+        }
+    }
+
+    @ParameterizedTest(name = "Check unsupported complex type {0}")
+    @ValueSource(strings = {
+        "List<Int32>",
+        "Struct<name:Int32>",
+        "Tuple<Int32>",
+        "Dict<Text,Int32>",
+    })
+    public void testUnsupportedComplexTypes(String type) throws SQLException {
+        String tableName = "unsupported_" + type.replaceAll("[^a-zA-Z0-9]", "");
+        String sql = "--jdbc:SCHEME\n"
+                + "create table " + tableName + " (key Int32, payload " + type + ", primary key(key))";
+
+        try (Statement statement = jdbc.connection().createStatement()) {
+            assertYdbNonRetryable("Only core YQL data types are currently supported", () -> statement.execute(sql));
+        }
+    }
 }

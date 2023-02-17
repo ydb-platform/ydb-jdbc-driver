@@ -51,7 +51,7 @@ public class TableAssert {
         return column;
     }
 
-    public ResultSetAssert check(ResultSet rs) {
+    public ResultSetAssert check(ResultSet rs) throws SQLException {
         return new ResultSetAssert(rs);
     }
 
@@ -59,7 +59,8 @@ public class TableAssert {
     public class ResultSetAssert {
         private final ResultSet rs;
 
-        public ResultSetAssert(ResultSet rs) {
+        public ResultSetAssert(ResultSet rs) throws SQLException {
+            Assertions.assertFalse(rs.isClosed(), "Result set is closed");
             this.rs = rs;
         }
 
@@ -78,6 +79,8 @@ public class TableAssert {
 
         public ResultSetAssert assertNoRows() throws SQLException {
             Assertions.assertFalse(rs.next(), "Unexpected non-empty result set");
+            rs.close();
+            Assertions.assertTrue(rs.isClosed(), "Result set is not closed");
             return this;
         }
 

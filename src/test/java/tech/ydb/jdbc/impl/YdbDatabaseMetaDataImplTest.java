@@ -11,6 +11,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,21 +26,6 @@ import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.TableAssert;
 import tech.ydb.jdbc.impl.helper.TestConsts;
 import tech.ydb.test.junit5.YdbHelperExtention;
-
-import static java.sql.ResultSet.CLOSE_CURSORS_AT_COMMIT;
-import static java.sql.ResultSet.CONCUR_READ_ONLY;
-import static java.sql.ResultSet.CONCUR_UPDATABLE;
-import static java.sql.ResultSet.HOLD_CURSORS_OVER_COMMIT;
-import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
-import static java.sql.ResultSet.TYPE_SCROLL_INSENSITIVE;
-import static java.sql.ResultSet.TYPE_SCROLL_SENSITIVE;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class YdbDatabaseMetaDataImplTest {
     @RegisterExtension
@@ -75,6 +62,22 @@ public class YdbDatabaseMetaDataImplTest {
         }
     }
 
+    @AfterAll
+    public static void dropTables() throws SQLException {
+        try (Statement statement = jdbc.connection().createStatement();) {
+            // drop simple tables
+            statement.execute("--jdbc:SCHEME\n"
+                    + "drop table t1;\n"
+                    + "drop table `dir1/t1`;\n"
+                    + "drop table `dir1/t2`;\n"
+                    + "drop table `dir2/t1`;\n"
+                    + "drop table `dir2/dir1/t1`;\n"
+                    + "drop table " + INDEXES_TABLE + ";\n"
+                    + "drop table " + ALL_TYPES_TABLE + ";\n"
+            );
+        }
+    }
+
     @BeforeEach
     public void loadMetaData() throws SQLException {
         this.metaData = jdbc.connection().getMetaData();
@@ -82,232 +85,237 @@ public class YdbDatabaseMetaDataImplTest {
 
     @Test
     public void isReadOnly() throws SQLException {
-        assertFalse(jdbc.connection().getMetaData().isReadOnly());
+        Assertions.assertFalse(jdbc.connection().getMetaData().isReadOnly());
         jdbc.connection().setTransactionIsolation(YdbConst.ONLINE_CONSISTENT_READ_ONLY);
-        assertTrue(jdbc.connection().getMetaData().isReadOnly());
+        Assertions.assertTrue(jdbc.connection().getMetaData().isReadOnly());
     }
 
     @Test
     public void jdbcConnectionTest() throws SQLException {
-        assertSame(jdbc.connection(), metaData.getConnection());
+        Assertions.assertSame(jdbc.connection(), metaData.getConnection());
 
         String url = metaData.getURL();
-        assertNotNull(url);
-        assertEquals(jdbc.jdbcURL(), url);
+        Assertions.assertNotNull(url);
+        Assertions.assertEquals(jdbc.jdbcURL(), url);
     }
 
     @Test
     public void metaDataUnwrapTest() throws SQLException {
-        assertTrue(metaData.isWrapperFor(YdbDatabaseMetaData.class));
-        assertSame(metaData, metaData.unwrap(YdbDatabaseMetaData.class));
+        Assertions.assertTrue(metaData.isWrapperFor(YdbDatabaseMetaData.class));
+        Assertions.assertSame(metaData, metaData.unwrap(YdbDatabaseMetaData.class));
 
-        assertFalse(metaData.isWrapperFor(YdbStatement.class));
+        Assertions.assertFalse(metaData.isWrapperFor(YdbStatement.class));
 
-        SQLException ex = assertThrows(SQLException.class, () -> metaData.unwrap(YdbStatement.class));
-        assertEquals("Cannot unwrap to interface tech.ydb.jdbc.YdbStatement", ex.getMessage());
+        SQLException ex = Assertions.assertThrows(SQLException.class, () -> metaData.unwrap(YdbStatement.class));
+        Assertions.assertEquals("Cannot unwrap to interface tech.ydb.jdbc.YdbStatement", ex.getMessage());
     }
-
 
     @Test
     public void metaDataValuesTest() throws SQLException {
-        assertFalse(metaData.allProceduresAreCallable());
-        assertTrue(metaData.allTablesAreSelectable());
-        assertEquals("", metaData.getUserName());
-        assertTrue(metaData.nullsAreSortedHigh());
-        assertFalse(metaData.nullsAreSortedLow());
-        assertFalse(metaData.nullsAreSortedAtStart());
-        assertFalse(metaData.nullsAreSortedAtEnd());
-        assertEquals("YDB", metaData.getDatabaseProductName());
-        assertEquals("unspecified", metaData.getDatabaseProductVersion());
+        Assertions.assertFalse(metaData.allProceduresAreCallable());
+        Assertions.assertTrue(metaData.allTablesAreSelectable());
+        Assertions.assertEquals("", metaData.getUserName());
+        Assertions.assertTrue(metaData.nullsAreSortedHigh());
+        Assertions.assertFalse(metaData.nullsAreSortedLow());
+        Assertions.assertFalse(metaData.nullsAreSortedAtStart());
+        Assertions.assertFalse(metaData.nullsAreSortedAtEnd());
+        Assertions.assertEquals("YDB", metaData.getDatabaseProductName());
+        Assertions.assertEquals("unspecified", metaData.getDatabaseProductVersion());
 
-        assertEquals(YdbDriverInfo.DRIVER_NAME, metaData.getDriverName());
-        assertEquals(YdbDriverInfo.DRIVER_VERSION, metaData.getDriverVersion());
-        assertEquals(YdbDriverInfo.DRIVER_MAJOR_VERSION, metaData.getDriverMajorVersion());
-        assertEquals(YdbDriverInfo.DRIVER_MINOR_VERSION, metaData.getDriverMinorVersion());
+        Assertions.assertEquals(YdbDriverInfo.DRIVER_NAME, metaData.getDriverName());
+        Assertions.assertEquals(YdbDriverInfo.DRIVER_VERSION, metaData.getDriverVersion());
+        Assertions.assertEquals(YdbDriverInfo.DRIVER_MAJOR_VERSION, metaData.getDriverMajorVersion());
+        Assertions.assertEquals(YdbDriverInfo.DRIVER_MINOR_VERSION, metaData.getDriverMinorVersion());
 
         if (YdbDriverInfo.DRIVER_MINOR_VERSION == 0) {
-            assertEquals(YdbVersionCollector.LATEST_VERSION, metaData.getDriverVersion());
+            Assertions.assertEquals(YdbVersionCollector.LATEST_VERSION, metaData.getDriverVersion());
         } else {
-            assertNotEquals(YdbVersionCollector.LATEST_VERSION, metaData.getDriverVersion());
+            Assertions.assertNotEquals(YdbVersionCollector.LATEST_VERSION, metaData.getDriverVersion());
         }
 
-        assertEquals(0, metaData.getDatabaseMajorVersion());
-        assertEquals(0, metaData.getDatabaseMinorVersion());
+        Assertions.assertEquals(0, metaData.getDatabaseMajorVersion());
+        Assertions.assertEquals(0, metaData.getDatabaseMinorVersion());
 
-        assertEquals(YdbDriverInfo.JDBC_MAJOR_VERSION, metaData.getJDBCMajorVersion());
-        assertEquals(YdbDriverInfo.JDBC_MINOR_VERSION, metaData.getJDBCMinorVersion());
+        Assertions.assertEquals(YdbDriverInfo.JDBC_MAJOR_VERSION, metaData.getJDBCMajorVersion());
+        Assertions.assertEquals(YdbDriverInfo.JDBC_MINOR_VERSION, metaData.getJDBCMinorVersion());
 
-        assertFalse(metaData.usesLocalFiles());
-        assertFalse(metaData.usesLocalFilePerTable());
-        assertTrue(metaData.supportsMixedCaseIdentifiers());
-        assertFalse(metaData.storesUpperCaseIdentifiers());
-        assertFalse(metaData.storesLowerCaseIdentifiers());
-        assertTrue(metaData.storesMixedCaseIdentifiers());
-        assertTrue(metaData.supportsMixedCaseQuotedIdentifiers());
-        assertFalse(metaData.storesUpperCaseQuotedIdentifiers());
-        assertFalse(metaData.storesLowerCaseQuotedIdentifiers());
-        assertTrue(metaData.storesMixedCaseQuotedIdentifiers());
+        Assertions.assertFalse(metaData.usesLocalFiles());
+        Assertions.assertFalse(metaData.usesLocalFilePerTable());
+        Assertions.assertTrue(metaData.supportsMixedCaseIdentifiers());
+        Assertions.assertFalse(metaData.storesUpperCaseIdentifiers());
+        Assertions.assertFalse(metaData.storesLowerCaseIdentifiers());
+        Assertions.assertTrue(metaData.storesMixedCaseIdentifiers());
+        Assertions.assertTrue(metaData.supportsMixedCaseQuotedIdentifiers());
+        Assertions.assertFalse(metaData.storesUpperCaseQuotedIdentifiers());
+        Assertions.assertFalse(metaData.storesLowerCaseQuotedIdentifiers());
+        Assertions.assertTrue(metaData.storesMixedCaseQuotedIdentifiers());
 
-        assertEquals("`", metaData.getIdentifierQuoteString());
-        assertEquals("", metaData.getSQLKeywords());
+        Assertions.assertEquals("`", metaData.getIdentifierQuoteString());
+        Assertions.assertEquals("", metaData.getSQLKeywords());
 
-        assertSame(YdbFunctions.NUMERIC_FUNCTIONS, metaData.getNumericFunctions());
-        assertSame(YdbFunctions.STRING_FUNCTIONS, metaData.getStringFunctions());
-        assertSame(YdbFunctions.SYSTEM_FUNCTIONS, metaData.getSystemFunctions());
-        assertSame(YdbFunctions.DATETIME_FUNCTIONS, metaData.getTimeDateFunctions());
+        Assertions.assertSame(YdbFunctions.NUMERIC_FUNCTIONS, metaData.getNumericFunctions());
+        Assertions.assertSame(YdbFunctions.STRING_FUNCTIONS, metaData.getStringFunctions());
+        Assertions.assertSame(YdbFunctions.SYSTEM_FUNCTIONS, metaData.getSystemFunctions());
+        Assertions.assertSame(YdbFunctions.DATETIME_FUNCTIONS, metaData.getTimeDateFunctions());
 
-        assertNotEquals(metaData.getStringFunctions(), metaData.getSystemFunctions());
-        assertNotEquals(metaData.getStringFunctions(), metaData.getNumericFunctions());
-        assertNotEquals(metaData.getSystemFunctions(), metaData.getNumericFunctions());
-        assertNotEquals(metaData.getNumericFunctions(), metaData.getTimeDateFunctions());
-        assertNotEquals(metaData.getStringFunctions(), metaData.getTimeDateFunctions());
-        assertNotEquals(metaData.getSystemFunctions(), metaData.getTimeDateFunctions());
+        Assertions.assertNotEquals(metaData.getStringFunctions(), metaData.getSystemFunctions());
+        Assertions.assertNotEquals(metaData.getStringFunctions(), metaData.getNumericFunctions());
+        Assertions.assertNotEquals(metaData.getSystemFunctions(), metaData.getNumericFunctions());
+        Assertions.assertNotEquals(metaData.getNumericFunctions(), metaData.getTimeDateFunctions());
+        Assertions.assertNotEquals(metaData.getStringFunctions(), metaData.getTimeDateFunctions());
+        Assertions.assertNotEquals(metaData.getSystemFunctions(), metaData.getTimeDateFunctions());
 
-        assertEquals("\\", metaData.getSearchStringEscape());
-        assertEquals("", metaData.getExtraNameCharacters());
-        assertTrue(metaData.supportsAlterTableWithAddColumn());
-        assertTrue(metaData.supportsAlterTableWithDropColumn());
-        assertTrue(metaData.supportsColumnAliasing());
-        assertTrue(metaData.nullPlusNonNullIsNull());
-        assertFalse(metaData.supportsConvert());
-        assertFalse(metaData.supportsConvert(Types.INTEGER, Types.BIGINT));
-        assertTrue(metaData.supportsTableCorrelationNames());
-        assertFalse(metaData.supportsDifferentTableCorrelationNames());
-        assertTrue(metaData.supportsExpressionsInOrderBy());
-        assertFalse(metaData.supportsOrderByUnrelated());
+        Assertions.assertEquals("\\", metaData.getSearchStringEscape());
+        Assertions.assertEquals("", metaData.getExtraNameCharacters());
+        Assertions.assertTrue(metaData.supportsAlterTableWithAddColumn());
+        Assertions.assertTrue(metaData.supportsAlterTableWithDropColumn());
+        Assertions.assertTrue(metaData.supportsColumnAliasing());
+        Assertions.assertTrue(metaData.nullPlusNonNullIsNull());
+        Assertions.assertFalse(metaData.supportsConvert());
+        Assertions.assertFalse(metaData.supportsConvert(Types.INTEGER, Types.BIGINT));
+        Assertions.assertTrue(metaData.supportsTableCorrelationNames());
+        Assertions.assertFalse(metaData.supportsDifferentTableCorrelationNames());
+        Assertions.assertTrue(metaData.supportsExpressionsInOrderBy());
+        Assertions.assertFalse(metaData.supportsOrderByUnrelated());
 
-        assertTrue(metaData.supportsGroupBy());
-        assertTrue(metaData.supportsGroupByUnrelated());
-        assertTrue(metaData.supportsGroupByBeyondSelect());
-        assertTrue(metaData.supportsLikeEscapeClause());
-        assertTrue(metaData.supportsMultipleResultSets());
-        assertTrue(metaData.supportsMultipleTransactions());
+        Assertions.assertTrue(metaData.supportsGroupBy());
+        Assertions.assertTrue(metaData.supportsGroupByUnrelated());
+        Assertions.assertTrue(metaData.supportsGroupByBeyondSelect());
+        Assertions.assertTrue(metaData.supportsLikeEscapeClause());
+        Assertions.assertTrue(metaData.supportsMultipleResultSets());
+        Assertions.assertTrue(metaData.supportsMultipleTransactions());
 
-        assertFalse(metaData.supportsNonNullableColumns());
+        Assertions.assertFalse(metaData.supportsNonNullableColumns());
 
-        assertTrue(metaData.supportsMinimumSQLGrammar());
-        assertFalse(metaData.supportsCoreSQLGrammar());
-        assertFalse(metaData.supportsExtendedSQLGrammar());
-        assertFalse(metaData.supportsANSI92EntryLevelSQL());
-        assertFalse(metaData.supportsANSI92IntermediateSQL());
-        assertFalse(metaData.supportsANSI92FullSQL());
-        assertFalse(metaData.supportsIntegrityEnhancementFacility());
-        assertTrue(metaData.supportsOuterJoins());
-        assertTrue(metaData.supportsFullOuterJoins());
-        assertTrue(metaData.supportsLimitedOuterJoins());
+        Assertions.assertTrue(metaData.supportsMinimumSQLGrammar());
+        Assertions.assertFalse(metaData.supportsCoreSQLGrammar());
+        Assertions.assertFalse(metaData.supportsExtendedSQLGrammar());
+        Assertions.assertFalse(metaData.supportsANSI92EntryLevelSQL());
+        Assertions.assertFalse(metaData.supportsANSI92IntermediateSQL());
+        Assertions.assertFalse(metaData.supportsANSI92FullSQL());
+        Assertions.assertFalse(metaData.supportsIntegrityEnhancementFacility());
+        Assertions.assertTrue(metaData.supportsOuterJoins());
+        Assertions.assertTrue(metaData.supportsFullOuterJoins());
+        Assertions.assertTrue(metaData.supportsLimitedOuterJoins());
 
-        assertEquals("Database", metaData.getSchemaTerm());
-        assertEquals("", metaData.getProcedureTerm());
-        assertEquals("Path", metaData.getCatalogTerm());
-        assertTrue(metaData.isCatalogAtStart());
-        assertEquals("/", metaData.getCatalogSeparator());
+        Assertions.assertEquals("Database", metaData.getSchemaTerm());
+        Assertions.assertEquals("", metaData.getProcedureTerm());
+        Assertions.assertEquals("Path", metaData.getCatalogTerm());
+        Assertions.assertTrue(metaData.isCatalogAtStart());
+        Assertions.assertEquals("/", metaData.getCatalogSeparator());
 
-        assertFalse(metaData.supportsSchemasInDataManipulation());
-        assertFalse(metaData.supportsSchemasInProcedureCalls());
-        assertFalse(metaData.supportsSchemasInTableDefinitions());
-        assertFalse(metaData.supportsSchemasInIndexDefinitions());
-        assertFalse(metaData.supportsSchemasInIndexDefinitions());
+        Assertions.assertFalse(metaData.supportsSchemasInDataManipulation());
+        Assertions.assertFalse(metaData.supportsSchemasInProcedureCalls());
+        Assertions.assertFalse(metaData.supportsSchemasInTableDefinitions());
+        Assertions.assertFalse(metaData.supportsSchemasInIndexDefinitions());
+        Assertions.assertFalse(metaData.supportsSchemasInIndexDefinitions());
 
-        assertTrue(metaData.supportsCatalogsInDataManipulation());
-        assertTrue(metaData.supportsCatalogsInProcedureCalls());
-        assertTrue(metaData.supportsCatalogsInTableDefinitions());
-        assertTrue(metaData.supportsCatalogsInIndexDefinitions());
-        assertTrue(metaData.supportsCatalogsInPrivilegeDefinitions());
+        Assertions.assertTrue(metaData.supportsCatalogsInDataManipulation());
+        Assertions.assertTrue(metaData.supportsCatalogsInProcedureCalls());
+        Assertions.assertTrue(metaData.supportsCatalogsInTableDefinitions());
+        Assertions.assertTrue(metaData.supportsCatalogsInIndexDefinitions());
+        Assertions.assertTrue(metaData.supportsCatalogsInPrivilegeDefinitions());
 
-        assertFalse(metaData.supportsPositionedDelete());
-        assertFalse(metaData.supportsPositionedUpdate());
-        assertFalse(metaData.supportsSelectForUpdate());
-        assertFalse(metaData.supportsStoredProcedures());
+        Assertions.assertFalse(metaData.supportsPositionedDelete());
+        Assertions.assertFalse(metaData.supportsPositionedUpdate());
+        Assertions.assertFalse(metaData.supportsSelectForUpdate());
+        Assertions.assertFalse(metaData.supportsStoredProcedures());
 
-        assertTrue(metaData.supportsSubqueriesInComparisons());
-        assertTrue(metaData.supportsSubqueriesInExists());
-        assertTrue(metaData.supportsSubqueriesInIns());
-        assertTrue(metaData.supportsSubqueriesInQuantifieds());
-        assertTrue(metaData.supportsCorrelatedSubqueries());
-        assertFalse(metaData.supportsUnion());
-        assertTrue(metaData.supportsUnionAll());
-        assertTrue(metaData.supportsOpenCursorsAcrossCommit());
-        assertTrue(metaData.supportsOpenCursorsAcrossRollback());
-        assertTrue(metaData.supportsOpenStatementsAcrossCommit());
-        assertTrue(metaData.supportsOpenStatementsAcrossRollback());
-        assertEquals(YdbConst.MAX_COLUMN_SIZE, metaData.getMaxBinaryLiteralLength());
-        assertEquals(YdbConst.MAX_COLUMN_SIZE, metaData.getMaxCharLiteralLength());
-        assertEquals(YdbConst.MAX_COLUMN_NAME_LENGTH, metaData.getMaxColumnNameLength());
-        assertEquals(YdbConst.MAX_COLUMNS, metaData.getMaxColumnsInGroupBy());
-        assertEquals(YdbConst.MAX_COLUMNS_IN_PRIMARY_KEY, metaData.getMaxColumnsInIndex());
-        assertEquals(YdbConst.MAX_COLUMNS, metaData.getMaxColumnsInOrderBy());
-        assertEquals(YdbConst.MAX_COLUMNS, metaData.getMaxColumnsInSelect());
-        assertEquals(YdbConst.MAX_COLUMNS, metaData.getMaxColumnsInTable());
-        assertEquals(YdbConst.MAX_CONNECTIONS, metaData.getMaxConnections());
-        assertEquals(YdbConst.MAX_ELEMENT_NAME_LENGTH, metaData.getMaxCursorNameLength());
-        assertEquals(YdbConst.MAX_PRIMARY_KEY_SIZE, metaData.getMaxIndexLength());
-        assertEquals(YdbConst.MAX_ELEMENT_NAME_LENGTH, metaData.getMaxSchemaNameLength());
-        assertEquals(YdbConst.MAX_ELEMENT_NAME_LENGTH, metaData.getMaxProcedureNameLength());
-        assertEquals(YdbConst.MAX_ELEMENT_NAME_LENGTH, metaData.getMaxCatalogNameLength());
-        assertEquals(YdbConst.MAX_ROW_SIZE, metaData.getMaxRowSize());
-        assertTrue(metaData.doesMaxRowSizeIncludeBlobs());
-        assertEquals(YdbConst.MAX_STATEMENT_LENGTH, metaData.getMaxStatementLength());
-        assertEquals(0, metaData.getMaxStatements());
-        assertEquals(YdbConst.MAX_ELEMENT_NAME_LENGTH, metaData.getMaxTableNameLength());
-        assertEquals(0, metaData.getMaxStatements());
-        assertEquals(YdbConst.MAX_ELEMENT_NAME_LENGTH, metaData.getMaxTableNameLength());
-        assertEquals(YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE, metaData.getDefaultTransactionIsolation());
+        Assertions.assertTrue(metaData.supportsSubqueriesInComparisons());
+        Assertions.assertTrue(metaData.supportsSubqueriesInExists());
+        Assertions.assertTrue(metaData.supportsSubqueriesInIns());
+        Assertions.assertTrue(metaData.supportsSubqueriesInQuantifieds());
+        Assertions.assertTrue(metaData.supportsCorrelatedSubqueries());
+        Assertions.assertFalse(metaData.supportsUnion());
+        Assertions.assertTrue(metaData.supportsUnionAll());
+        Assertions.assertTrue(metaData.supportsOpenCursorsAcrossCommit());
+        Assertions.assertTrue(metaData.supportsOpenCursorsAcrossRollback());
+        Assertions.assertTrue(metaData.supportsOpenStatementsAcrossCommit());
+        Assertions.assertTrue(metaData.supportsOpenStatementsAcrossRollback());
+        Assertions.assertEquals(YdbConst.MAX_COLUMN_SIZE, metaData.getMaxBinaryLiteralLength());
+        Assertions.assertEquals(YdbConst.MAX_COLUMN_SIZE, metaData.getMaxCharLiteralLength());
+        Assertions.assertEquals(YdbConst.MAX_COLUMN_NAME_LENGTH, metaData.getMaxColumnNameLength());
+        Assertions.assertEquals(YdbConst.MAX_COLUMNS, metaData.getMaxColumnsInGroupBy());
+        Assertions.assertEquals(YdbConst.MAX_COLUMNS_IN_PRIMARY_KEY, metaData.getMaxColumnsInIndex());
+        Assertions.assertEquals(YdbConst.MAX_COLUMNS, metaData.getMaxColumnsInOrderBy());
+        Assertions.assertEquals(YdbConst.MAX_COLUMNS, metaData.getMaxColumnsInSelect());
+        Assertions.assertEquals(YdbConst.MAX_COLUMNS, metaData.getMaxColumnsInTable());
+        Assertions.assertEquals(YdbConst.MAX_CONNECTIONS, metaData.getMaxConnections());
+        Assertions.assertEquals(YdbConst.MAX_ELEMENT_NAME_LENGTH, metaData.getMaxCursorNameLength());
+        Assertions.assertEquals(YdbConst.MAX_PRIMARY_KEY_SIZE, metaData.getMaxIndexLength());
+        Assertions.assertEquals(YdbConst.MAX_ELEMENT_NAME_LENGTH, metaData.getMaxSchemaNameLength());
+        Assertions.assertEquals(YdbConst.MAX_ELEMENT_NAME_LENGTH, metaData.getMaxProcedureNameLength());
+        Assertions.assertEquals(YdbConst.MAX_ELEMENT_NAME_LENGTH, metaData.getMaxCatalogNameLength());
+        Assertions.assertEquals(YdbConst.MAX_ROW_SIZE, metaData.getMaxRowSize());
+        Assertions.assertTrue(metaData.doesMaxRowSizeIncludeBlobs());
+        Assertions.assertEquals(YdbConst.MAX_STATEMENT_LENGTH, metaData.getMaxStatementLength());
+        Assertions.assertEquals(0, metaData.getMaxStatements());
+        Assertions.assertEquals(YdbConst.MAX_ELEMENT_NAME_LENGTH, metaData.getMaxTableNameLength());
+        Assertions.assertEquals(0, metaData.getMaxStatements());
+        Assertions.assertEquals(YdbConst.MAX_ELEMENT_NAME_LENGTH, metaData.getMaxTableNameLength());
+        Assertions.assertEquals(
+                YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE, metaData.getDefaultTransactionIsolation());
 
-        assertTrue(metaData.supportsTransactions());
-        assertTrue(metaData.supportsTransactionIsolationLevel(YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE));
-        assertTrue(metaData.supportsTransactionIsolationLevel(YdbConst.ONLINE_CONSISTENT_READ_ONLY));
-        assertTrue(metaData.supportsTransactionIsolationLevel(YdbConst.ONLINE_INCONSISTENT_READ_ONLY));
-        assertTrue(metaData.supportsTransactionIsolationLevel(YdbConst.STALE_CONSISTENT_READ_ONLY));
+        Assertions.assertTrue(metaData.supportsTransactions());
+        Assertions.assertTrue(metaData.supportsTransactionIsolationLevel(YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE));
+        Assertions.assertTrue(metaData.supportsTransactionIsolationLevel(YdbConst.ONLINE_CONSISTENT_READ_ONLY));
+        Assertions.assertTrue(metaData.supportsTransactionIsolationLevel(YdbConst.ONLINE_INCONSISTENT_READ_ONLY));
+        Assertions.assertTrue(metaData.supportsTransactionIsolationLevel(YdbConst.STALE_CONSISTENT_READ_ONLY));
 
-        assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_UNCOMMITTED));
-        assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_NONE));
+        Assertions.assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_UNCOMMITTED));
+        Assertions.assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_NONE));
 
-        assertTrue(metaData.supportsDataDefinitionAndDataManipulationTransactions());
-        assertTrue(metaData.supportsDataManipulationTransactionsOnly());
-        assertFalse(metaData.dataDefinitionCausesTransactionCommit());
-        assertTrue(metaData.dataDefinitionIgnoredInTransactions());
+        Assertions.assertTrue(metaData.supportsDataDefinitionAndDataManipulationTransactions());
+        Assertions.assertTrue(metaData.supportsDataManipulationTransactionsOnly());
+        Assertions.assertFalse(metaData.dataDefinitionCausesTransactionCommit());
+        Assertions.assertTrue(metaData.dataDefinitionIgnoredInTransactions());
 
-        assertTrue(metaData.supportsResultSetType(TYPE_FORWARD_ONLY));
-        assertTrue(metaData.supportsResultSetType(TYPE_SCROLL_INSENSITIVE));
+        Assertions.assertTrue(metaData.supportsResultSetType(ResultSet.TYPE_FORWARD_ONLY));
+        Assertions.assertTrue(metaData.supportsResultSetType(ResultSet.TYPE_SCROLL_INSENSITIVE));
 
-        assertFalse(metaData.supportsResultSetType(TYPE_SCROLL_SENSITIVE));
+        Assertions.assertFalse(metaData.supportsResultSetType(ResultSet.TYPE_SCROLL_SENSITIVE));
 
-        assertTrue(metaData.supportsResultSetConcurrency(TYPE_FORWARD_ONLY, CONCUR_READ_ONLY));
-        assertTrue(metaData.supportsResultSetConcurrency(TYPE_SCROLL_INSENSITIVE, CONCUR_READ_ONLY));
+        Assertions.assertTrue(
+                metaData.supportsResultSetConcurrency(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY));
+        Assertions.assertTrue(
+                metaData.supportsResultSetConcurrency(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY));
 
-        assertFalse(metaData.supportsResultSetConcurrency(TYPE_SCROLL_SENSITIVE, CONCUR_READ_ONLY));
-        assertFalse(metaData.supportsResultSetConcurrency(TYPE_FORWARD_ONLY, CONCUR_UPDATABLE));
-        assertFalse(metaData.supportsResultSetConcurrency(TYPE_SCROLL_INSENSITIVE, CONCUR_UPDATABLE));
+        Assertions.assertFalse(
+                metaData.supportsResultSetConcurrency(ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY));
+        Assertions.assertFalse(
+                metaData.supportsResultSetConcurrency(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_UPDATABLE));
+        Assertions.assertFalse(
+                metaData.supportsResultSetConcurrency(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE));
 
-        assertFalse(metaData.ownUpdatesAreVisible(TYPE_SCROLL_INSENSITIVE));
-        assertFalse(metaData.ownDeletesAreVisible(TYPE_SCROLL_INSENSITIVE));
-        assertFalse(metaData.ownInsertsAreVisible(TYPE_SCROLL_INSENSITIVE));
-        assertFalse(metaData.othersUpdatesAreVisible(TYPE_SCROLL_INSENSITIVE));
-        assertFalse(metaData.othersDeletesAreVisible(TYPE_SCROLL_INSENSITIVE));
-        assertFalse(metaData.othersInsertsAreVisible(TYPE_SCROLL_INSENSITIVE));
-        assertFalse(metaData.updatesAreDetected(TYPE_SCROLL_INSENSITIVE));
-        assertFalse(metaData.deletesAreDetected(TYPE_SCROLL_INSENSITIVE));
-        assertFalse(metaData.insertsAreDetected(TYPE_SCROLL_INSENSITIVE));
+        Assertions.assertFalse(metaData.ownUpdatesAreVisible(ResultSet.TYPE_SCROLL_INSENSITIVE));
+        Assertions.assertFalse(metaData.ownDeletesAreVisible(ResultSet.TYPE_SCROLL_INSENSITIVE));
+        Assertions.assertFalse(metaData.ownInsertsAreVisible(ResultSet.TYPE_SCROLL_INSENSITIVE));
+        Assertions.assertFalse(metaData.othersUpdatesAreVisible(ResultSet.TYPE_SCROLL_INSENSITIVE));
+        Assertions.assertFalse(metaData.othersDeletesAreVisible(ResultSet.TYPE_SCROLL_INSENSITIVE));
+        Assertions.assertFalse(metaData.othersInsertsAreVisible(ResultSet.TYPE_SCROLL_INSENSITIVE));
+        Assertions.assertFalse(metaData.updatesAreDetected(ResultSet.TYPE_SCROLL_INSENSITIVE));
+        Assertions.assertFalse(metaData.deletesAreDetected(ResultSet.TYPE_SCROLL_INSENSITIVE));
+        Assertions.assertFalse(metaData.insertsAreDetected(ResultSet.TYPE_SCROLL_INSENSITIVE));
 
-        assertTrue(metaData.supportsBatchUpdates());
-        assertFalse(metaData.supportsSavepoints());
-        assertFalse(metaData.supportsNamedParameters());
-        assertFalse(metaData.supportsMultipleOpenResults());
-        assertFalse(metaData.supportsGetGeneratedKeys());
-        assertFalse(metaData.generatedKeyAlwaysReturned());
+        Assertions.assertTrue(metaData.supportsBatchUpdates());
+        Assertions.assertFalse(metaData.supportsSavepoints());
+        Assertions.assertFalse(metaData.supportsNamedParameters());
+        Assertions.assertFalse(metaData.supportsMultipleOpenResults());
+        Assertions.assertFalse(metaData.supportsGetGeneratedKeys());
+        Assertions.assertFalse(metaData.generatedKeyAlwaysReturned());
 
-        assertTrue(metaData.supportsResultSetHoldability(HOLD_CURSORS_OVER_COMMIT));
-        assertFalse(metaData.supportsResultSetHoldability(CLOSE_CURSORS_AT_COMMIT));
-        assertEquals(HOLD_CURSORS_OVER_COMMIT, metaData.getResultSetHoldability());
+        Assertions.assertTrue(metaData.supportsResultSetHoldability(ResultSet.HOLD_CURSORS_OVER_COMMIT));
+        Assertions.assertFalse(metaData.supportsResultSetHoldability(ResultSet.CLOSE_CURSORS_AT_COMMIT));
+        Assertions.assertEquals(ResultSet.HOLD_CURSORS_OVER_COMMIT, metaData.getResultSetHoldability());
 
-        assertEquals(DatabaseMetaData.sqlStateSQL, metaData.getSQLStateType());
-        assertFalse(metaData.locatorsUpdateCopy());
-        assertTrue(metaData.supportsStatementPooling());
+        Assertions.assertEquals(DatabaseMetaData.sqlStateSQL, metaData.getSQLStateType());
+        Assertions.assertFalse(metaData.locatorsUpdateCopy());
+        Assertions.assertTrue(metaData.supportsStatementPooling());
 
-        assertEquals(RowIdLifetime.ROWID_UNSUPPORTED, metaData.getRowIdLifetime());
+        Assertions.assertEquals(RowIdLifetime.ROWID_UNSUPPORTED, metaData.getRowIdLifetime());
 
-        assertFalse(metaData.supportsStoredFunctionsUsingCallSyntax());
-        assertFalse(metaData.autoCommitFailureClosesAllResultSets());
+        Assertions.assertFalse(metaData.supportsStoredFunctionsUsingCallSyntax());
+        Assertions.assertFalse(metaData.autoCommitFailureClosesAllResultSets());
     }
 
     @Test
