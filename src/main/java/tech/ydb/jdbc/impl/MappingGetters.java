@@ -127,21 +127,21 @@ public class MappingGetters {
                 case Bool:
                     return PrimitiveReader::getBool;
                 case Int8:
-                    return value -> value.getInt8() > 0;
+                    return value -> value.getInt8() != 0;
                 case Uint8:
-                    return value -> value.getUint8() > 0;
+                    return value -> value.getUint8() != 0;
                 case Int16:
-                    return value -> value.getInt16() > 0;
+                    return value -> value.getInt16() != 0;
                 case Uint16:
-                    return value -> value.getUint16() > 0;
+                    return value -> value.getUint16() != 0;
                 case Int32:
-                    return value -> value.getInt32() > 0;
+                    return value -> value.getInt32() != 0;
                 case Uint32:
-                    return value -> value.getUint32() > 0;
+                    return value -> value.getUint32() != 0;
                 case Int64:
-                    return value -> value.getInt64() > 0;
+                    return value -> value.getInt64() != 0;
                 case Uint64:
-                    return value -> value.getUint64() > 0;
+                    return value -> value.getUint64() != 0;
                 case Bytes:
                     return value -> {
                         byte[] stringValue = value.getBytes();

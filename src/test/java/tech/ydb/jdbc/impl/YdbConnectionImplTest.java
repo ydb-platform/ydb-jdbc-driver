@@ -33,7 +33,7 @@ import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.exception.YdbNonRetryableException;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.TableAssert;
-import tech.ydb.jdbc.impl.helper.TestConsts;
+import tech.ydb.jdbc.impl.helper.TestResources;
 import tech.ydb.table.values.ListType;
 import tech.ydb.table.values.ListValue;
 import tech.ydb.table.values.PrimitiveType;
@@ -56,7 +56,7 @@ public class YdbConnectionImplTest {
     public static void createTable() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement();) {
             // create simple tables
-            statement.execute("--jdbc:SCHEME\n" + TestConsts.allTypesTable(TEST_TABLE));
+            statement.execute("--jdbc:SCHEME\n" + TestResources.createTableSql(TEST_TABLE));
         }
     }
 
