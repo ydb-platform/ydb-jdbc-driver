@@ -18,9 +18,18 @@ import org.junit.jupiter.api.Assertions;
 public class TableAssert {
     private static final TableAssert EMPTY = new TableAssert();
 
+    private static final TableAssert SELECT_INT = new TableAssert();
+    private static final TableAssert.IntColumn INT_COLUMN = SELECT_INT.addIntColumn("column0", "Int32");
+
     public static void assertEmpty(ResultSet rs) throws SQLException {
         EMPTY.check(rs)
                 .assertMetaColumns()
+                .assertNoRows();
+    }
+
+    public static void assertSelectInt(int value, ResultSet rs) throws SQLException {
+        SELECT_INT.check(rs).assertMetaColumns()
+                .nextRow(INT_COLUMN.eq(value)).assertAll()
                 .assertNoRows();
     }
 

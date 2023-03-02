@@ -5,7 +5,6 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
 import java.util.Arrays;
@@ -21,7 +20,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -30,7 +28,7 @@ import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbDatabaseMetaData;
 import tech.ydb.jdbc.YdbDriver;
 import tech.ydb.jdbc.YdbPreparedStatement;
-import tech.ydb.jdbc.exception.YdbNonRetryableException;
+import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.TableAssert;
 import tech.ydb.jdbc.impl.helper.TestResources;
@@ -49,9 +47,6 @@ public class YdbConnectionImplTest {
 
     private static final String TEST_TABLE = "ydb_connection_test";
 
-    private static final TableAssert simpleTable = new TableAssert();
-    private static final TableAssert.IntColumn simpleResult = simpleTable.addIntColumn("column0", "Int32");
-
     @BeforeAll
     public static void createTable() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement();) {
@@ -63,9 +58,10 @@ public class YdbConnectionImplTest {
     @AfterAll
     public static void dropTable() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement();) {
-            // drop simple tables
-            statement.execute("--jdbc:SCHEME\n drop table " + TEST_TABLE + ";");
+            // create test table
+            statement.execute("--jdbc:SCHEME\n drop table " + TEST_TABLE);
         }
+        jdbc.connection().commit();
     }
 
     @BeforeEach
@@ -79,7 +75,7 @@ public class YdbConnectionImplTest {
             return;
         }
 
-        try (Statement statement = jdbc.connection().createStatement();) {
+        try (Statement statement = jdbc.connection().createStatement()) {
             try (ResultSet result = statement.executeQuery("select * from " + TEST_TABLE)) {
                 Assertions.assertFalse(result.next(), "Table must be empty after test");
             }
@@ -88,31 +84,11 @@ public class YdbConnectionImplTest {
         jdbc.connection().close();
     }
 
-    private void assertResult(int value, ResultSet rs) throws SQLException {
-        simpleTable.check(rs).assertMetaColumns()
-                .nextRow(simpleResult.eq(value)).assertAll()
-                .assertNoRows();
-    }
-
-    private void assertSQLFeatureNotSupported(String message, Executable exec) {
-        SQLFeatureNotSupportedException ex = Assertions.assertThrows(SQLFeatureNotSupportedException.class, exec,
-                "Invalid statement must throw SQLFeatureNotSupportedException"
-        );
-        Assertions.assertEquals(message, ex.getMessage());
-    }
-
-    private void assertYdbNonRetryable(String message, Executable exec) {
-        YdbNonRetryableException ex = Assertions.assertThrows(YdbNonRetryableException.class, exec,
-                "Invalid statement must throw YdbNonRetryableException"
-        );
-        Assertions.assertTrue(ex.getMessage().contains(message), "Exception doesn't contain message");
-    }
-
-    private void assertSQLException(String message, Executable exec) {
-        SQLException ex = Assertions.assertThrows(SQLException.class, exec,
-                "Invalid statement must throw SQLException"
-        );
-        Assertions.assertTrue(ex.getMessage().contains(message), "Exception doesn't contain message");
+    private void cleanTable() throws SQLException {
+        try (Statement statement = jdbc.connection().createStatement()) {
+            statement.execute("delete from " + TEST_TABLE);
+            jdbc.connection().commit();
+        }
     }
 
     private String currentTxId() throws SQLException {
@@ -134,39 +110,39 @@ public class YdbConnectionImplTest {
     @Test
     public void createStatement() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement()) {
-            assertResult(4, statement.executeQuery("select 1 + 3"));
+            TableAssert.assertSelectInt(4, statement.executeQuery("select 1 + 3"));
         }
         try (Statement statement = jdbc.connection().createStatement(
                 ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
-            assertResult(5, statement.executeQuery("select 2 + 3"));
+            TableAssert.assertSelectInt(5, statement.executeQuery("select 2 + 3"));
         }
         try (Statement statement = jdbc.connection().createStatement(
                 ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY)) {
-            assertResult(3, statement.executeQuery("select 2 + 1"));
+            TableAssert.assertSelectInt(3, statement.executeQuery("select 2 + 1"));
         }
         try (Statement statement = jdbc.connection().createStatement(
                 ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY, ResultSet.HOLD_CURSORS_OVER_COMMIT)) {
-            assertResult(2, statement.executeQuery("select 1 + 1"));
+            TableAssert.assertSelectInt(2, statement.executeQuery("select 1 + 1"));
         }
     }
 
     @Test
     public void createStatementInvalid() {
-        assertSQLFeatureNotSupported(
+        ExceptionAssert.sqlFeatureNotSupported(
                 "resultSetType must be ResultSet.TYPE_FORWARD_ONLY or ResultSet.TYPE_SCROLL_INSENSITIVE",
                 () -> jdbc.connection().createStatement(
                         ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY, ResultSet.HOLD_CURSORS_OVER_COMMIT
                 )
         );
 
-        assertSQLFeatureNotSupported(
+        ExceptionAssert.sqlFeatureNotSupported(
                 "resultSetConcurrency must be ResultSet.CONCUR_READ_ONLY",
                 () -> jdbc.connection().createStatement(
                         ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_UPDATABLE, ResultSet.HOLD_CURSORS_OVER_COMMIT
                 )
         );
 
-        assertSQLFeatureNotSupported(
+        ExceptionAssert.sqlFeatureNotSupported(
                 "resultSetHoldability must be ResultSet.HOLD_CURSORS_OVER_COMMIT",
                 () -> jdbc.connection().createStatement(
                         ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY, ResultSet.CLOSE_CURSORS_AT_COMMIT
@@ -177,51 +153,51 @@ public class YdbConnectionImplTest {
     @Test
     public void prepareStatement() throws SQLException {
         try (PreparedStatement statement = jdbc.connection().prepareStatement("select 1 + 3")) {
-            assertResult(4, statement.executeQuery());
+            TableAssert.assertSelectInt(4, statement.executeQuery());
         }
         try (PreparedStatement statement = jdbc.connection().prepareStatement("select 2 + 3",
                 ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
-            assertResult(5, statement.executeQuery());
+            TableAssert.assertSelectInt(5, statement.executeQuery());
         }
         try (PreparedStatement statement = jdbc.connection().prepareStatement("select 2 + 1",
                 ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY)) {
-            assertResult(3, statement.executeQuery());
+            TableAssert.assertSelectInt(3, statement.executeQuery());
         }
         try (PreparedStatement statement = jdbc.connection().prepareStatement("select 1 + 1",
                 ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY, ResultSet.HOLD_CURSORS_OVER_COMMIT)) {
-            assertResult(2, statement.executeQuery());
+            TableAssert.assertSelectInt(2, statement.executeQuery());
         }
     }
 
     @Test
     public void prepareStatementInvalid() throws SQLException {
-        assertSQLFeatureNotSupported("Auto-generated keys are not supported",
+        ExceptionAssert.sqlFeatureNotSupported("Auto-generated keys are not supported",
                 () -> jdbc.connection().prepareStatement("select 2 + 2", new int[] {})
         );
 
-        assertSQLFeatureNotSupported("Auto-generated keys are not supported",
+        ExceptionAssert.sqlFeatureNotSupported("Auto-generated keys are not supported",
                 () -> jdbc.connection().prepareStatement("select 2 + 2", new String[] {})
         );
 
-        assertSQLFeatureNotSupported("Auto-generated keys are not supported",
+        ExceptionAssert.sqlFeatureNotSupported("Auto-generated keys are not supported",
                 () -> jdbc.connection().prepareStatement("select 2 + 2", Statement.RETURN_GENERATED_KEYS)
         );
 
-        assertSQLFeatureNotSupported(
+        ExceptionAssert.sqlFeatureNotSupported(
                 "resultSetType must be ResultSet.TYPE_FORWARD_ONLY or ResultSet.TYPE_SCROLL_INSENSITIVE",
                 () -> jdbc.connection().prepareStatement("select 2 + 2",
                         ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY, ResultSet.HOLD_CURSORS_OVER_COMMIT
                 )
         );
 
-        assertSQLFeatureNotSupported(
+        ExceptionAssert.sqlFeatureNotSupported(
                 "resultSetConcurrency must be ResultSet.CONCUR_READ_ONLY",
                 () -> jdbc.connection().prepareStatement("select 2 + 2",
                         ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_UPDATABLE, ResultSet.HOLD_CURSORS_OVER_COMMIT
                 )
         );
 
-        assertSQLFeatureNotSupported(
+        ExceptionAssert.sqlFeatureNotSupported(
                 "resultSetHoldability must be ResultSet.HOLD_CURSORS_OVER_COMMIT",
                 () -> jdbc.connection().prepareStatement("select 2 + 2",
                         ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY, ResultSet.CLOSE_CURSORS_AT_COMMIT
@@ -231,16 +207,16 @@ public class YdbConnectionImplTest {
 
     @Test
     public void prepareCallNotSupported() {
-        assertSQLFeatureNotSupported("Prepared calls are not supported",
+        ExceptionAssert.sqlFeatureNotSupported("Prepared calls are not supported",
                 () -> jdbc.connection().prepareCall("select 2 + 2")
         );
 
-        assertSQLFeatureNotSupported("Prepared calls are not supported",
+        ExceptionAssert.sqlFeatureNotSupported("Prepared calls are not supported",
                 () -> jdbc.connection().prepareCall("select 2 + 2",
                         ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)
         );
 
-        assertSQLFeatureNotSupported("Prepared calls are not supported",
+        ExceptionAssert.sqlFeatureNotSupported("Prepared calls are not supported",
                 () -> jdbc.connection().prepareCall("select 2 + 2",
                         ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY, ResultSet.HOLD_CURSORS_OVER_COMMIT)
         );
@@ -281,7 +257,7 @@ public class YdbConnectionImplTest {
             String txId = currentTxId();
             Assertions.assertNotNull(txId);
 
-            assertYdbNonRetryable("Column reference 'x' (S_ERROR)", () -> statement.execute("select 2 + x"));
+            ExceptionAssert.ydbNonRetryable("Column reference 'x' (S_ERROR)", () -> statement.execute("select 2 + x"));
 
             statement.execute("select 2 + 2");
             Assertions.assertNotNull(currentTxId());
@@ -346,10 +322,8 @@ public class YdbConnectionImplTest {
             try (ResultSet result = statement.executeQuery("select * from " + TEST_TABLE)) {
                 Assertions.assertTrue(result.next());
             }
-
-            // clean simple tables
-            statement.execute("delete from " + TEST_TABLE + ";");
-            jdbc.connection().commit();
+        } finally {
+            cleanTable();
         }
     }
 
@@ -390,7 +364,7 @@ public class YdbConnectionImplTest {
             statement.execute("upsert into " + TEST_TABLE + "(key, c_Text) values (1, '2')");
             statement.execute("upsert into " + TEST_TABLE + "(key, c_Text) values (1, '2')");
 
-            assertYdbNonRetryable("Data modifications previously made to table",
+            ExceptionAssert.ydbNonRetryable("Data modifications previously made to table",
                     () -> statement.executeQuery("select * from " + TEST_TABLE));
 
             Assertions.assertNull(currentTxId());
@@ -408,7 +382,7 @@ public class YdbConnectionImplTest {
 
             statement.execute("insert into " + TEST_TABLE + "(key, c_Text) values (1, '2')");
 
-            assertYdbNonRetryable("Data modifications previously made to table",
+            ExceptionAssert.ydbNonRetryable("Data modifications previously made to table",
                     () -> statement.executeQuery("select * from " + TEST_TABLE));
 
             Assertions.assertNull(currentTxId());
@@ -472,14 +446,14 @@ public class YdbConnectionImplTest {
         Assertions.assertEquals(level, jdbc.connection().getTransactionIsolation());
 
         try (Statement statement = jdbc.connection().createStatement()) {
-            assertResult(4, statement.executeQuery("select 2 + 2"));
+            TableAssert.assertSelectInt(4, statement.executeQuery("select 2 + 2"));
         }
     }
 
     @ParameterizedTest(name = "Check supported isolation level {0}")
     @ValueSource(ints = { 0, 1, /*2, 3, 4,*/ 5, 6, 7, /*8,*/ 9, 10 })
     public void unsupportedTransactionIsolations(int level) throws SQLException {
-        assertSQLException("Unsupported transaction level: " + level,
+        ExceptionAssert.sqlException("Unsupported transaction level: " + level,
                 () -> jdbc.connection().setTransactionIsolation(level)
         );
     }
@@ -509,41 +483,41 @@ public class YdbConnectionImplTest {
         Assertions.assertEquals(ResultSet.HOLD_CURSORS_OVER_COMMIT, jdbc.connection().getHoldability());
         jdbc.connection().setHoldability(ResultSet.HOLD_CURSORS_OVER_COMMIT);
 
-        assertSQLFeatureNotSupported("resultSetHoldability must be ResultSet.HOLD_CURSORS_OVER_COMMIT",
+        ExceptionAssert.sqlFeatureNotSupported("resultSetHoldability must be ResultSet.HOLD_CURSORS_OVER_COMMIT",
                 () -> jdbc.connection().setHoldability(ResultSet.CLOSE_CURSORS_AT_COMMIT));
     }
 
     @Test
     public void networkTimeout() throws SQLException {
         Assertions.assertEquals(0, jdbc.connection().getNetworkTimeout());
-        assertSQLFeatureNotSupported("Set network timeout is not supported yet",
+        ExceptionAssert.sqlFeatureNotSupported("Set network timeout is not supported yet",
                 () -> jdbc.connection().setNetworkTimeout(null, 1));
     }
 
     @Test
     public void savepoints() {
-        assertSQLFeatureNotSupported("Savepoints are not supported", () -> jdbc.connection().setSavepoint());
-        assertSQLFeatureNotSupported("Savepoints are not supported", () -> jdbc.connection().setSavepoint("name"));
-        assertSQLFeatureNotSupported("Savepoints are not supported", () -> jdbc.connection().releaseSavepoint(null));
+        ExceptionAssert.sqlFeatureNotSupported("Savepoints are not supported", () -> jdbc.connection().setSavepoint());
+        ExceptionAssert.sqlFeatureNotSupported("Savepoints are not supported", () -> jdbc.connection().setSavepoint("name"));
+        ExceptionAssert.sqlFeatureNotSupported("Savepoints are not supported", () -> jdbc.connection().releaseSavepoint(null));
     }
 
     @Test
     public void unsupportedTypes() {
-        assertSQLFeatureNotSupported("Clobs are not supported", () -> jdbc.connection().createClob());
-        assertSQLFeatureNotSupported("Blobs are not supported", () -> jdbc.connection().createBlob());
-        assertSQLFeatureNotSupported("NClobs are not supported", () -> jdbc.connection().createNClob());
-        assertSQLFeatureNotSupported("SQLXMLs are not supported", () -> jdbc.connection().createSQLXML());
-        assertSQLFeatureNotSupported("Arrays are not supported",
+        ExceptionAssert.sqlFeatureNotSupported("Clobs are not supported", () -> jdbc.connection().createClob());
+        ExceptionAssert.sqlFeatureNotSupported("Blobs are not supported", () -> jdbc.connection().createBlob());
+        ExceptionAssert.sqlFeatureNotSupported("NClobs are not supported", () -> jdbc.connection().createNClob());
+        ExceptionAssert.sqlFeatureNotSupported("SQLXMLs are not supported", () -> jdbc.connection().createSQLXML());
+        ExceptionAssert.sqlFeatureNotSupported("Arrays are not supported",
                 () -> jdbc.connection().createArrayOf("type", new Object[] { })
         );
-        assertSQLFeatureNotSupported("Structs are not supported",
+        ExceptionAssert.sqlFeatureNotSupported("Structs are not supported",
                 () -> jdbc.connection().createStruct("type", new Object[] { })
         );
     }
 
     @Test
     public void abort() {
-        assertSQLFeatureNotSupported("Abort operation is not supported yet",  () -> jdbc.connection().abort(null));
+        ExceptionAssert.sqlFeatureNotSupported("Abort operation is not supported yet",  () -> jdbc.connection().abort(null));
     }
     @Test
     public void testDDLInsideTransaction() throws SQLException {
@@ -555,7 +529,7 @@ public class YdbConnectionImplTest {
 
             try {
                 // No commits in case of ddl
-                assertYdbNonRetryable("Data modifications previously made to table",
+                ExceptionAssert.ydbNonRetryable("Data modifications previously made to table",
                         () -> statement.executeQuery("select * from " + TEST_TABLE));
             } finally {
                 statement.execute("--jdbc:SCHEME\ndrop table " + tempTable);
@@ -629,10 +603,7 @@ public class YdbConnectionImplTest {
                 Assertions.assertEquals("2", rs.getString("c_Text"));
             }
         } finally {
-            try (Statement statement = jdbc.connection().createStatement()) {
-                statement.execute("delete from " + TEST_TABLE);
-                jdbc.connection().commit();
-            }
+            cleanTable();
         }
     }
 
@@ -652,7 +623,7 @@ public class YdbConnectionImplTest {
                 + "create table " + tableName + " (key Int32, payload " + type + ", primary key(key))";
 
         try (Statement statement = jdbc.connection().createStatement()) {
-            assertYdbNonRetryable("is not supported by storage", () -> statement.execute(sql));
+            ExceptionAssert.ydbNonRetryable("is not supported by storage", () -> statement.execute(sql));
         }
     }
 
@@ -669,7 +640,8 @@ public class YdbConnectionImplTest {
                 + "create table " + tableName + " (key Int32, payload " + type + ", primary key(key))";
 
         try (Statement statement = jdbc.connection().createStatement()) {
-            assertYdbNonRetryable("Only core YQL data types are currently supported", () -> statement.execute(sql));
+            ExceptionAssert.ydbNonRetryable("Only core YQL data types are currently supported",
+                    () -> statement.execute(sql));
         }
     }
 }

@@ -13,7 +13,6 @@ import java.sql.JDBCType;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -23,13 +22,13 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.Locale;
-import java.util.Map;
 
 import javax.sql.rowset.serial.SerialBlob;
 import javax.sql.rowset.serial.SerialClob;
 
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CharStreams;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -42,6 +41,7 @@ import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbResultSetMetaData;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTypes;
+import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.TestResources;
 import tech.ydb.jdbc.impl.types.ArrayImpl;
@@ -81,6 +81,15 @@ public class YdbResultSetImplTest {
         jdbc.connection().commit();
     }
 
+    @AfterAll
+    public static void dropTable() throws SQLException {
+        try (Statement statement = jdbc.connection().createStatement();) {
+            // create test table
+            statement.execute("--jdbc:SCHEME\n drop table " + TEST_TABLE);
+        }
+        jdbc.connection().commit();
+    }
+
     @BeforeEach
     public void beforeEach() throws SQLException {
         statement = jdbc.connection().createStatement();
@@ -93,22 +102,6 @@ public class YdbResultSetImplTest {
         statement.close();
 
         jdbc.connection().commit();// TODO: conection must be cleaned
-    }
-
-    private void assertSQLException(String message, Executable exec) {
-        SQLException ex = Assertions.assertThrows(SQLException.class, exec,
-                "Invalid statement must throw SQLException"
-        );
-        Assertions.assertTrue(ex.getMessage().contains(message),
-                "SQLException '" + ex.getMessage() + "' doesn't contain message '" + message + "'");
-    }
-
-    private void assertNotSupported(String message, Executable exec) {
-        SQLFeatureNotSupportedException ex = Assertions.assertThrows(SQLFeatureNotSupportedException.class, exec,
-                "Invalid statement must throw SQLFeatureNotSupportedException"
-        );
-        Assertions.assertTrue(ex.getMessage().contains(message),
-                "SQLFeatureNotSupportedException '" + ex.getMessage() + "' doesn't contain message '" + message + "'");
     }
 
     @Test
@@ -136,29 +129,30 @@ public class YdbResultSetImplTest {
         Assertions.assertSame(resultSet, resultSet.unwrap(YdbResultSet.class));
 
         Assertions.assertFalse(resultSet.isWrapperFor(YdbStatement.class));
-        assertSQLException("Cannot unwrap to " + YdbStatement.class, () -> resultSet.unwrap(YdbStatement.class));
+        ExceptionAssert.sqlException("Cannot unwrap to " + YdbStatement.class,
+                () -> resultSet.unwrap(YdbStatement.class));
     }
 
     @Test
     public void invalidColumnsTest() {
         // invalid location
-        assertSQLException("Current row index is out of bounds: 0",  () -> resultSet.getString(2));
-        assertSQLException("Current row index is out of bounds: 0",  () -> resultSet.getString("c_Text"));
+        ExceptionAssert.sqlException("Current row index is out of bounds: 0",  () -> resultSet.getString(2));
+        ExceptionAssert.sqlException("Current row index is out of bounds: 0",  () -> resultSet.getString("c_Text"));
 
         // invalid case
-        assertSQLException("Column not found: c_text", () -> resultSet.getString("c_text"));
-        assertSQLException("Column not found: C_TEXT",  () -> resultSet.getString("C_TEXT"));
-        assertSQLException("Current row index is out of bounds: 0",  () -> resultSet.getString("c_Text"));
+        ExceptionAssert.sqlException("Column not found: c_text", () -> resultSet.getString("c_text"));
+        ExceptionAssert.sqlException("Column not found: C_TEXT",  () -> resultSet.getString("C_TEXT"));
+        ExceptionAssert.sqlException("Current row index is out of bounds: 0",  () -> resultSet.getString("c_Text"));
 
         // invalid name
-        assertSQLException("Column not found: value0",  () -> resultSet.getString("value0"));
+        ExceptionAssert.sqlException("Column not found: value0",  () -> resultSet.getString("value0"));
     }
 
     @Test
     public void findColumn() throws SQLException {
         Assertions.assertEquals(1, resultSet.findColumn("key"));
         Assertions.assertEquals(11, resultSet.findColumn("c_Text"));
-        assertSQLException("Column not found: value0", () -> resultSet.findColumn("value0"));
+        ExceptionAssert.sqlException("Column not found: value0", () -> resultSet.findColumn("value0"));
     }
 
     @Test
@@ -170,7 +164,7 @@ public class YdbResultSetImplTest {
 
     @Test
     public void getCursorName() {
-        assertNotSupported("Named cursors are not supported", () -> resultSet.getCursorName());
+        ExceptionAssert.sqlFeatureNotSupported("Named cursors are not supported", () -> resultSet.getCursorName());
     }
 
     @Test
@@ -182,8 +176,8 @@ public class YdbResultSetImplTest {
         YdbResultSetMetaData ydbMetadata = metadata.unwrap(YdbResultSetMetaData.class);
         Assertions.assertSame(metadata, ydbMetadata);
 
-        assertSQLException("Column is out of range: 995", () -> metadata.getColumnName(995));
-        assertSQLException("Column not found: column0", () -> ydbMetadata.getColumnIndex("column0"));
+        ExceptionAssert.sqlException("Column is out of range: 995", () -> metadata.getColumnName(995));
+        ExceptionAssert.sqlException("Column not found: column0", () -> ydbMetadata.getColumnIndex("column0"));
 
         Assertions.assertEquals(19, metadata.getColumnCount());
 
@@ -501,7 +495,11 @@ public class YdbResultSetImplTest {
     }
 
     private void assertCursorUpdates(Executable exec) {
-        assertNotSupported("Cursor updates are not supported", exec);
+        ExceptionAssert.sqlFeatureNotSupported("Cursor updates are not supported", exec);
+    }
+
+    private void assertUpdateObject(Executable exec) {
+        ExceptionAssert.sqlFeatureNotSupported("updateObject not implemented", exec);
     }
 
     @Test
@@ -603,14 +601,12 @@ public class YdbResultSetImplTest {
         // updateObject
         assertCursorUpdates(() -> resultSet.updateObject(1, true));
         assertCursorUpdates(() -> resultSet.updateObject(1, true, 1));
-        assertNotSupported("updateObject not implemented", () -> resultSet.updateObject(1, true, JDBCType.INTEGER));
-        assertNotSupported("updateObject not implemented", () -> resultSet.updateObject(1, true, JDBCType.INTEGER, 1));
+        assertUpdateObject(() -> resultSet.updateObject(1, true, JDBCType.INTEGER));
+        assertUpdateObject(() -> resultSet.updateObject(1, true, JDBCType.INTEGER, 1));
         assertCursorUpdates(() -> resultSet.updateObject("value", true));
         assertCursorUpdates(() -> resultSet.updateObject("value", true, 1));
-        assertNotSupported("updateObject not implemented",
-                () -> resultSet.updateObject("value", true, JDBCType.INTEGER));
-        assertNotSupported("updateObject not implemented",
-                () -> resultSet.updateObject("value", true, JDBCType.INTEGER, 1));
+        assertUpdateObject(() -> resultSet.updateObject("value", true, JDBCType.INTEGER));
+        assertUpdateObject(() -> resultSet.updateObject("value", true, JDBCType.INTEGER, 1));
 
         // updateRef
         assertCursorUpdates(() -> resultSet.updateRef(1, new RefImpl()));
@@ -1711,42 +1707,44 @@ public class YdbResultSetImplTest {
     @Test
     public void unsupportedGetters() {
         // getObject with type
-        Class<?> cl = Integer.class;
-        assertNotSupported("Object with type conversion is not supported yet", () -> resultSet.getObject(1, cl));
-        assertNotSupported("Object with type conversion is not supported yet", () -> resultSet.getObject("Column", cl));
+        ExceptionAssert.sqlFeatureNotSupported("Object with type conversion is not supported yet",
+                () -> resultSet.getObject(1, Integer.class));
+        ExceptionAssert.sqlFeatureNotSupported("Object with type conversion is not supported yet",
+                () -> resultSet.getObject("Column", Integer.class));
 
         // getObject with type map
-        Map<String, Class<?>> em = Collections.emptyMap();
-        assertNotSupported("Object with type conversion is not supported yet", () -> resultSet.getObject(1, em));
-        assertNotSupported("Object with type conversion is not supported yet", () -> resultSet.getObject("Column", em));
+        ExceptionAssert.sqlFeatureNotSupported("Object with type conversion is not supported yet",
+                () -> resultSet.getObject(1, Collections.emptyMap()));
+        ExceptionAssert.sqlFeatureNotSupported("Object with type conversion is not supported yet",
+                () -> resultSet.getObject("Column", Collections.emptyMap()));
 
         // getAsciiStream
-        assertNotSupported("AsciiStreams are not supported", () -> resultSet.getAsciiStream(1));
-        assertNotSupported("AsciiStreams are not supported", () -> resultSet.getAsciiStream("Stream"));
+        ExceptionAssert.sqlFeatureNotSupported("AsciiStreams are not supported", () -> resultSet.getAsciiStream(1));
+        ExceptionAssert.sqlFeatureNotSupported("AsciiStreams are not supported", () -> resultSet.getAsciiStream("ss"));
 
         // getRef
-        assertNotSupported("Refs are not supported", () -> resultSet.getRef(1));
-        assertNotSupported("Refs are not supported", () -> resultSet.getRef("ref"));
+        ExceptionAssert.sqlFeatureNotSupported("Refs are not supported", () -> resultSet.getRef(1));
+        ExceptionAssert.sqlFeatureNotSupported("Refs are not supported", () -> resultSet.getRef("ref"));
 
         // getBlob
-        assertNotSupported("Blobs are not supported", () -> resultSet.getBlob(1));
-        assertNotSupported("Blobs are not supported", () -> resultSet.getBlob("blob"));
+        ExceptionAssert.sqlFeatureNotSupported("Blobs are not supported", () -> resultSet.getBlob(1));
+        ExceptionAssert.sqlFeatureNotSupported("Blobs are not supported", () -> resultSet.getBlob("blob"));
 
         // getClob
-        assertNotSupported("Clobs are not supported", () -> resultSet.getClob(1));
-        assertNotSupported("Clobs are not supported", () -> resultSet.getClob("clob"));
+        ExceptionAssert.sqlFeatureNotSupported("Clobs are not supported", () -> resultSet.getClob(1));
+        ExceptionAssert.sqlFeatureNotSupported("Clobs are not supported", () -> resultSet.getClob("clob"));
 
         // getNClob
-        assertNotSupported("NClobs are not supported", () -> resultSet.getNClob(1));
-        assertNotSupported("NClobs are not supported", () -> resultSet.getNClob("nclob"));
+        ExceptionAssert.sqlFeatureNotSupported("NClobs are not supported", () -> resultSet.getNClob(1));
+        ExceptionAssert.sqlFeatureNotSupported("NClobs are not supported", () -> resultSet.getNClob("nclob"));
 
         // getArray
-        assertNotSupported("Arrays are not supported", () -> resultSet.getArray(1));
-        assertNotSupported("Arrays are not supported", () -> resultSet.getArray("array"));
+        ExceptionAssert.sqlFeatureNotSupported("Arrays are not supported", () -> resultSet.getArray(1));
+        ExceptionAssert.sqlFeatureNotSupported("Arrays are not supported", () -> resultSet.getArray("array"));
 
         // getSQLXML
-        assertNotSupported("SQLXMLs are not supported", () -> resultSet.getSQLXML(1));
-        assertNotSupported("SQLXMLs are not supported", () -> resultSet.getSQLXML("sqlxml"));
+        ExceptionAssert.sqlFeatureNotSupported("SQLXMLs are not supported", () -> resultSet.getSQLXML(1));
+        ExceptionAssert.sqlFeatureNotSupported("SQLXMLs are not supported", () -> resultSet.getSQLXML("sqlxml"));
     }
 
 

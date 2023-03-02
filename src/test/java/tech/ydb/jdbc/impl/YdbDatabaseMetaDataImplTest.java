@@ -22,6 +22,7 @@ import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbDatabaseMetaData;
 import tech.ydb.jdbc.YdbDriverInfo;
 import tech.ydb.jdbc.YdbStatement;
+import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.TableAssert;
 import tech.ydb.jdbc.impl.helper.TestResources;
@@ -106,8 +107,8 @@ public class YdbDatabaseMetaDataImplTest {
 
         Assertions.assertFalse(metaData.isWrapperFor(YdbStatement.class));
 
-        SQLException ex = Assertions.assertThrows(SQLException.class, () -> metaData.unwrap(YdbStatement.class));
-        Assertions.assertEquals("Cannot unwrap to interface tech.ydb.jdbc.YdbStatement", ex.getMessage());
+        ExceptionAssert.sqlException("Cannot unwrap to interface tech.ydb.jdbc.YdbStatement",
+                () -> metaData.unwrap(YdbStatement.class));
     }
 
     @Test
