@@ -48,7 +48,16 @@ public class JdbcConnectionExtention implements
     }
 
     public String jdbcURL() {
-        return String.format("jdbc:ydb:%s%s", ydb.endpoint(), ydb.database());
+        StringBuilder jdbc = new StringBuilder("jdbc:ydb:")
+                .append(ydb.endpoint())
+                .append(ydb.database())
+                .append("?");
+
+        if (ydb.authToken() != null) {
+            jdbc.append("token=").append(ydb.authToken()).append("&");
+        }
+
+        return jdbc.toString();
     }
 
     public Connection connection() {

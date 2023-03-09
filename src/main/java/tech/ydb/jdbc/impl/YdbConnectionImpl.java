@@ -392,7 +392,7 @@ public class YdbConnectionImpl implements YdbConnection {
                 return new YdbPreparedStatementWithDataQueryBatchedImpl(this, resultSetType, sql, prepared,
                         batchCfgOpt.get());
             } else if (requireBatch) {
-                throw new YdbExecutionException(STATEMENT_IS_NOT_A_BATCH + sql);
+                throw new YdbExecutionException(STATEMENT_IS_NOT_A_BATCH + origSql);
             }
         }
 

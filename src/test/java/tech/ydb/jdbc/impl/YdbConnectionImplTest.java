@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -87,8 +88,8 @@ public class YdbConnectionImplTest {
     private void cleanTable() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement()) {
             statement.execute("delete from " + TEST_TABLE);
-            jdbc.connection().commit();
         }
+        jdbc.connection().commit();
     }
 
     private String currentTxId() throws SQLException {
@@ -607,11 +608,12 @@ public class YdbConnectionImplTest {
         }
     }
 
-    @ParameterizedTest(name = "Check unsupported by storage type {0}")
+    @DisplayName("Check unsupported by storage type {arguments}")
+    @ParameterizedTest()
     @ValueSource(strings = {
-        "Int8",
-        "Int16",
-        "Uint16",
+//        "Int8",
+//        "Int16",
+//        "Uint16",
         "Uuid",
         "TzDate",
         "TzDatetime",

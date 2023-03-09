@@ -7,7 +7,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.function.Executable;
 
 import tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
+import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.jdbc.exception.YdbNonRetryableException;
+import tech.ydb.jdbc.exception.YdbResultTruncatedException;
 
 /**
  *
@@ -22,6 +24,20 @@ public class ExceptionAssert {
         );
         Assertions.assertTrue(ex.getMessage().contains(message),
                 "YdbNonRetryableException '" + ex.getMessage() + "' doesn't contain message '" + message + "'");
+    }
+
+    public static void ydbExecution(String message, Executable exec) {
+        YdbExecutionException ex = Assertions.assertThrows(YdbExecutionException.class, exec,
+                "Invalid statement must throw YdbExecutionException"
+        );
+        Assertions.assertEquals(message, ex.getMessage());
+    }
+
+    public static void ydbResultTruncated(String message, Executable exec) {
+        YdbResultTruncatedException ex = Assertions.assertThrows(YdbResultTruncatedException.class, exec,
+                "Invalid statement must throw YdbExecutionException"
+        );
+        Assertions.assertEquals(message, ex.getMessage());
     }
 
     public static void ydbConditionallyRetryable(String message, Executable exec) {

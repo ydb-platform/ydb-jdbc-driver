@@ -8,6 +8,7 @@ import javax.annotation.Nullable;
 
 import tech.ydb.auth.AuthProvider;
 import tech.ydb.auth.TokenAuthProvider;
+import tech.ydb.core.grpc.BalancingSettings;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
 import tech.ydb.jdbc.exception.YdbConfigurationException;
 
@@ -30,7 +31,11 @@ public class YdbConnectionProperty<T> extends AbstractYdbProperty<T, GrpcTranspo
                     null,
                     String.class,
                     PropertyConverter.stringValue(),
-                    GrpcTransportBuilder::withLocalDataCenter);
+                    (builder, value) -> {
+                        if (value != null && !value.isEmpty()) {
+                            builder.withBalancingSettings(BalancingSettings.fromLocation(value));
+                        }
+                    });
     public static final YdbConnectionProperty<Boolean> SECURE_CONNECTION =
             new YdbConnectionProperty<>(
                     "secureConnection",
@@ -81,7 +86,7 @@ public class YdbConnectionProperty<T> extends AbstractYdbProperty<T, GrpcTranspo
                     },
                     GrpcTransportBuilder::withAuthProvider);
 
-    protected YdbConnectionProperty(String name,
+    private YdbConnectionProperty(String name,
                                     String description,
                                     @Nullable String defaultValue,
                                     Class<T> type,
