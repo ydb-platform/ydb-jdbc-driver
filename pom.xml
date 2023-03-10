@@ -15,7 +15,7 @@
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
 
-        <log4j2.version>2.17.2</log4j2.version>
+        <slf4j.version>1.7.36</slf4j.version>
         <junit.version>5.9.1</junit.version>
 
         <ydb.sdk.version>2.1.0-SNAPSHOT</ydb.sdk.version>
@@ -32,6 +32,11 @@
         </dependency>
 
         <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-jdk14</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>tech.ydb.test</groupId>
             <artifactId>ydb-junit5-support</artifactId>
             <scope>test</scope>
@@ -39,12 +44,6 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-params</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-slf4j-impl</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -59,13 +58,13 @@
                 <scope>import</scope>
             </dependency>
 
-            <!-- Test dependencies -->
             <dependency>
-                <groupId>org.apache.logging.log4j</groupId>
-                <artifactId>log4j-slf4j-impl</artifactId>
-                <version>${log4j2.version}</version>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-jdk14</artifactId>
+                <version>${slf4j.version}</version>
             </dependency>
 
+            <!-- Test dependencies -->
             <dependency>
                 <groupId>org.junit.jupiter</groupId>
                 <artifactId>junit-jupiter-params</artifactId>
@@ -99,6 +98,16 @@
                         <environmentVariables>
                             <TESTCONTAINERS_REUSE_ENABLE>true</TESTCONTAINERS_REUSE_ENABLE>
                         </environmentVariables>
+                        <systemProperties>
+                            <property>
+                                <name>java.util.logging.config.file</name>
+                                <value>src/test/resources/logging.properties</value>
+                            </property>
+                        </systemProperties>
+<!--                        <systemProperties>
+                            <java.util.logging.SimpleFormatter.format>[%1$tF %1$tT] [%4$s] %5$s %n</java.util.logging.SimpleFormatter.format>
+                            <tech.ydb.level>FINEST</tech.ydb.level>
+                        </systemProperties>-->
                     </configuration>
                 </plugin>
                 <plugin>

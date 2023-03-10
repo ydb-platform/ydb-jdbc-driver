@@ -27,8 +27,6 @@ public final class YdbConst {
 
 
     // Messages
-    public static final String YDB_DRIVER_USES_SL4J = "YDB Driver uses SLF4j";
-
     public static final String PREPARED_CALLS_UNSUPPORTED = "Prepared calls are not supported";
     public static final String ARRAYS_UNSUPPORTED = "Arrays are not supported";
     public static final String STRUCTS_UNSUPPORTED = "Structs are not supported";

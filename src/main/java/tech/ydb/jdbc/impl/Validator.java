@@ -12,11 +12,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import io.grpc.Context;
-import org.slf4j.Logger;
 
 import tech.ydb.core.Issue;
 import tech.ydb.core.Result;
@@ -64,10 +65,10 @@ public class Validator {
                               Supplier<String> operation,
                               Supplier<CompletableFuture<T>> action,
                               Function<T, Status> toStatus) throws SQLException {
-        boolean isDebugEnabled = logger.isDebugEnabled();
+        boolean isDebugEnabled = logger.isLoggable(Level.FINE);
         Stopwatch sw;
         if (isDebugEnabled) {
-            logger.debug("{}", operation.get());
+            logger.fine(operation.get());
             sw = Stopwatch.createStarted();
         } else {
             sw = null;
@@ -83,7 +84,7 @@ public class Validator {
             if (isDebugEnabled) {
                 StatusCode status = result != null ? toStatus.apply(result).getCode() : StatusCode.UNUSED_STATUS;
                 Object message = status != StatusCode.SUCCESS ? result : status;
-                logger.debug("[{}] {}", sw.stop(), message, throwable);
+                logger.log(Level.FINE, "[" + sw.stop() + "]" + message, throwable);
             }
         }
         Objects.requireNonNull(result, "Internal error. Result cannot be null");

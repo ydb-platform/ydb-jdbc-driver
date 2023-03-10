@@ -18,14 +18,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import tech.ydb.core.Result;
 import tech.ydb.jdbc.YdbConnection;
@@ -47,7 +47,7 @@ import static tech.ydb.jdbc.YdbConst.CANNOT_UNWRAP_TO;
 import static tech.ydb.jdbc.impl.MappingResultSets.stableMap;
 
 public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
-    private static final Logger LOGGER = LoggerFactory.getLogger(YdbDatabaseMetaDataImpl.class);
+    private static final Logger LOGGER = Logger.getLogger(YdbDatabaseMetaDataImpl.class.getName());
 
     static final String TABLE = "TABLE";
     static final String SYSTEM_TABLE = "SYSTEM TABLE";
@@ -676,8 +676,10 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     @Override
     public ResultSet getTables(String catalog, String schemaPattern, String tableNamePattern, String[] types)
             throws SQLException {
-        LOGGER.debug("getTables, catalog=[{}], schemaPattern=[{}], tableNamePattern=[{}], types={}",
-                catalog, schemaPattern, tableNamePattern, types == null ? "<null>" : Arrays.asList(types));
+        LOGGER.log(Level.FINE,
+                "getTables, catalog=[{0}], schemaPattern=[{1}], tableNamePattern=[{2}], types={3}",
+                new Object[]{catalog, schemaPattern, tableNamePattern, types == null ? "<null>" : Arrays.asList(types)}
+        );
         if (!isMatchedCatalog(catalog)) {
             return fromEmptyResultSet();
         }
@@ -751,8 +753,10 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     @Override
     public ResultSet getColumns(String catalog, String schemaPattern, String tableNamePattern,
                                 String columnNamePattern) throws SQLException {
-        LOGGER.debug("getColumns, catalog=[{}], schemaPattern=[{}], tableNamePattern=[{}], columnNamePattern=[{}]",
-                catalog, schemaPattern, tableNamePattern, columnNamePattern);
+        LOGGER.log(Level.FINE,
+                "getColumns, catalog=[{0}], schemaPattern=[{1}], tableNamePattern=[{2}], columnNamePattern=[{3}]",
+                new Object[]{catalog, schemaPattern, tableNamePattern, columnNamePattern}
+        );
 
         if (!isMatchedCatalog(catalog)) {
             return fromEmptyResultSet();
@@ -829,8 +833,10 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     @Override
     public ResultSet getBestRowIdentifier(String catalog, String schema, String table, int scope, boolean nullable)
             throws SQLException {
-        LOGGER.debug("getBestRowIdentifier, catalog=[{}], schema=[{}], table=[{}], scope=[{}], nullable=[{}]",
-                catalog, schema, table, scope, nullable);
+        LOGGER.log(Level.FINE,
+                "getBestRowIdentifier, catalog=[{0}], schema=[{1}], table=[{2}], scope=[{3}], nullable=[{4}]",
+                new Object[]{catalog, schema, table, scope, nullable}
+        );
 
         if (!isMatchedCatalog(catalog)) {
             return fromEmptyResultSet();
@@ -880,8 +886,9 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     @Override
     public ResultSet getPrimaryKeys(String catalog, String schema, String table) throws SQLException {
-        LOGGER.debug("getPrimaryKeys, catalog=[{}], schema=[{}], table=[{}]",
-                catalog, schema, table);
+        LOGGER.log(Level.FINE, "getPrimaryKeys, catalog=[{0}], schema=[{1}], table=[{2}]",  new Object[]{
+            catalog, schema, table
+        });
 
         if (!isMatchedCatalog(catalog)) {
             return fromEmptyResultSet();
@@ -1014,8 +1021,10 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     @Override
     public ResultSet getIndexInfo(String catalog, String schema, String table, boolean unique, boolean approximate)
             throws SQLException {
-        LOGGER.debug("getIndexInfo, catalog=[{}], schema=[{}], table=[{}], unique=[{}], approximate=[{}]",
-                catalog, schema, table, unique, approximate);
+        LOGGER.log(Level.FINE,
+                "getIndexInfo, catalog=[{0}], schema=[{1}], table=[{2}], unique=[{3}], approximate=[{4}]",
+                new Object[]{catalog, schema, table, unique, approximate}
+        );
 
         if (!isMatchedCatalog(catalog)) {
             return fromEmptyResultSet();
@@ -1301,7 +1310,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         Predicate<String> filter = equalsFilter(tableNamePattern);
 
         Collection<String> allTables = listTables(filter);
-        LOGGER.debug("Loaded {} tables...", allTables.size());
+        LOGGER.log(Level.FINE, "Loaded {0} tables...", allTables.size());
 
         return allTables;
     }

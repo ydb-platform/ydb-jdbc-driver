@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import tech.ydb.jdbc.YdbConnection;
+import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
@@ -464,9 +465,6 @@ public class YdbPreparedStatementImplTest {
 
     @Test
     public void executeExplainQueryExplicitly() throws SQLException {
-        String ast = "AST";
-        String plan = "PLAN";
-
         try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text?")) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
@@ -475,8 +473,8 @@ public class YdbPreparedStatementImplTest {
             ResultSet rs = statement.executeExplainQuery();
 
             Assertions.assertTrue(rs.next());
-            Assertions.assertNotNull(rs.getString(ast));
-            Assertions.assertNotNull(rs.getString(plan));
+            Assertions.assertNotNull(rs.getString(YdbConst.EXPLAIN_COLUMN_AST));
+            Assertions.assertNotNull(rs.getString(YdbConst.EXPLAIN_COLUMN_PLAN));
 //            logger.info("AST: {}", rs.getString(ast));
 //            logger.info("PLAN: {}", rs.getString(plan));
             Assertions.assertFalse(rs.next());
@@ -485,8 +483,8 @@ public class YdbPreparedStatementImplTest {
         try (YdbPreparedStatement statement = prepareSelectByKey("c_Text")) {
             ResultSet rs = statement.executeExplainQuery();
             Assertions.assertTrue(rs.next());
-            Assertions.assertNotNull(rs.getString(ast));
-            Assertions.assertNotNull(rs.getString(plan));
+            Assertions.assertNotNull(rs.getString(YdbConst.EXPLAIN_COLUMN_AST));
+            Assertions.assertNotNull(rs.getString(YdbConst.EXPLAIN_COLUMN_PLAN));
 //            logger.info("AST: {}", rs.getString(ast));
 //            logger.info("PLAN: {}", rs.getString(plan));
             Assertions.assertFalse(rs.next());

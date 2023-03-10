@@ -11,6 +11,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -19,14 +20,13 @@ import javax.annotation.Nullable;
 import com.google.common.io.Files;
 import com.google.common.net.HostAndPort;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import tech.ydb.auth.AuthProvider;
 import tech.ydb.jdbc.exception.YdbConfigurationException;
@@ -48,8 +48,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static tech.ydb.jdbc.impl.helper.TestHelper.assertThrowsMsg;
 import static tech.ydb.jdbc.impl.helper.TestHelper.assertThrowsMsgLike;
 
-class YdbDriverProperitesTest {
-    private static final Logger logger = LoggerFactory.getLogger(YdbDriverProperitesTest.class);
+public class YdbDriverProperitesTest {
+    private static final Logger logger = Logger.getLogger(YdbDriverProperitesTest.class.getName());
     public static final String TOKEN_FROM_FILE = "token-from-file";
     public static final String CERTIFICATE_FROM_FILE = "certificate-from-file";
 
@@ -330,10 +330,8 @@ class YdbDriverProperitesTest {
     }
 
     @Test
-    public void getParentLogger() {
-        assertThrowsMsg(SQLFeatureNotSupportedException.class,
-                () -> driver.getParentLogger(),
-                "YDB Driver uses SLF4j");
+    public void getParentLogger() throws SQLFeatureNotSupportedException {
+        Assertions.assertNotNull(driver.getParentLogger());
     }
 
     static List<String> convertPropertyInfo(DriverPropertyInfo[] propertyInfo) {

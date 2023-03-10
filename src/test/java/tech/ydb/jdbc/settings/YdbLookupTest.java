@@ -19,8 +19,8 @@ public class YdbLookupTest {
 
     @Test
     public void resolveClassPath() {
-        Optional<URL> url = YdbLookup.resolvePath("classpath:log4j2.xml");
-        URL res = ClassLoader.getSystemResource("log4j2.xml");
+        Optional<URL> url = YdbLookup.resolvePath("classpath:logging.properties");
+        URL res = ClassLoader.getSystemResource("logging.properties");
         assertNotNull(res);
         assertEquals(Optional.of(res), url);
     }

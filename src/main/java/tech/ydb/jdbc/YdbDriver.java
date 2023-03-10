@@ -11,11 +11,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.function.Supplier;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import com.google.common.base.Strings;
 import com.google.common.base.Suppliers;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import tech.ydb.core.Result;
 import tech.ydb.core.grpc.GrpcTransport;
@@ -24,21 +24,20 @@ import tech.ydb.jdbc.impl.YdbConnectionImpl;
 import tech.ydb.jdbc.settings.ParsedProperty;
 import tech.ydb.jdbc.settings.YdbConnectionProperties;
 import tech.ydb.jdbc.settings.YdbConnectionProperty;
+import tech.ydb.jdbc.settings.YdbJdbcTools;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.jdbc.settings.YdbProperties;
-import tech.ydb.jdbc.settings.YdbJdbcTools;
 import tech.ydb.scheme.SchemeClient;
 import tech.ydb.table.Session;
 import tech.ydb.table.TableClient;
 
 import static tech.ydb.jdbc.YdbConst.JDBC_YDB_PREFIX;
-import static tech.ydb.jdbc.YdbConst.YDB_DRIVER_USES_SL4J;
 
 /**
  * YDB JDBC driver, basic implementation supporting {@link TableClient} and {@link SchemeClient}
  */
 public class YdbDriver implements Driver {
-    private static final Logger LOGGER = LoggerFactory.getLogger(YdbDriver.class);
+    private static final Logger LOGGER = Logger.getLogger(YdbDriver.class.getName());
 
     private static final YdbConnectionsCache CONNECTIONS = new YdbConnectionsCache();
 
@@ -49,7 +48,7 @@ public class YdbDriver implements Driver {
         } catch (SQLException sql) {
             throw new RuntimeException(sql);
         }
-        LOGGER.info("YDB JDBC Driver registered: {}", driver);
+        LOGGER.log(Level.INFO, "YDB JDBC Driver registered: {0}", driver);
     }
 
     @Override
@@ -59,7 +58,7 @@ public class YdbDriver implements Driver {
         }
 
         // logging should be after acceptsURL, otherwise we can log properties with secrets of another database
-        LOGGER.info("About to connect to [{}] using properties {}", url, info);
+        LOGGER.log(Level.INFO, "About to connect to [{0}] using properties {1}", new Object[] {url, info});
 
         YdbProperties properties = YdbJdbcTools.from(url, info);
         Clients clients = CONNECTIONS.getClients(new ConnectionConfig(url, info), properties);
@@ -110,8 +109,8 @@ public class YdbDriver implements Driver {
     }
 
     @Override
-    public java.util.logging.Logger getParentLogger() throws SQLFeatureNotSupportedException {
-        throw new SQLFeatureNotSupportedException(YDB_DRIVER_USES_SL4J);
+    public Logger getParentLogger() throws SQLFeatureNotSupportedException {
+        return LOGGER;
     }
 
     public static YdbConnectionsCache getConnectionsCache() {
@@ -163,7 +162,7 @@ public class YdbDriver implements Driver {
                 tableClient.close();
                 grpcTransport.close();
             } catch (Exception e) {
-                LOGGER.error("Unable to close client: " + e.getMessage(), e);
+                LOGGER.log(Level.SEVERE, "Unable to close client: " + e.getMessage(), e);
             }
         }
     }
@@ -179,18 +178,20 @@ public class YdbDriver implements Driver {
                     cache.get(config) :
                     null; // not cached
             if (clients != null) {
-                LOGGER.debug("Reusing YDB connection to {}{}",
+                LOGGER.log(Level.FINE, "Reusing YDB connection to {0}{1}", new Object[] {
                         connProperties.getAddress(),
-                        Strings.nullToEmpty(connProperties.getDatabase()));
+                        Strings.nullToEmpty(connProperties.getDatabase())
+                });
                 return clients;
             }
 
             ParsedProperty tokenProperty = connProperties.getProperty(YdbConnectionProperty.TOKEN);
             boolean hasAuth = tokenProperty != null && tokenProperty.getParsedValue() != null;
-            LOGGER.info("Creating new YDB connection to {}{}{}",
+            LOGGER.log(Level.INFO, "Creating new YDB connection to {0}{1}{2}", new Object[] {
                     connProperties.getAddress(),
                     Strings.nullToEmpty(connProperties.getDatabase()),
-                    hasAuth ? " with auth" : " without auth");
+                    hasAuth ? " with auth" : " without auth"
+            });
 
             GrpcTransport grpcTransport = connProperties.toGrpcTransport();
 
@@ -210,7 +211,7 @@ public class YdbDriver implements Driver {
         }
 
         public synchronized void close() {
-            LOGGER.info("Closing {} cached connection(s)...", cache.size());
+            LOGGER.log(Level.INFO, "Closing {0} cached connection(s)...", cache.size());
             cache.values().forEach(Clients::close);
             cache.clear();
         }

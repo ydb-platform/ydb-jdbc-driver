@@ -6,6 +6,7 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 import com.google.common.net.HostAndPort;
+
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
 
@@ -48,5 +49,4 @@ public class YdbConnectionProperties {
         }
         return builder.build();
     }
-
 }

@@ -22,12 +22,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.annotation.Nullable;
 
 import com.google.common.base.Suppliers;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import tech.ydb.core.Issue;
 import tech.ydb.core.Result;
@@ -78,7 +78,7 @@ import static tech.ydb.jdbc.YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE;
 import static tech.ydb.jdbc.YdbConst.UNSUPPORTED_TRANSACTION_LEVEL;
 
 public class YdbConnectionImpl implements YdbConnection {
-    private static final Logger LOGGER = LoggerFactory.getLogger(YdbConnectionImpl.class);
+    private static final Logger LOGGER = Logger.getLogger(YdbConnectionImpl.class.getName());
 
     //
     private final MutableState state = new MutableState();
@@ -112,7 +112,7 @@ public class YdbConnectionImpl implements YdbConnection {
         this.state.autoCommit = properties.isAutoCommit();
         this.state.transactionLevel = properties.getTransactionLevel();
 
-        LOGGER.debug("Opened session {} to database {}", session.getId(), database);
+        LOGGER.log(Level.FINE, "Opened session {0} to database {1}", new Object[] { session.getId(), database });
     }
 
     @Override
@@ -138,7 +138,7 @@ public class YdbConnectionImpl implements YdbConnection {
         boolean changed = state.autoCommit != autoCommit;
         state.autoCommit = autoCommit;
         if (changed) {
-            LOGGER.debug("Set auto-commit: {}", autoCommit);
+            LOGGER.log(Level.FINE, "Set auto-commit: {0}", autoCommit);
             if (autoCommit) {
                 this.commit();
             }
@@ -188,8 +188,8 @@ public class YdbConnectionImpl implements YdbConnection {
             } catch (YdbRetryableException e) {
                 if (e.getStatusCode() == StatusCode.NOT_FOUND) {
                     this.clearTx();
-                    LOGGER.warn("Unable to rollback transaction {}, it seems the transaction is expired",
-                            txId, e);
+                    LOGGER.log(Level.SEVERE,
+                            "Unable to rollback transaction " + txId + ", it seems the transaction is expired", e);
                 } else {
                     throw e;
                 }
@@ -203,7 +203,7 @@ public class YdbConnectionImpl implements YdbConnection {
             this.clearWarnings();
             try {
                 session.close();
-                LOGGER.info("Releasing session: {}", session.getId());
+                LOGGER.log(Level.FINE, "Releasing session: {0}", session.getId());
             } finally {
                 state.closed = true;
                 this.clearTx();
@@ -267,7 +267,7 @@ public class YdbConnectionImpl implements YdbConnection {
                 case ONLINE_CONSISTENT_READ_ONLY:
                 case STALE_CONSISTENT_READ_ONLY:
                 case ONLINE_INCONSISTENT_READ_ONLY:
-                    LOGGER.debug("Set transaction isolation level: {}", level);
+                    LOGGER.log(Level.FINE, "Set transaction isolation level: {0}", level);
                     state.transactionLevel = level;
                     break;
                 default:
@@ -518,7 +518,7 @@ public class YdbConnectionImpl implements YdbConnection {
 
     protected void clearTx() {
         if (state.txId != null) {
-            LOGGER.debug("Clear TxID: {}", state.txId);
+            LOGGER.log(Level.FINE, "Clear TxID: {0}", state.txId);
             state.txId = null;
         }
     }
@@ -533,7 +533,7 @@ public class YdbConnectionImpl implements YdbConnection {
                             " not closed, but opened another one: " + txId);
                 }
             } else {
-                LOGGER.debug("New TxID: {}", txId);
+                LOGGER.log(Level.FINE, "New TxID: {0}", txId);
                 state.txId = txId;
             }
         }

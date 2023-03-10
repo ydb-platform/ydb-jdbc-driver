@@ -16,10 +16,10 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Function;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import com.google.common.base.Preconditions;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import tech.ydb.core.Issue;
 import tech.ydb.core.Result;
@@ -55,7 +55,7 @@ import static tech.ydb.jdbc.YdbConst.RESULT_SET_MODE_UNSUPPORTED;
 import static tech.ydb.jdbc.YdbConst.RESULT_SET_UNAVAILABLE;
 
 public class YdbStatementImpl implements YdbStatement {
-    protected final Logger logger = LoggerFactory.getLogger(getClass());
+    private static final Logger LOGGER = Logger.getLogger(YdbStatementImpl.class.getName());
 
     private final MutableState state = new MutableState();
 
@@ -268,12 +268,12 @@ public class YdbStatementImpl implements YdbStatement {
         ensureOpened();
 
         if (batch.isEmpty()) {
-            logger.debug("Batch is empty, nothing to execute");
+            LOGGER.log(Level.FINE, "Batch is empty, nothing to execute");
             return new int[0];
         }
 
         try {
-            logger.debug("Executing batch of {} item(s)", batch.size());
+            LOGGER.log(Level.FINE, "Executing batch of {0} item(s)", batch.size());
 
             String sql = String.join(";\n", batch);
             execute(sql);
@@ -400,7 +400,7 @@ public class YdbStatementImpl implements YdbStatement {
         validator.init(settings);
 
         Session session = connection.getYdbSession();
-        Status status = validator.joinStatus(logger,
+        Status status = validator.joinStatus(LOGGER,
                 () -> QueryType.SCHEME_QUERY + " >>\n" + sql,
                 () -> session.executeSchemeQuery(sql, settings));
 
@@ -425,7 +425,7 @@ public class YdbStatementImpl implements YdbStatement {
         Result<DataQueryResult> result;
         try {
             result = validator.joinResult(
-                    logger,
+                    LOGGER,
                     () -> operation.apply(params),
                     () -> executor.executeDataQuery(txControl, params, settings));
         } catch (YdbNonRetryableException e) {
@@ -472,7 +472,7 @@ public class YdbStatementImpl implements YdbStatement {
         Session session = connection.getYdbSession();
         Collection<ResultSetReader> resultSets = new LinkedBlockingQueue<>();
         Status status = validator.joinStatus(
-                logger,
+                LOGGER,
                 () -> operation.apply(params),
                 () -> session.executeScanQuery(sql, params, settings, resultSets::add));
 
@@ -495,7 +495,7 @@ public class YdbStatementImpl implements YdbStatement {
         validator.init(settings);
 
         Session session = connection.getYdbSession();
-        Result<ExplainDataQueryResult> result = validator.joinResult(logger,
+        Result<ExplainDataQueryResult> result = validator.joinResult(LOGGER,
                 () -> QueryType.EXPLAIN_QUERY + " >>\n" + sql,
                 () -> session.explainDataQuery(sql, settings));
         state.lastIssues = result.getStatus().getIssues();
@@ -549,12 +549,14 @@ public class YdbStatementImpl implements YdbStatement {
             }
         }
 
-        logger.debug("OK, {} results ({})", resultSetCount, buffer);
+        LOGGER.log(Level.FINE, "OK, {0} results ({1})", new Object[] { resultSetCount, buffer });
     }
 
     private void printResultSetDetails(ResultSetReader resultSetReader) {
-        logger.debug("OK, {} rows{}", resultSetReader.getRowCount(),
-                resultSetReader.isTruncated() ? " - truncated" : "");
+        LOGGER.log(Level.FINE, "OK, {0} rows{1}", new Object[]{
+            resultSetReader.getRowCount(),
+            resultSetReader.isTruncated() ? " - truncated" : ""
+        });
     }
 
     private void checkResultSetTruncated(DataQueryResult dataQueryResult) throws SQLException {
