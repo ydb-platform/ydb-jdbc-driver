@@ -6,7 +6,7 @@ import tech.ydb.core.StatusCode;
 public class YdbConditionallyRetryableException extends YdbNonRetryableException {
     private static final long serialVersionUID = 1135970796364528563L;
 
-    public YdbConditionallyRetryableException(Object response, StatusCode statusCode) {
-        super(response, statusCode);
+    public YdbConditionallyRetryableException(String message, StatusCode statusCode) {
+        super(message, statusCode);
     }
 }

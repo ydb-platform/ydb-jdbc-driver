@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.impl;
+package tech.ydb.jdbc.statement;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -8,39 +8,30 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.google.common.base.Preconditions;
 
-import tech.ydb.core.Issue;
 import tech.ydb.core.Result;
-import tech.ydb.core.Status;
 import tech.ydb.jdbc.YdbConnection;
-import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
-import tech.ydb.jdbc.exception.YdbNonRetryableException;
+import tech.ydb.jdbc.common.YdbQuery;
+import tech.ydb.jdbc.common.YdbWarnings;
 import tech.ydb.jdbc.exception.YdbResultTruncatedException;
+import tech.ydb.jdbc.impl.YdbResultSetImpl;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
-import tech.ydb.table.Session;
 import tech.ydb.table.query.DataQueryResult;
-import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
-import tech.ydb.table.result.impl.ProtoValueReaders;
 import tech.ydb.table.settings.ExecuteDataQuerySettings;
-import tech.ydb.table.settings.ExecuteScanQuerySettings;
 import tech.ydb.table.settings.ExecuteSchemeQuerySettings;
-import tech.ydb.table.settings.ExplainDataQuerySettings;
 import tech.ydb.table.transaction.TxControl;
 
 import static tech.ydb.jdbc.YdbConst.AUTO_GENERATED_KEYS_UNSUPPORTED;
@@ -58,16 +49,15 @@ public class YdbStatementImpl implements YdbStatement {
     private static final Logger LOGGER = Logger.getLogger(YdbStatementImpl.class.getName());
 
     private final MutableState state = new MutableState();
+    private final YdbWarnings warnings = new YdbWarnings();
 
     private final List<String> batch = new ArrayList<>();
-    private final YdbConnectionImpl connection;
+    private final YdbConnection connection;
     private final YdbOperationProperties properties;
-    private final Validator validator;
     private final int resultSetType;
 
-    public YdbStatementImpl(YdbConnectionImpl connection, int resultSetType) {
+    public YdbStatementImpl(YdbConnection connection, int resultSetType) {
         this.connection = Objects.requireNonNull(connection);
-        this.validator = connection.getValidator();
         this.resultSetType = resultSetType;
 
         this.properties = connection.getYdbProperties();
@@ -77,7 +67,7 @@ public class YdbStatementImpl implements YdbStatement {
 
     @Override
     public void executeSchemeQuery(String sql) throws SQLException {
-        boolean result = this.executeSchemeQueryImpl(sql);
+        boolean result = executeSchemeQueryImpl(new YdbQuery(properties, sql));
         if (result) {
             throw new SQLException(QUERY_EXPECT_UPDATE);
         }
@@ -85,7 +75,7 @@ public class YdbStatementImpl implements YdbStatement {
 
     @Override
     public YdbResultSet executeScanQuery(String sql) throws SQLException {
-        boolean result = this.executeScanQueryImpl(sql);
+        boolean result = this.executeScanQueryImpl(new YdbQuery(properties, sql));
         if (!result) {
             throw new SQLException(QUERY_EXPECT_RESULT_SET);
         }
@@ -94,7 +84,7 @@ public class YdbStatementImpl implements YdbStatement {
 
     @Override
     public YdbResultSet executeExplainQuery(String sql) throws SQLException {
-        boolean result = this.executeExplainQueryImpl(sql);
+        boolean result = this.executeExplainQueryImpl(new YdbQuery(properties, sql));
         if (!result) {
             throw new SQLException(QUERY_EXPECT_RESULT_SET);
         }
@@ -167,12 +157,12 @@ public class YdbStatementImpl implements YdbStatement {
 
     @Override
     public SQLWarning getWarnings() {
-        return validator.toSQLWarnings(state.lastIssues);
+        return warnings.toSQLWarnings();
     }
 
     @Override
     public void clearWarnings() {
-        state.lastIssues = Issue.EMPTY_ARRAY;
+        warnings.clearWarnings();
     }
 
     @Override
@@ -182,7 +172,7 @@ public class YdbStatementImpl implements YdbStatement {
 
     @Override
     public boolean execute(String sql) throws SQLException {
-        return executeImpl(sql);
+        return executeImpl(new YdbQuery(properties, sql));
     }
 
     @Override
@@ -368,43 +358,38 @@ public class YdbStatementImpl implements YdbStatement {
         return false;
     }
 
-    protected boolean executeImpl(String origSql) throws SQLException {
+    protected boolean executeImpl(YdbQuery query) throws SQLException {
         ensureOpened();
 
-        String sql = connection.prepareYdbSql(origSql);
-
-        QueryType queryType = connection.decodeQueryType(sql);
-        Preconditions.checkState(queryType != null, "queryType cannot be null");
+        Preconditions.checkState(query != null, "queryType cannot be null");
         this.clearState();
-        switch (queryType) {
+        switch (query.type()) {
             case SCHEME_QUERY:
-                return executeSchemeQueryImpl(sql);
+                return executeSchemeQueryImpl(query);
             case DATA_QUERY:
-                return executeDataQueryImpl(sql);
+                return executeDataQueryImpl(query);
             case SCAN_QUERY:
-                return executeScanQueryImpl(sql);
+                return executeScanQueryImpl(query);
             case EXPLAIN_QUERY:
-                return executeExplainQueryImpl(sql);
+                return executeExplainQueryImpl(query);
             default:
-                throw new IllegalStateException("Internal error. Unsupported query type " + queryType);
+                throw new IllegalStateException("Internal error. Unsupported query type " + query.type());
         }
     }
 
-    private boolean executeSchemeQueryImpl(String origSql) throws SQLException {
+    private boolean executeSchemeQueryImpl(YdbQuery query) throws SQLException {
         ensureOpened();
 
-        String sql = connection.prepareYdbSql(origSql);
-
         // Scheme query does not affect transactions or result sets
-        ExecuteSchemeQuerySettings settings = new ExecuteSchemeQuerySettings();
-        validator.init(settings);
+        ExecuteSchemeQuerySettings settings = new ExecuteSchemeQuerySettings()
+                .setTimeout(query.executionTimeout());
 
-        Session session = connection.getYdbSession();
-        Status status = validator.joinStatus(LOGGER,
-                () -> QueryType.SCHEME_QUERY + " >>\n" + sql,
-                () -> session.executeSchemeQuery(sql, settings));
-
-        state.lastIssues = status.getIssues();
+//        Session session = connection.getYdbSession();
+//        Status status = validator.joinStatus(LOGGER,
+//                () -> QueryType.SCHEME_QUERY + " >>\n" + sql,
+//                () -> session.executeSchemeQuery(sql, settings));
+//
+//        state.lastIssues = status.getIssues();
         return false;
     }
 
@@ -413,117 +398,117 @@ public class YdbStatementImpl implements YdbStatement {
                                            DataQueryExecutor executor) throws SQLException {
         ensureOpened();
 
-        ExecuteDataQuerySettings settings = new ExecuteDataQuerySettings();
-        validator.init(settings);
-        if (!state.keepInQueryCache) {
-            settings.disableQueryCache();
-        }
-        settings.setTimeout(state.queryTimeout);
-
-        TxControl<?> txControl = connection.getTxControl();
-
-        Result<DataQueryResult> result;
-        try {
-            result = validator.joinResult(
-                    LOGGER,
-                    () -> operation.apply(params),
-                    () -> executor.executeDataQuery(txControl, params, settings));
-        } catch (YdbNonRetryableException e) {
-            connection.clearTx();
-            throw e;
-        }
-
-        state.lastIssues = result.getStatus().getIssues();
-
-        DataQueryResult dataQueryResult = result.getValue();
-        connection.setTx(dataQueryResult.getTxId());
-
-        printResultSetDetails(dataQueryResult);
-        checkResultSetTruncated(dataQueryResult);
-
-        int resultSetCount = dataQueryResult.getResultSetCount();
-        state.lastResultSets = new YdbResultSetImpl[resultSetCount];
-        if (resultSetCount == 0) {
-            state.updateCount = 1;
-        } else {
-            for (int i = 0; i < resultSetCount; i++) {
-                state.lastResultSets[i] = new YdbResultSetImpl(this, dataQueryResult.getResultSet(i));
-            }
-        }
-        return resultSetCount > 0; // TODO: check;
+//        ExecuteDataQuerySettings settings = new ExecuteDataQuerySettings();
+//
+//        validator.init(settings);
+//        if (!state.keepInQueryCache) {
+//            settings.disableQueryCache();
+//        }
+//        settings.setTimeout(state.queryTimeout);
+//
+//        TxControl<?> txControl = connection.getTxControl();
+//
+//        Result<DataQueryResult> result;
+//        try {
+//            result = validator.joinResult(
+//                    LOGGER,
+//                    () -> operation.apply(params),
+//                    () -> executor.executeDataQuery(txControl, params, settings));
+//        } catch (YdbNonRetryableException e) {
+//            connection.clearTx();
+//            throw e;
+//        }
+//
+//        state.lastIssues = result.getStatus().getIssues();
+//
+//        DataQueryResult dataQueryResult = result.getValue();
+//        connection.setTx(dataQueryResult.getTxId());
+//
+//        printResultSetDetails(dataQueryResult);
+//        checkResultSetTruncated(dataQueryResult);
+//
+//        int resultSetCount = dataQueryResult.getResultSetCount();
+//        state.lastResultSets = new YdbResultSetImpl[resultSetCount];
+//        if (resultSetCount == 0) {
+//            state.updateCount = 1;
+//        } else {
+//            for (int i = 0; i < resultSetCount; i++) {
+//                state.lastResultSets[i] = new YdbResultSetImpl(this, dataQueryResult.getResultSet(i));
+//            }
+//        }
+//        return resultSetCount > 0; // TODO: check;
+        return false;
     }
 
 
-    protected boolean executeScanQueryImpl(String origSql,
+    protected boolean executeScanQueryImpl(YdbQuery query,
                                            Params params,
                                            Function<Params, String> operation) throws SQLException {
         ensureOpened();
 
-        String sql = connection.prepareYdbSql(origSql);
-
-        // TODO: support stats?
-        Duration scanQueryTimeout = properties.getScanQueryTimeout();
-        ExecuteScanQuerySettings.Builder settingsBuilder = ExecuteScanQuerySettings.newBuilder();
-        if (scanQueryTimeout.toNanos() > 0) {
-            settingsBuilder.timeout(scanQueryTimeout);
-        }
-        ExecuteScanQuerySettings settings = settingsBuilder.build();
-
-        Session session = connection.getYdbSession();
-        Collection<ResultSetReader> resultSets = new LinkedBlockingQueue<>();
-        Status status = validator.joinStatus(
-                LOGGER,
-                () -> operation.apply(params),
-                () -> session.executeScanQuery(sql, params, settings, resultSets::add));
-
-        state.lastIssues = status.getIssues();
-
-        ResultSetReader resultSet = ProtoValueReaders.forResultSets(resultSets);
-        printResultSetDetails(resultSet);
-
-        checkResultSetTruncated(resultSet);
-        state.lastResultSets = new YdbResultSetImpl[]{new YdbResultSetImpl(this, resultSet)};
-        return true;
+//        // TODO: support stats?
+//        Duration scanQueryTimeout = properties.getScanQueryTimeout();
+//        ExecuteScanQuerySettings.Builder settingsBuilder = ExecuteScanQuerySettings.newBuilder();
+//        if (scanQueryTimeout.toNanos() > 0) {
+//            settingsBuilder.timeout(scanQueryTimeout);
+//        }
+//        ExecuteScanQuerySettings settings = settingsBuilder.build();
+//
+//        Session session = connection.getYdbSession();
+//        Collection<ResultSetReader> resultSets = new LinkedBlockingQueue<>();
+//        Status status = validator.joinStatus(
+//                LOGGER,
+//                () -> operation.apply(params),
+//                () -> session.executeScanQuery(sql, params, settings, resultSets::add));
+//
+//        state.lastIssues = status.getIssues();
+//
+//        ResultSetReader resultSet = ProtoValueReaders.forResultSets(resultSets);
+//        printResultSetDetails(resultSet);
+//
+//        checkResultSetTruncated(resultSet);
+//        state.lastResultSets = new YdbResultSetImpl[]{new YdbResultSetImpl(this, resultSet)};
+        return false;
     }
 
-    protected boolean executeExplainQueryImpl(String origSql) throws SQLException {
+    protected boolean executeExplainQueryImpl(YdbQuery query) throws SQLException {
         ensureOpened();
 
-        String sql = connection.prepareYdbSql(origSql);
-
-        ExplainDataQuerySettings settings = new ExplainDataQuerySettings();
-        validator.init(settings);
-
-        Session session = connection.getYdbSession();
-        Result<ExplainDataQueryResult> result = validator.joinResult(LOGGER,
-                () -> QueryType.EXPLAIN_QUERY + " >>\n" + sql,
-                () -> session.explainDataQuery(sql, settings));
-        state.lastIssues = result.getStatus().getIssues();
-
-        ExplainDataQueryResult explainDataQuery = result.getValue();
-
-        Map<String, Object> params = MappingResultSets.stableMap(
-                YdbConst.EXPLAIN_COLUMN_AST, explainDataQuery.getQueryAst(),
-                YdbConst.EXPLAIN_COLUMN_PLAN, explainDataQuery.getQueryPlan());
-        ResultSetReader resultSetReader = MappingResultSets.readerFromMap(params);
-        state.lastResultSets = new YdbResultSetImpl[]{new YdbResultSetImpl(this, resultSetReader)};
-        return true;
+//        ExplainDataQuerySettings settings = new ExplainDataQuerySettings()
+//                .setTimeout(query.executionTimeout());
+//
+//        Session session = connection.getYdbSession();
+//        Result<ExplainDataQueryResult> result = validator.joinResult(LOGGER,
+//                () -> QueryType.EXPLAIN_QUERY + " >>\n" + sql,
+//                () -> session.explainDataQuery(sql, settings));
+//        state.lastIssues = result.getStatus().getIssues();
+//
+//        ExplainDataQueryResult explainDataQuery = result.getValue();
+//
+//        Map<String, Object> params = MappingResultSets.stableMap(
+//                YdbConst.EXPLAIN_COLUMN_AST, explainDataQuery.getQueryAst(),
+//                YdbConst.EXPLAIN_COLUMN_PLAN, explainDataQuery.getQueryPlan());
+//        ResultSetReader resultSetReader = MappingResultSets.readerFromMap(params);
+//        state.lastResultSets = new YdbResultSetImpl[]{new YdbResultSetImpl(this, resultSetReader)};
+        return false;
     }
 
 
-    private boolean executeDataQueryImpl(String sql) throws SQLException {
-        Session session = connection.getYdbSession();
-        return this.executeDataQueryImpl(
-                Params.empty(),
-                params -> QueryType.DATA_QUERY + " >>\n" + sql,
-                (tx, params, settings) -> session.executeDataQuery(sql, tx, params, settings));
+    private boolean executeDataQueryImpl(YdbQuery query) throws SQLException {
+        return false;
+//        Session session = connection.getYdbSession();
+//        return this.executeDataQueryImpl(
+//                Params.empty(),
+//                params -> QueryType.DATA_QUERY + " >>\n" + sql,
+//                (tx, params, settings) -> session.executeDataQuery(sql, tx, params, settings));
     }
 
-    private boolean executeScanQueryImpl(String sql) throws SQLException {
-        return this.executeScanQueryImpl(
-                sql,
-                Params.empty(),
-                params -> QueryType.SCAN_QUERY + " >>\n" + sql);
+    private boolean executeScanQueryImpl(YdbQuery query) throws SQLException {
+        return false;
+//        return this.executeScanQueryImpl(
+//                sql,
+//                Params.empty(),
+//                params -> QueryType.SCAN_QUERY + " >>\n" + sql);
     }
 
 
@@ -608,9 +593,6 @@ public class YdbStatementImpl implements YdbStatement {
     }
 
     private static class MutableState {
-
-        private Issue[] lastIssues = Issue.EMPTY_ARRAY;
-
         private YdbResultSetImpl[] lastResultSets;
         private int resultSetIndex;
         private int updateCount = -1; // TODO: figure out how to get update count from DML

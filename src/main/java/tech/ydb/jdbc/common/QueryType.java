@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.impl;
+package tech.ydb.jdbc.common;
 
 import java.util.Collection;
 import java.util.stream.Collectors;

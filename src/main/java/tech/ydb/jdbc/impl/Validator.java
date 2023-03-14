@@ -2,7 +2,6 @@ package tech.ydb.jdbc.impl;
 
 import java.io.InterruptedIOException;
 import java.sql.SQLException;
-import java.sql.SQLWarning;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -19,7 +18,6 @@ import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import io.grpc.Context;
 
-import tech.ydb.core.Issue;
 import tech.ydb.core.Result;
 import tech.ydb.core.Status;
 import tech.ydb.core.StatusCode;
@@ -88,7 +86,7 @@ public class Validator {
             }
         }
         Objects.requireNonNull(result, "Internal error. Result cannot be null");
-        validate(result, toStatus.apply(result).getCode());
+        validate(result.toString(), toStatus.apply(result).getCode());
         return result;
     }
 
@@ -113,23 +111,7 @@ public class Validator {
                 .anyMatch(e -> e instanceof InterruptedException || e instanceof InterruptedIOException);
     }
 
-    public SQLWarning toSQLWarnings(Issue[] issues) {
-        SQLWarning firstWarning = null;
-        SQLWarning warning = null;
-        for (Issue issue : issues) {
-            SQLWarning nextWarning = new SQLWarning(issue.toString(), null, issue.getCode());
-            if (firstWarning == null) {
-                firstWarning = nextWarning;
-            }
-            if (warning != null) {
-                warning.setNextWarning(nextWarning);
-            }
-            warning = nextWarning;
-        }
-        return firstWarning;
-    }
-
-    public static void validate(Object response, StatusCode statusCode) throws SQLException {
+    public static void validate(String message, StatusCode statusCode) throws SQLException {
         switch (statusCode) {
             case SUCCESS:
                 return;
@@ -147,7 +129,7 @@ public class Validator {
             case UNSUPPORTED:
             case UNUSED_STATUS:
             case ALREADY_EXISTS:
-                throw new YdbNonRetryableException(response, statusCode);
+                throw new YdbNonRetryableException(message, statusCode);
 
             case ABORTED:
             case UNAVAILABLE:
@@ -165,7 +147,7 @@ public class Validator {
                 // Retry with new session
             case SESSION_EXPIRED:
                 // Retry with new session
-                throw new YdbRetryableException(response, statusCode);
+                throw new YdbRetryableException(message, statusCode);
 
             case CANCELLED:
                 // Query was canceled due to query timeout (CancelAfter)
@@ -173,8 +155,8 @@ public class Validator {
             case CLIENT_CANCELLED:
             case CLIENT_INTERNAL_ERROR:
                 // Some unknown client side error, probably on transport layer
-                checkGrpcContextStatus(response, statusCode);
-                throw new YdbConditionallyRetryableException(response, statusCode);
+                checkGrpcContextStatus(message, statusCode);
+                throw new YdbConditionallyRetryableException(message, statusCode);
 
             case UNDETERMINED:
             case TIMEOUT:
@@ -188,9 +170,9 @@ public class Validator {
                 // Some issue with database endpoints discovery
             case CLIENT_LIMITS_REACHED:
                 // Client side session limit was reached
-                throw new YdbConditionallyRetryableException(response, statusCode);
+                throw new YdbConditionallyRetryableException(message, statusCode);
             default:
-                throw new YdbNonRetryableException(response, statusCode);
+                throw new YdbNonRetryableException(message, statusCode);
         }
     }
 

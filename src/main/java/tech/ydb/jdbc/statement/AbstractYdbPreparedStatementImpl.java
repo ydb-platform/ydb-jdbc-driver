@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.impl;
+package tech.ydb.jdbc.statement;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -26,9 +26,14 @@ import java.util.stream.IntStream;
 
 import javax.annotation.Nullable;
 
+import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.YdbResultSet;
+import tech.ydb.jdbc.common.MappingSetters;
+import tech.ydb.jdbc.common.QueryType;
+import tech.ydb.jdbc.common.TypeDescription;
+import tech.ydb.jdbc.common.YdbQuery;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.ListValue;
 import tech.ydb.table.values.OptionalValue;
@@ -54,21 +59,17 @@ import static tech.ydb.jdbc.YdbConst.UNABLE_TO_SET_NULL_VALUE;
 import static tech.ydb.jdbc.YdbConst.UNSUPPORTED_QUERY_TYPE_IN_PS;
 
 public abstract class AbstractYdbPreparedStatementImpl extends YdbStatementImpl implements YdbPreparedStatement {
-    private final String query;
-    private final QueryType queryType;
+    private final YdbQuery query;
 
-    protected AbstractYdbPreparedStatementImpl(YdbConnectionImpl connection,
-                                               int resultSetType,
-                                               String query) throws SQLException {
+    protected AbstractYdbPreparedStatementImpl(YdbConnection connection, YdbQuery query, int resultSetType) throws SQLException {
         super(connection, resultSetType);
         this.query = Objects.requireNonNull(query);
-        this.queryType = checkQueryType(connection.decodeQueryType(query));
         this.setPoolable(true); // By default
     }
 
     @Override
     public String getQuery() {
-        return query;
+        return query.sql();
     }
 
     @Override
@@ -589,7 +590,7 @@ public abstract class AbstractYdbPreparedStatementImpl extends YdbStatementImpl 
         if (value instanceof Value<?>) {
             // For all external values (passed 'as is') we have to check data types
             Value<?> targetValue = (Value<?>) value;
-            if (description.optional) {
+            if (description.isOptional()) {
                 if (targetValue instanceof OptionalValue) {
                     checkType(param, description, ((OptionalValue) targetValue).getType().getItemType());
                     return targetValue; // Could be null
@@ -611,14 +612,14 @@ public abstract class AbstractYdbPreparedStatementImpl extends YdbStatementImpl 
                 }
             }
         } else if (value == null) {
-            if (description.optionalValue != null) {
-                return description.optionalValue;
+            if (description.nullValue() != null) {
+                return description.nullValue();
             } else {
                 throw new SQLException(UNABLE_TO_SET_NULL_VALUE + param);
             }
         } else {
-            Value<?> targetValue = description.setters.toValue(value);
-            if (description.optional) {
+            Value<?> targetValue = description.setters().toValue(value);
+            if (description.isOptional()) {
                 return targetValue.makeOptional();
             } else {
                 return targetValue;
@@ -627,13 +628,13 @@ public abstract class AbstractYdbPreparedStatementImpl extends YdbStatementImpl 
     }
 
     protected void checkType(String param, TypeDescription description, Type type) throws SQLException {
-        if (!description.type.equals(type)) {
-            throw new SQLException(String.format(INVALID_PARAMETER_TYPE, param, type, description.type));
+        if (!description.ydbType().equals(type)) {
+            throw new SQLException(String.format(INVALID_PARAMETER_TYPE, param, type, description.ydbType()));
         }
     }
 
     protected QueryType getQueryType() {
-        return queryType;
+        return query.type();
     }
 
     private QueryType checkQueryType(QueryType queryType) throws SQLException {

@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.impl;
+package tech.ydb.jdbc.statement;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -7,19 +7,18 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
-
+import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbParameterMetaData;
 import tech.ydb.jdbc.YdbTypes;
+import tech.ydb.jdbc.common.QueryType;
+import tech.ydb.jdbc.common.TypeDescription;
+import tech.ydb.jdbc.common.YdbQuery;
 import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
-import tech.ydb.table.Session;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.ListType;
 import tech.ydb.table.values.ListValue;
@@ -33,35 +32,30 @@ import static tech.ydb.jdbc.YdbConst.INDEXED_PARAMETER_PREFIX;
 import static tech.ydb.jdbc.YdbConst.PARAMETER_TYPE_UNKNOWN;
 import static tech.ydb.jdbc.YdbConst.TRY_EXECUTE_ON_BATCH_STATEMENT;
 import static tech.ydb.jdbc.YdbConst.UNKNOWN_PARAMETER_IN_BATCH;
-import static tech.ydb.jdbc.YdbConst.UNSUPPORTED_QUERY_TYPE_IN_PS;
 import static tech.ydb.jdbc.YdbConst.VARIABLE_PARAMETER_PREFIX;
 
 // This implementation support all possible scenarios with batched and simple execution mode
 // It's a default configuration for all queries
 public class YdbPreparedStatementImpl extends AbstractYdbPreparedStatementImpl {
 
-    private final YdbStandardSqlTranslator sqlTranslator = new YdbStandardSqlTranslator();
     private final MutableState state = new MutableState();
     private final boolean enforceVariablePrefix;
-    private final boolean transformStandardJdbcQueries;
-    private final Cache<Key, String> queryCache;
+//    private final boolean transformStandardJdbcQueries;
 
-    public YdbPreparedStatementImpl(YdbConnectionImpl connection,
-                                    int resultSetType,
-                                    String query) throws SQLException {
-        super(connection, resultSetType, query);
+    public YdbPreparedStatementImpl(YdbConnection connection, YdbQuery query, int resultSetType) throws SQLException {
+        super(connection, query, resultSetType);
 
         YdbOperationProperties properties = connection.getYdbProperties();
         this.enforceVariablePrefix = properties.isEnforceVariablePrefix();
-        this.transformStandardJdbcQueries = properties.isTransformStandardJdbcQueries();
-        int cacheSize = properties.getTransformedJdbcQueriesCache();
-        if (transformStandardJdbcQueries && cacheSize > 0) {
-            this.queryCache = CacheBuilder.newBuilder()
-                    .maximumSize(cacheSize)
-                    .build();
-        } else {
-            this.queryCache = null;
-        }
+//        this.transformStandardJdbcQueries = properties.isTransformStandardJdbcQueries();
+//        int cacheSize = properties.getTransformedJdbcQueriesCache();
+//        if (transformStandardJdbcQueries && cacheSize > 0) {
+//            this.queryCache = CacheBuilder.newBuilder()
+//                    .maximumSize(cacheSize)
+//                    .build();
+//        } else {
+//            this.queryCache = null;
+//        }
         this.clearParameters();
     }
 
@@ -182,42 +176,43 @@ public class YdbPreparedStatementImpl extends AbstractYdbPreparedStatementImpl {
     @Override
     protected boolean executeImpl() throws SQLException {
         QueryType queryType = getQueryType();
-        switch (queryType) {
-            case DATA_QUERY:
-                Params sqlParams = getParams();
-                String sql = transformStandardJdbcStatement(getQuery(), sqlParams);
-                Session session = getConnection().getYdbSession();
-                return executeDataQueryImpl(
-                        sqlParams,
-                        params -> QueryType.DATA_QUERY + " >>\n" + sql +
-                                "\n\nParams: " + paramsToString(params),
-                        (tx, params, execParams) -> session.executeDataQuery(sql, tx, params, execParams));
-            case SCAN_QUERY:
-                return executeScanQueryImpl();
-            default:
-                throw new SQLException(UNSUPPORTED_QUERY_TYPE_IN_PS + queryType);
-        }
+        return false;
+//        switch (queryType) {
+//            case DATA_QUERY:
+//                Params sqlParams = getParams();
+//                String sql = transformStandardJdbcStatement(getQuery(), sqlParams);
+//                Session session = getConnection().getYdbSession();
+//                return executeDataQueryImpl(
+//                        sqlParams,
+//                        params -> QueryType.DATA_QUERY + " >>\n" + sql +
+//                                "\n\nParams: " + paramsToString(params),
+//                        (tx, params, execParams) -> session.executeDataQuery(sql, tx, params, execParams));
+//            case SCAN_QUERY:
+//                return executeScanQueryImpl();
+//            default:
+//                throw new SQLException(UNSUPPORTED_QUERY_TYPE_IN_PS + queryType);
+//        }
     }
 
     //
 
-    private String transformStandardJdbcStatement(String sql, Params params) throws SQLException {
-        // Make an automatic transformation of given prepared statement, replacing all '?' symbols with parameters
-        // Supports both standard and batched queries
-        if (!transformStandardJdbcQueries) {
-            return sql;
-        }
-        if (queryCache != null) {
-            try {
-                return queryCache.get(new Key(sql, params), () -> sqlTranslator.translate(sql, params));
-            } catch (ExecutionException e) {
-                throw new SQLException("Unexpected exception when building standard JDBC statement: " +
-                        e.getMessage(), e);
-            }
-        } else {
-            return sqlTranslator.translate(sql, params);
-        }
-    }
+//    private String transformStandardJdbcStatement(String sql, Params params) throws SQLException {
+//        // Make an automatic transformation of given prepared statement, replacing all '?' symbols with parameters
+//        // Supports both standard and batched queries
+//        if (!transformStandardJdbcQueries) {
+//            return sql;
+//        }
+//        if (queryCache != null) {
+//            try {
+//                return queryCache.get(new Key(sql, params), () -> sqlTranslator.translate(sql, params));
+//            } catch (ExecutionException e) {
+//                throw new SQLException("Unexpected exception when building standard JDBC statement: " +
+//                        e.getMessage(), e);
+//            }
+//        } else {
+//            return sqlTranslator.translate(sql, params);
+//        }
+//    }
 
     //
 

@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.impl;
+package tech.ydb.jdbc.connection;
 
 import java.sql.ResultSet;
 import java.sql.RowIdLifetime;
@@ -34,6 +34,11 @@ import tech.ydb.jdbc.YdbDatabaseMetaData;
 import tech.ydb.jdbc.YdbDriverInfo;
 import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.exception.YdbRuntimeException;
+import tech.ydb.jdbc.impl.MappingResultSets;
+import tech.ydb.jdbc.impl.Validator;
+import tech.ydb.jdbc.impl.YdbFunctions;
+import tech.ydb.jdbc.impl.YdbResultSetImpl;
+import tech.ydb.jdbc.statement.YdbStatementImpl;
 import tech.ydb.scheme.SchemeOperationProtos;
 import tech.ydb.scheme.description.ListDirectoryResult;
 import tech.ydb.table.description.TableColumn;
@@ -42,9 +47,6 @@ import tech.ydb.table.description.TableIndex;
 import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.table.values.Type;
-
-import static tech.ydb.jdbc.YdbConst.CANNOT_UNWRAP_TO;
-import static tech.ydb.jdbc.impl.MappingResultSets.stableMap;
 
 public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     private static final Logger LOGGER = Logger.getLogger(YdbDatabaseMetaDataImpl.class.getName());
@@ -704,7 +706,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         }
 
         List<Map<String, Object>> rows = listTables(tableNamePattern).stream()
-                .map(tableName -> stableMap(
+                .map(tableName -> MappingResultSets.stableMap(
                         "TABLE_CAT", null,
                         "TABLE_SCHEM", null,
                         "TABLE_NAME", tableName,
@@ -746,8 +748,8 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     @Override
     public ResultSet getTableTypes() {
         return fromRows(
-                stableMap("TABLE_TYPE", TABLE),
-                stableMap("TABLE_TYPE", SYSTEM_TABLE));
+                MappingResultSets.stableMap("TABLE_TYPE", TABLE),
+                MappingResultSets.stableMap("TABLE_TYPE", SYSTEM_TABLE));
     }
 
     @Override
@@ -785,7 +787,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
                             nullable = columnNoNulls;
                         }
 
-                        rows.add(stableMap(
+                        rows.add(MappingResultSets.stableMap(
                                 "TABLE_CAT", null,
                                 "TABLE_SCHEM", null,
                                 "TABLE_NAME", tableName,
@@ -864,7 +866,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
                             type = type.unwrapOptional();
                         }
 
-                        rows.add(stableMap(
+                        rows.add(MappingResultSets.stableMap(
                                 "SCOPE", (short)scope,
                                 "COLUMN_NAME", key,
                                 "DATA_TYPE", types.toSqlType(type),
@@ -907,7 +909,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
                     short index = 0;
                     for (String key : tableDesc.getPrimaryKeys()) {
                         index++;
-                        rows.add(stableMap(
+                        rows.add(MappingResultSets.stableMap(
                                 "TABLE_CAT", null,
                                 "TABLE_SCHEM", null,
                                 "TABLE_NAME", tableName,
@@ -942,7 +944,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
                 .map(type -> {
                     String literal = getLiteral(type);
                     int scale = type.getKind() == Type.Kind.DECIMAL ? YdbConst.SQL_DECIMAL_DEFAULT_SCALE : 0;
-                    return stableMap(
+                    return MappingResultSets.stableMap(
                             "TYPE_NAME", type.toString(),
                             "DATA_TYPE", types.toSqlType(type),
                             "PRECISION", types.getSqlPrecision(type),
@@ -1048,7 +1050,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
                         short index = 0;
                         for (String column : tableIndex.getColumns()) {
                             index++;
-                            rows.add(stableMap(
+                            rows.add(MappingResultSets.stableMap(
                                     "TABLE_CAT", null,
                                     "TABLE_SCHEM", null,
                                     "TABLE_NAME", tableName,
@@ -1276,7 +1278,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         if (iface.isAssignableFrom(getClass())) {
             return iface.cast(this);
         }
-        throw new SQLException(CANNOT_UNWRAP_TO + iface);
+        throw new SQLException(YdbConst.CANNOT_UNWRAP_TO + iface);
     }
 
     @Override
@@ -1288,21 +1290,21 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     private Map<String, TableDescription> collectTableDescriptions(Collection<String> tables) throws SQLException {
         Map<String, CompletableFuture<Result<TableDescription>>> futures = new LinkedHashMap<>(tables.size());
-        for (String table : tables) {
-            futures.put(table, connection.getYdbSession().describeTable(databaseWithSuffix + table));
-        }
+//        for (String table : tables) {
+//            futures.put(table, connection.getYdbSession().describeTable(databaseWithSuffix + table));
+//        }
 
         Map<String, TableDescription> target = new LinkedHashMap<>(tables.size());
-        Validator validator = connection.getValidator();
-        for (Map.Entry<String, CompletableFuture<Result<TableDescription>>> entry : futures.entrySet()) {
-            String table = entry.getKey();
-
-            Result<TableDescription> result = validator.joinResult(LOGGER,
-                    () -> "Get table description for " + table,
-                    entry::getValue);
-            TableDescription desc = result.getValue();
-            target.put(table, desc);
-        }
+//        Validator validator = connection.getValidator();
+//        for (Map.Entry<String, CompletableFuture<Result<TableDescription>>> entry : futures.entrySet()) {
+//            String table = entry.getKey();
+//
+//            Result<TableDescription> result = validator.joinResult(LOGGER,
+//                    () -> "Get table description for " + table,
+//                    entry::getValue);
+//            TableDescription desc = result.getValue();
+//            target.put(table, desc);
+//        }
         return target;
     }
 
@@ -1319,9 +1321,9 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         final Set<String> paths = ConcurrentHashMap.newKeySet();
         final Set<String> tables = new ConcurrentSkipListSet<>();
 
-        connection.getValidator().joinResult(LOGGER,
-                () -> "List tables from " + database,
-                () -> tables(databaseWithSuffix, filter, paths, tables));
+//        connection.getValidator().joinResult(LOGGER,
+//                () -> "List tables from " + database,
+//                () -> tables(databaseWithSuffix, filter, paths, tables));
 
         return tables;
     }
@@ -1334,7 +1336,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         return connection.getYdbScheme().listDirectory(path)
                 .thenApplyAsync(listResult -> {
                     try {
-                        Validator.validate(listResult, listResult.getStatus().getCode());
+                        Validator.validate(listResult.toString(), listResult.getStatus().getCode());
                     } catch (SQLException sql) {
                         throw new YdbRuntimeException("Invalid listDirectory result: " + sql.getMessage(), sql);
                     }

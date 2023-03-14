@@ -1,12 +1,9 @@
-package tech.ydb.jdbc.impl;
+package tech.ydb.jdbc.common;
 
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
-import tech.ydb.jdbc.impl.MappingGetters.Getters;
-import tech.ydb.jdbc.impl.MappingGetters.SqlTypes;
-import tech.ydb.jdbc.impl.MappingSetters.Setters;
 import tech.ydb.table.values.DecimalType;
 import tech.ydb.table.values.OptionalType;
 import tech.ydb.table.values.OptionalValue;
@@ -15,26 +12,50 @@ import tech.ydb.table.values.Type;
 
 public class TypeDescription {
 
-    final Type type;
-    final boolean optional;
-    final OptionalValue optionalValue;
+    private final Type type;
+    private final boolean optional;
+    private final OptionalValue optionalValue;
 
-    final Getters fromValue;
-    final Setters setters;
+    private final MappingGetters.Getters getters;
+    private final MappingSetters.Setters setters;
 
-    final SqlTypes sqlTypes;
+    private final MappingGetters.SqlType sqlType;
 
     private TypeDescription(Type type,
                             OptionalValue optionalValue,
-                            Getters fromValue,
-                            Setters setters,
-                            SqlTypes sqlTypes) {
+                            MappingGetters.Getters getters,
+                            MappingSetters.Setters setters,
+                            MappingGetters.SqlType sqlType) {
         this.type = Objects.requireNonNull(type);
         this.optional = optionalValue != null;
         this.optionalValue = optionalValue;
-        this.fromValue = Objects.requireNonNull(fromValue);
+        this.getters = Objects.requireNonNull(getters);
         this.setters = Objects.requireNonNull(setters);
-        this.sqlTypes = Objects.requireNonNull(sqlTypes);
+        this.sqlType = Objects.requireNonNull(sqlType);
+    }
+
+    public boolean isOptional() {
+        return optional;
+    }
+
+    public OptionalValue nullValue() {
+        return optionalValue;
+    }
+
+    public MappingGetters.SqlType sqlType() {
+        return sqlType;
+    }
+
+    public MappingGetters.Getters getters() {
+        return getters;
+    }
+
+    public MappingSetters.Setters setters() {
+        return setters;
+    }
+
+    public Type ydbType() {
+        return type;
     }
 
     private static final Map<Type, TypeDescription> TYPES = new ConcurrentHashMap<>();
@@ -64,9 +85,9 @@ public class TypeDescription {
             optionalValue = null;
         }
 
-        Getters getters = MappingGetters.buildGetters(type);
-        Setters setters = MappingSetters.buildSetters(type);
-        SqlTypes sqlTypes = MappingGetters.buildDataType(type);
+        MappingGetters.Getters getters = MappingGetters.buildGetters(type);
+        MappingSetters.Setters setters = MappingSetters.buildSetters(type);
+        MappingGetters.SqlType sqlTypes = MappingGetters.buildDataType(type);
 
         return new TypeDescription(type, optionalValue, getters, setters, sqlTypes);
     }

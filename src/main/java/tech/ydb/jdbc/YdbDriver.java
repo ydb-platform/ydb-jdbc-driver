@@ -5,22 +5,17 @@ import java.sql.DriverManager;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
-import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.google.common.base.Strings;
-import com.google.common.base.Suppliers;
 
-import tech.ydb.core.Result;
 import tech.ydb.core.grpc.GrpcTransport;
-import tech.ydb.jdbc.impl.Validator;
-import tech.ydb.jdbc.impl.YdbConnectionImpl;
+import tech.ydb.jdbc.connection.YdbConnectionImpl;
 import tech.ydb.jdbc.settings.ParsedProperty;
 import tech.ydb.jdbc.settings.YdbConnectionProperties;
 import tech.ydb.jdbc.settings.YdbConnectionProperty;
@@ -28,7 +23,6 @@ import tech.ydb.jdbc.settings.YdbJdbcTools;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.jdbc.settings.YdbProperties;
 import tech.ydb.scheme.SchemeClient;
-import tech.ydb.table.Session;
 import tech.ydb.table.TableClient;
 
 import static tech.ydb.jdbc.YdbConst.JDBC_YDB_PREFIX;
@@ -64,22 +58,13 @@ public class YdbDriver implements Driver {
         Clients clients = CONNECTIONS.getClients(new ConnectionConfig(url, info), properties);
 
         YdbOperationProperties operationProperties = properties.getOperationProperties();
-        Duration sessionTimeout = operationProperties.getSessionTimeout();
 
-        Validator validator = new Validator(operationProperties);
-        Result<Session> session = validator.joinResult(
-                LOGGER,
-                () -> "Get or create session",
-                () -> clients.tableClient.createSession(sessionTimeout));
-
-        // TODO: support scheme client eager initialization
         return new YdbConnectionImpl(
+                clients.tableClient,
                 clients.schemeClient,
-                session.getValue(),
                 operationProperties,
-                validator,
-                url, // raw URL
-                properties.getConnectionProperties().getDatabase());
+                url,
+                clients.grpcTransport.getDatabase());
     }
 
     @Override
@@ -148,9 +133,9 @@ public class YdbDriver implements Driver {
     private static class Clients implements AutoCloseable {
         private final GrpcTransport grpcTransport;
         private final TableClient tableClient;
-        private final Supplier<SchemeClient> schemeClient;
+        private final SchemeClient schemeClient;
 
-        private Clients(GrpcTransport grpcTransport, TableClient tableClient, Supplier<SchemeClient> schemeClient) {
+        private Clients(GrpcTransport grpcTransport, TableClient tableClient, SchemeClient schemeClient) {
             this.grpcTransport = Objects.requireNonNull(grpcTransport);
             this.tableClient = Objects.requireNonNull(tableClient);
             this.schemeClient = Objects.requireNonNull(schemeClient);
@@ -159,6 +144,7 @@ public class YdbDriver implements Driver {
         @Override
         public void close() {
             try {
+                schemeClient.close();
                 tableClient.close();
                 grpcTransport.close();
             } catch (Exception e) {
@@ -196,10 +182,7 @@ public class YdbDriver implements Driver {
             GrpcTransport grpcTransport = connProperties.toGrpcTransport();
 
             TableClient tableClient = properties.getClientProperties().toTableClient(grpcTransport);
-
-            Supplier<SchemeClient> schemeClient = Suppliers.memoize(() -> {
-                return SchemeClient.newClient(grpcTransport).build();
-            })::get;
+            SchemeClient schemeClient = SchemeClient.newClient(grpcTransport).build();
 
             clients = new Clients(grpcTransport, tableClient, schemeClient);
             cache.put(config, clients);

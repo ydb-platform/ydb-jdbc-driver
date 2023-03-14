@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.impl;
+package tech.ydb.jdbc.statement;
 
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
@@ -8,6 +8,9 @@ import java.util.Map;
 
 import javax.annotation.Nullable;
 
+import tech.ydb.jdbc.common.TypeDescription;
+import tech.ydb.jdbc.common.YdbQuery;
+import tech.ydb.jdbc.connection.YdbConnectionImpl;
 import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.table.query.DataQuery;
 import tech.ydb.table.query.Params;
@@ -28,7 +31,7 @@ public class YdbPreparedStatementWithDataQueryImpl extends AbstractYdbDataQueryP
 
     public YdbPreparedStatementWithDataQueryImpl(YdbConnectionImpl connection,
                                                  int resultSetType,
-                                                 String query,
+                                                 YdbQuery query,
                                                  DataQuery dataQuery) throws SQLException {
         super(connection, resultSetType, query, dataQuery);
         this.dataQuery = dataQuery;

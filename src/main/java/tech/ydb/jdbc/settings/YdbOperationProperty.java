@@ -6,7 +6,7 @@ import java.util.Collection;
 
 import javax.annotation.Nullable;
 
-import tech.ydb.jdbc.impl.QueryType;
+import tech.ydb.jdbc.common.QueryType;
 
 public class YdbOperationProperty<T> extends AbstractYdbProperty<T, Void> {
     private static final PropertiesCollector<YdbOperationProperty<?>> PROPERTIES = new PropertiesCollector<>();

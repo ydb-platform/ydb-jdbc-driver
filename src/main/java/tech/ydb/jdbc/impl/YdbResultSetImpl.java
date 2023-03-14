@@ -29,9 +29,11 @@ import java.util.function.LongFunction;
 import java.util.function.Supplier;
 
 import com.google.common.base.Suppliers;
+
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbResultSetMetaData;
 import tech.ydb.jdbc.YdbStatement;
+import tech.ydb.jdbc.common.TypeDescription;
 import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.result.ValueReader;
 import tech.ydb.table.values.OptionalValue;
@@ -97,49 +99,49 @@ public class YdbResultSetImpl implements YdbResultSet {
         if (state.nullValue) {
             return null; // getString supports all types, it's safe to check nullability here
         }
-        return state.description.fromValue.toString.fromValue(state.value);
+        return state.description.getters().toString.fromValue(state.value);
     }
 
     @Override
     public boolean getBoolean(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        return state.description.fromValue.toBoolean.fromValue(state.value);
+        return state.description.getters().toBoolean.fromValue(state.value);
     }
 
     @Override
     public byte getByte(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        return state.description.fromValue.toByte.fromValue(state.value);
+        return state.description.getters().toByte.fromValue(state.value);
     }
 
     @Override
     public short getShort(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        return state.description.fromValue.toShort.fromValue(state.value);
+        return state.description.getters().toShort.fromValue(state.value);
     }
 
     @Override
     public int getInt(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        return state.description.fromValue.toInt.fromValue(state.value);
+        return state.description.getters().toInt.fromValue(state.value);
     }
 
     @Override
     public long getLong(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        return state.description.fromValue.toLong.fromValue(state.value);
+        return state.description.getters().toLong.fromValue(state.value);
     }
 
     @Override
     public float getFloat(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        return state.description.fromValue.toFloat.fromValue(state.value);
+        return state.description.getters().toFloat.fromValue(state.value);
     }
 
     @Override
     public double getDouble(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        return state.description.fromValue.toDouble.fromValue(state.value);
+        return state.description.getters().toDouble.fromValue(state.value);
     }
 
     @Deprecated
@@ -156,7 +158,7 @@ public class YdbResultSetImpl implements YdbResultSet {
     @Override
     public byte[] getBytes(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        byte[] result = state.description.fromValue.toBytes.fromValue(state.value);
+        byte[] result = state.description.getters().toBytes.fromValue(state.value);
         if (state.nullValue) { // TODO: do not parse empty value when optional and no value present
             return null;
         }
@@ -292,7 +294,7 @@ public class YdbResultSetImpl implements YdbResultSet {
         if (state.nullValue) {
             return null; // getObject supports all types, it's safe to check nullability here
         }
-        return state.description.fromValue.toObject.fromValue(state.value);
+        return state.description.getters().toObject.fromValue(state.value);
     }
 
     @Override
@@ -308,7 +310,7 @@ public class YdbResultSetImpl implements YdbResultSet {
     @Override
     public Reader getCharacterStream(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        Reader result = state.description.fromValue.toReader.fromValue(state.value);
+        Reader result = state.description.getters().toReader.fromValue(state.value);
         if (state.nullValue) {
             return null;
         }
@@ -323,7 +325,7 @@ public class YdbResultSetImpl implements YdbResultSet {
     @Override
     public BigDecimal getBigDecimal(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        BigDecimal result = state.description.fromValue.toBigDecimal.fromValue(state.value);
+        BigDecimal result = state.description.getters().toBigDecimal.fromValue(state.value);
         if (state.nullValue) {
             return null;
         }
@@ -487,7 +489,7 @@ public class YdbResultSetImpl implements YdbResultSet {
     @Override
     public URL getURL(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        String result = state.description.fromValue.toURL.fromValue(state.value);
+        String result = state.description.getters().toURL.fromValue(state.value);
         if (state.nullValue) {
             return null;
         }
@@ -516,7 +518,7 @@ public class YdbResultSetImpl implements YdbResultSet {
     @Override
     public String getNString(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        String result = state.description.fromValue.toNString.fromValue(state.value);
+        String result = state.description.getters().toNString.fromValue(state.value);
         if (state.nullValue) {
             return null;
         }
@@ -569,7 +571,7 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     private <T> T getDateImpl(int columnIndex, LongFunction<T> fromMillis) throws SQLException {
         initValueReader(columnIndex);
-        long longValue = state.description.fromValue.toDateMillis.fromValue(state.value);
+        long longValue = state.description.getters().toDateMillis.fromValue(state.value);
         if (state.nullValue) {
             return null;
         }
@@ -582,7 +584,7 @@ public class YdbResultSetImpl implements YdbResultSet {
     }
 
     private boolean isNullValue(TypeDescription description, ValueReader value) {
-        return description.optional && !value.isOptionalItemPresent();
+        return description.isOptional() && !value.isOptionalItemPresent();
     }
 
     private void initValueReader(int columnIndex) throws SQLException {

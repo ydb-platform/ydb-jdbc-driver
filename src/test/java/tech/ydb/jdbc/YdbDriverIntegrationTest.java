@@ -8,15 +8,12 @@ import java.util.Properties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import tech.ydb.jdbc.exception.YdbRetryableException;
-import tech.ydb.jdbc.impl.YdbConnectionImpl;
-import tech.ydb.jdbc.impl.helper.TestHelper;
+import tech.ydb.jdbc.connection.YdbConnectionImpl;
 import tech.ydb.scheme.SchemeClient;
 import tech.ydb.test.junit5.YdbHelperExtention;
 
@@ -51,7 +48,7 @@ public class YdbDriverIntegrationTest {
         try ( YdbConnection connection = driver.connect(jdbcURl(), new Properties())) {
             Assertions.assertTrue(connection instanceof YdbConnectionImpl);
 
-            logger.info("Session opened: {}", connection.getYdbSession());
+//            logger.info("Session opened: {}", connection.getYdbSession());
 
             SchemeClient schemeClient = connection.getYdbScheme();
             logger.info("Scheme client: {}", schemeClient);
@@ -60,33 +57,33 @@ public class YdbDriverIntegrationTest {
         }
     }
 
-    @Test
-    @Disabled
-    public void connectAndCloseMultipleTimes() throws SQLException {
-        try ( YdbConnection ydbConnection = driver.connect(jdbcURl(), new Properties())) {
-            ydbConnection.getYdbSession().close();
-            ydbConnection.getYdbSession().close(); // multiple close is ok
+//    @Test
+//    @Disabled
+//    public void connectAndCloseMultipleTimes() throws SQLException {
+//        try ( YdbConnection ydbConnection = driver.connect(jdbcURl(), new Properties())) {
+//            ydbConnection.getYdbSession().close();
+//            ydbConnection.getYdbSession().close(); // multiple close is ok
+//
+//            TestHelper.assertThrowsMsgLike(YdbRetryableException.class,
+//                    () -> ydbConnection.createStatement().executeQuery("select 2 + 2"),
+//                    "Session not found");
+//        }
+//    }
 
-            TestHelper.assertThrowsMsgLike(YdbRetryableException.class,
-                    () -> ydbConnection.createStatement().executeQuery("select 2 + 2"),
-                    "Session not found");
-        }
-    }
-
-    @Test
-    public void connectMultipleTimes() throws SQLException {
-        YdbDriver.getConnectionsCache().close();
-        String url = jdbcURl();
-        try ( YdbConnection connection1 = driver.connect(url, new Properties())) {
-            logger.info("Session 1 opened: {}", connection1.getYdbSession());
-            try ( YdbConnection connection2 = driver.connect(url, new Properties())) {
-                logger.info("Session 2 opened: {}", connection2.getYdbSession());
-
-                // Expect only single connection
-                Assertions.assertEquals(1, YdbDriver.getConnectionsCache().getConnectionCount());
-            }
-        }
-    }
+//    @Test
+//    public void connectMultipleTimes() throws SQLException {
+//        YdbDriver.getConnectionsCache().close();
+//        String url = jdbcURl();
+//        try ( YdbConnection connection1 = driver.connect(url, new Properties())) {
+//            logger.info("Session 1 opened: {}", connection1.getYdbSession());
+//            try ( YdbConnection connection2 = driver.connect(url, new Properties())) {
+//                logger.info("Session 2 opened: {}", connection2.getYdbSession());
+//
+//                // Expect only single connection
+//                Assertions.assertEquals(1, YdbDriver.getConnectionsCache().getConnectionCount());
+//            }
+//        }
+//    }
 
     @Test
     public void testYdb() throws SQLException {

@@ -7,7 +7,6 @@ import javax.annotation.Nullable;
 
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.scheme.SchemeClient;
-import tech.ydb.table.Session;
 
 public interface YdbConnection extends Connection {
 
@@ -21,16 +20,16 @@ public interface YdbConnection extends Connection {
     /**
      * Returns scheme client, initialized during a first access
      *
-     * @return scheme client in memoized mode
+     * @return scheme client in memorized mode
      */
     SchemeClient getYdbScheme();
 
-    /**
-     * Returns current YDB session for this connection
-     *
-     * @return YDB session
-     */
-    Session getYdbSession();
+//    /**
+//     * Returns current YDB session for this connection
+//     *
+//     * @return YDB session
+//     */
+//    TableClient getYdbTable();
 
     /**
      * Return current YDB transaction, if exists
@@ -51,14 +50,9 @@ public interface YdbConnection extends Connection {
 
     /**
      * Returns current database
-     *
-     * @return database if configured
+     * @return database
      */
-    @Nullable
     String getDatabase();
-
-    //
-
 
     @Override
     YdbDatabaseMetaData getMetaData() throws SQLException;

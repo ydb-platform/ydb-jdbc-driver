@@ -13,10 +13,14 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbPreparedStatement;
+import tech.ydb.jdbc.common.QueryType;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.TestResources;
 import tech.ydb.jdbc.impl.helper.TextSelectAssert;
+import tech.ydb.jdbc.statement.YdbPreparedStatementImpl;
+import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryBatchedImpl;
+import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryImpl;
 import tech.ydb.test.junit5.YdbHelperExtention;
 
 public class YdbPreparedStatementWithDataQueryBatchedImplTest {

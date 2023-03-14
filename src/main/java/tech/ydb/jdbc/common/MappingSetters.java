@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.impl;
+package tech.ydb.jdbc.common;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CharStreams;
+
 import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.table.values.DecimalType;
 import tech.ydb.table.values.DecimalValue;
@@ -444,11 +445,11 @@ public class MappingSetters {
         throw castNotSupported(type.getKind(), x);
     }
 
-    interface Setters {
+    public interface Setters {
         Value<?> toValue(Object value) throws SQLException;
     }
 
-    interface CharStream {
+    public interface CharStream {
         String asString() throws SQLException;
 
         static CharStream fromReader(Reader reader, long length) {
@@ -466,7 +467,7 @@ public class MappingSetters {
         }
     }
 
-    interface ByteStream {
+    public interface ByteStream {
         byte[] asByteArray() throws SQLException;
 
         @SuppressWarnings("UnstableApiUsage")

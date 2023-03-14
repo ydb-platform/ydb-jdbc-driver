@@ -13,7 +13,7 @@
  */
 
 
-package tech.ydb.jdbc.impl;
+package tech.ydb.jdbc.common;
 
 import java.io.FilterReader;
 import java.io.IOException;

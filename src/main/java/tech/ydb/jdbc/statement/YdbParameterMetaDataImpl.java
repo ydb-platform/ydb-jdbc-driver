@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.impl;
+package tech.ydb.jdbc.statement;
 
 import java.sql.ParameterMetaData;
 import java.sql.SQLException;
@@ -9,6 +9,7 @@ import java.util.Objects;
 import com.google.common.base.Preconditions;
 
 import tech.ydb.jdbc.YdbParameterMetaData;
+import tech.ydb.jdbc.common.TypeDescription;
 
 import static tech.ydb.jdbc.YdbConst.CANNOT_UNWRAP_TO;
 import static tech.ydb.jdbc.YdbConst.PARAMETER_NOT_FOUND;
@@ -29,7 +30,7 @@ public class YdbParameterMetaDataImpl implements YdbParameterMetaData {
 
     @Override
     public int isNullable(int param) throws SQLException {
-        return getDescription(param).optional ?
+        return getDescription(param).isOptional() ?
                 ParameterMetaData.parameterNullable :
                 ParameterMetaData.parameterNoNulls;
     }
@@ -51,17 +52,17 @@ public class YdbParameterMetaDataImpl implements YdbParameterMetaData {
 
     @Override
     public int getParameterType(int param) throws SQLException {
-        return getDescription(param).sqlTypes.getSqlType();
+        return getDescription(param).sqlType().getSqlType();
     }
 
     @Override
     public String getParameterTypeName(int param) throws SQLException {
-        return getDescription(param).type.toString();
+        return getDescription(param).ydbType().toString();
     }
 
     @Override
     public String getParameterClassName(int param) throws SQLException {
-        return getDescription(param).sqlTypes.getJavaType().getName();
+        return getDescription(param).sqlType().getJavaType().getName();
     }
 
     @Override
