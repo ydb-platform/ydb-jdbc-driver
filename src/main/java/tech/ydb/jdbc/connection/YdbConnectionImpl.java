@@ -15,12 +15,10 @@ import java.sql.Statement;
 import java.sql.Struct;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-import java.util.logging.Logger;
 
 import com.google.common.base.Suppliers;
 
@@ -32,12 +30,9 @@ import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.common.YdbQuery;
 import tech.ydb.jdbc.common.YdbWarnings;
 import tech.ydb.jdbc.impl.YdbTypesImpl;
-import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.jdbc.statement.YdbPreparedStatementImpl;
 import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryImpl;
 import tech.ydb.jdbc.statement.YdbStatementImpl;
-import tech.ydb.scheme.SchemeClient;
-import tech.ydb.table.TableClient;
 
 import static tech.ydb.jdbc.YdbConst.ABORT_UNSUPPORTED;
 import static tech.ydb.jdbc.YdbConst.ARRAYS_UNSUPPORTED;
@@ -58,36 +53,20 @@ import static tech.ydb.jdbc.YdbConst.STRUCTS_UNSUPPORTED;
 import static tech.ydb.jdbc.YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE;
 
 public class YdbConnectionImpl implements YdbConnection {
-    private static final Logger LOGGER = Logger.getLogger(YdbConnectionImpl.class.getName());
 
-//    private final TableClient tableClient;
-    private final SchemeClient schemeClient;
-    private final YdbOperationProperties properties;
+    private final YdbContext ctx;
     private final YdbWarnings warnings = new YdbWarnings();
-//    private final Validator validator;
 
     private final Supplier<YdbDatabaseMetaData> metaDataSupplier;
 
-    private final String url;
-    private final String database;
-
     private YdbTransaction transaction;
 
-    public YdbConnectionImpl(
-            TableClient tableClient,
-            SchemeClient schemeClient,
-            YdbOperationProperties properties,
-            String url, String database) throws SQLException {
-//        this.tableClient = Objects.requireNonNull(tableClient);
-        this.schemeClient = Objects.requireNonNull(schemeClient);
-        this.properties = Objects.requireNonNull(properties);
-        this.url = Objects.requireNonNull(url);
-        this.database = database;
-
+    public YdbConnectionImpl(YdbContext context) throws SQLException {
+        this.ctx = context;
         this.metaDataSupplier = Suppliers.memoize(() -> new YdbDatabaseMetaDataImpl(this))::get;
 
 
-//        this.transaction = new AtomicReference<>(new YdbConnectionState(properties.getTransactionLevel(), properties.isAutoCommit()));
+//        this.transaction = new AtomicReference<>(new YdbConnectionState(getOperationProperties.getTransactionLevel(), getOperationProperties.isAutoCommit()));
         this.transaction = null;
     }
 
@@ -105,7 +84,7 @@ public class YdbConnectionImpl implements YdbConnection {
 
     @Override
     public String nativeSQL(String sql) {
-        return new YdbQuery(properties, sql).nativeSql();
+        return new YdbQuery(ctx.getOperationProperties(), sql).nativeSql();
     }
 
     @Override
@@ -356,10 +335,10 @@ public class YdbConnectionImpl implements YdbConnection {
         ensureOpened();
         warnings.clearWarnings();
 
-        YdbQuery query = new YdbQuery(properties, origSql);
+        YdbQuery query = new YdbQuery(ctx.getOperationProperties(), origSql);
 
         if (mode == PreparedStatementMode.IN_MEMORY ||
-                (mode == PreparedStatementMode.DEFAULT && !properties.isAlwaysPrepareDataQuery())) {
+                (mode == PreparedStatementMode.DEFAULT && !ctx.getOperationProperties().isAlwaysPrepareDataQuery())) {
             return new YdbPreparedStatementImpl(this, query, resultSetType);
         }
 
@@ -372,7 +351,7 @@ public class YdbConnectionImpl implements YdbConnection {
 //        DataQuery prepared = dataQuery.getValue();
 //
 //        boolean requireBatch = mode == PreparedStatementMode.DATA_QUERY_BATCH;
-//        if (properties.isAutoPreparedBatches() || requireBatch) {
+//        if (getOperationProperties.isAutoPreparedBatches() || requireBatch) {
 //            Optional<StructBatchConfiguration> batchCfgOpt =
 //                    YdbPreparedStatementWithDataQueryBatchedImpl.asColumns(prepared.types());
 //            if (batchCfgOpt.isPresent()) {
@@ -437,17 +416,7 @@ public class YdbConnectionImpl implements YdbConnection {
     @Override
     public int getNetworkTimeout() throws SQLException {
         ensureOpened();
-        return (int) properties.getDeadlineTimeout().toMillis();
-    }
-
-    @Override
-    public String getDatabase() {
-        return database;
-    }
-
-
-    protected String getUrl() {
-        return url;
+        return (int) ctx.getOperationProperties().getDeadlineTimeout().toMillis();
     }
 
     @Override
@@ -456,18 +425,13 @@ public class YdbConnectionImpl implements YdbConnection {
     }
 
     @Override
-    public SchemeClient getYdbScheme() {
-        return schemeClient;
-    }
-
-    @Override
     public String getYdbTxId() {
         return transaction.getId();
     }
 
     @Override
-    public YdbOperationProperties getYdbProperties() {
-        return properties;
+    public YdbContext getCtx() {
+        return ctx;
     }
 
     //

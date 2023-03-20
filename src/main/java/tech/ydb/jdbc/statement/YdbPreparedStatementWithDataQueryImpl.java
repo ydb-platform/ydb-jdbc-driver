@@ -36,7 +36,7 @@ public class YdbPreparedStatementWithDataQueryImpl extends AbstractYdbDataQueryP
         super(connection, resultSetType, query, dataQuery);
         this.dataQuery = dataQuery;
         this.cfg = asPreparedConfiguration(dataQuery.types());
-        this.enforceVariablePrefix = connection.getYdbProperties().isEnforceVariablePrefix();
+        this.enforceVariablePrefix = connection.getCtx().getOperationProperties().isEnforceVariablePrefix();
         this.clearParameters();
     }
 

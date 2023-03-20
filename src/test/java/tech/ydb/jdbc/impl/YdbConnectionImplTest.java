@@ -27,7 +27,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbDatabaseMetaData;
-import tech.ydb.jdbc.YdbDriver;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
@@ -232,7 +231,7 @@ public class YdbConnectionImplTest {
     @Disabled("WRONG LOGIC")
     public void isValid() throws SQLException {
         Assertions.assertTrue(jdbc.connection().isValid(1));
-        YdbDriver.getConnectionsCache().close();
+//        YdbDriver.getConnectionsCache().close();
         Assertions.assertFalse(jdbc.connection().isValid(1));
     }
 

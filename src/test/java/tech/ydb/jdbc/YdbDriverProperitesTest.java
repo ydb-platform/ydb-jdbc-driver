@@ -20,6 +20,7 @@ import javax.annotation.Nullable;
 import com.google.common.io.Files;
 import com.google.common.net.HostAndPort;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -64,16 +65,20 @@ public class YdbDriverProperitesTest {
         CERTIFICATE_FILE = safeCreateFile(CERTIFICATE_FROM_FILE);
     }
 
+    @AfterAll
+    public static void afterAll() throws SQLException {
+        safeDeleteFile(TOKEN_FILE);
+        safeDeleteFile(CERTIFICATE_FILE);
+    }
+
     @BeforeEach
     public void beforeEach() {
         driver = new YdbDriver();
     }
 
-    @AfterAll
-    public static void afterAll() {
-        safeDeleteFile(TOKEN_FILE);
-        safeDeleteFile(CERTIFICATE_FILE);
-        YdbDriver.getConnectionsCache().close();
+    @AfterEach
+    public void afterEach() {
+        driver.close();
     }
 
     @Test

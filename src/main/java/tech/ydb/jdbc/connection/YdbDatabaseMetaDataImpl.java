@@ -24,7 +24,6 @@ import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 
-import com.google.common.base.MoreObjects;
 import com.google.common.base.Strings;
 
 import tech.ydb.core.Result;
@@ -56,14 +55,10 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     private final YdbConnectionImpl connection;
     private final YdbTypes types;
-    private final String database;
-    private final String databaseWithSuffix;
 
     public YdbDatabaseMetaDataImpl(YdbConnectionImpl connection) {
         this.connection = Objects.requireNonNull(connection);
         this.types = connection.getYdbTypes();
-        this.databaseWithSuffix = withSuffix(MoreObjects.firstNonNull(connection.getDatabase(), "/"));
-        this.database = databaseWithSuffix.substring(0, databaseWithSuffix.length() - 1);
     }
 
     @Override
@@ -78,7 +73,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     @Override
     public String getURL() {
-        return connection.getUrl();
+        return connection.getCtx().getUrl();
     }
 
     @Override
@@ -1248,7 +1243,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     @Override
     public ResultSet getClientInfoProperties() {
-        return fromEmptyResultSet(); // No client info properties?
+        return fromEmptyResultSet(); // No client info getOperationProperties?
     }
 
     @Override
@@ -1333,7 +1328,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
                                                                   Predicate<String> tableFilter,
                                                                   Set<String> paths,
                                                                   Set<String> tables) {
-        return connection.getYdbScheme().listDirectory(path)
+        return connection.getCtx().getSchemeClient().listDirectory(path)
                 .thenApplyAsync(listResult -> {
                     try {
                         Validator.validate(listResult.toString(), listResult.getStatus().getCode());
@@ -1347,7 +1342,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
                     for (SchemeOperationProtos.Entry entry : result.getChildren()) {
                         String tableName = entry.getName();
                         String fullPath = pathPrefix + tableName;
-                        String tablePath = fullPath.substring(databaseWithSuffix.length());
+                        String tablePath = fullPath.substring(withSuffix(connection.getCtx().getDatabase()).length());
                         switch (entry.getType()) {
                             case TABLE:
                                 if (tableFilter.test(tablePath)) {

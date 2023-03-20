@@ -60,7 +60,7 @@ public class YdbStatementImpl implements YdbStatement {
         this.connection = Objects.requireNonNull(connection);
         this.resultSetType = resultSetType;
 
-        this.properties = connection.getYdbProperties();
+        this.properties = connection.getCtx().getOperationProperties();
         state.queryTimeout = properties.getQueryTimeout();
         state.keepInQueryCache = properties.isKeepInQueryCache();
     }

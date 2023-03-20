@@ -45,10 +45,10 @@ public class YdbPreparedStatementImpl extends AbstractYdbPreparedStatementImpl {
     public YdbPreparedStatementImpl(YdbConnection connection, YdbQuery query, int resultSetType) throws SQLException {
         super(connection, query, resultSetType);
 
-        YdbOperationProperties properties = connection.getYdbProperties();
+        YdbOperationProperties properties = connection.getCtx().getOperationProperties();
         this.enforceVariablePrefix = properties.isEnforceVariablePrefix();
-//        this.transformStandardJdbcQueries = properties.isTransformStandardJdbcQueries();
-//        int cacheSize = properties.getTransformedJdbcQueriesCache();
+//        this.transformStandardJdbcQueries = getOperationProperties.isTransformStandardJdbcQueries();
+//        int cacheSize = getOperationProperties.getTransformedJdbcQueriesCache();
 //        if (transformStandardJdbcQueries && cacheSize > 0) {
 //            this.queryCache = CacheBuilder.newBuilder()
 //                    .maximumSize(cacheSize)

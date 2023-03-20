@@ -5,8 +5,7 @@ import java.sql.SQLException;
 
 import javax.annotation.Nullable;
 
-import tech.ydb.jdbc.settings.YdbOperationProperties;
-import tech.ydb.scheme.SchemeClient;
+import tech.ydb.jdbc.connection.YdbContext;
 
 public interface YdbConnection extends Connection {
 
@@ -18,20 +17,6 @@ public interface YdbConnection extends Connection {
     YdbTypes getYdbTypes();
 
     /**
-     * Returns scheme client, initialized during a first access
-     *
-     * @return scheme client in memorized mode
-     */
-    SchemeClient getYdbScheme();
-
-//    /**
-//     * Returns current YDB session for this connection
-//     *
-//     * @return YDB session
-//     */
-//    TableClient getYdbTable();
-
-    /**
      * Return current YDB transaction, if exists
      *
      * @return YDB transaction ID or null, if no transaction started
@@ -40,19 +25,8 @@ public interface YdbConnection extends Connection {
     String getYdbTxId();
 
 
-    /**
-     * Returns operation properties, configured for this connection
-     *
-     * @return default YDB operation properties
-     */
-    YdbOperationProperties getYdbProperties();
+    YdbContext getCtx();
 
-
-    /**
-     * Returns current database
-     * @return database
-     */
-    String getDatabase();
 
     @Override
     YdbDatabaseMetaData getMetaData() throws SQLException;
