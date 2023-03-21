@@ -13,61 +13,50 @@ import java.sql.SQLXML;
 import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import com.google.common.base.Suppliers;
 
 import tech.ydb.jdbc.YdbConnection;
+import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbDatabaseMetaData;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.common.YdbQuery;
-import tech.ydb.jdbc.common.YdbWarnings;
 import tech.ydb.jdbc.impl.YdbTypesImpl;
 import tech.ydb.jdbc.statement.YdbPreparedStatementImpl;
 import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryImpl;
 import tech.ydb.jdbc.statement.YdbStatementImpl;
-
-import static tech.ydb.jdbc.YdbConst.ABORT_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.ARRAYS_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.AUTO_GENERATED_KEYS_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.BLOB_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.CANNOT_UNWRAP_TO;
-import static tech.ydb.jdbc.YdbConst.CLOB_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.CLOSED_CONNECTION;
-import static tech.ydb.jdbc.YdbConst.NCLOB_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.PREPARED_CALLS_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.RESULT_SET_CONCURRENCY_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.RESULT_SET_HOLDABILITY_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.RESULT_SET_TYPE_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.SAVEPOINTS_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.SET_NETWORK_TIMEOUT_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.SQLXML_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.STRUCTS_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE;
+import tech.ydb.table.Session;
+import tech.ydb.table.settings.CommitTxSettings;
+import tech.ydb.table.settings.KeepAliveSessionSettings;
+import tech.ydb.table.settings.RollbackTxSettings;
 
 public class YdbConnectionImpl implements YdbConnection {
+    private static final Logger LOGGER = Logger.getLogger(YdbConnectionImpl.class.getName());
 
     private final YdbContext ctx;
-    private final YdbWarnings warnings = new YdbWarnings();
+    private final YdbExecutor executor = new YdbExecutor(LOGGER);
 
     private final Supplier<YdbDatabaseMetaData> metaDataSupplier;
 
-    private YdbTransaction transaction;
+    private volatile YdbTxState state;
 
     public YdbConnectionImpl(YdbContext context) throws SQLException {
         this.ctx = context;
         this.metaDataSupplier = Suppliers.memoize(() -> new YdbDatabaseMetaDataImpl(this))::get;
 
-
-//        this.transaction = new AtomicReference<>(new YdbConnectionState(getOperationProperties.getTransactionLevel(), getOperationProperties.isAutoCommit()));
-        this.transaction = null;
+        int txLevel = ctx.getOperationProperties().getTransactionLevel();
+        boolean txAutoCommit = ctx.getOperationProperties().isAutoCommit();
+        this.state = YdbTxState.create(txLevel, txAutoCommit);
     }
 
     @Override
@@ -90,94 +79,79 @@ public class YdbConnectionImpl implements YdbConnection {
     @Override
     public void setAutoCommit(boolean autoCommit) throws SQLException {
         ensureOpened();
-        transaction = transaction.withAutoCommit(autoCommit);
+        if (autoCommit == state.isAutoCommit()) {
+            return;
+        }
 
-//        boolean changed = state.autoCommit != autoCommit;
-//        state.autoCommit = autoCommit;
-//        if (changed) {
-//            LOGGER.log(Level.FINE, "Set auto-commit: {0}", autoCommit);
-//            if (autoCommit) {
-//                this.commit();
-//            }
-//        }
+        LOGGER.log(Level.FINE, "Set auto-commit: {0}", autoCommit);
+        if (autoCommit) {
+            commit();
+        }
+        state = state.withAutoCommit(autoCommit);
     }
 
     @Override
     public boolean getAutoCommit() throws SQLException {
         ensureOpened();
-        return transaction.isAutoCommit();
+        return state.isAutoCommit();
     }
 
     @Override
     public void commit() throws SQLException {
         ensureOpened();
-        transaction = transaction.commit();
-//
-//
-//        String txId = state.txId;
-//        if (txId != null) {
-//            this.clearWarnings();
-//            try {
-//                this.joinStatusImpl(
-//                        () -> "Commit TxId: " + txId,
-//                        () -> this.session.commitTransaction(txId, validator.init(new CommitTxSettings())));
-//                this.clearTx();
-//            } catch (YdbRetryableException e) {
-//                if (e.getStatusCode() == StatusCode.NOT_FOUND) {
-//                    this.clearTx();
-//                }
-//                throw e; // Should be thrown anyway
-//            }
-//        }
+
+        if (state.txID() == null) {
+            return;
+        }
+
+        Session session = state.createSession(ctx, executor);
+        try {
+            executor.clearWarnings();
+            CommitTxSettings settings = ctx.withTimeouts(new CommitTxSettings());
+            executor.execute(
+                    "Commit TxId: " + state.txID(),
+                    () -> session.commitTransaction(state.txID(), settings)
+            );
+        } finally {
+            state = state.withCommit(session);
+        }
     }
 
     @Override
     public void rollback() throws SQLException {
         ensureOpened();
-        transaction = transaction.rollback();
 
-//        String txId = state.txId;
-//        if (txId != null) {
-//            this.clearWarnings();
-//            try {
-//                this.joinStatusImpl(
-//                        () -> "Rollback TxId: " + txId,
-//                        () -> this.session.rollbackTransaction(txId, validator.init(new RollbackTxSettings())));
-//                this.clearTx();
-//            } catch (YdbRetryableException e) {
-//                if (e.getStatusCode() == StatusCode.NOT_FOUND) {
-//                    this.clearTx();
-//                    LOGGER.log(Level.SEVERE,
-//                            "Unable to rollback transaction " + txId + ", it seems the transaction is expired", e);
-//                } else {
-//                    throw e;
-//                }
-//            }
-//        }
+        if (state.txID() == null) {
+            return;
+        }
+
+        Session session = state.createSession(ctx, executor);
+        try {
+            executor.clearWarnings();
+            RollbackTxSettings settings = ctx.withTimeouts(new RollbackTxSettings());
+            executor.execute(
+                    "Rollback TxId: " + state.txID(),
+                    () -> session.rollbackTransaction(state.txID(), settings)
+            );
+        } finally {
+            state = state.withRollback(session);
+        }
     }
 
     @Override
     public void close() throws SQLException {
-        if (transaction == null) {
+        if (isClosed()) {
             return;
         }
-        transaction.close();
-        transaction = null;
-//        if (!state.closed) {
-//            this.clearWarnings();
-//            try {
-//                session.close();
-//                LOGGER.log(Level.FINE, "Releasing session: {0}", session.getId());
-//            } finally {
-//                state.closed = true;
-//                this.clearTx();
-//            }
-//        }
+
+        commit(); // like Oracle
+        executor.clearWarnings();
+        state = null;
     }
 
     @Override
     public boolean isClosed() {
-        return transaction == null;
+        return state == null;
     }
 
     @Override
@@ -188,24 +162,12 @@ public class YdbConnectionImpl implements YdbConnection {
     @Override
     public void setReadOnly(boolean readOnly) throws SQLException {
         ensureOpened();
-        transaction = transaction.withReadOnly(readOnly);
-//        if (state.txId != null) {
-//            throw new SQLFeatureNotSupportedException(READONLY_INSIDE_TRANSACTION);
-//        }
-//        if (readOnly) {
-//            if (this.getTransactionIsolation() == TRANSACTION_SERIALIZABLE_READ_WRITE) {
-//                this.setTransactionIsolation(ONLINE_CONSISTENT_READ_ONLY);
-//            }
-//        } else {
-//            if (this.getTransactionIsolation() != TRANSACTION_SERIALIZABLE_READ_WRITE) {
-//                this.setTransactionIsolation(TRANSACTION_SERIALIZABLE_READ_WRITE);
-//            }
-//        }
+        state = state.withReadOnly(readOnly);
     }
 
     @Override
     public boolean isReadOnly() throws SQLException {
-        return getTransactionIsolation() != TRANSACTION_SERIALIZABLE_READ_WRITE;
+        return state.isReadOnly();
     }
 
     @Override
@@ -221,43 +183,30 @@ public class YdbConnectionImpl implements YdbConnection {
     @Override
     public void setTransactionIsolation(int level) throws SQLException {
         ensureOpened();
-        transaction = transaction.withTransactionLevel(level);
+        if (state.transactionLevel() == level) {
+            return;
+        }
 
-//        if (state.txId != null) {
-//            throw new SQLFeatureNotSupportedException(CHANGE_ISOLATION_INSIDE_TX);
-//        }
-//
-//        if (state.transactionLevel != level) {
-//            switch (level) {
-//                case TRANSACTION_SERIALIZABLE_READ_WRITE:
-//                case ONLINE_CONSISTENT_READ_ONLY:
-//                case STALE_CONSISTENT_READ_ONLY:
-//                case ONLINE_INCONSISTENT_READ_ONLY:
-//                    LOGGER.log(Level.FINE, "Set transaction isolation level: {0}", level);
-//                    state.transactionLevel = level;
-//                    break;
-//                default:
-//                    throw new SQLException(UNSUPPORTED_TRANSACTION_LEVEL + level);
-//            }
-//        }
+        LOGGER.log(Level.FINE, "Set transaction isolation level: {0}", level);
+        state = state.withTransactionLevel(level);
     }
 
     @Override
     public int getTransactionIsolation() throws SQLException {
         ensureOpened();
-        return transaction.transactionLevel();
+        return state.transactionLevel();
     }
 
     @Override
     public SQLWarning getWarnings() throws SQLException {
         ensureOpened();
-        return warnings.toSQLWarnings();
+        return executor.toSQLWarnings();
     }
 
     @Override
     public void clearWarnings() throws SQLException {
         ensureOpened();
-        warnings.clearWarnings();
+        executor.clearWarnings();
     }
 
     @Override
@@ -269,7 +218,6 @@ public class YdbConnectionImpl implements YdbConnection {
     public YdbPreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
         return prepareStatement(sql, resultSetType, resultSetConcurrency, ResultSet.HOLD_CURSORS_OVER_COMMIT);
     }
-
 
     @Override
     public Map<String, Class<?>> getTypeMap() {
@@ -286,7 +234,7 @@ public class YdbConnectionImpl implements YdbConnection {
         ensureOpened();
 
         if (holdability != ResultSet.HOLD_CURSORS_OVER_COMMIT) {
-            throw new SQLFeatureNotSupportedException(RESULT_SET_HOLDABILITY_UNSUPPORTED);
+            throw new SQLFeatureNotSupportedException(YdbConst.RESULT_SET_HOLDABILITY_UNSUPPORTED);
         }
     }
 
@@ -299,7 +247,7 @@ public class YdbConnectionImpl implements YdbConnection {
 
     @Override
     public YdbStatement createStatement(int resultSetType, int resultSetConcurrency,
-                                        int resultSetHoldability) throws SQLException {
+            int resultSetHoldability) throws SQLException {
         ensureOpened();
         checkStatementParams(resultSetType, resultSetConcurrency, resultSetHoldability);
         return new YdbStatementImpl(this, resultSetType);
@@ -307,7 +255,7 @@ public class YdbConnectionImpl implements YdbConnection {
 
     @Override
     public YdbPreparedStatement prepareStatement(String origSql, int resultSetType, int resultSetConcurrency,
-                                                 int resultSetHoldability) throws SQLException {
+            int resultSetHoldability) throws SQLException {
         ensureOpened();
         checkStatementParams(resultSetType, resultSetConcurrency, resultSetHoldability);
         this.clearWarnings();
@@ -323,22 +271,22 @@ public class YdbConnectionImpl implements YdbConnection {
     @Override
     public YdbPreparedStatement prepareStatement(String sql, int autoGeneratedKeys) throws SQLException {
         if (autoGeneratedKeys != Statement.NO_GENERATED_KEYS) {
-            throw new SQLFeatureNotSupportedException(AUTO_GENERATED_KEYS_UNSUPPORTED);
+            throw new SQLFeatureNotSupportedException(YdbConst.AUTO_GENERATED_KEYS_UNSUPPORTED);
         }
         return prepareStatement(sql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY,
                 ResultSet.HOLD_CURSORS_OVER_COMMIT);
     }
 
     private YdbPreparedStatement prepareStatementImpl(String origSql,
-                                                      int resultSetType,
-                                                      PreparedStatementMode mode) throws SQLException {
+            int resultSetType,
+            PreparedStatementMode mode) throws SQLException {
         ensureOpened();
-        warnings.clearWarnings();
+        executor.clearWarnings();
 
         YdbQuery query = new YdbQuery(ctx.getOperationProperties(), origSql);
 
-        if (mode == PreparedStatementMode.IN_MEMORY ||
-                (mode == PreparedStatementMode.DEFAULT && !ctx.getOperationProperties().isAlwaysPrepareDataQuery())) {
+        if (mode == PreparedStatementMode.IN_MEMORY
+                || (mode == PreparedStatementMode.DEFAULT && !ctx.getOperationProperties().isAlwaysPrepareDataQuery())) {
             return new YdbPreparedStatementImpl(this, query, resultSetType);
         }
 
@@ -361,7 +309,6 @@ public class YdbConnectionImpl implements YdbConnection {
 //                throw new YdbExecutionException(STATEMENT_IS_NOT_A_BATCH + origSql);
 //            }
 //        }
-
         return new YdbPreparedStatementWithDataQueryImpl(this, resultSetType, query, null /*prepared*/);
 
     }
@@ -369,18 +316,18 @@ public class YdbConnectionImpl implements YdbConnection {
     @Override
     public boolean isValid(int timeout) throws SQLException {
         ensureOpened();
-        return transaction.keepAlive(TimeUnit.SECONDS.toMillis(timeout));
 
-//        KeepAliveSessionSettings settings = new KeepAliveSessionSettings();
-//        settings.setTimeout(timeout, TimeUnit.SECONDS);
-//        try {
-//            joinResultImpl(
-//                    () -> "Keep alive",
-//                    () -> session.keepAlive(settings));
-//        } catch (SQLException sql) {
-//            return false;
-//        }
-//        return true;
+        Session session = state.createSession(ctx, executor);
+        try {
+            KeepAliveSessionSettings settings = new KeepAliveSessionSettings().setTimeout(Duration.ofSeconds(timeout));
+            Session.State keepAlive = executor.call(
+                    "Keep alive: " + state.txID(),
+                    () -> session.keepAlive(settings)
+            );
+            return keepAlive == Session.State.READY;
+        } finally {
+            state = state.withKeepAlive(session);
+        }
     }
 
     @Override
@@ -426,7 +373,7 @@ public class YdbConnectionImpl implements YdbConnection {
 
     @Override
     public String getYdbTxId() {
-        return transaction.getId();
+        return state.txID();
     }
 
     @Override
@@ -434,171 +381,110 @@ public class YdbConnectionImpl implements YdbConnection {
         return ctx;
     }
 
-    //
-
-
-//    private void joinStatusImpl(Supplier<String> operation,
-//                                Supplier<CompletableFuture<Status>> action) throws SQLException {
-//        Status status = validator.joinStatus(LOGGER, operation, action);
-//        state.lastIssues = status.getIssues();
-//    }
-//
-//    private <T, R extends Result<T>> R joinResultImpl(Supplier<String> message,
-//                                                      Supplier<CompletableFuture<R>> action) throws SQLException {
-//        R result = validator.joinResult(LOGGER, message, action);
-//        state.lastIssues = result.getStatus().getIssues();
-//        return result;
-//    }
-
     private void ensureOpened() throws SQLException {
-        if (transaction == null) {
-            throw new SQLException(CLOSED_CONNECTION);
+        if (state == null) {
+            throw new SQLException(YdbConst.CLOSED_CONNECTION);
         }
     }
 
-//    protected void clearTx() {
-//        if (state.txId != null) {
-//            LOGGER.log(Level.FINE, "Clear TxID: {0}", state.txId);
-//            state.txId = null;
-//        }
-//    }
-//
-//    protected void setTx(String txId) {
-//        if (txId.isEmpty()) {
-//            this.clearTx();
-//        } else {
-//            if (state.txId != null) {
-//                if (!state.txId.equals(txId)) {
-//                    throw new IllegalStateException("Internal error, previous transaction " + state.txId +
-//                            " not closed, but opened another one: " + txId);
-//                }
-//            } else {
-//                LOGGER.log(Level.FINE, "New TxID: {0}", txId);
-//                state.txId = txId;
-//            }
-//        }
-//    }
-
-//    protected TxControl<?> getTxControl() throws SQLException {
-//        switch (state.transactionLevel) {
-//            case TRANSACTION_SERIALIZABLE_READ_WRITE: {
-//                TxControl<?> tx = state.txId != null ?
-//                        TxControl.id(state.txId) :
-//                        TxControl.serializableRw();
-//                return tx.setCommitTx(state.autoCommit);
-//            }
-//            case ONLINE_CONSISTENT_READ_ONLY:
-//                return TxControl.onlineRo();
-//            case STALE_CONSISTENT_READ_ONLY:
-//                return TxControl.staleRo();
-//            case ONLINE_INCONSISTENT_READ_ONLY:
-//                return TxControl.onlineRo().setAllowInconsistentReads(true);
-//            default:
-//                throw new SQLException(UNSUPPORTED_TRANSACTION_LEVEL + state.transactionLevel);
-//        }
-//    }
-
-
     private void checkStatementParams(int resultSetType, int resultSetConcurrency,
-                                      int resultSetHoldability) throws SQLException {
+            int resultSetHoldability) throws SQLException {
         if (resultSetType != ResultSet.TYPE_FORWARD_ONLY && resultSetType != ResultSet.TYPE_SCROLL_INSENSITIVE) {
-            throw new SQLFeatureNotSupportedException(RESULT_SET_TYPE_UNSUPPORTED);
+            throw new SQLFeatureNotSupportedException(YdbConst.RESULT_SET_TYPE_UNSUPPORTED);
         }
         if (resultSetConcurrency != ResultSet.CONCUR_READ_ONLY) {
-            throw new SQLFeatureNotSupportedException(RESULT_SET_CONCURRENCY_UNSUPPORTED);
+            throw new SQLFeatureNotSupportedException(YdbConst.RESULT_SET_CONCURRENCY_UNSUPPORTED);
         }
         if (resultSetHoldability != ResultSet.HOLD_CURSORS_OVER_COMMIT) {
-            throw new SQLFeatureNotSupportedException(RESULT_SET_HOLDABILITY_UNSUPPORTED);
+            throw new SQLFeatureNotSupportedException(YdbConst.RESULT_SET_HOLDABILITY_UNSUPPORTED);
         }
     }
 
     // UNSUPPORTED
-
     @Override
     public CallableStatement prepareCall(String sql) throws SQLException {
-        throw new SQLFeatureNotSupportedException(PREPARED_CALLS_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.PREPARED_CALLS_UNSUPPORTED);
     }
 
     @Override
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
-        throw new SQLFeatureNotSupportedException(PREPARED_CALLS_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.PREPARED_CALLS_UNSUPPORTED);
     }
 
     @Override
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency,
-                                         int resultSetHoldability) throws SQLException {
-        throw new SQLFeatureNotSupportedException(PREPARED_CALLS_UNSUPPORTED);
+            int resultSetHoldability) throws SQLException {
+        throw new SQLFeatureNotSupportedException(YdbConst.PREPARED_CALLS_UNSUPPORTED);
     }
 
     @Override
     public YdbPreparedStatement prepareStatement(String sql, int[] columnIndexes) throws SQLException {
-        throw new SQLFeatureNotSupportedException(AUTO_GENERATED_KEYS_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.AUTO_GENERATED_KEYS_UNSUPPORTED);
     }
 
     @Override
     public YdbPreparedStatement prepareStatement(String sql, String[] columnNames) throws SQLException {
-        throw new SQLFeatureNotSupportedException(AUTO_GENERATED_KEYS_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.AUTO_GENERATED_KEYS_UNSUPPORTED);
     }
 
     @Override
     public Clob createClob() throws SQLException {
-        throw new SQLFeatureNotSupportedException(CLOB_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CLOB_UNSUPPORTED);
     }
 
     @Override
     public Blob createBlob() throws SQLException {
-        throw new SQLFeatureNotSupportedException(BLOB_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.BLOB_UNSUPPORTED);
     }
 
     @Override
     public NClob createNClob() throws SQLException {
-        throw new SQLFeatureNotSupportedException(NCLOB_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.NCLOB_UNSUPPORTED);
     }
 
     @Override
     public SQLXML createSQLXML() throws SQLException {
-        throw new SQLFeatureNotSupportedException(SQLXML_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.SQLXML_UNSUPPORTED);
     }
 
     @Override
     public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
-        throw new SQLFeatureNotSupportedException(ARRAYS_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.ARRAYS_UNSUPPORTED);
     }
 
     @Override
     public Struct createStruct(String typeName, Object[] attributes) throws SQLException {
-        throw new SQLFeatureNotSupportedException(STRUCTS_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.STRUCTS_UNSUPPORTED);
     }
 
     @Override
     public Savepoint setSavepoint() throws SQLException {
-        throw new SQLFeatureNotSupportedException(SAVEPOINTS_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.SAVEPOINTS_UNSUPPORTED);
     }
 
     @Override
     public Savepoint setSavepoint(String name) throws SQLException {
-        throw new SQLFeatureNotSupportedException(SAVEPOINTS_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.SAVEPOINTS_UNSUPPORTED);
     }
 
     @Override
     public void rollback(Savepoint savepoint) throws SQLException {
-        throw new SQLFeatureNotSupportedException(SAVEPOINTS_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.SAVEPOINTS_UNSUPPORTED);
     }
 
     @Override
     public void releaseSavepoint(Savepoint savepoint) throws SQLException {
-        throw new SQLFeatureNotSupportedException(SAVEPOINTS_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.SAVEPOINTS_UNSUPPORTED);
     }
-
 
     @Override
     public void abort(Executor executor) throws SQLException {
-        throw new SQLFeatureNotSupportedException(ABORT_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.ABORT_UNSUPPORTED);
     }
 
     @Override
     public void setNetworkTimeout(Executor executor, int milliseconds) throws SQLException {
-        throw new SQLFeatureNotSupportedException(SET_NETWORK_TIMEOUT_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.SET_NETWORK_TIMEOUT_UNSUPPORTED);
     }
 
     @Override
@@ -606,7 +492,7 @@ public class YdbConnectionImpl implements YdbConnection {
         if (iface.isAssignableFrom(getClass())) {
             return iface.cast(this);
         }
-        throw new SQLException(CANNOT_UNWRAP_TO + iface);
+        throw new SQLException(YdbConst.CANNOT_UNWRAP_TO + iface);
     }
 
     @Override

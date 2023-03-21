@@ -24,6 +24,7 @@ import static tech.ydb.jdbc.YdbConst.JDBC_YDB_PREFIX;
 /**
  * YDB JDBC driver, basic implementation supporting {@link TableClient} and {@link SchemeClient}
  */
+@SuppressWarnings("ClassWithMultipleLoggers")
 public class YdbDriver implements Driver {
     private static final Logger PARENT_LOGGER = Logger.getLogger(YdbDriver.class.getPackageName());
     private static final Logger LOGGER = Logger.getLogger(YdbDriver.class.getName());

@@ -26,7 +26,6 @@ import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.jdbc.exception.YdbNonRetryableException;
 import tech.ydb.jdbc.exception.YdbRetryableException;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
-import tech.ydb.table.settings.RequestSettings;
 
 import static tech.ydb.jdbc.YdbConst.DATABASE_QUERY_INTERRUPTED;
 import static tech.ydb.jdbc.YdbConst.DATABASE_UNAVAILABLE;
@@ -38,13 +37,6 @@ public class Validator {
 
     public Validator(YdbOperationProperties properties) {
         this.properties = properties;
-    }
-
-    //
-
-    public <T extends RequestSettings<T>> T init(T settings) {
-        settings.setTimeout(properties.getDeadlineTimeout());
-        return settings;
     }
 
     public Status joinStatus(Logger logger,
