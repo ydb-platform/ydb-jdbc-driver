@@ -22,11 +22,13 @@ import tech.ydb.core.Result;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
+import tech.ydb.jdbc.common.QueryType;
 import tech.ydb.jdbc.common.YdbQuery;
-import tech.ydb.jdbc.common.YdbWarnings;
+import tech.ydb.jdbc.connection.YdbExecutor;
 import tech.ydb.jdbc.exception.YdbResultTruncatedException;
 import tech.ydb.jdbc.impl.YdbResultSetImpl;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
+import tech.ydb.table.Session;
 import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
@@ -49,10 +51,10 @@ public class YdbStatementImpl implements YdbStatement {
     private static final Logger LOGGER = Logger.getLogger(YdbStatementImpl.class.getName());
 
     private final MutableState state = new MutableState();
-    private final YdbWarnings warnings = new YdbWarnings();
 
     private final List<String> batch = new ArrayList<>();
     private final YdbConnection connection;
+    private final YdbExecutor executor;
     private final YdbOperationProperties properties;
     private final int resultSetType;
 
@@ -63,6 +65,8 @@ public class YdbStatementImpl implements YdbStatement {
         this.properties = connection.getCtx().getOperationProperties();
         state.queryTimeout = properties.getQueryTimeout();
         state.keepInQueryCache = properties.isKeepInQueryCache();
+
+        this.executor = new YdbExecutor(LOGGER, state.queryTimeout);
     }
 
     @Override
@@ -157,12 +161,12 @@ public class YdbStatementImpl implements YdbStatement {
 
     @Override
     public SQLWarning getWarnings() {
-        return warnings.toSQLWarnings();
+        return executor.toSQLWarnings();
     }
 
     @Override
     public void clearWarnings() {
-        warnings.clearWarnings();
+        executor.clearWarnings();
     }
 
     @Override
@@ -383,13 +387,12 @@ public class YdbStatementImpl implements YdbStatement {
         // Scheme query does not affect transactions or result sets
         ExecuteSchemeQuerySettings settings = new ExecuteSchemeQuerySettings()
                 .setTimeout(query.executionTimeout());
+        String yql = query.nativeSql();
 
-//        Session session = connection.getYdbSession();
-//        Status status = validator.joinStatus(LOGGER,
-//                () -> QueryType.SCHEME_QUERY + " >>\n" + sql,
-//                () -> session.executeSchemeQuery(sql, settings));
-//
-//        state.lastIssues = status.getIssues();
+        try (Session session = executor.createSession(connection.getCtx())) {
+            executor.execute(QueryType.SCHEME_QUERY + " >>\n" + yql, () -> session.executeSchemeQuery(yql, settings));
+        }
+
         return false;
     }
 

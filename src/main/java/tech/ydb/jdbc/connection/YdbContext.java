@@ -1,6 +1,5 @@
 package tech.ydb.jdbc.connection;
 
-import java.time.Duration;
 import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -15,7 +14,6 @@ import tech.ydb.jdbc.settings.YdbConnectionProperty;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.scheme.SchemeClient;
 import tech.ydb.table.TableClient;
-import tech.ydb.table.settings.RequestSettings;
 
 /**
  *
@@ -56,14 +54,6 @@ public class YdbContext implements AutoCloseable {
 
     public YdbOperationProperties getOperationProperties() {
         return config.getOperationProperties();
-    }
-
-    public <T extends RequestSettings<?>> T withTimeouts(T settings) {
-        Duration clientTimeout = config.getOperationProperties().getDeadlineTimeout();
-        Duration serverTimeout = clientTimeout.plusSeconds(5);
-        settings.setTimeout(clientTimeout);
-        settings.setOperationTimeout(serverTimeout);
-        return settings;
     }
 
     @Override

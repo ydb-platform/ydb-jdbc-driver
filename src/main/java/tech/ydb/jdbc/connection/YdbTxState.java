@@ -2,7 +2,6 @@ package tech.ydb.jdbc.connection;
 
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
-import java.time.Duration;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.table.Session;
@@ -34,7 +33,7 @@ public class YdbTxState {
     }
 
     public boolean isReadOnly() {
-        return true;
+        return transactionLevel != YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE;
     }
 
     public int transactionLevel() throws SQLException {
@@ -49,11 +48,15 @@ public class YdbTxState {
     }
 
     public YdbTxState withReadOnly(boolean readOnly) throws SQLException {
-        if (readOnly) {
+        if (readOnly == isReadOnly()) {
             return this;
         }
 
-        return create(YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE, isAutoCommit());
+        if (readOnly) {
+            return create(YdbConst.ONLINE_CONSISTENT_READ_ONLY, isAutoCommit());
+        } else {
+            return create(YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE, isAutoCommit());
+        }
     }
 
     public YdbTxState withTransactionLevel(int newTransactionLevel) throws SQLException {
@@ -79,9 +82,8 @@ public class YdbTxState {
         return this;
     }
 
-    public Session createSession(YdbContext ctx, YdbExecutor executor) throws SQLException {
-        Duration timeout = ctx.getOperationProperties().getSessionTimeout();
-        return executor.call("create session", () -> ctx.getTableClient().createSession(timeout));
+    public Session getSession(YdbContext ctx, YdbExecutor executor) throws SQLException {
+        return executor.createSession(ctx);
     }
 
     public static YdbTxState create(int level, boolean autoCommit) throws SQLException {
@@ -116,15 +118,6 @@ public class YdbTxState {
         EmptyTransaction() {
             super(TxControl.serializableRw().setCommitTx(false), YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE);
         }
-
-        @Override
-        public YdbTxState withReadOnly(boolean readOnly) throws SQLException {
-            if (!readOnly) {
-                return this;
-            }
-
-            return create(YdbConst.ONLINE_CONSISTENT_READ_ONLY, isAutoCommit());
-        }
     }
 
     private static class TransactionInProgress extends YdbTxState {
@@ -151,7 +144,7 @@ public class YdbTxState {
         }
 
         @Override
-        public Session createSession(YdbContext ctx, YdbExecutor executor) throws SQLException {
+        public Session getSession(YdbContext ctx, YdbExecutor executor) throws SQLException {
             return session;
         }
 

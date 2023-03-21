@@ -2,6 +2,7 @@ package tech.ydb.jdbc.connection;
 
 import java.sql.SQLException;
 import java.sql.SQLWarning;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -20,6 +21,8 @@ import tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
 import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.jdbc.exception.YdbNonRetryableException;
 import tech.ydb.jdbc.exception.YdbRetryableException;
+import tech.ydb.table.Session;
+import tech.ydb.table.settings.RequestSettings;
 
 /**
  *
@@ -29,11 +32,15 @@ public class YdbExecutor {
     @SuppressWarnings("NonConstantLogger")
     private final Logger logger;
     private final boolean isDebug;
+    private final Duration clientTimeout;
+    private final Duration serverTimeout;
     private final List<Issue> issues = new ArrayList<>();
 
-    public YdbExecutor(Logger logger) {
+    public YdbExecutor(Logger logger, Duration operationTimeout) {
         this.logger = logger;
         this.isDebug = logger.isLoggable(Level.FINE);
+        this.clientTimeout = operationTimeout;
+        this.serverTimeout = operationTimeout.plusSeconds(5);
     }
 
     public void clearWarnings() {
@@ -54,6 +61,17 @@ public class YdbExecutor {
             warning = nextWarning;
         }
         return firstWarning;
+    }
+
+    public <T extends RequestSettings<?>> T withTimeouts(T settings) {
+        settings.setTimeout(clientTimeout);
+        settings.setOperationTimeout(serverTimeout);
+        return settings;
+    }
+
+    public Session createSession(YdbContext ctx) throws SQLException {
+        Duration timeout = ctx.getOperationProperties().getSessionTimeout();
+        return call("create session", () -> ctx.getTableClient().createSession(timeout));
     }
 
     public void execute(String msg, Supplier<CompletableFuture<Status>> runnableSupplier) throws SQLException {

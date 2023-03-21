@@ -44,8 +44,7 @@ public class YdbConnectionImpl implements YdbConnection {
     private static final Logger LOGGER = Logger.getLogger(YdbConnectionImpl.class.getName());
 
     private final YdbContext ctx;
-    private final YdbExecutor executor = new YdbExecutor(LOGGER);
-
+    private final YdbExecutor executor;
     private final Supplier<YdbDatabaseMetaData> metaDataSupplier;
 
     private volatile YdbTxState state;
@@ -53,6 +52,7 @@ public class YdbConnectionImpl implements YdbConnection {
     public YdbConnectionImpl(YdbContext context) throws SQLException {
         this.ctx = context;
         this.metaDataSupplier = Suppliers.memoize(() -> new YdbDatabaseMetaDataImpl(this))::get;
+        this.executor = new YdbExecutor(LOGGER, ctx.getOperationProperties().getDeadlineTimeout());
 
         int txLevel = ctx.getOperationProperties().getTransactionLevel();
         boolean txAutoCommit = ctx.getOperationProperties().isAutoCommit();
@@ -104,10 +104,10 @@ public class YdbConnectionImpl implements YdbConnection {
             return;
         }
 
-        Session session = state.createSession(ctx, executor);
+        Session session = state.getSession(ctx, executor);
         try {
             executor.clearWarnings();
-            CommitTxSettings settings = ctx.withTimeouts(new CommitTxSettings());
+            CommitTxSettings settings = executor.withTimeouts(new CommitTxSettings());
             executor.execute(
                     "Commit TxId: " + state.txID(),
                     () -> session.commitTransaction(state.txID(), settings)
@@ -125,10 +125,10 @@ public class YdbConnectionImpl implements YdbConnection {
             return;
         }
 
-        Session session = state.createSession(ctx, executor);
+        Session session = state.getSession(ctx, executor);
         try {
             executor.clearWarnings();
-            RollbackTxSettings settings = ctx.withTimeouts(new RollbackTxSettings());
+            RollbackTxSettings settings = executor.withTimeouts(new RollbackTxSettings());
             executor.execute(
                     "Rollback TxId: " + state.txID(),
                     () -> session.rollbackTransaction(state.txID(), settings)
@@ -317,7 +317,7 @@ public class YdbConnectionImpl implements YdbConnection {
     public boolean isValid(int timeout) throws SQLException {
         ensureOpened();
 
-        Session session = state.createSession(ctx, executor);
+        Session session = state.getSession(ctx, executor);
         try {
             KeepAliveSessionSettings settings = new KeepAliveSessionSettings().setTimeout(Duration.ofSeconds(timeout));
             Session.State keepAlive = executor.call(
