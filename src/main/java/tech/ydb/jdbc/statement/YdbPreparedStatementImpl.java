@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 import tech.ydb.jdbc.YdbConnection;
+import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbParameterMetaData;
 import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.common.QueryType;
@@ -40,22 +41,12 @@ public class YdbPreparedStatementImpl extends AbstractYdbPreparedStatementImpl {
 
     private final MutableState state = new MutableState();
     private final boolean enforceVariablePrefix;
-//    private final boolean transformStandardJdbcQueries;
 
     public YdbPreparedStatementImpl(YdbConnection connection, YdbQuery query, int resultSetType) throws SQLException {
         super(connection, query, resultSetType);
 
         YdbOperationProperties properties = connection.getCtx().getOperationProperties();
         this.enforceVariablePrefix = properties.isEnforceVariablePrefix();
-//        this.transformStandardJdbcQueries = getOperationProperties.isTransformStandardJdbcQueries();
-//        int cacheSize = getOperationProperties.getTransformedJdbcQueriesCache();
-//        if (transformStandardJdbcQueries && cacheSize > 0) {
-//            this.queryCache = CacheBuilder.newBuilder()
-//                    .maximumSize(cacheSize)
-//                    .build();
-//        } else {
-//            this.queryCache = null;
-//        }
         this.clearParameters();
     }
 
@@ -139,8 +130,6 @@ public class YdbPreparedStatementImpl extends AbstractYdbPreparedStatementImpl {
         setImpl(INDEXED_PARAMETER_PREFIX + parameterIndex, value, sqlType, typeName, type);
     }
 
-    //
-
     @Override
     protected Params getParams() throws SQLException {
         if (state.batch.isEmpty()) {
@@ -175,46 +164,15 @@ public class YdbPreparedStatementImpl extends AbstractYdbPreparedStatementImpl {
 
     @Override
     protected boolean executeImpl() throws SQLException {
-        QueryType queryType = getQueryType();
-        return false;
-//        switch (queryType) {
-//            case DATA_QUERY:
-//                Params sqlParams = getParams();
-//                String sql = transformStandardJdbcStatement(getQuery(), sqlParams);
-//                Session session = getConnection().getYdbSession();
-//                return executeDataQueryImpl(
-//                        sqlParams,
-//                        params -> QueryType.DATA_QUERY + " >>\n" + sql +
-//                                "\n\nParams: " + paramsToString(params),
-//                        (tx, params, execParams) -> session.executeDataQuery(sql, tx, params, execParams));
-//            case SCAN_QUERY:
-//                return executeScanQueryImpl();
-//            default:
-//                throw new SQLException(UNSUPPORTED_QUERY_TYPE_IN_PS + queryType);
-//        }
+        switch (query.type()) {
+            case DATA_QUERY:
+                return executeDataQueryImpl(query, getParams());
+            case SCAN_QUERY:
+                return executeScanQueryImpl(query, getParams());
+            default:
+                throw new SQLException(YdbConst.UNSUPPORTED_QUERY_TYPE_IN_PS + query.type());
+        }
     }
-
-    //
-
-//    private String transformStandardJdbcStatement(String sql, Params params) throws SQLException {
-//        // Make an automatic transformation of given prepared statement, replacing all '?' symbols with parameters
-//        // Supports both standard and batched queries
-//        if (!transformStandardJdbcQueries) {
-//            return sql;
-//        }
-//        if (queryCache != null) {
-//            try {
-//                return queryCache.get(new Key(sql, params), () -> sqlTranslator.translate(sql, params));
-//            } catch (ExecutionException e) {
-//                throw new SQLException("Unexpected exception when building standard JDBC statement: " +
-//                        e.getMessage(), e);
-//            }
-//        } else {
-//            return sqlTranslator.translate(sql, params);
-//        }
-//    }
-
-    //
 
     private TypeDescription getParameter(String name,
                                          @Nullable Object value,

@@ -13,11 +13,16 @@ import tech.ydb.table.transaction.TxControl;
  */
 public class YdbTxState {
     private final TxControl<?> txControl;
-    private final int transactionLevel;
+    protected final int transactionLevel;
 
     protected YdbTxState(TxControl<?> tx, int level) {
         this.txControl = tx;
         this.transactionLevel = level;
+    }
+
+    @Override
+    public String toString() {
+        return "NoTx" + transactionLevel;
     }
 
     public String txID() {
@@ -87,7 +92,7 @@ public class YdbTxState {
     }
 
     public YdbTxState withDataQuery(Session session, String txID) {
-        if (txID != null) {
+        if (txID != null && !txID.isEmpty()) {
             return new TransactionInProgress(txID, session, isAutoCommit());
         }
 
@@ -131,6 +136,21 @@ public class YdbTxState {
         EmptyTransaction() {
             super(TxControl.serializableRw().setCommitTx(false), YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE);
         }
+
+        @Override
+        public String toString() {
+            return "EmptyTx" + transactionLevel;
+        }
+
+        @Override
+        public YdbTxState withDataQuery(Session session, String txID) {
+            if (txID != null && !txID.isEmpty()) {
+                return new TransactionInProgress(txID, session, isAutoCommit());
+            }
+
+            session.close();
+            return this;
+        }
     }
 
     private static class TransactionInProgress extends YdbTxState {
@@ -141,6 +161,11 @@ public class YdbTxState {
             super(TxControl.id(id).setCommitTx(autoCommit), YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE);
             this.id = id;
             this.session = session;
+        }
+
+        @Override
+        public String toString() {
+            return "InTx" + transactionLevel + "[" + id + "]";
         }
 
         @Override
@@ -192,7 +217,7 @@ public class YdbTxState {
 
         @Override
         public YdbTxState withDataQuery(Session session, String txID) {
-            if (txID == null) {
+            if (txID == null || txID.isEmpty()) {
                 if (this.session != session) {
                     session.close();
                 }

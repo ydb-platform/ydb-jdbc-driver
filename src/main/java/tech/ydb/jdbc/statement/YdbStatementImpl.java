@@ -13,7 +13,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -190,13 +189,13 @@ public class YdbStatementImpl implements YdbStatement {
     }
 
     @Override
-    public Optional<YdbResultSet> getResultSetAt(int resultSetIndex) throws SQLException {
+    public YdbResultSet getResultSetAt(int resultSetIndex) throws SQLException {
         ensureOpened();
 
         if (resultSetIndex >= 0 && resultSetIndex < state.lastResultSets.size()) {
-            return Optional.ofNullable(state.lastResultSets.get(resultSetIndex));
+            return state.lastResultSets.get(resultSetIndex);
         } else {
-            return Optional.empty();
+            return null;
         }
     }
 
@@ -411,7 +410,7 @@ public class YdbStatementImpl implements YdbStatement {
         ResultSetReader resultSetReader = MappingResultSets.readerFromMap(result);
 
         updateStateWithResultSet(resultSetReader);
-        return false;
+        return true;
     }
 
     private void clearState() {

@@ -7,14 +7,12 @@ import java.util.function.Supplier;
 
 import com.google.common.base.Suppliers;
 
+import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbParameterMetaData;
-import tech.ydb.jdbc.common.QueryType;
 import tech.ydb.jdbc.common.TypeDescription;
 import tech.ydb.jdbc.common.YdbQuery;
 import tech.ydb.jdbc.connection.YdbConnectionImpl;
 import tech.ydb.table.query.DataQuery;
-
-import static tech.ydb.jdbc.YdbConst.UNSUPPORTED_QUERY_TYPE_IN_PS;
 
 public abstract class AbstractYdbDataQueryPreparedStatementImpl extends AbstractYdbPreparedStatementImpl {
 
@@ -42,14 +40,13 @@ public abstract class AbstractYdbDataQueryPreparedStatementImpl extends Abstract
 
     @Override
     protected boolean executeImpl() throws SQLException {
-        QueryType queryType = getQueryType();
-        switch (queryType) {
+        switch (query.type()) {
             case DATA_QUERY:
                 return executeDataQueryImpl(query, getParams());
             case SCAN_QUERY:
-                return executeScanQueryImpl();
+                return executeScanQueryImpl(query, getParams());
             default:
-                throw new SQLException(UNSUPPORTED_QUERY_TYPE_IN_PS + queryType);
+                throw new SQLException(YdbConst.UNSUPPORTED_QUERY_TYPE_IN_PS + query.type());
         }
     }
 

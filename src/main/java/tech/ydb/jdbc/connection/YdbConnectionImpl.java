@@ -94,6 +94,15 @@ public class YdbConnectionImpl implements YdbConnection {
         return new YdbQuery(ctx.getOperationProperties(), sql, false).nativeSql();
     }
 
+    private void updateState(YdbTxState newState) {
+        if (this.state == newState) {
+            return;
+        }
+
+        LOGGER.log(Level.FINE, "update tx state: {0} -> {1}", new Object[] { state, newState });
+        this.state = newState;
+    }
+
     @Override
     public void setAutoCommit(boolean autoCommit) throws SQLException {
         ensureOpened();
@@ -105,7 +114,7 @@ public class YdbConnectionImpl implements YdbConnection {
         if (autoCommit) {
             commit();
         }
-        state = state.withAutoCommit(autoCommit);
+        updateState(state.withAutoCommit(autoCommit));
     }
 
     @Override
@@ -131,7 +140,7 @@ public class YdbConnectionImpl implements YdbConnection {
                     () -> session.commitTransaction(state.txID(), settings)
             );
         } finally {
-            state = state.withCommit(session);
+            updateState(state.withCommit(session));
         }
     }
 
@@ -152,7 +161,7 @@ public class YdbConnectionImpl implements YdbConnection {
                     () -> session.rollbackTransaction(state.txID(), settings)
             );
         } finally {
-            state = state.withRollback(session);
+            updateState(state.withRollback(session));
         }
     }
 
@@ -206,7 +215,7 @@ public class YdbConnectionImpl implements YdbConnection {
         }
 
         LOGGER.log(Level.FINE, "Set transaction isolation level: {0}", level);
-        state = state.withTransactionLevel(level);
+        updateState(state.withTransactionLevel(level));
     }
 
     @Override
@@ -260,10 +269,10 @@ public class YdbConnectionImpl implements YdbConnection {
                     QueryType.DATA_QUERY + " >>\n" + yql,
                     () -> session.executeDataQuery(yql, state.txControl(), params, settings)
             );
-            state = state.withDataQuery(session, result.getTxId());
+            updateState(state.withDataQuery(session, result.getTxId()));
             return result;
         } catch (SQLException | RuntimeException ex) {
-            state = state.withRollback(session);
+            updateState(state.withRollback(session));
             throw ex;
         }
     }
@@ -271,10 +280,6 @@ public class YdbConnectionImpl implements YdbConnection {
     @Override
     public ResultSetReader executeScanQuery(YdbQuery query, Params params, YdbExecutor executor) throws SQLException {
         ensureOpened();
-
-        if (state.isInsideTransaction()) {
-            commit();
-        }
 
         Duration scanQueryTimeout = ctx.getOperationProperties().getScanQueryTimeout();
         ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()
@@ -424,7 +429,7 @@ public class YdbConnectionImpl implements YdbConnection {
             );
             return keepAlive == Session.State.READY;
         } finally {
-            state = state.withKeepAlive(session);
+            updateState(state.withKeepAlive(session));
         }
     }
 

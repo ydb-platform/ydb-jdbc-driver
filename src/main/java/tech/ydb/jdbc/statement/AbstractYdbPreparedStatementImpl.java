@@ -56,7 +56,6 @@ import static tech.ydb.jdbc.YdbConst.REF_UNSUPPORTED;
 import static tech.ydb.jdbc.YdbConst.ROWID_UNSUPPORTED;
 import static tech.ydb.jdbc.YdbConst.SQLXML_UNSUPPORTED;
 import static tech.ydb.jdbc.YdbConst.UNABLE_TO_SET_NULL_VALUE;
-import static tech.ydb.jdbc.YdbConst.UNSUPPORTED_QUERY_TYPE_IN_PS;
 
 public abstract class AbstractYdbPreparedStatementImpl extends YdbStatementImpl implements YdbPreparedStatement {
     protected final YdbQuery query;
@@ -64,7 +63,12 @@ public abstract class AbstractYdbPreparedStatementImpl extends YdbStatementImpl 
     protected AbstractYdbPreparedStatementImpl(YdbConnection connection, YdbQuery query, int resultSetType) throws SQLException {
         super(connection, resultSetType);
         this.query = Objects.requireNonNull(query);
+
         this.setPoolable(true); // By default
+
+        if (query.type() != QueryType.DATA_QUERY && query.type() != QueryType.SCAN_QUERY) {
+            throw new SQLException(YdbConst.UNSUPPORTED_QUERY_TYPE_IN_PS + query.type());
+        }
     }
 
     @Override
@@ -74,7 +78,7 @@ public abstract class AbstractYdbPreparedStatementImpl extends YdbStatementImpl 
 
     @Override
     public YdbResultSet executeScanQuery() throws SQLException {
-        boolean result = executeScanQueryImpl();
+        boolean result = executeScanQueryImpl(query, getParams());
         if (!result) {
             throw new SQLException(QUERY_EXPECT_RESULT_SET);
         }
@@ -637,26 +641,12 @@ public abstract class AbstractYdbPreparedStatementImpl extends YdbStatementImpl 
         return query.type();
     }
 
-    private QueryType checkQueryType(QueryType queryType) throws SQLException {
-        switch (queryType) {
-            case DATA_QUERY:
-            case SCAN_QUERY:
-                return queryType;
-            default:
-                throw new SQLException(UNSUPPORTED_QUERY_TYPE_IN_PS + queryType);
-        }
-    }
-
     private boolean doExecute() throws SQLException {
         try {
             return this.executeImpl();
         } finally {
             this.afterExecute();
         }
-    }
-
-    protected boolean executeScanQueryImpl() throws SQLException {
-        return executeScanQueryImpl(query, getParams());
     }
 
     protected String paramsToString(Params params) {

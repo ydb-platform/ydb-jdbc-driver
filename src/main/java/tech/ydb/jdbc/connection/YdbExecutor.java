@@ -16,7 +16,6 @@ import com.google.common.base.Stopwatch;
 import tech.ydb.core.Issue;
 import tech.ydb.core.Result;
 import tech.ydb.core.Status;
-import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
 import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.jdbc.exception.YdbNonRetryableException;
@@ -86,7 +85,7 @@ public class YdbExecutor {
         try {
             simpleExecute(runnableSupplier);
             logger.log(Level.FINE, "[{0}] OK ", sw.stop());
-        } catch (SQLException ex) {
+        } catch (SQLException | RuntimeException ex) {
             logger.log(Level.FINE, "[{0}] {1} ", new Object[] { sw.stop(), ex.getMessage() });
             throw ex;
         }
@@ -104,7 +103,7 @@ public class YdbExecutor {
             T value = simpleCall(callSupplier);
             logger.log(Level.FINE, "[{0}] OK ", sw.stop());
             return value;
-        } catch (SQLException ex) {
+        } catch (SQLException | RuntimeException ex) {
             logger.log(Level.FINE, "[{0}] {1} ", new Object[] { sw.stop(), ex.getMessage() });
             throw ex;
         }
@@ -112,11 +111,10 @@ public class YdbExecutor {
 
     private <T> T simpleCall(Supplier<CompletableFuture<Result<T>>> supplier) throws SQLException {
         try {
-            return supplier.get().join().getValue();
-        } catch (UnexpectedResultException ex) {
-            validate(ex.getMessage(), ex.getStatus());
-            return null;
-        } catch (Exception ex) {
+            Result<T> result = supplier.get().join();
+            validate(result.getStatus().toString(), result.getStatus());
+            return result.getValue();
+        } catch (RuntimeException ex) {
             throw new YdbExecutionException(ex.getMessage(), ex);
         }
     }
@@ -125,7 +123,7 @@ public class YdbExecutor {
         try {
             Status status = supplier.get().join();
             validate(status.toString(), status);
-        } catch (SQLException | RuntimeException ex) {
+        } catch (RuntimeException ex) {
             throw new YdbExecutionException(ex.getMessage(), ex);
         }
     }
