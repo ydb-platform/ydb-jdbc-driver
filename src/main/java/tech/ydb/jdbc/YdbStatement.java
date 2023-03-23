@@ -5,13 +5,6 @@ import java.sql.Statement;
 import java.util.Optional;
 
 public interface YdbStatement extends Statement {
-
-    // TODO: add future calls
-
-    // TODO: add bulk upsert
-
-    //
-
     /**
      * Explicitly execute query as a schema query
      *

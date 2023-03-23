@@ -45,12 +45,7 @@ public abstract class AbstractYdbDataQueryPreparedStatementImpl extends Abstract
         QueryType queryType = getQueryType();
         switch (queryType) {
             case DATA_QUERY:
-                return executeDataQueryImpl(
-                        getParams(),
-                        params -> QueryType.DATA_QUERY + " [" + dataQuery.getId() + "] >>\n" +
-                                dataQuery.getText().orElse("<empty>") +
-                                "\n\nParams: " + paramsToString(params),
-                        dataQuery::execute);
+                return executeDataQueryImpl(query, getParams());
             case SCAN_QUERY:
                 return executeScanQueryImpl();
             default:

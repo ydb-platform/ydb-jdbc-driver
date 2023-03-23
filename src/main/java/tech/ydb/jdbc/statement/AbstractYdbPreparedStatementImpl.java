@@ -59,7 +59,7 @@ import static tech.ydb.jdbc.YdbConst.UNABLE_TO_SET_NULL_VALUE;
 import static tech.ydb.jdbc.YdbConst.UNSUPPORTED_QUERY_TYPE_IN_PS;
 
 public abstract class AbstractYdbPreparedStatementImpl extends YdbStatementImpl implements YdbPreparedStatement {
-    private final YdbQuery query;
+    protected final YdbQuery query;
 
     protected AbstractYdbPreparedStatementImpl(YdbConnection connection, YdbQuery query, int resultSetType) throws SQLException {
         super(connection, resultSetType);
@@ -656,11 +656,7 @@ public abstract class AbstractYdbPreparedStatementImpl extends YdbStatementImpl 
     }
 
     protected boolean executeScanQueryImpl() throws SQLException {
-        return executeScanQueryImpl(
-                query,
-                getParams(),
-                params -> QueryType.SCAN_QUERY + " >>\n" + query +
-                        "\n\nParams: " + paramsToString(params));
+        return executeScanQueryImpl(query, getParams());
     }
 
     protected String paramsToString(Params params) {

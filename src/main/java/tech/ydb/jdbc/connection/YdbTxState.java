@@ -36,6 +36,10 @@ public class YdbTxState {
         return transactionLevel != YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE;
     }
 
+    public boolean isInsideTransaction() {
+        return false;
+    }
+
     public int transactionLevel() throws SQLException {
         return transactionLevel;
     }
@@ -82,6 +86,15 @@ public class YdbTxState {
         return this;
     }
 
+    public YdbTxState withDataQuery(Session session, String txID) {
+        if (txID != null) {
+            return new TransactionInProgress(txID, session, isAutoCommit());
+        }
+
+        session.close();
+        return this;
+    }
+
     public Session getSession(YdbContext ctx, YdbExecutor executor) throws SQLException {
         return executor.createSession(ctx);
     }
@@ -121,11 +134,18 @@ public class YdbTxState {
     }
 
     private static class TransactionInProgress extends YdbTxState {
+        private final String id;
         private final Session session;
 
         TransactionInProgress(String id, Session session, boolean autoCommit) {
             super(TxControl.id(id).setCommitTx(autoCommit), YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE);
+            this.id = id;
             this.session = session;
+        }
+
+        @Override
+        public String txID() {
+            return id;
         }
 
         @Override
@@ -141,6 +161,11 @@ public class YdbTxState {
         @Override
         public YdbTxState withReadOnly(boolean readOnly) throws SQLException {
             throw new SQLFeatureNotSupportedException(YdbConst.READONLY_INSIDE_TRANSACTION);
+        }
+
+        @Override
+        public boolean isInsideTransaction() {
+            return true;
         }
 
         @Override
@@ -162,6 +187,28 @@ public class YdbTxState {
 
         @Override
         public YdbTxState withKeepAlive(Session session) {
+            return this;
+        }
+
+        @Override
+        public YdbTxState withDataQuery(Session session, String txID) {
+            if (txID == null) {
+                if (this.session != session) {
+                    session.close();
+                }
+                this.session.close();
+                return new EmptyTransaction();
+            }
+
+            if (this.id.equals(txID)) {
+                if (this.session == session) {
+                    return this;
+                }
+                this.session.close();
+                return new TransactionInProgress(txID, session, isAutoCommit());
+            }
+
+            session.close();
             return this;
         }
     }

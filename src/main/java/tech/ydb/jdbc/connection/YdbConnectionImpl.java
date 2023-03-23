@@ -14,10 +14,12 @@ import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -30,13 +32,23 @@ import tech.ydb.jdbc.YdbDatabaseMetaData;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTypes;
+import tech.ydb.jdbc.common.QueryType;
 import tech.ydb.jdbc.common.YdbQuery;
 import tech.ydb.jdbc.impl.YdbTypesImpl;
 import tech.ydb.jdbc.statement.YdbPreparedStatementImpl;
 import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryImpl;
 import tech.ydb.jdbc.statement.YdbStatementImpl;
 import tech.ydb.table.Session;
+import tech.ydb.table.query.DataQueryResult;
+import tech.ydb.table.query.ExplainDataQueryResult;
+import tech.ydb.table.query.Params;
+import tech.ydb.table.result.ResultSetReader;
+import tech.ydb.table.result.impl.ProtoValueReaders;
 import tech.ydb.table.settings.CommitTxSettings;
+import tech.ydb.table.settings.ExecuteDataQuerySettings;
+import tech.ydb.table.settings.ExecuteScanQuerySettings;
+import tech.ydb.table.settings.ExecuteSchemeQuerySettings;
+import tech.ydb.table.settings.ExplainDataQuerySettings;
 import tech.ydb.table.settings.KeepAliveSessionSettings;
 import tech.ydb.table.settings.RollbackTxSettings;
 
@@ -73,7 +85,7 @@ public class YdbConnectionImpl implements YdbConnection {
 
     @Override
     public String nativeSQL(String sql) {
-        return new YdbQuery(ctx.getOperationProperties(), sql).nativeSql();
+        return new YdbQuery(ctx.getOperationProperties(), sql, false).nativeSql();
     }
 
     @Override
@@ -100,7 +112,7 @@ public class YdbConnectionImpl implements YdbConnection {
     public void commit() throws SQLException {
         ensureOpened();
 
-        if (state.txID() == null) {
+        if (!state.isInsideTransaction()) {
             return;
         }
 
@@ -121,7 +133,7 @@ public class YdbConnectionImpl implements YdbConnection {
     public void rollback() throws SQLException {
         ensureOpened();
 
-        if (state.txID() == null) {
+        if (!state.isInsideTransaction()) {
             return;
         }
 
@@ -210,6 +222,83 @@ public class YdbConnectionImpl implements YdbConnection {
     }
 
     @Override
+    public void executeSchemeQuery(YdbQuery query, YdbExecutor executor) throws SQLException {
+        ensureOpened();
+
+        if (state.isInsideTransaction()) {
+            commit();
+        }
+
+        // Scheme query does not affect transactions or result sets
+        ExecuteSchemeQuerySettings settings = executor.withTimeouts(new ExecuteSchemeQuerySettings());
+        String yql = query.nativeSql();
+
+        try (Session session = executor.createSession(ctx)) {
+            executor.execute(QueryType.SCHEME_QUERY + " >>\n" + yql, () -> session.executeSchemeQuery(yql, settings));
+        }
+    }
+
+    @Override
+    public DataQueryResult executeDataQuery(YdbQuery query, Params params, YdbExecutor executor) throws SQLException {
+        ensureOpened();
+
+        final ExecuteDataQuerySettings settings = executor.withTimeouts(new ExecuteDataQuerySettings());
+        if (!query.keepInCache()) {
+            settings.disableQueryCache();
+        }
+        final String yql = query.nativeSql();
+
+        Session session = state.getSession(ctx, executor);
+        try {
+            DataQueryResult result = executor.call(
+                    QueryType.DATA_QUERY + " >>\n" + yql,
+                    () -> session.executeDataQuery(yql, state.txControl(), params, settings)
+            );
+            state = state.withDataQuery(session, result.getTxId());
+            return result;
+        } catch (SQLException | RuntimeException ex) {
+            state = state.withRollback(session);
+            throw ex;
+        }
+    }
+
+    @Override
+    public ResultSetReader executeScanQuery(YdbQuery query, Params params, YdbExecutor executor) throws SQLException {
+        ensureOpened();
+
+        if (state.isInsideTransaction()) {
+            commit();
+        }
+
+        Duration scanQueryTimeout = ctx.getOperationProperties().getScanQueryTimeout();
+        ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()
+                .withRequestTimeout(scanQueryTimeout).build();
+        String yql = query.nativeSql();
+
+        Collection<ResultSetReader> resultSets = new LinkedBlockingQueue<>();
+        try (Session session = executor.createSession(ctx)) {
+            executor.execute(QueryType.SCAN_QUERY + " >>\n" + yql,
+                    () -> session.executeScanQuery(yql, params, settings).start(resultSets::add));
+        }
+
+        return ProtoValueReaders.forResultSets(resultSets);
+    }
+
+    @Override
+    public ExplainDataQueryResult executeExplainQuery(YdbQuery query, YdbExecutor executor) throws SQLException {
+        ensureOpened();
+
+        ExplainDataQuerySettings settings = executor.withTimeouts(new ExplainDataQuerySettings());
+        String yql = query.nativeSql();
+
+        try (Session session = executor.createSession(ctx)) {
+            return executor.call(
+                    QueryType.EXPLAIN_QUERY + " >>\n" + yql,
+                    () -> session.explainDataQuery(yql, settings));
+        }
+    }
+
+    @Override
     public YdbStatement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
         return createStatement(resultSetType, resultSetConcurrency, ResultSet.HOLD_CURSORS_OVER_COMMIT);
     }
@@ -283,7 +372,7 @@ public class YdbConnectionImpl implements YdbConnection {
         ensureOpened();
         executor.clearWarnings();
 
-        YdbQuery query = new YdbQuery(ctx.getOperationProperties(), origSql);
+        YdbQuery query = new YdbQuery(ctx.getOperationProperties(), origSql, true);
 
         if (mode == PreparedStatementMode.IN_MEMORY
                 || (mode == PreparedStatementMode.DEFAULT && !ctx.getOperationProperties().isAlwaysPrepareDataQuery())) {

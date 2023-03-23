@@ -1,6 +1,5 @@
 package tech.ydb.jdbc.common;
 
-import java.time.Duration;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
@@ -12,14 +11,14 @@ import tech.ydb.jdbc.settings.YdbOperationProperties;
 public class YdbQuery {
     private final String sql;
     private final String nativeSql;
+    private final boolean keepInCache;
     private final QueryType type;
-    private final Duration executionTimeout;
 
-    public YdbQuery(YdbOperationProperties props, String sql) {
+    public YdbQuery(YdbOperationProperties props, String sql, boolean keepInCache) {
         this.sql = sql;
         this.nativeSql = prepareYdbSql(sql, props.isEnforceSqlV1());
         this.type = decodeQueryType(sql, props.isDetectSqlOperations());
-        this.executionTimeout = props.getDeadlineTimeout();
+        this.keepInCache = keepInCache;
     }
 
     public String sql() {
@@ -30,12 +29,12 @@ public class YdbQuery {
         return nativeSql;
     }
 
-    public QueryType type() {
-        return type;
+    public boolean keepInCache() {
+        return keepInCache;
     }
 
-    public Duration executionTimeout() {
-        return executionTimeout;
+    public QueryType type() {
+        return type;
     }
 
     private static QueryType decodeQueryType(String sql, boolean autoDetect) {
