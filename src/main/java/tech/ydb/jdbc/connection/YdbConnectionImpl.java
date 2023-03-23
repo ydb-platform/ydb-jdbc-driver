@@ -17,6 +17,7 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -34,11 +35,15 @@ import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.common.QueryType;
 import tech.ydb.jdbc.common.YdbQuery;
+import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.jdbc.impl.YdbTypesImpl;
+import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.jdbc.statement.YdbPreparedStatementImpl;
+import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryBatchedImpl;
 import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryImpl;
 import tech.ydb.jdbc.statement.YdbStatementImpl;
 import tech.ydb.table.Session;
+import tech.ydb.table.query.DataQuery;
 import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.query.Params;
@@ -50,6 +55,7 @@ import tech.ydb.table.settings.ExecuteScanQuerySettings;
 import tech.ydb.table.settings.ExecuteSchemeQuerySettings;
 import tech.ydb.table.settings.ExplainDataQuerySettings;
 import tech.ydb.table.settings.KeepAliveSessionSettings;
+import tech.ydb.table.settings.PrepareDataQuerySettings;
 import tech.ydb.table.settings.RollbackTxSettings;
 
 public class YdbConnectionImpl implements YdbConnection {
@@ -298,6 +304,15 @@ public class YdbConnectionImpl implements YdbConnection {
         }
     }
 
+    private DataQuery prepareDataQuery(YdbQuery query) throws SQLException {
+        PrepareDataQuerySettings cfg = executor.withTimeouts(new PrepareDataQuerySettings());
+        String yql = query.nativeSql();
+
+        try (Session session = executor.createSession(ctx)) {
+            return executor.call("Preparing Query >>\n" + yql, () -> session.prepareDataQuery(yql, cfg));
+        }
+    }
+
     @Override
     public YdbStatement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
         return createStatement(resultSetType, resultSetConcurrency, ResultSet.HOLD_CURSORS_OVER_COMMIT);
@@ -366,39 +381,33 @@ public class YdbConnectionImpl implements YdbConnection {
                 ResultSet.HOLD_CURSORS_OVER_COMMIT);
     }
 
-    private YdbPreparedStatement prepareStatementImpl(String origSql,
-            int resultSetType,
-            PreparedStatementMode mode) throws SQLException {
+    private YdbPreparedStatement prepareStatementImpl(String sql, int resultSetType, PreparedStatementMode mode)
+            throws SQLException {
         ensureOpened();
         executor.clearWarnings();
 
-        YdbQuery query = new YdbQuery(ctx.getOperationProperties(), origSql, true);
+        YdbOperationProperties props = ctx.getOperationProperties();
+        YdbQuery query = new YdbQuery(props, sql, true);
 
         if (mode == PreparedStatementMode.IN_MEMORY
-                || (mode == PreparedStatementMode.DEFAULT && !ctx.getOperationProperties().isAlwaysPrepareDataQuery())) {
+                || (mode == PreparedStatementMode.DEFAULT && !props.isAlwaysPrepareDataQuery())) {
             return new YdbPreparedStatementImpl(this, query, resultSetType);
         }
 
-//        PrepareDataQuerySettings cfg = new PrepareDataQuerySettings();
-//        cfg.keepInQueryCache();
-//
-//        Result<DataQuery> dataQuery = joinResultImpl(
-//                () -> "Preparing Query >>\n" + sql,
-//                () -> session.prepareDataQuery(sql, validator.init(cfg)));
-//        DataQuery prepared = dataQuery.getValue();
-//
-//        boolean requireBatch = mode == PreparedStatementMode.DATA_QUERY_BATCH;
-//        if (getOperationProperties.isAutoPreparedBatches() || requireBatch) {
-//            Optional<StructBatchConfiguration> batchCfgOpt =
-//                    YdbPreparedStatementWithDataQueryBatchedImpl.asColumns(prepared.types());
-//            if (batchCfgOpt.isPresent()) {
-//                return new YdbPreparedStatementWithDataQueryBatchedImpl(this, resultSetType, sql, prepared,
-//                        batchCfgOpt.get());
-//            } else if (requireBatch) {
-//                throw new YdbExecutionException(STATEMENT_IS_NOT_A_BATCH + origSql);
-//            }
-//        }
-        return new YdbPreparedStatementWithDataQueryImpl(this, resultSetType, query, null /*prepared*/);
+        DataQuery prepared = prepareDataQuery(query);
+
+        boolean requireBatch = mode == PreparedStatementMode.DATA_QUERY_BATCH;
+        if (props.isAutoPreparedBatches() || requireBatch) {
+            Optional<YdbPreparedStatementWithDataQueryBatchedImpl.StructBatchConfiguration> batchCfgOpt =
+                    YdbPreparedStatementWithDataQueryBatchedImpl.asColumns(prepared.types());
+            if (batchCfgOpt.isPresent()) {
+                return new YdbPreparedStatementWithDataQueryBatchedImpl(this, resultSetType, query, prepared,
+                        batchCfgOpt.get());
+            } else if (requireBatch) {
+                throw new YdbExecutionException(YdbConst.STATEMENT_IS_NOT_A_BATCH + sql);
+            }
+        }
+        return new YdbPreparedStatementWithDataQueryImpl(this, resultSetType, query, prepared);
 
     }
 

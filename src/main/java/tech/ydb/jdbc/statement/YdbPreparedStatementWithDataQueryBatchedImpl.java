@@ -34,7 +34,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImpl extends AbstractYdbDat
     private final StructBatchConfiguration cfg;
     private final StructMutableState state;
 
-    protected YdbPreparedStatementWithDataQueryBatchedImpl(
+    public YdbPreparedStatementWithDataQueryBatchedImpl(
             YdbConnectionImpl connection,
             int resultSetType,
             YdbQuery query,
@@ -135,7 +135,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImpl extends AbstractYdbDat
 
     //
 
-    static Optional<StructBatchConfiguration> asColumns(Map<String, Type> types) {
+    public static Optional<StructBatchConfiguration> asColumns(Map<String, Type> types) {
         if (types.size() != 1) {
             return Optional.empty(); // ---
         }
@@ -182,7 +182,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImpl extends AbstractYdbDat
         return new StructBatchConfiguration(paramName, listType, structType, types, indexes, names, descriptions);
     }
 
-    static class StructBatchConfiguration {
+    public static class StructBatchConfiguration {
         private final String paramName;
         private final ListType listType;
         private final StructType structType;

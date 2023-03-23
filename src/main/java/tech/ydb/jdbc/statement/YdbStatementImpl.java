@@ -42,7 +42,6 @@ import static tech.ydb.jdbc.YdbConst.DIRECTION_UNSUPPORTED;
 import static tech.ydb.jdbc.YdbConst.NAMED_CURSORS_UNSUPPORTED;
 import static tech.ydb.jdbc.YdbConst.QUERY_EXPECT_RESULT_SET;
 import static tech.ydb.jdbc.YdbConst.QUERY_EXPECT_UPDATE;
-import static tech.ydb.jdbc.YdbConst.RESULT_IS_TRUNCATED;
 import static tech.ydb.jdbc.YdbConst.RESULT_SET_MODE_UNSUPPORTED;
 import static tech.ydb.jdbc.YdbConst.RESULT_SET_UNAVAILABLE;
 
@@ -420,50 +419,6 @@ public class YdbStatementImpl implements YdbStatement {
         state.lastResultSets = null;
         state.resultSetIndex = 0;
         state.updateCount = -1;
-    }
-
-    private void printResultSetDetails(DataQueryResult dataQueryResult) {
-        StringBuilder buffer = new StringBuilder(36);
-        int resultSetCount = dataQueryResult.getResultSetCount();
-        for (int i = 0; i < resultSetCount; i++) {
-            if (buffer.length() > 0) {
-                buffer.append(", ");
-            }
-            buffer.append(dataQueryResult.getRowCount(i)).append(" rows");
-            if (dataQueryResult.isTruncated(i)) {
-                buffer.append(" - truncated");
-            }
-        }
-
-        LOGGER.log(Level.FINE, "OK, {0} results ({1})", new Object[]{resultSetCount, buffer});
-    }
-
-    private void printResultSetDetails(ResultSetReader resultSetReader) {
-        LOGGER.log(Level.FINE, "OK, {0} rows{1}", new Object[]{
-            resultSetReader.getRowCount(),
-            resultSetReader.isTruncated() ? " - truncated" : ""
-        });
-    }
-
-    private void checkResultSetTruncated(DataQueryResult dataQueryResult) throws SQLException {
-        if (properties.isFailOnTruncatedResult()) {
-            int resultSetCount = dataQueryResult.getResultSetCount();
-            for (int i = 0; i < resultSetCount; i++) {
-                if (dataQueryResult.isTruncated(i)) {
-                    throw new YdbResultTruncatedException(String.format(
-                            RESULT_IS_TRUNCATED, i, dataQueryResult.getRowCount(i)));
-                }
-            }
-        }
-    }
-
-    private void checkResultSetTruncated(ResultSetReader resultSetReader) throws SQLException {
-        if (properties.isFailOnTruncatedResult()) {
-            if (resultSetReader.isTruncated()) {
-                throw new YdbResultTruncatedException(String.format(
-                        RESULT_IS_TRUNCATED, 0, resultSetReader.getRowCount()));
-            }
-        }
     }
 
     protected YdbResultSet getResultSet(int index) throws SQLException {

@@ -152,7 +152,7 @@ public class YdbDriverIntegrationTest {
 
 
             PreparedStatement select = connection
-                    .prepareStatement("select count(1) as cnt from table_sample");
+                    .prepareStatement("select count(1) as cnt from jdbc_table_sample");
             ResultSet rs = select.executeQuery();
             rs.next();
             Assertions.assertEquals(2, rs.getLong("cnt"));
