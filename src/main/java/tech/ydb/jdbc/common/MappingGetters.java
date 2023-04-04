@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.impl;
+package tech.ydb.jdbc.common;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStreamReader;
@@ -20,6 +20,7 @@ import javax.annotation.Nullable;
 
 import com.google.common.base.Preconditions;
 
+import tech.ydb.jdbc.impl.YdbTypesImpl;
 import tech.ydb.table.result.PrimitiveReader;
 import tech.ydb.table.result.ValueReader;
 import tech.ydb.table.values.DecimalValue;
@@ -570,7 +571,7 @@ public class MappingGetters {
     }
 
 
-    static SqlTypes buildDataType(Type type) {
+    static SqlType buildDataType(Type type) {
         Type.Kind kind = type.getKind();
         // All types must be the same as for #valueToObject
         int sqlType = YdbTypesImpl.getInstance().toSqlType(type);
@@ -634,11 +635,11 @@ public class MappingGetters {
                 default:
                     javaType = Value.class;
             }
-            return new SqlTypes(sqlType, javaType);
+            return new SqlType(sqlType, javaType);
         } else if (kind == Type.Kind.DECIMAL) {
-            return new SqlTypes(sqlType, DecimalValue.class);
+            return new SqlType(sqlType, DecimalValue.class);
         } else {
-            return new SqlTypes(sqlType, Value.class);
+            return new SqlType(sqlType, Value.class);
         }
     }
 
@@ -721,22 +722,22 @@ public class MappingGetters {
         return new SQLException(String.format(UNABLE_TO_CAST, kind, javaType));
     }
 
-    static class Getters {
-        final ValueToString toString;
-        final ValueToBoolean toBoolean;
-        final ValueToByte toByte;
-        final ValueToShort toShort;
-        final ValueToInt toInt;
-        final ValueToLong toLong;
-        final ValueToFloat toFloat;
-        final ValueToDouble toDouble;
-        final ValueToBytes toBytes;
-        final ValueToObject toObject;
-        final ValueToDateMillis toDateMillis;
-        final ValueToNString toNString;
-        final ValueToURL toURL;
-        final ValueToBigDecimal toBigDecimal;
-        final ValueToReader toReader;
+    public static class Getters {
+        public final ValueToString toString;
+        public final ValueToBoolean toBoolean;
+        public final ValueToByte toByte;
+        public final ValueToShort toShort;
+        public final ValueToInt toInt;
+        public final ValueToLong toLong;
+        public final ValueToFloat toFloat;
+        public final ValueToDouble toDouble;
+        public final ValueToBytes toBytes;
+        public final ValueToObject toObject;
+        public final ValueToDateMillis toDateMillis;
+        public final ValueToNString toNString;
+        public final ValueToURL toURL;
+        public final ValueToBigDecimal toBigDecimal;
+        public final ValueToReader toReader;
 
         Getters(ValueToString toString,
                 ValueToBoolean toBoolean,
@@ -771,73 +772,73 @@ public class MappingGetters {
         }
     }
 
-    interface ValueToString {
+    public interface ValueToString {
         String fromValue(ValueReader reader) throws SQLException;
     }
 
-    interface ValueToBoolean {
+    public interface ValueToBoolean {
         boolean fromValue(ValueReader reader) throws SQLException;
     }
 
-    interface ValueToByte {
+    public interface ValueToByte {
         byte fromValue(ValueReader reader) throws SQLException;
     }
 
-    interface ValueToShort {
+    public interface ValueToShort {
         short fromValue(ValueReader reader) throws SQLException;
     }
 
-    interface ValueToInt {
+    public interface ValueToInt {
         int fromValue(ValueReader reader) throws SQLException;
     }
 
-    interface ValueToLong {
+    public interface ValueToLong {
         long fromValue(ValueReader reader) throws SQLException;
     }
 
-    interface ValueToFloat {
+    public interface ValueToFloat {
         float fromValue(ValueReader reader) throws SQLException;
     }
 
-    interface ValueToDouble {
+    public interface ValueToDouble {
         double fromValue(ValueReader reader) throws SQLException;
     }
 
-    interface ValueToBytes {
+    public interface ValueToBytes {
         byte[] fromValue(ValueReader reader) throws SQLException;
     }
 
-    interface ValueToObject {
+    public interface ValueToObject {
         Object fromValue(ValueReader reader) throws SQLException;
     }
 
-    interface ValueToDateMillis {
+    public interface ValueToDateMillis {
         long fromValue(ValueReader reader) throws SQLException;
     }
 
-    interface ValueToNString {
+    public interface ValueToNString {
         String fromValue(ValueReader reader) throws SQLException;
     }
 
-    interface ValueToURL {
+    public interface ValueToURL {
         String fromValue(ValueReader reader) throws SQLException;
     }
 
-    interface ValueToBigDecimal {
+    public interface ValueToBigDecimal {
         BigDecimal fromValue(ValueReader reader) throws SQLException;
     }
 
-    interface ValueToReader {
+    public interface ValueToReader {
         Reader fromValue(ValueReader reader) throws SQLException;
     }
 
     //
 
-    static class SqlTypes {
+    public static class SqlType {
         private final int sqlType;
         private final Class<?> javaType;
 
-        SqlTypes(int sqlType, Class<?> javaType) {
+        SqlType(int sqlType, Class<?> javaType) {
             this.sqlType = sqlType;
             this.javaType = Objects.requireNonNull(javaType);
         }

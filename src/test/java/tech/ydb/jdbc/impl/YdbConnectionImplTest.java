@@ -17,7 +17,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -27,7 +26,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbDatabaseMetaData;
-import tech.ydb.jdbc.YdbDriver;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
@@ -225,15 +223,8 @@ public class YdbConnectionImplTest {
 
     @Test
     public void nativeSQL() throws SQLException {
-        Assertions.assertEquals("select ? + ?", jdbc.connection().nativeSQL("select ? + ?"));
-    }
-
-    @Test
-    @Disabled("WRONG LOGIC")
-    public void isValid() throws SQLException {
-        Assertions.assertTrue(jdbc.connection().isValid(1));
-        YdbDriver.getConnectionsCache().close();
-        Assertions.assertFalse(jdbc.connection().isValid(1));
+        String nativeSQL = jdbc.connection().nativeSQL("select ? + ?");
+        Assertions.assertEquals(YdbConst.PREFIX_SYNTAX_V1 + "\nselect ? + ?", nativeSQL);
     }
 
     @Test
@@ -520,21 +511,22 @@ public class YdbConnectionImplTest {
     public void abort() {
         ExceptionAssert.sqlFeatureNotSupported("Abort operation is not supported yet",  () -> jdbc.connection().abort(null));
     }
+
     @Test
     public void testDDLInsideTransaction() throws SQLException {
         String tempTable = "temp_" + TEST_TABLE;
         try (Statement statement = jdbc.connection().createStatement()) {
             statement.execute("upsert into " + TEST_TABLE + "(key, c_Text) values (1, '2')");
+
+            // call autocommit
             statement.execute("--jdbc:SCHEME\n"
                     + "create table " + tempTable + "(id Int32, value Int32, primary key(id))");
 
-            try {
-                // No commits in case of ddl
-                ExceptionAssert.ydbNonRetryable("Data modifications previously made to table",
-                        () -> statement.executeQuery("select * from " + TEST_TABLE));
-            } finally {
-                statement.execute("--jdbc:SCHEME\ndrop table " + tempTable);
-            }
+            statement.executeQuery("select * from " + TEST_TABLE);
+            statement.execute("delete from " + TEST_TABLE);
+
+            // call autocommit
+            statement.execute("--jdbc:SCHEME\ndrop table " + tempTable);
         }
     }
 

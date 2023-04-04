@@ -7,6 +7,7 @@ import java.util.Map;
 
 import com.google.common.base.Preconditions;
 import com.google.protobuf.NullValue;
+
 import tech.ydb.ValueProtos;
 import tech.ydb.ValueProtos.Type.PrimitiveTypeId;
 import tech.ydb.jdbc.exception.YdbRuntimeException;
@@ -20,7 +21,7 @@ public class MappingResultSets {
     }
 
     @SuppressWarnings("unchecked")
-    static <K> LinkedHashMap<K, Object> stableMap(K key, Object value, Object... kv) {
+    public static <K> LinkedHashMap<K, Object> stableMap(K key, Object value, Object... kv) {
         Preconditions.checkArgument((kv.length & 1) == 0, "KeyValue list must be even");
 
         LinkedHashMap<K, Object> map = new LinkedHashMap<>((kv.length / 2) + 1);
@@ -32,7 +33,7 @@ public class MappingResultSets {
         return map;
     }
 
-    static ResultSetReader readerFromList(List<Map<String, Object>> list) {
+    public static ResultSetReader readerFromList(List<Map<String, Object>> list) {
         if (list.isEmpty()) {
             return emptyReader();
         }
@@ -81,11 +82,11 @@ public class MappingResultSets {
 
     }
 
-    static ResultSetReader readerFromMap(Map<String, Object> map) {
+    public static ResultSetReader readerFromMap(Map<String, Object> map) {
         return readerFromList(Collections.singletonList(map));
     }
 
-    static ResultSetReader emptyReader() {
+    public static ResultSetReader emptyReader() {
         ValueProtos.ResultSet.Builder resultSet = ValueProtos.ResultSet.newBuilder();
         return ProtoValueReaders.forResultSet(resultSet.build());
     }

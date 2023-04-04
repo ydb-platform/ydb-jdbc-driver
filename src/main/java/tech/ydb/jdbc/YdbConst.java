@@ -27,6 +27,12 @@ public final class YdbConst {
 
 
     // Messages
+    public static final String DRIVER_IS_ALREADY_REGISTERED = "Driver is already registered. "
+            + "It can only be registered once.";
+
+    public static final String DRIVER_IS_NOT_REGISTERED = "Driver is not registered "
+            + "(or it has not been registered using YdbDriver.register() method)";
+
     public static final String PREPARED_CALLS_UNSUPPORTED = "Prepared calls are not supported";
     public static final String ARRAYS_UNSUPPORTED = "Arrays are not supported";
     public static final String STRUCTS_UNSUPPORTED = "Structs are not supported";

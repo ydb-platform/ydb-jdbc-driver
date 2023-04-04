@@ -2,16 +2,8 @@ package tech.ydb.jdbc;
 
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Optional;
 
 public interface YdbStatement extends Statement {
-
-    // TODO: add future calls
-
-    // TODO: add bulk upsert
-
-    //
-
     /**
      * Explicitly execute query as a schema query
      *
@@ -48,7 +40,7 @@ public interface YdbStatement extends Statement {
      * @return optional result (if traversed before) with {@link #getMoreResults()}
      * @throws SQLException when trying to get result set on closed connection
      */
-    Optional<YdbResultSet> getResultSetAt(int resultSetIndex) throws SQLException;
+    YdbResultSet getResultSetAt(int resultSetIndex) throws SQLException;
 
     @Override
     YdbResultSet executeQuery(String sql) throws SQLException;

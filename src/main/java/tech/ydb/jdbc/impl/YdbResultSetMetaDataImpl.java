@@ -4,7 +4,9 @@ import java.sql.SQLException;
 import java.util.Objects;
 
 import com.google.common.base.Preconditions;
+
 import tech.ydb.jdbc.YdbResultSetMetaData;
+import tech.ydb.jdbc.common.TypeDescription;
 import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.values.Type;
 
@@ -54,7 +56,7 @@ public class YdbResultSetMetaDataImpl implements YdbResultSetMetaData {
 
     @Override
     public int isNullable(int column) throws SQLException {
-        return getDescription(column).optional ?
+        return getDescription(column).isOptional() ?
                 columnNullable :
                 columnNoNulls;
     }
@@ -106,12 +108,12 @@ public class YdbResultSetMetaDataImpl implements YdbResultSetMetaData {
 
     @Override
     public int getColumnType(int column) throws SQLException {
-        return getDescription(column).sqlTypes.getSqlType();
+        return getDescription(column).sqlType().getSqlType();
     }
 
     @Override
     public String getColumnTypeName(int column) throws SQLException {
-        return getDescription(column).type.toString();
+        return getDescription(column).ydbType().toString();
     }
 
     @Override
@@ -131,12 +133,12 @@ public class YdbResultSetMetaDataImpl implements YdbResultSetMetaData {
 
     @Override
     public String getColumnClassName(int column) throws SQLException {
-        return getDescription(column).sqlTypes.getJavaType().getName();
+        return getDescription(column).sqlType().getJavaType().getName();
     }
 
     @Override
     public Type getYdbType(int column) throws SQLException {
-        return getDescription(column).type;
+        return getDescription(column).ydbType();
     }
 
     @Override

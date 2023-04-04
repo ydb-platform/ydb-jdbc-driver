@@ -5,9 +5,13 @@ import java.sql.SQLException;
 
 import javax.annotation.Nullable;
 
-import tech.ydb.jdbc.settings.YdbOperationProperties;
-import tech.ydb.scheme.SchemeClient;
-import tech.ydb.table.Session;
+import tech.ydb.jdbc.common.YdbQuery;
+import tech.ydb.jdbc.connection.YdbContext;
+import tech.ydb.jdbc.connection.YdbExecutor;
+import tech.ydb.table.query.DataQueryResult;
+import tech.ydb.table.query.ExplainDataQueryResult;
+import tech.ydb.table.query.Params;
+import tech.ydb.table.result.ResultSetReader;
 
 public interface YdbConnection extends Connection {
 
@@ -19,20 +23,6 @@ public interface YdbConnection extends Connection {
     YdbTypes getYdbTypes();
 
     /**
-     * Returns scheme client, initialized during a first access
-     *
-     * @return scheme client in memoized mode
-     */
-    SchemeClient getYdbScheme();
-
-    /**
-     * Returns current YDB session for this connection
-     *
-     * @return YDB session
-     */
-    Session getYdbSession();
-
-    /**
      * Return current YDB transaction, if exists
      *
      * @return YDB transaction ID or null, if no transaction started
@@ -41,24 +31,49 @@ public interface YdbConnection extends Connection {
     String getYdbTxId();
 
 
-    /**
-     * Returns operation properties, configured for this connection
-     *
-     * @return default YDB operation properties
-     */
-    YdbOperationProperties getYdbProperties();
-
+    YdbContext getCtx();
 
     /**
-     * Returns current database
+     * Explicitly execute query as a schema query
      *
-     * @return database if configured
+     * @param query query (DDL) to execute
+     * @param executor executor for logging and warnings
+     * @throws SQLException if query cannot be executed
      */
-    @Nullable
-    String getDatabase();
+    void executeSchemeQuery(YdbQuery query, YdbExecutor executor) throws SQLException;
 
-    //
+    /**
+     * Explicitly execute query as a data query
+     *
+     * @param query query to execute
+     * @param params parameters for query
+     * @param executor executor for logging and warnings
+     * @return list of result set
+     * @throws SQLException if query cannot be executed
+     */
+    DataQueryResult executeDataQuery(YdbQuery query, Params params, YdbExecutor executor) throws SQLException;
 
+    /**
+     * Explicitly execute query as a scan query
+     *
+     * @param query query to execute
+     * @param params parameters for query
+     * @param executor executor for logging and warnings
+     * @return single result set with rows
+     * @throws SQLException if query cannot be executed
+     */
+    ResultSetReader executeScanQuery(YdbQuery query, Params params, YdbExecutor executor) throws SQLException;
+
+    /**
+     * Explicitly explain this query
+     *
+     * @param query query to explain
+     * @param executor executor for logging and warnings
+     * @return list of result set of two string columns: {@link YdbConst#EXPLAIN_COLUMN_AST}
+     * and {@link YdbConst#EXPLAIN_COLUMN_PLAN}
+     * @throws SQLException if query cannot be explained
+     */
+    ExplainDataQueryResult executeExplainQuery(YdbQuery query, YdbExecutor executor) throws SQLException;
 
     @Override
     YdbDatabaseMetaData getMetaData() throws SQLException;

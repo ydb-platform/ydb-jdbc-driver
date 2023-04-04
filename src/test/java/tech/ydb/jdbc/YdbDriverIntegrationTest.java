@@ -1,23 +1,19 @@
 package tech.ydb.jdbc;
 
+import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Properties;
 
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import tech.ydb.jdbc.exception.YdbRetryableException;
-import tech.ydb.jdbc.impl.YdbConnectionImpl;
-import tech.ydb.jdbc.impl.helper.TestHelper;
-import tech.ydb.scheme.SchemeClient;
+import tech.ydb.jdbc.connection.YdbConnectionImpl;
+import tech.ydb.jdbc.connection.YdbContext;
 import tech.ydb.test.junit5.YdbHelperExtention;
 
 /**
@@ -25,101 +21,138 @@ import tech.ydb.test.junit5.YdbHelperExtention;
  * @author Aleksandr Gorshenin
  */
 public class YdbDriverIntegrationTest {
-    private static final Logger logger = LoggerFactory.getLogger(YdbDriverIntegrationTest.class);
-
     @RegisterExtension
     private static final YdbHelperExtention ydb = new YdbHelperExtention();
 
-    private YdbDriver driver;
+    private static String jdbcURL(String... extras) {
+        StringBuilder jdbc = new StringBuilder("jdbc:ydb:")
+                .append(ydb.endpoint())
+                .append(ydb.database())
+                .append("?");
 
-    private static String jdbcURl() {
-        return String.format("jdbc:ydb:%s%s", ydb.endpoint(), ydb.database());
+        if (ydb.authToken() != null) {
+            jdbc.append("token=").append(ydb.authToken()).append("&");
+        }
+
+        for (String extra: extras) {
+            jdbc.append(extra).append("=").append(extra).append("&");
+        }
+
+        return jdbc.toString();
     }
 
-    @BeforeEach
-    public void beforeEach() {
-        driver = new YdbDriver();
-    }
-
-    @AfterEach
-    public void afterEach() {
-        YdbDriver.getConnectionsCache().close();
+    @AfterAll
+    public static void afterAll() throws SQLException {
+        if (YdbDriver.isRegistered()) {
+            YdbDriver.deregister();
+        }
     }
 
     @Test
     public void connect() throws SQLException {
-        try ( YdbConnection connection = driver.connect(jdbcURl(), new Properties())) {
+        try (Connection connection = DriverManager.getConnection(jdbcURL())) {
             Assertions.assertTrue(connection instanceof YdbConnectionImpl);
 
-            logger.info("Session opened: {}", connection.getYdbSession());
-
-            SchemeClient schemeClient = connection.getYdbScheme();
-            logger.info("Scheme client: {}", schemeClient);
-
-            Assertions.assertSame(schemeClient, connection.getYdbScheme());
+            YdbConnection unwrapped = connection.unwrap(YdbConnection.class);
+            Assertions.assertNotNull(unwrapped.getCtx());
+            Assertions.assertNotNull(unwrapped.getCtx().getSchemeClient());
+            Assertions.assertNotNull(unwrapped.getCtx().getTableClient());
         }
     }
 
     @Test
-    @Disabled
-    public void connectAndCloseMultipleTimes() throws SQLException {
-        try ( YdbConnection ydbConnection = driver.connect(jdbcURl(), new Properties())) {
-            ydbConnection.getYdbSession().close();
-            ydbConnection.getYdbSession().close(); // multiple close is ok
+    public void testContextCache() throws SQLException {
+        YdbContext ctx;
+        try (Connection conn1 = DriverManager.getConnection(jdbcURL())) {
+            Assertions.assertTrue(conn1.isValid(5000));
 
-            TestHelper.assertThrowsMsgLike(YdbRetryableException.class,
-                    () -> ydbConnection.createStatement().executeQuery("select 2 + 2"),
-                    "Session not found");
+            YdbConnection unwrapped = conn1.unwrap(YdbConnection.class);
+            Assertions.assertNotNull(unwrapped.getCtx());
+
+            ctx = unwrapped.getCtx();
         }
-    }
 
-    @Test
-    public void connectMultipleTimes() throws SQLException {
-        YdbDriver.getConnectionsCache().close();
-        String url = jdbcURl();
-        try ( YdbConnection connection1 = driver.connect(url, new Properties())) {
-            logger.info("Session 1 opened: {}", connection1.getYdbSession());
-            try ( YdbConnection connection2 = driver.connect(url, new Properties())) {
-                logger.info("Session 2 opened: {}", connection2.getYdbSession());
+        try (Connection conn2 = DriverManager.getConnection(jdbcURL())) {
+            Assertions.assertTrue(conn2.isValid(5000));
 
-                // Expect only single connection
-                Assertions.assertEquals(1, YdbDriver.getConnectionsCache().getConnectionCount());
-            }
+            YdbConnection unwrapped = conn2.unwrap(YdbConnection.class);
+            Assertions.assertNotNull(unwrapped.getCtx());
+            Assertions.assertSame(ctx, unwrapped.getCtx());
+        }
+
+        Properties props = new Properties();
+        try (Connection conn3 = DriverManager.getConnection(jdbcURL(), props)) {
+            Assertions.assertTrue(conn3.isValid(5000));
+
+            YdbConnection unwrapped = conn3.unwrap(YdbConnection.class);
+            Assertions.assertNotNull(unwrapped.getCtx());
+            Assertions.assertSame(ctx, unwrapped.getCtx());
+        }
+
+        props.setProperty("TEST_KEY", "TEST_VALUE");
+        try (Connection conn4 = DriverManager.getConnection(jdbcURL(), props)) {
+            Assertions.assertTrue(conn4.isValid(5000));
+
+            YdbConnection unwrapped = conn4.unwrap(YdbConnection.class);
+            Assertions.assertNotNull(unwrapped.getCtx());
+            Assertions.assertNotSame(ctx, unwrapped.getCtx());
+        }
+
+        try (Connection conn5 = DriverManager.getConnection(jdbcURL("test"))) {
+            Assertions.assertTrue(conn5.isValid(5000));
+
+            YdbConnection unwrapped = conn5.unwrap(YdbConnection.class);
+            Assertions.assertNotNull(unwrapped.getCtx());
+            Assertions.assertNotSame(ctx, unwrapped.getCtx());
+        }
+
+        if (YdbDriver.isRegistered()) {
+            YdbDriver.deregister();
+            YdbDriver.register();
+        }
+
+        try (Connection conn6 = DriverManager.getConnection(jdbcURL())) {
+            Assertions.assertTrue(conn6.isValid(5000));
+
+            YdbConnection unwrapped = conn6.unwrap(YdbConnection.class);
+            Assertions.assertNotNull(unwrapped.getCtx());
+            Assertions.assertNotSame(ctx, unwrapped.getCtx());
         }
     }
 
     @Test
     public void testYdb() throws SQLException {
-        try (YdbConnection connection = (YdbConnection) DriverManager.getConnection(jdbcURl())) {
+        try (Connection connection = DriverManager.getConnection(jdbcURL())) {
             try {
                 connection.createStatement().execute(
                         "--jdbc:SCHEME\n"
-                        + "drop table table_sample");
+                        + "drop table jdbc_table_sample");
             } catch (SQLException e) {
                 //
             }
             connection.createStatement()
                     .execute("--jdbc:SCHEME\n"
-                            + "create table table_sample(id Int32, value Text, primary key (id))");
+                            + "create table jdbc_table_sample(id Int32, value Text, primary key (id))");
 
-            YdbPreparedStatement ps = connection
+            PreparedStatement ps = connection
                     .prepareStatement("" +
                             "declare $p1 as Int32;\n" +
                             "declare $p2 as Text;\n" +
-                            "upsert into table_sample (id, value) values ($p1, $p2)");
+                            "upsert into jdbc_table_sample (id, value) values ($p1, $p2)");
             ps.setInt(1, 1);
             ps.setString(2, "value-1");
             ps.executeUpdate();
 
-            ps.setInt("p1", 2);
-            ps.setString("p2", "value-2");
-            ps.executeUpdate();
+            YdbPreparedStatement yps = ps.unwrap(YdbPreparedStatement.class);
+            yps.setInt("p1", 2);
+            yps.setString("p2", "value-2");
+            yps.executeUpdate();
 
             connection.commit();
 
 
-            YdbPreparedStatement select = connection
-                    .prepareStatement("select count(1) as cnt from table_sample");
+            PreparedStatement select = connection
+                    .prepareStatement("select count(1) as cnt from jdbc_table_sample");
             ResultSet rs = select.executeQuery();
             rs.next();
             Assertions.assertEquals(2, rs.getLong("cnt"));
@@ -127,7 +160,8 @@ public class YdbDriverIntegrationTest {
             YdbPreparedStatement psBatch = connection
                     .prepareStatement("" +
                             "declare $values as List<Struct<id:Int32,value:Text>>;\n" +
-                            "upsert into table_sample select * from as_table($values)");
+                            "upsert into jdbc_table_sample select * from as_table($values)")
+                    .unwrap(YdbPreparedStatement.class);
             psBatch.setInt("id", 3);
             psBatch.setString("value", "value-3");
             psBatch.addBatch();

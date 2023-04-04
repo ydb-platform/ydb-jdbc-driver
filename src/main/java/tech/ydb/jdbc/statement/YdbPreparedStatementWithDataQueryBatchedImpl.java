@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.impl;
+package tech.ydb.jdbc.statement;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -13,7 +13,11 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 
 import com.google.common.base.Preconditions;
+
 import tech.ydb.jdbc.YdbResultSet;
+import tech.ydb.jdbc.common.TypeDescription;
+import tech.ydb.jdbc.common.YdbQuery;
+import tech.ydb.jdbc.connection.YdbConnectionImpl;
 import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.table.query.DataQuery;
 import tech.ydb.table.query.Params;
@@ -30,11 +34,12 @@ public class YdbPreparedStatementWithDataQueryBatchedImpl extends AbstractYdbDat
     private final StructBatchConfiguration cfg;
     private final StructMutableState state;
 
-    protected YdbPreparedStatementWithDataQueryBatchedImpl(YdbConnectionImpl connection,
-                                                           int resultSetType,
-                                                           String query,
-                                                           DataQuery dataQuery,
-                                                           StructBatchConfiguration cfg) throws SQLException {
+    public YdbPreparedStatementWithDataQueryBatchedImpl(
+            YdbConnectionImpl connection,
+            int resultSetType,
+            YdbQuery query,
+            DataQuery dataQuery,
+            StructBatchConfiguration cfg) throws SQLException {
         super(connection, resultSetType, query, dataQuery);
         this.cfg = Objects.requireNonNull(cfg);
         this.state = new StructMutableState(cfg);
@@ -130,7 +135,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImpl extends AbstractYdbDat
 
     //
 
-    static Optional<StructBatchConfiguration> asColumns(Map<String, Type> types) {
+    public static Optional<StructBatchConfiguration> asColumns(Map<String, Type> types) {
         if (types.size() != 1) {
             return Optional.empty(); // ---
         }
@@ -177,7 +182,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImpl extends AbstractYdbDat
         return new StructBatchConfiguration(paramName, listType, structType, types, indexes, names, descriptions);
     }
 
-    static class StructBatchConfiguration {
+    public static class StructBatchConfiguration {
         private final String paramName;
         private final ListType listType;
         private final StructType structType;
