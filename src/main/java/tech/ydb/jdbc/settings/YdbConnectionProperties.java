@@ -5,30 +5,27 @@ import java.util.Objects;
 
 import javax.annotation.Nullable;
 
-import com.google.common.net.HostAndPort;
-
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
 
-@SuppressWarnings("UnstableApiUsage")
 public class YdbConnectionProperties {
-    private final HostAndPort address;
+    private final String safeURL;
+    private final String connectionString;
     private final Map<YdbConnectionProperty<?>, ParsedProperty> params;
 
-    public YdbConnectionProperties(HostAndPort address,
+    public YdbConnectionProperties(String safeURL, String connectionString,
                                    Map<YdbConnectionProperty<?>, ParsedProperty> params) {
-        this.address = Objects.requireNonNull(address);
+        this.safeURL = safeURL;
+        this.connectionString = Objects.requireNonNull(connectionString);
         this.params = Objects.requireNonNull(params);
     }
 
-    public HostAndPort getAddress() {
-        return address;
+    public String getSafeUrl() {
+        return safeURL;
     }
 
-    @Nullable
-    public String getDatabase() {
-        ParsedProperty databaseProperty = getProperty(YdbConnectionProperty.DATABASE);
-        return databaseProperty != null ? databaseProperty.getParsedValue() : null;
+    public String getConnectionString() {
+        return connectionString;
     }
 
     @Nullable
@@ -41,7 +38,7 @@ public class YdbConnectionProperties {
     }
 
     public GrpcTransport toGrpcTransport() {
-        GrpcTransportBuilder builder = GrpcTransport.forHost(address, getDatabase());
+        GrpcTransportBuilder builder = GrpcTransport.forConnectionString(connectionString);
         for (Map.Entry<YdbConnectionProperty<?>, ParsedProperty> entry : params.entrySet()) {
             if (entry.getValue() != null) {
                 entry.getKey().getSetter().accept(builder, entry.getValue().getParsedValue());

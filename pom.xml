@@ -30,6 +30,10 @@
             <groupId>tech.ydb</groupId>
             <artifactId>ydb-sdk-scheme</artifactId>
         </dependency>
+        <dependency>
+            <groupId>tech.ydb.auth</groupId>
+            <artifactId>yc-auth-provider</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.slf4j</groupId>

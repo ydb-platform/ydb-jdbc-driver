@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.function.Executable;
 
 import tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
+import tech.ydb.jdbc.exception.YdbConfigurationException;
 import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.jdbc.exception.YdbNonRetryableException;
 import tech.ydb.jdbc.exception.YdbResultTruncatedException;
@@ -17,6 +18,13 @@ import tech.ydb.jdbc.exception.YdbResultTruncatedException;
  */
 public class ExceptionAssert {
     private ExceptionAssert() { }
+
+    public static void ydbConfiguration(String message, Executable exec) {
+        YdbConfigurationException ex = Assertions.assertThrows(YdbConfigurationException.class, exec,
+                "Invalid statement must throw YdbConfigurationException"
+        );
+        Assertions.assertEquals(message, ex.getMessage());
+    }
 
     public static void ydbNonRetryable(String message, Executable exec) {
         YdbNonRetryableException ex = Assertions.assertThrows(YdbNonRetryableException.class, exec,

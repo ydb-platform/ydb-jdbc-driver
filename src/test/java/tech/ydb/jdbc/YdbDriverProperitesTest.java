@@ -18,12 +18,12 @@ import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 import com.google.common.io.Files;
-import com.google.common.net.HostAndPort;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -31,6 +31,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import tech.ydb.auth.AuthProvider;
 import tech.ydb.jdbc.exception.YdbConfigurationException;
+import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.settings.ParsedProperty;
 import tech.ydb.jdbc.settings.YdbClientProperty;
 import tech.ydb.jdbc.settings.YdbConnectionProperties;
@@ -39,15 +40,6 @@ import tech.ydb.jdbc.settings.YdbJdbcTools;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.jdbc.settings.YdbOperationProperty;
 import tech.ydb.jdbc.settings.YdbProperties;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static tech.ydb.jdbc.impl.helper.TestHelper.assertThrowsMsg;
-import static tech.ydb.jdbc.impl.helper.TestHelper.assertThrowsMsgLike;
 
 public class YdbDriverProperitesTest {
     private static final Logger logger = Logger.getLogger(YdbDriverProperitesTest.class.getName());
@@ -83,22 +75,19 @@ public class YdbDriverProperitesTest {
 
     @Test
     public void connectToUnsupportedUrl() throws SQLException {
-        assertNull(driver.connect("jdbc:clickhouse:localhost:123", new Properties()));
+        Assertions.assertNull(driver.connect("jdbc:clickhouse:localhost:123", new Properties()));
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     @ParameterizedTest
     @MethodSource("urlsToParse")
-    public void parseURL(String url, HostAndPort hostAndPort,
-                  @Nullable String database,
-                  @Nullable String localDatacenter) throws SQLException {
+    public void parseURL(String url, @Nullable String connectionString, @Nullable String localDatacenter)
+            throws SQLException {
         YdbProperties props = YdbJdbcTools.from(url, new Properties());
         YdbConnectionProperties connectionProperties = props.getConnectionProperties();
-        assertEquals(hostAndPort, connectionProperties.getAddress());
-        assertEquals(database, connectionProperties.getDatabase());
+        Assertions.assertEquals(connectionString, connectionProperties.getConnectionString());
 
         ParsedProperty dcProperty = connectionProperties.getParams().get(YdbConnectionProperty.LOCAL_DATACENTER);
-        assertEquals(localDatacenter, Optional.ofNullable(dcProperty)
+        Assertions.assertEquals(localDatacenter, Optional.ofNullable(dcProperty)
                 .map(ParsedProperty::getParsedValue)
                 .orElse(null));
 
@@ -106,56 +95,54 @@ public class YdbDriverProperitesTest {
 
     @ParameterizedTest
     @MethodSource("urlsToCheck")
-    public void acceptsURL(String url, boolean accept, String expectDatabase) throws SQLException {
-        assertEquals(accept, driver.acceptsURL(url));
+    public void acceptsURL(String url, boolean accept, String connectionString) throws SQLException {
+        Assertions.assertEquals(accept, driver.acceptsURL(url));
         DriverPropertyInfo[] properties = driver.getPropertyInfo(url, new Properties());
-        assertNotNull(properties);
+        Assertions.assertNotNull(properties);
 
         if (accept) {
             YdbProperties ydbProperties = YdbJdbcTools.from(url, new Properties());
-            assertNotNull(ydbProperties);
-            assertEquals(expectDatabase, ydbProperties.getConnectionProperties().getDatabase());
+            Assertions.assertNotNull(ydbProperties);
+            Assertions.assertEquals(connectionString, ydbProperties.getConnectionProperties().getConnectionString());
         }
     }
 
     @SuppressWarnings("UnstableApiUsage")
     @Test
     public void getPropertyInfoDefault() throws SQLException {
-        String url = "jdbc:ydb:ydb-ru-prestable.yandex.net:2135/ru-prestable/ci/testing/ci";
+        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/pr/testing/ci";
 
         Properties properties = new Properties();
         DriverPropertyInfo[] propertyInfo = driver.getPropertyInfo(url, properties);
-        assertEquals(new Properties(), properties);
+        Assertions.assertEquals(new Properties(), properties);
 
         List<String> actual = convertPropertyInfo(propertyInfo);
         actual.forEach(logger::info);
 
         List<String> expect = convertPropertyInfo(defaultPropertyInfo());
-        assertEquals(expect, actual);
+        Assertions.assertEquals(expect, actual);
 
         YdbProperties ydbProperties = YdbJdbcTools.from(url, properties);
-        assertEquals(HostAndPort.fromParts("ydb-ru-prestable.yandex.net", 2135),
-                ydbProperties.getConnectionProperties().getAddress());
-        assertEquals("/ru-prestable/ci/testing/ci",
-                ydbProperties.getConnectionProperties().getDatabase());
+        Assertions.assertEquals("grpc://ydb-demo.testhost.org:2135/test/pr/testing/ci",
+                ydbProperties.getConnectionProperties().getConnectionString());
     }
 
     @Test
     public void getPropertyInfoAllFromUrl() throws SQLException {
-        String url = "jdbc:ydb:ydb-ru-prestable.yandex.net:2135/ru-prestable/ci/testing/ci?" +
+        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/pr/testing/ci?" +
                 customizedProperties().entrySet().stream()
                         .map(e -> e.getKey() + "=" + e.getValue())
                         .collect(Collectors.joining("&"));
 
         Properties properties = new Properties();
         DriverPropertyInfo[] propertyInfo = driver.getPropertyInfo(url, properties);
-        assertEquals(new Properties(), properties);
+        Assertions.assertEquals(new Properties(), properties);
 
         List<String> actual = convertPropertyInfo(propertyInfo);
         actual.forEach(logger::info);
 
         List<String> expect = convertPropertyInfo(customizedPropertyInfo());
-        assertEquals(expect, actual);
+        Assertions.assertEquals(expect, actual);
 
         YdbProperties ydbProperties = YdbJdbcTools.from(url, properties);
         checkCustomizedProperties(ydbProperties);
@@ -163,20 +150,20 @@ public class YdbDriverProperitesTest {
 
     @Test
     public void getPropertyInfoFromProperties() throws SQLException {
-        String url = "jdbc:ydb:ydb-ru-prestable.yandex.net:2135/ru-prestable/ci/testing/ci";
+        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/pr/testing/ci";
 
         Properties properties = customizedProperties();
         Properties copy = new Properties();
         copy.putAll(properties);
 
         DriverPropertyInfo[] propertyInfo = driver.getPropertyInfo(url, properties);
-        assertEquals(copy, properties);
+        Assertions.assertEquals(copy, properties);
 
         List<String> actual = convertPropertyInfo(propertyInfo);
         actual.forEach(logger::info);
 
         List<String> expect = convertPropertyInfo(customizedPropertyInfo());
-        assertEquals(expect, actual);
+        Assertions.assertEquals(expect, actual);
 
         YdbProperties ydbProperties = YdbJdbcTools.from(url, properties);
         checkCustomizedProperties(ydbProperties);
@@ -185,7 +172,7 @@ public class YdbDriverProperitesTest {
     @SuppressWarnings("UnstableApiUsage")
     @Test
     public void getPropertyInfoOverwrite() throws SQLException {
-        String url = "jdbc:ydb:ydb-ru-prestable.yandex.net:2135/ru-prestable/ci/testing/ci?localDatacenter=sas";
+        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/testing/ydb?localDatacenter=sas";
         Properties properties = new Properties();
         properties.put("localDatacenter", "vla");
 
@@ -193,50 +180,19 @@ public class YdbDriverProperitesTest {
         copy.putAll(properties);
 
         DriverPropertyInfo[] propertyInfo = driver.getPropertyInfo(url, properties);
-        assertEquals(copy, properties);
+        Assertions.assertEquals(copy, properties);
 
         List<String> actual = convertPropertyInfo(propertyInfo);
         actual.forEach(logger::info);
 
         // URL will always overwrite properties
         List<String> expect = convertPropertyInfo(defaultPropertyInfo("sas"));
-        assertEquals(expect, actual);
+        Assertions.assertEquals(expect, actual);
 
         YdbProperties ydbProperties = YdbJdbcTools.from(url, properties);
-        assertEquals(HostAndPort.fromParts("ydb-ru-prestable.yandex.net", 2135),
-                ydbProperties.getConnectionProperties().getAddress());
-        assertEquals("/ru-prestable/ci/testing/ci",
-                ydbProperties.getConnectionProperties().getDatabase());
+        Assertions.assertEquals("grpc://ydb-demo.testhost.org:2135/testing/ydb",
+                ydbProperties.getConnectionProperties().getConnectionString());
     }
-
-    @Test
-    public void getPropertyInfoAuthProvider() throws SQLException {
-        AuthProvider customAuthProvider = () -> () -> "any";
-
-        Properties properties = new Properties();
-        properties.put(YdbConnectionProperty.AUTH_PROVIDER.getName(), customAuthProvider);
-
-        Properties copy = new Properties();
-        copy.putAll(properties);
-
-        String url = "jdbc:ydb:ydb-ru-prestable.yandex.net:2135/ru-prestable/ci/testing/ci";
-        DriverPropertyInfo[] propertyInfo = driver.getPropertyInfo(url, properties);
-
-        assertEquals(copy, properties); // Provided properties were not changed
-
-        List<String> actual = convertPropertyInfo(propertyInfo);
-        actual.forEach(logger::info);
-
-        List<String> expect = convertPropertyInfo(defaultPropertyInfo());
-        assertEquals(expect, actual);
-
-
-        YdbProperties ydbProperties = YdbJdbcTools.from(url, properties);
-        ParsedProperty auth = ydbProperties.getConnectionProperties().getProperty(YdbConnectionProperty.AUTH_PROVIDER);
-        assertNotNull(auth);
-        assertEquals(customAuthProvider, auth.getParsedValue());
-    }
-
 
     @ParameterizedTest(name = "[{index}] {1}")
     @MethodSource("tokensToCheck")
@@ -245,23 +201,20 @@ public class YdbDriverProperitesTest {
             token += TOKEN_FILE.getAbsolutePath();
         }
 
-        String url = "jdbc:ydb:ydb-ru-prestable.yandex.net:2135/ru-prestable/ci/testing/ci?token=" + token;
+        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/pr/testing/ci?token=" + token;
         Properties properties = new Properties();
         YdbProperties ydbProperties = YdbJdbcTools.from(url, properties);
 
         YdbConnectionProperties props = ydbProperties.getConnectionProperties();
-        assertEquals(expectValue, ((AuthProvider)props.getProperty(YdbConnectionProperty.TOKEN).getParsedValue())
+        Assertions.assertEquals(expectValue, ((AuthProvider)props.getProperty(YdbConnectionProperty.TOKEN).getParsedValue())
                 .createAuthIdentity(null).getToken());
     }
 
     @ParameterizedTest
     @MethodSource("unknownFiles")
     public void getTokenAsInvalid(String token, String expectException) {
-        String url = "jdbc:ydb:ydb-ru-prestable.yandex.net:2135/ru-prestable/ci/testing/ci?token=" + token;
-
-        assertThrowsMsgLike(YdbConfigurationException.class,
-                () -> YdbJdbcTools.from(url, new Properties()),
-                expectException);
+        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/pr/testing/ci?token=" + token;
+        ExceptionAssert.ydbConfiguration(expectException, () -> YdbJdbcTools.from(url, new Properties()));
     }
 
     @ParameterizedTest(name = "[{index}] {1}")
@@ -270,68 +223,64 @@ public class YdbDriverProperitesTest {
         if ("file:".equals(certificate)) {
             certificate += CERTIFICATE_FILE.getAbsolutePath();
         }
-        String url = "jdbc:ydb:ydb-ru-prestable.yandex.net:2135/ru-prestable/ci/testing/ci" +
+        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/pr/testing/ci" +
                 "?secureConnectionCertificate=" + certificate;
         Properties properties = new Properties();
         YdbProperties ydbProperties = YdbJdbcTools.from(url, properties);
 
         YdbConnectionProperties props = ydbProperties.getConnectionProperties();
-        assertArrayEquals(expectValue.getBytes(),
+        Assertions.assertArrayEquals(expectValue.getBytes(),
                 props.getProperty(YdbConnectionProperty.SECURE_CONNECTION_CERTIFICATE).getParsedValue());
     }
 
     @ParameterizedTest
     @MethodSource("unknownFiles")
     public void getCaCertificateAsInvalid(String certificate, String expectException) {
-        String url = "jdbc:ydb:ydb-ru-prestable.yandex.net:2135/ru-prestable/ci/testing/ci" +
+        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/pr/testing/ci" +
                 "?secureConnectionCertificate=" + certificate;
-        assertThrowsMsgLike(YdbConfigurationException.class,
-                () -> YdbJdbcTools.from(url, new Properties()),
-                expectException);
+        ExceptionAssert.ydbConfiguration(expectException, () -> YdbJdbcTools.from(url, new Properties()));
     }
 
     @ParameterizedTest
     @MethodSource("invalidDurationParams")
     public void invalidDuration(String param) {
-        String url = "jdbc:ydb:ydb-ru-prestable.yandex.net:2135/ru-prestable/ci/testing/ci?" + param + "=1bc";
-        assertThrowsMsg(YdbConfigurationException.class,
-                () -> YdbJdbcTools.from(url, new Properties()),
-                "Unable to convert property " + param +
-                        ": Unable to parse value [1bc] -> [PT1BC] as Duration: Text cannot be parsed to a Duration");
+        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/pr/testing/ci?" + param + "=1bc";
+        ExceptionAssert.ydbConfiguration("Unable to convert property " + param +
+                        ": Unable to parse value [1bc] -> [PT1BC] as Duration: Text cannot be parsed to a Duration",
+                () -> YdbJdbcTools.from(url, new Properties()));
     }
 
     @ParameterizedTest
     @MethodSource("invalidIntegerParams")
     public void invalidInteger(String param) {
-        String url = "jdbc:ydb:ydb-ru-prestable.yandex.net:2135/ru-prestable/ci/testing/ci?" + param + "=1bc";
-        assertThrowsMsg(YdbConfigurationException.class,
-                () -> YdbJdbcTools.from(url, new Properties()),
-                "Unable to convert property " + param +
-                        ": Unable to parse value [1bc] as Integer: For input string: \"1bc\"");
+        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/pr/testing/ci?" + param + "=1bc";
+        ExceptionAssert.ydbConfiguration("Unable to convert property " + param +
+                        ": Unable to parse value [1bc] as Integer: For input string: \"1bc\"",
+                () -> YdbJdbcTools.from(url, new Properties()));
     }
 
     @Test
+    @Disabled
     public void invalidAuthProviderProperty() {
-        String url = "jdbc:ydb:ydb-ru-prestable.yandex.net:2135/ru-prestable/ci/testing/ci?authProvider=test";
-        assertThrowsMsg(YdbConfigurationException.class,
-                () -> YdbJdbcTools.from(url, new Properties()),
-                "Unable to convert property authProvider: " +
-                        "Property authProvider must be configured with object, not a string");
+        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/pr/testing/ci?authProvider=test";
+        ExceptionAssert.ydbConfiguration("Unable to convert property authProvider: " +
+                        "Property authProvider must be configured with object, not a string",
+                () -> YdbJdbcTools.from(url, new Properties()));
     }
 
     @Test
     public void getMajorVersion() {
-        assertEquals(2, driver.getMajorVersion());
+        Assertions.assertEquals(2, driver.getMajorVersion());
     }
 
     @Test
     public void getMinorVersion() {
-        assertTrue(driver.getMinorVersion() >= 0);
+        Assertions.assertTrue(driver.getMinorVersion() >= 0);
     }
 
     @Test
     public void jdbcCompliant() {
-        assertFalse(driver.jdbcCompliant());
+        Assertions.assertFalse(driver.jdbcCompliant());
     }
 
     @Test
@@ -351,13 +300,10 @@ public class YdbDriverProperitesTest {
 
     static DriverPropertyInfo[] defaultPropertyInfo(@Nullable String localDatacenter) {
         return new DriverPropertyInfo[]{
-                YdbConnectionProperty.DATABASE.toDriverPropertyInfo("/ru-prestable/ci/testing/ci"),
                 YdbConnectionProperty.LOCAL_DATACENTER.toDriverPropertyInfo(localDatacenter),
                 YdbConnectionProperty.SECURE_CONNECTION.toDriverPropertyInfo(null),
                 YdbConnectionProperty.SECURE_CONNECTION_CERTIFICATE.toDriverPropertyInfo(null),
-                YdbConnectionProperty.READ_TIMEOUT.toDriverPropertyInfo(null),
                 YdbConnectionProperty.TOKEN.toDriverPropertyInfo(null),
-                YdbConnectionProperty.AUTH_PROVIDER.toDriverPropertyInfo(null),
 
                 YdbClientProperty.KEEP_QUERY_TEXT.toDriverPropertyInfo(null),
                 YdbClientProperty.SESSION_KEEP_ALIVE_TIME.toDriverPropertyInfo(null),
@@ -422,13 +368,10 @@ public class YdbDriverProperitesTest {
 
     static DriverPropertyInfo[] customizedPropertyInfo() {
         return new DriverPropertyInfo[]{
-                YdbConnectionProperty.DATABASE.toDriverPropertyInfo("/ru-prestable/ci/testing/ci"),
                 YdbConnectionProperty.LOCAL_DATACENTER.toDriverPropertyInfo("sas"),
                 YdbConnectionProperty.SECURE_CONNECTION.toDriverPropertyInfo("true"),
                 YdbConnectionProperty.SECURE_CONNECTION_CERTIFICATE.toDriverPropertyInfo(null),
-                YdbConnectionProperty.READ_TIMEOUT.toDriverPropertyInfo("2m"),
                 YdbConnectionProperty.TOKEN.toDriverPropertyInfo("x-secured-token"),
-                YdbConnectionProperty.AUTH_PROVIDER.toDriverPropertyInfo(null),
 
                 YdbClientProperty.KEEP_QUERY_TEXT.toDriverPropertyInfo("true"),
                 YdbClientProperty.SESSION_KEEP_ALIVE_TIME.toDriverPropertyInfo("15m"),
@@ -457,75 +400,64 @@ public class YdbDriverProperitesTest {
         };
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     static void checkCustomizedProperties(YdbProperties properties) {
         YdbConnectionProperties conn = properties.getConnectionProperties();
-        assertEquals(HostAndPort.fromParts("ydb-ru-prestable.yandex.net", 2135),
-                conn.getAddress());
-        assertEquals("/ru-prestable/ci/testing/ci",
-                conn.getDatabase());
+        Assertions.assertEquals("grpc://ydb-demo.testhost.org:2135/test/pr/testing/ci",
+                conn.getConnectionString());
 
         YdbOperationProperties ops = properties.getOperationProperties();
-        assertEquals(Duration.ofMinutes(6), ops.getJoinDuration());
-        assertTrue(ops.isKeepInQueryCache());
-        assertEquals(Duration.ofMinutes(2), ops.getQueryTimeout());
-        assertEquals(Duration.ofMinutes(3), ops.getScanQueryTimeout());
-        assertFalse(ops.isFailOnTruncatedResult());
-        assertEquals(Duration.ofSeconds(6), ops.getSessionTimeout());
-        assertTrue(ops.isAutoCommit());
-        assertEquals(YdbConst.ONLINE_CONSISTENT_READ_ONLY, ops.getTransactionLevel());
-        assertFalse(ops.isAutoPreparedBatches());
-        assertFalse(ops.isEnforceSqlV1());
-        assertFalse(ops.isEnforceVariablePrefix());
-        assertFalse(ops.isCacheConnectionsInDriver());
-        assertFalse(ops.isDetectSqlOperations());
+        Assertions.assertEquals(Duration.ofMinutes(6), ops.getJoinDuration());
+        Assertions.assertTrue(ops.isKeepInQueryCache());
+        Assertions.assertEquals(Duration.ofMinutes(2), ops.getQueryTimeout());
+        Assertions.assertEquals(Duration.ofMinutes(3), ops.getScanQueryTimeout());
+        Assertions.assertFalse(ops.isFailOnTruncatedResult());
+        Assertions.assertEquals(Duration.ofSeconds(6), ops.getSessionTimeout());
+        Assertions.assertTrue(ops.isAutoCommit());
+        Assertions.assertEquals(YdbConst.ONLINE_CONSISTENT_READ_ONLY, ops.getTransactionLevel());
+        Assertions.assertFalse(ops.isAutoPreparedBatches());
+        Assertions.assertFalse(ops.isEnforceSqlV1());
+        Assertions.assertFalse(ops.isEnforceVariablePrefix());
+        Assertions.assertFalse(ops.isCacheConnectionsInDriver());
+        Assertions.assertFalse(ops.isDetectSqlOperations());
     }
 
     static String asString(DriverPropertyInfo info) {
-        assertNull(info.choices);
+        Assertions.assertNull(info.choices);
         return String.format("%s=%s (%s, required = %s)", info.name, info.value, info.description, info.required);
     }
 
     @SuppressWarnings("UnstableApiUsage")
-    static Collection<Arguments> urlsToParse() {
+    public static Collection<Arguments> urlsToParse() {
         return Arrays.asList(
-                Arguments.of("jdbc:ydb:ydb-ru-prestable.yandex.net:2135",
-                        HostAndPort.fromParts("ydb-ru-prestable.yandex.net", 2135),
-                        null,
+                Arguments.of("jdbc:ydb:ydb-demo.testhost.org:2135",
+                        "grpc://ydb-demo.testhost.org:2135",
                         null),
-                Arguments.of("jdbc:ydb:ydb-ru-prestable.yandex.net:2135/ru-prestable/ci/testing/ci",
-                        HostAndPort.fromParts("ydb-ru-prestable.yandex.net", 2135),
-                        "/ru-prestable/ci/testing/ci",
+                Arguments.of("jdbc:ydb:ydb-demo.testhost.org:2135/demo/ci/testing/ci",
+                        "grpc://ydb-demo.testhost.org:2135/demo/ci/testing/ci",
                         null),
-                Arguments.of("jdbc:ydb:ydb-ru-prestable.yandex.net:2135/ru-prestable/ci/testing/ci?localDatacenter=man",
-                        HostAndPort.fromParts("ydb-ru-prestable.yandex.net", 2135),
-                        "/ru-prestable/ci/testing/ci",
+                Arguments.of("jdbc:ydb:grpc://ydb-demo.testhost.org:2135/demo/ci/testing/ci?localDatacenter=man",
+                        "grpc://ydb-demo.testhost.org:2135/demo/ci/testing/ci",
                         "man"),
-                Arguments.of("jdbc:ydb:ydb-ru-prestable.yandex.net:2135?localDatacenter=man",
-                        HostAndPort.fromParts("ydb-ru-prestable.yandex.net", 2135),
-                        null,
+                Arguments.of("jdbc:ydb:grpcs://ydb-demo.testhost.org:2135?localDatacenter=man",
+                        "grpcs://ydb-demo.testhost.org:2135",
                         "man")
         );
     }
 
-    static Collection<Arguments> urlsToCheck() {
+    public static Collection<Arguments> urlsToCheck() {
         return Arrays.asList(
                 Arguments.of("jdbc:ydb:",
-                        true, null),
-                Arguments.of("jdbc:ydb:ydb-ru-prestable.yandex.net:2135",
-                        true, null),
-                Arguments.of("jdbc:ydb:ydb-ru-prestable.yandex.net:2135/ru-prestable/ci/testing/ci",
-                        true, "/ru-prestable/ci/testing/ci"),
-                Arguments.of("jdbc:ydb:ydb-ru-prestable.yandex.net:2135?database=ru-prestable/ci/testing/ci",
-                        true, "/ru-prestable/ci/testing/ci"),
-                Arguments.of("jdbc:ydb:ydb-ru-prestable.yandex.net:2135?database=/ru-prestable/ci/testing/ci",
-                        true, "/ru-prestable/ci/testing/ci"),
-                Arguments.of("jdbc:ydb:ydb-ru-prestable.yandex.net:2135/ru-prestable/ci/testing/ci?dc=man",
-                        true, "/ru-prestable/ci/testing/ci"),
-                Arguments.of("jdbc:ydb:ydb-ru-prestable.yandex.net:2135?database=ru-prestable/ci/testing/ci&dc=man",
-                        true, "/ru-prestable/ci/testing/ci"),
-                Arguments.of("jdbc:ydb:ydb-ru-prestable.yandex.net:2135?dc=man&database=ru-prestable/ci/testing/ci",
-                        true, "/ru-prestable/ci/testing/ci"),
+                        true, ""),
+                Arguments.of("jdbc:ydb:ydb-demo.testhost.org:2135",
+                        true, "grpc://ydb-demo.testhost.org:2135"),
+                Arguments.of("jdbc:ydb:ydb-demo.testhost.org",
+                        true, "grpc://ydb-demo.testhost.org"),
+                Arguments.of("jdbc:ydb:grpcs://ydb-demo.testhost.org",
+                        true, "grpcs://ydb-demo.testhost.org"),
+                Arguments.of("jdbc:ydb:ydb-demo.testhost.org:2133/test/pr/testing/ci",
+                        true, "grpc://ydb-demo.testhost.org:2133/test/pr/testing/ci"),
+                Arguments.of("jdbc:ydb:ydb-demo.testhost.org:2135/test/pr/testing/ci?dc=man",
+                        true, "grpc://ydb-demo.testhost.org:2135/test/pr/testing/ci"),
                 Arguments.of("ydb:",
                         false, null),
                 Arguments.of("jdbc:ydb",
@@ -535,19 +467,19 @@ public class YdbDriverProperitesTest {
         );
     }
 
-    static Collection<Arguments> tokensToCheck() {
+    public static Collection<Arguments> tokensToCheck() {
         return Arrays.asList(
                 Arguments.of("classpath:data/token.txt", "token-from-classpath"),
                 Arguments.of("file:", TOKEN_FROM_FILE));
     }
 
-    static Collection<Arguments> certificatesToCheck() {
+    public static Collection<Arguments> certificatesToCheck() {
         return Arrays.asList(
                 Arguments.of("classpath:data/certificate.txt", "certificate-from-classpath"),
                 Arguments.of("file:", CERTIFICATE_FROM_FILE));
     }
 
-    static Collection<Arguments> unknownFiles() {
+    public static Collection<Arguments> unknownFiles() {
         return Arrays.asList(
                 Arguments.of("classpath:data/unknown-file.txt",
                         "Unable to find classpath resource: classpath:data/unknown-file.txt"),
@@ -555,9 +487,8 @@ public class YdbDriverProperitesTest {
                         "Unable to read resource from file:data/unknown-file.txt"));
     }
 
-    static Collection<Arguments> invalidDurationParams() {
+    public static Collection<Arguments> invalidDurationParams() {
         return Arrays.asList(
-                Arguments.of("readTimeout"),
                 Arguments.of("sessionKeepAliveTime"),
                 Arguments.of("sessionMaxIdleTime"),
                 Arguments.of("joinDuration"),
@@ -568,7 +499,7 @@ public class YdbDriverProperitesTest {
         );
     }
 
-    static Collection<Arguments> invalidIntegerParams() {
+    public static Collection<Arguments> invalidIntegerParams() {
         return Arrays.asList(
                 Arguments.of("sessionPoolSizeMin"),
                 Arguments.of("sessionPoolSizeMax"),

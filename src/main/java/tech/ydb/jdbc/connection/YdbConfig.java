@@ -47,6 +47,10 @@ public class YdbConfig {
         return url;
     }
 
+    public String getSafeUrl() {
+        return config.getConnectionProperties().getSafeUrl();
+    }
+
     public YdbConnectionProperties getConnectionProperties() {
         return config.getConnectionProperties();
     }

@@ -1,6 +1,5 @@
 package tech.ydb.jdbc.settings;
 
-import java.time.Duration;
 import java.util.Collection;
 import java.util.function.BiConsumer;
 
@@ -10,19 +9,9 @@ import tech.ydb.auth.AuthProvider;
 import tech.ydb.auth.TokenAuthProvider;
 import tech.ydb.core.grpc.BalancingSettings;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
-import tech.ydb.jdbc.exception.YdbConfigurationException;
 
 public class YdbConnectionProperty<T> extends AbstractYdbProperty<T, GrpcTransportBuilder> {
     private static final PropertiesCollector<YdbConnectionProperty<?>> PROPERTIES = new PropertiesCollector<>();
-
-    public static final YdbConnectionProperty<String> DATABASE =
-            new YdbConnectionProperty<>(
-                    "database",
-                    "Database to connect",
-                    null,
-                    String.class,
-                    database -> !database.startsWith("/") ? ("/" + database) : database,
-                    (b, v) -> {});
 
     public static final YdbConnectionProperty<String> LOCAL_DATACENTER =
             new YdbConnectionProperty<>(
@@ -36,6 +25,7 @@ public class YdbConnectionProperty<T> extends AbstractYdbProperty<T, GrpcTranspo
                             builder.withBalancingSettings(BalancingSettings.fromLocation(value));
                         }
                     });
+
     public static final YdbConnectionProperty<Boolean> SECURE_CONNECTION =
             new YdbConnectionProperty<>(
                     "secureConnection",
@@ -48,6 +38,7 @@ public class YdbConnectionProperty<T> extends AbstractYdbProperty<T, GrpcTranspo
                             builder.withSecureConnection();
                         }
                     });
+
     public static final YdbConnectionProperty<byte[]> SECURE_CONNECTION_CERTIFICATE =
             new YdbConnectionProperty<>(
                     "secureConnectionCertificate",
@@ -56,34 +47,14 @@ public class YdbConnectionProperty<T> extends AbstractYdbProperty<T, GrpcTranspo
                     byte[].class,
                     PropertyConverter.byteFileReference(),
                     GrpcTransportBuilder::withSecureConnection);
-    public static final YdbConnectionProperty<Duration> READ_TIMEOUT =
-            new YdbConnectionProperty<>(
-                    "readTimeout",
-                    "Read Timeout",
-                    null,
-                    Duration.class,
-                    PropertyConverter.durationValue(),
-                    GrpcTransportBuilder::withReadTimeout);
 
-    public static final YdbConnectionProperty<TokenAuthProvider> TOKEN =
+    public static final YdbConnectionProperty<AuthProvider> TOKEN =
             new YdbConnectionProperty<>(
                     "token",
                     "Token-based authentication",
                     null,
-                    TokenAuthProvider.class,
-                    value -> new TokenAuthProvider(PropertyConverter.stringFileReference().convert(value)),
-                    GrpcTransportBuilder::withAuthProvider);
-
-    public static final YdbConnectionProperty<AuthProvider> AUTH_PROVIDER =
-            new YdbConnectionProperty<>(
-                    "authProvider",
-                    "Custom authentication provider (must be specified programmatically in properties as object)",
-                    null,
                     AuthProvider.class,
-                    value -> {
-                        throw new YdbConfigurationException("Property authProvider " +
-                                "must be configured with object, not a string");
-                    },
+                    value -> new TokenAuthProvider(PropertyConverter.stringFileReference().convert(value)),
                     GrpcTransportBuilder::withAuthProvider);
 
     private YdbConnectionProperty(String name,

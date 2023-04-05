@@ -48,11 +48,12 @@ public class YdbDriver implements Driver {
             return null;
         }
 
-        // logging should be after acceptsURL, otherwise we can log getOperationProperties with secrets of another database
-        LOGGER.log(Level.INFO, "About to connect to [{0}] using properties {1}", new Object[] {url, info});
-
-
         YdbConfig config = new YdbConfig(url, info);
+        LOGGER.log(Level.INFO, "About to connect to [{0}] using properties {1}", new Object[] {
+            config.getSafeUrl(),
+            info
+        });
+
         if (config.getOperationProperties().isCacheConnectionsInDriver()) {
             return new YdbConnectionImpl(getCachedContext(config));
         }
@@ -73,10 +74,7 @@ public class YdbDriver implements Driver {
         // Was fixed in Java 9+
         YdbContext context = cache.get(config);
         if (context != null) {
-            LOGGER.log(Level.FINE, "Reusing YDB connection to {0}{1}", new Object[] {
-                    config.getConnectionProperties().getAddress(),
-                    config.getConnectionProperties().getDatabase()
-            });
+            LOGGER.log(Level.FINE, "Reusing YDB connection to {0}", config.getConnectionProperties());
             return context;
         }
         return cache.computeIfAbsent(config, YdbContext::createContext);
