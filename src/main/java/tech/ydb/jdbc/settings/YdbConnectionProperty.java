@@ -7,6 +7,7 @@ import javax.annotation.Nullable;
 
 import tech.ydb.auth.AuthProvider;
 import tech.ydb.auth.TokenAuthProvider;
+import tech.ydb.auth.iam.CloudAuthHelper;
 import tech.ydb.core.grpc.BalancingSettings;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
 
@@ -56,6 +57,30 @@ public class YdbConnectionProperty<T> extends AbstractYdbProperty<T, GrpcTranspo
                     AuthProvider.class,
                     value -> new TokenAuthProvider(PropertyConverter.stringFileReference().convert(value)),
                     GrpcTransportBuilder::withAuthProvider);
+
+    public static final YdbConnectionProperty<AuthProvider> SERVICE_ACCOUNT_FILE =
+            new YdbConnectionProperty<>(
+                    "saFile",
+                    "Service account file based authentication",
+                    null,
+                    AuthProvider.class,
+                    value -> CloudAuthHelper.getServiceAccountFileAuthProvider(
+                            PropertyConverter.stringFileReference().convert(value)
+                    ),
+                    GrpcTransportBuilder::withAuthProvider);
+
+    public static final YdbConnectionProperty<Boolean> USE_METADATA =
+            new YdbConnectionProperty<>(
+                    "useMetadata",
+                    "Use metadata service for authentication",
+                    null,
+                    Boolean.class,
+                    PropertyConverter.booleanValue(),
+                    (builder, value) -> {
+                        if (value) {
+                            builder.withAuthProvider(CloudAuthHelper.getMetadataAuthProvider());
+                        }
+                    });
 
     private YdbConnectionProperty(String name,
                                     String description,
