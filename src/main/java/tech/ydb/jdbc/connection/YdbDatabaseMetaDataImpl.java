@@ -795,9 +795,9 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
                                 "TYPE_NAME", type.toString(),
                                 "COLUMN_SIZE", types.getSqlPrecision(type),
                                 "BUFFER_LENGTH", 0,
-                                "DECIMAL_DIGITS", type.getKind() == Type.Kind.DECIMAL ?
+                                "DECIMAL_DIGITS", (short)(type.getKind() == Type.Kind.DECIMAL ?
                                         YdbConst.SQL_DECIMAL_DEFAULT_PRECISION :
-                                        0,
+                                        0),
                                 "NUM_PREC_RADIX", 10,
                                 "NULLABLE", nullable,
                                 "REMARKS", null,

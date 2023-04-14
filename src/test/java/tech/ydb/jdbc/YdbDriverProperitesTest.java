@@ -305,6 +305,9 @@ public class YdbDriverProperitesTest {
                 YdbConnectionProperty.SECURE_CONNECTION_CERTIFICATE.toDriverPropertyInfo(null),
                 YdbConnectionProperty.TOKEN.toDriverPropertyInfo(null),
 
+                YdbConnectionProperty.SERVICE_ACCOUNT_FILE.toDriverPropertyInfo(null),
+                YdbConnectionProperty.USE_METADATA.toDriverPropertyInfo(null),
+
                 YdbClientProperty.KEEP_QUERY_TEXT.toDriverPropertyInfo(null),
                 YdbClientProperty.SESSION_KEEP_ALIVE_TIME.toDriverPropertyInfo(null),
                 YdbClientProperty.SESSION_MAX_IDLE_TIME.toDriverPropertyInfo(null),
@@ -339,6 +342,9 @@ public class YdbDriverProperitesTest {
         properties.setProperty("readTimeout", "2m");
         properties.setProperty("token", "x-secured-token");
 
+        properties.setProperty("saFile", "x-secured-file");
+        properties.setProperty("useMetadata", "true");
+
         properties.setProperty("keepQueryText", "true");
         properties.setProperty("sessionKeepAliveTime", "15m");
         properties.setProperty("sessionMaxIdleTime", "5m");
@@ -372,6 +378,9 @@ public class YdbDriverProperitesTest {
                 YdbConnectionProperty.SECURE_CONNECTION.toDriverPropertyInfo("true"),
                 YdbConnectionProperty.SECURE_CONNECTION_CERTIFICATE.toDriverPropertyInfo(null),
                 YdbConnectionProperty.TOKEN.toDriverPropertyInfo("x-secured-token"),
+
+                YdbConnectionProperty.SERVICE_ACCOUNT_FILE.toDriverPropertyInfo("x-secured-file"),
+                YdbConnectionProperty.USE_METADATA.toDriverPropertyInfo("true"),
 
                 YdbClientProperty.KEEP_QUERY_TEXT.toDriverPropertyInfo("true"),
                 YdbClientProperty.SESSION_KEEP_ALIVE_TIME.toDriverPropertyInfo("15m"),
@@ -452,10 +461,16 @@ public class YdbDriverProperitesTest {
                         true, "grpc://ydb-demo.testhost.org:2135"),
                 Arguments.of("jdbc:ydb:ydb-demo.testhost.org",
                         true, "grpc://ydb-demo.testhost.org"),
+                Arguments.of("jdbc:ydb:ydb-demo.testhost.org:2135?database=test/pr/testing/ci",
+                        true, "grpc://ydb-demo.testhost.org:2135/test/pr/testing/ci"),
                 Arguments.of("jdbc:ydb:grpcs://ydb-demo.testhost.org",
                         true, "grpcs://ydb-demo.testhost.org"),
+                Arguments.of("jdbc:ydb:ydb-demo.testhost.org:2170?database=/test/pr/testing/ci",
+                        true, "grpc://ydb-demo.testhost.org:2170/test/pr/testing/ci"),
                 Arguments.of("jdbc:ydb:ydb-demo.testhost.org:2133/test/pr/testing/ci",
                         true, "grpc://ydb-demo.testhost.org:2133/test/pr/testing/ci"),
+                Arguments.of("jdbc:ydb:grpcs://ydb-demo.testhost.org?database=test/pr/testing/ci&dc=man",
+                        true, "grpcs://ydb-demo.testhost.org/test/pr/testing/ci"),
                 Arguments.of("jdbc:ydb:ydb-demo.testhost.org:2135/test/pr/testing/ci?dc=man",
                         true, "grpc://ydb-demo.testhost.org:2135/test/pr/testing/ci"),
                 Arguments.of("ydb:",

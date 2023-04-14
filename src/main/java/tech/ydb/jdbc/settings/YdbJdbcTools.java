@@ -46,16 +46,25 @@ public class YdbJdbcTools {
                 URI url = new URI(ydbURL.contains("://") ? ydbURL : "grpc://" + ydbURL);
                 Map<String, List<String>> params = URITools.splitQuery(url);
 
-                // merge properties and query params
-                params.forEach((key, list) -> properties.put(key, list.get(list.size() - 1)));
+                String database = url.getPath();
 
+                // merge properties and query params
+                for (Map.Entry<String, List<String>> entry: params.entrySet()) {
+                    String value = entry.getValue().get(entry.getValue().size() - 1);
+                    properties.put(entry.getKey(), value);
+                    if ("database".equalsIgnoreCase(entry.getKey())) {
+                        if (database == null || database.isEmpty()) {
+                            database = value.startsWith("/") ? value : "/" + value;
+                        }
+                    }
+                }
                 StringBuilder sb = new StringBuilder();
                 sb.append(url.getScheme()).append("://");
                 sb.append(url.getHost());
                 if (url.getPort() > 0) {
                     sb.append(":").append(url.getPort());
                 }
-                sb.append(url.getPath());
+                sb.append(database);
 
                 connectionString = sb.toString();
 

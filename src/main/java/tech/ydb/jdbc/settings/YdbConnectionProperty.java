@@ -64,7 +64,7 @@ public class YdbConnectionProperty<T> extends AbstractYdbProperty<T, GrpcTranspo
                     "Service account file based authentication",
                     null,
                     AuthProvider.class,
-                    value -> CloudAuthHelper.getServiceAccountFileAuthProvider(
+                    value -> CloudAuthHelper.getServiceAccountJsonAuthProvider(
                             PropertyConverter.stringFileReference().convert(value)
                     ),
                     GrpcTransportBuilder::withAuthProvider);
