@@ -108,10 +108,6 @@
                                 <value>src/test/resources/logging.properties</value>
                             </property>
                         </systemProperties>
-<!--                        <systemProperties>
-                            <java.util.logging.SimpleFormatter.format>[%1$tF %1$tT] [%4$s] %5$s %n</java.util.logging.SimpleFormatter.format>
-                            <tech.ydb.level>FINEST</tech.ydb.level>
-                        </systemProperties>-->
                     </configuration>
                 </plugin>
                 <plugin>
@@ -155,12 +151,35 @@
                                     <exclude>**/linux/**</exclude>
                                     <exclude>**/win32/**</exclude>
                                     <exclude>**/module-info.class</exclude>
+
                                     <exclude>META-INF/DEPENDENCIES</exclude>
                                     <exclude>META-INF/MANIFEST.MF</exclude>
                                     <exclude>META-INF/maven/**</exclude>
                                     <exclude>META-INF/native-image/**</exclude>
+                                    <exclude>META-INF/services/java.security.Provider</exclude>
                                     <exclude>META-INF/*.xml</exclude>
+                                    <exclude>META-INF/*.SF</exclude>
+                                    <exclude>META-INF/*.DSA</exclude>
+                                    <exclude>META-INF/*.RSA</exclude>
                                 </excludes>
+                            </filter>
+                            <filter>
+                                <artifact>com.yandex.cloud:java-genproto</artifact>
+                                <includes>
+                                    <include>yandex/cloud/api/*.class</include>
+                                    <include>yandex/cloud/api/iam/**</include>
+                                </includes>
+                            </filter>
+                            <filter>
+                                <artifact>tech.ydb:ydb-proto-api</artifact>
+                                <includes>
+                                    <include>tech/ydb/*.class</include>
+                                    <include>tech/ydb/common/**</include>
+                                    <include>tech/ydb/discovery/**</include>
+                                    <include>tech/ydb/formats/**</include>
+                                    <include>tech/ydb/table/**</include>
+                                    <include>tech/ydb/scheme/**</include>
+                                </includes>
                             </filter>
                         </filters>
                     </configuration>
