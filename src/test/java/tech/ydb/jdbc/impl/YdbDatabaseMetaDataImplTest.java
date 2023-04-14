@@ -521,7 +521,8 @@ public class YdbDatabaseMetaDataImplTest {
         TableAssert.TextColumn typeName = columns.addTextColumn("TYPE_NAME", "Text");
         TableAssert.IntColumn columnSize = columns.addIntColumn("COLUMN_SIZE", "Int32");
         columns.addIntColumn("BUFFER_LENGTH", "Int32").defaultValue(0);
-        TableAssert.IntColumn decimalDigits = columns.addIntColumn("DECIMAL_DIGITS", "Int32").defaultValue(0);
+        TableAssert.ShortColumn decimalDigits = columns.addShortColumn("DECIMAL_DIGITS", "Int16")
+                .defaultValue((short)0);
         columns.addIntColumn("NUM_PREC_RADIX", "Int32").defaultValue(10);
         columns.addIntColumn("NULLABLE", "Int32").defaultValue(DatabaseMetaData.columnNullable);
         columns.addTextColumn("REMARKS", "Text").defaultNull();
@@ -580,7 +581,7 @@ public class YdbDatabaseMetaDataImplTest {
         rs.nextRow(columnName.eq("c_Interval"), dataType.eq(Types.BIGINT), typeName.eq("Interval"),
                 columnSize.eq(8), ordinal.eq((short)18)).assertAll();
         rs.nextRow(columnName.eq("c_Decimal"), dataType.eq(Types.DECIMAL), typeName.eq("Decimal(22, 9)"),
-                columnSize.eq(16), ordinal.eq((short)19), decimalDigits.eq(22)).assertAll();
+                columnSize.eq(16), ordinal.eq((short)19), decimalDigits.eq((short)22)).assertAll();
 
         rs.assertNoRows();
 

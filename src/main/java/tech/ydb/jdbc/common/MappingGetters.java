@@ -221,6 +221,10 @@ public class MappingGetters {
                     return PrimitiveReader::getInt16;
                 case Uint16:
                     return valueReader -> (short) valueReader.getUint16();
+                case Int32:
+                    return valueReader -> (short) valueReader.getInt32();
+                case Uint32:
+                    return valueReader -> (short) valueReader.getUint32();
                 default:
                     return value -> {
                         throw dataTypeNotSupported(id, javaType);
