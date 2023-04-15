@@ -192,40 +192,50 @@ public class YdbPreparedStatementWithDataQueryImplTest {
 
     @Test
     public void executeQueryInTx() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Text?")) {
-            statement.setInt("key", 1);
-            statement.setString("c_Text", "value-1");
-            statement.execute();
-        }
-
-        // without jdbc.connection().commit() driver continues to use single transaction;
-
-        ExceptionAssert.ydbNonRetryable("Data modifications previously made to table", () -> {
-            try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
-                select.executeQuery();
+        jdbc.connection().setAutoCommit(false);
+        try {
+            try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Text?")) {
+                statement.setInt("key", 1);
+                statement.setString("c_Text", "value-1");
+                statement.execute();
             }
-        });
+
+            // without jdbc.connection().commit() driver continues to use single transaction;
+
+            ExceptionAssert.ydbNonRetryable("Data modifications previously made to table", () -> {
+                try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
+                    select.executeQuery();
+                }
+            });
+        } finally {
+            jdbc.connection().setAutoCommit(true);
+        }
     }
 
     @Test
     public void executeScanQueryInTx() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Text?")) {
-            statement.setInt("key", 1);
-            statement.setString("c_Text", "value-1");
-            statement.execute();
-        }
+        jdbc.connection().setAutoCommit(false);
+        try {
+            try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Text?")) {
+                statement.setInt("key", 1);
+                statement.setString("c_Text", "value-1");
+                statement.execute();
+            }
 
-        try (YdbPreparedStatement select = prepareScanSelectByKey("c_Text")) {
-            select.setInt("key", 1);
-            TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
-                    .noNextRows();
+            try (YdbPreparedStatement select = prepareScanSelectByKey("c_Text")) {
+                select.setInt("key", 1);
+                TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
+                        .noNextRows();
 
-            jdbc.connection().commit();
+                jdbc.connection().commit();
 
-            select.setInt("key", 1);
-            TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
-                    .nextRow(1, "value-1")
-                    .noNextRows();
+                select.setInt("key", 1);
+                TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
+                        .nextRow(1, "value-1")
+                        .noNextRows();
+            }
+        } finally {
+            jdbc.connection().setAutoCommit(true);
         }
     }
 

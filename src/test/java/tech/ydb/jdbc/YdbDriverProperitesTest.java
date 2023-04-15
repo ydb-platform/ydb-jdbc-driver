@@ -315,13 +315,12 @@ public class YdbDriverProperitesTest {
                 YdbClientProperty.SESSION_POOL_SIZE_MAX.toDriverPropertyInfo(null),
 
                 YdbOperationProperty.JOIN_DURATION.toDriverPropertyInfo("5m"),
-                YdbOperationProperty.KEEP_IN_QUERY_CACHE.toDriverPropertyInfo("false"),
                 YdbOperationProperty.QUERY_TIMEOUT.toDriverPropertyInfo("0s"),
-                YdbOperationProperty.SCAN_QUERY_TIMEOUT.toDriverPropertyInfo("1m"),
-                YdbOperationProperty.FAIL_ON_TRUNCATED_RESULT.toDriverPropertyInfo("true"),
+                YdbOperationProperty.SCAN_QUERY_TIMEOUT.toDriverPropertyInfo("5m"),
+                YdbOperationProperty.FAIL_ON_TRUNCATED_RESULT.toDriverPropertyInfo("false"),
                 YdbOperationProperty.SESSION_TIMEOUT.toDriverPropertyInfo("5s"),
                 YdbOperationProperty.DEADLINE_TIMEOUT.toDriverPropertyInfo("0s"),
-                YdbOperationProperty.AUTOCOMMIT.toDriverPropertyInfo("false"),
+                YdbOperationProperty.AUTOCOMMIT.toDriverPropertyInfo("true"),
                 YdbOperationProperty.TRANSACTION_LEVEL.toDriverPropertyInfo("8"),
 
                 YdbOperationProperty.AUTO_PREPARED_BATCHES.toDriverPropertyInfo("true"),
@@ -329,9 +328,7 @@ public class YdbDriverProperitesTest {
                 YdbOperationProperty.ENFORCE_VARIABLE_PREFIX.toDriverPropertyInfo("true"),
                 YdbOperationProperty.CACHE_CONNECTIONS_IN_DRIVER.toDriverPropertyInfo("true"),
                 YdbOperationProperty.DETECT_SQL_OPERATIONS.toDriverPropertyInfo("true"),
-                YdbOperationProperty.ALWAYS_PREPARE_DATAQUERY.toDriverPropertyInfo("true"),
-                YdbOperationProperty.TRANSFORM_STANDARD_JDBC_QUERIES.toDriverPropertyInfo("false"),
-                YdbOperationProperty.TRANSFORMED_JDBC_QUERIES_CACHE.toDriverPropertyInfo("0")
+                YdbOperationProperty.ALWAYS_PREPARE_DATAQUERY.toDriverPropertyInfo("true")
         };
     }
 
@@ -367,8 +364,6 @@ public class YdbDriverProperitesTest {
         properties.setProperty("cacheConnectionsInDriver", "false");
         properties.setProperty("detectSqlOperations", "false");
         properties.setProperty("alwaysPrepareDataQuery", "false");
-        properties.setProperty("transformStandardJdbcQueries", "true");
-        properties.setProperty("transformedJdbcQueriesCache", "1000");
         return properties;
     }
 
@@ -389,7 +384,6 @@ public class YdbDriverProperitesTest {
                 YdbClientProperty.SESSION_POOL_SIZE_MAX.toDriverPropertyInfo("4"),
 
                 YdbOperationProperty.JOIN_DURATION.toDriverPropertyInfo("6m"),
-                YdbOperationProperty.KEEP_IN_QUERY_CACHE.toDriverPropertyInfo("true"),
                 YdbOperationProperty.QUERY_TIMEOUT.toDriverPropertyInfo("2m"),
                 YdbOperationProperty.SCAN_QUERY_TIMEOUT.toDriverPropertyInfo("3m"),
                 YdbOperationProperty.FAIL_ON_TRUNCATED_RESULT.toDriverPropertyInfo("false"),
@@ -403,9 +397,7 @@ public class YdbDriverProperitesTest {
                 YdbOperationProperty.ENFORCE_VARIABLE_PREFIX.toDriverPropertyInfo("false"),
                 YdbOperationProperty.CACHE_CONNECTIONS_IN_DRIVER.toDriverPropertyInfo("false"),
                 YdbOperationProperty.DETECT_SQL_OPERATIONS.toDriverPropertyInfo("false"),
-                YdbOperationProperty.ALWAYS_PREPARE_DATAQUERY.toDriverPropertyInfo("false"),
-                YdbOperationProperty.TRANSFORM_STANDARD_JDBC_QUERIES.toDriverPropertyInfo("true"),
-                YdbOperationProperty.TRANSFORMED_JDBC_QUERIES_CACHE.toDriverPropertyInfo("1000")
+                YdbOperationProperty.ALWAYS_PREPARE_DATAQUERY.toDriverPropertyInfo("false")
         };
     }
 
@@ -416,7 +408,6 @@ public class YdbDriverProperitesTest {
 
         YdbOperationProperties ops = properties.getOperationProperties();
         Assertions.assertEquals(Duration.ofMinutes(6), ops.getJoinDuration());
-        Assertions.assertTrue(ops.isKeepInQueryCache());
         Assertions.assertEquals(Duration.ofMinutes(2), ops.getQueryTimeout());
         Assertions.assertEquals(Duration.ofMinutes(3), ops.getScanQueryTimeout());
         Assertions.assertFalse(ops.isFailOnTruncatedResult());

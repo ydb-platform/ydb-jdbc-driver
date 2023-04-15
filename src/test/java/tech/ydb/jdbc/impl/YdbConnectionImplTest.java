@@ -60,7 +60,6 @@ public class YdbConnectionImplTest {
             // create test table
             statement.execute("--jdbc:SCHEME\n drop table " + TEST_TABLE);
         }
-        jdbc.connection().commit();
     }
 
     @BeforeEach
@@ -79,7 +78,6 @@ public class YdbConnectionImplTest {
                 Assertions.assertFalse(result.next(), "Table must be empty after test");
             }
         }
-        jdbc.connection().commit(); // MUST be auto rollbacked
         jdbc.connection().close();
     }
 
@@ -87,7 +85,6 @@ public class YdbConnectionImplTest {
         try (Statement statement = jdbc.connection().createStatement()) {
             statement.execute("delete from " + TEST_TABLE);
         }
-        jdbc.connection().commit();
     }
 
     private String currentTxId() throws SQLException {
@@ -244,6 +241,7 @@ public class YdbConnectionImplTest {
 
     @Test
     public void invalidSQLCancelTransaction() throws SQLException {
+        jdbc.connection().setAutoCommit(false);
         try (Statement statement = jdbc.connection().createStatement()) {
             statement.execute("select 2 + 2");
             String txId = currentTxId();
@@ -254,11 +252,14 @@ public class YdbConnectionImplTest {
             statement.execute("select 2 + 2");
             Assertions.assertNotNull(currentTxId());
             Assertions.assertNotEquals(txId, currentTxId());
+        } finally {
+            jdbc.connection().setAutoCommit(true);
         }
     }
 
     @Test
     public void autoCommit() throws SQLException {
+        jdbc.connection().setAutoCommit(false);
         try (Statement statement = jdbc.connection().createStatement()) {
             statement.execute("select 2 + 2");
             String txId = currentTxId();
@@ -283,11 +284,14 @@ public class YdbConnectionImplTest {
             jdbc.connection().setAutoCommit(false);
             Assertions.assertFalse(jdbc.connection().getAutoCommit());
             Assertions.assertNull(currentTxId());
+        } finally {
+            jdbc.connection().setAutoCommit(true);
         }
     }
 
     @Test
     public void commit() throws SQLException {
+        jdbc.connection().setAutoCommit(false);
         try (Statement statement = jdbc.connection().createStatement()) {
             Assertions.assertTrue(statement.execute("select 2 + 2"));
             String txId = currentTxId();
@@ -316,11 +320,13 @@ public class YdbConnectionImplTest {
             }
         } finally {
             cleanTable();
+            jdbc.connection().setAutoCommit(true);
         }
     }
 
     @Test
     public void rollback() throws SQLException {
+        jdbc.connection().setAutoCommit(false);
         try (Statement statement = jdbc.connection().createStatement()) {
             Assertions.assertTrue(statement.execute("select 2 + 2"));
             String txId = currentTxId();
@@ -347,11 +353,14 @@ public class YdbConnectionImplTest {
             try (ResultSet result = statement.executeQuery("select * from " + TEST_TABLE)) {
                 Assertions.assertFalse(result.next());
             }
+        } finally {
+            jdbc.connection().setAutoCommit(true);
         }
     }
 
     @Test
     public void commitInvalidTx() throws SQLException {
+        jdbc.connection().setAutoCommit(false);
         try (Statement statement = jdbc.connection().createStatement()) {
             statement.execute("upsert into " + TEST_TABLE + "(key, c_Text) values (1, '2')");
             statement.execute("upsert into " + TEST_TABLE + "(key, c_Text) values (1, '2')");
@@ -363,11 +372,14 @@ public class YdbConnectionImplTest {
 
             jdbc.connection().commit(); // Nothing to commit, transaction was rolled back already
             Assertions.assertNull(currentTxId());
+        } finally {
+            jdbc.connection().setAutoCommit(true);
         }
     }
 
     @Test
     public void rollbackInvalidTx() throws SQLException {
+        jdbc.connection().setAutoCommit(false);
         try (Statement statement = jdbc.connection().createStatement()) {
             ResultSet result = statement.executeQuery("select * from " + TEST_TABLE);
             Assertions.assertFalse(result.next());
@@ -380,6 +392,8 @@ public class YdbConnectionImplTest {
             Assertions.assertNull(currentTxId());
             jdbc.connection().rollback();
             Assertions.assertNull(currentTxId());
+        } finally {
+            jdbc.connection().setAutoCommit(true);
         }
     }
 

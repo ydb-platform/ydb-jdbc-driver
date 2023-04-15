@@ -9,7 +9,6 @@ public class YdbOperationProperties {
 
     private final Map<YdbOperationProperty<?>, ParsedProperty> params;
     private final Duration joinDuration;
-    private final boolean keepInQueryCache;
     private final Duration queryTimeout;
     private final Duration scanQueryTimeout;
     private final boolean failOnTruncatedResult;
@@ -24,14 +23,11 @@ public class YdbOperationProperties {
     private final boolean cacheConnectionsInDriver;
     private final boolean detectSqlOperations;
     private final boolean alwaysPrepareDataQuery;
-    private final boolean transformStandardJdbcQueries;
-    private final int transformedJdbcQueriesCache;
 
     public YdbOperationProperties(Map<YdbOperationProperty<?>, ParsedProperty> params) {
         this.params = Objects.requireNonNull(params);
 
         this.joinDuration = params.get(YdbOperationProperty.JOIN_DURATION).getParsedValue();
-        this.keepInQueryCache = params.get(YdbOperationProperty.KEEP_IN_QUERY_CACHE).getParsedValue();
         this.queryTimeout = params.get(YdbOperationProperty.QUERY_TIMEOUT).getParsedValue();
         this.scanQueryTimeout = params.get(YdbOperationProperty.SCAN_QUERY_TIMEOUT).getParsedValue();
         this.failOnTruncatedResult = params.get(YdbOperationProperty.FAIL_ON_TRUNCATED_RESULT).getParsedValue();
@@ -46,10 +42,6 @@ public class YdbOperationProperties {
         this.cacheConnectionsInDriver = params.get(YdbOperationProperty.CACHE_CONNECTIONS_IN_DRIVER).getParsedValue();
         this.detectSqlOperations = params.get(YdbOperationProperty.DETECT_SQL_OPERATIONS).getParsedValue();
         this.alwaysPrepareDataQuery = params.get(YdbOperationProperty.ALWAYS_PREPARE_DATAQUERY).getParsedValue();
-        this.transformStandardJdbcQueries =
-                params.get(YdbOperationProperty.TRANSFORM_STANDARD_JDBC_QUERIES).getParsedValue();
-        this.transformedJdbcQueriesCache =
-                params.get(YdbOperationProperty.TRANSFORMED_JDBC_QUERIES_CACHE).getParsedValue();
     }
 
     public Map<YdbOperationProperty<?>, ParsedProperty> getParams() {
@@ -58,10 +50,6 @@ public class YdbOperationProperties {
 
     public Duration getJoinDuration() {
         return joinDuration;
-    }
-
-    public boolean isKeepInQueryCache() {
-        return keepInQueryCache;
     }
 
     public Duration getQueryTimeout() {
@@ -118,13 +106,5 @@ public class YdbOperationProperties {
 
     public boolean isAlwaysPrepareDataQuery() {
         return alwaysPrepareDataQuery;
-    }
-
-    public boolean isTransformStandardJdbcQueries() {
-        return transformStandardJdbcQueries;
-    }
-
-    public int getTransformedJdbcQueriesCache() {
-        return transformedJdbcQueriesCache;
     }
 }

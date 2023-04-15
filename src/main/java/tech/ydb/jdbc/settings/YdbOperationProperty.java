@@ -19,14 +19,6 @@ public class YdbOperationProperty<T> extends AbstractYdbProperty<T, Void> {
                     Duration.class,
                     PropertyConverter.durationValue());
 
-    public static final YdbOperationProperty<Boolean> KEEP_IN_QUERY_CACHE =
-            new YdbOperationProperty<>(
-                    "keepInQueryCache",
-                    "Keep all queries in cache",
-                    "false",
-                    Boolean.class,
-                    PropertyConverter.booleanValue());
-
     public static final YdbOperationProperty<Duration> QUERY_TIMEOUT =
             new YdbOperationProperty<>(
                     "queryTimeout",
@@ -39,7 +31,7 @@ public class YdbOperationProperty<T> extends AbstractYdbProperty<T, Void> {
             new YdbOperationProperty<>(
                     "scanQueryTimeout",
                     "Default timeout for all YDB scan queries",
-                    "1m",
+                    "5m",
                     Duration.class,
                     PropertyConverter.durationValue());
 
@@ -47,7 +39,7 @@ public class YdbOperationProperty<T> extends AbstractYdbProperty<T, Void> {
             new YdbOperationProperty<>(
                     "failOnTruncatedResult",
                     "Throw an exception when received truncated result",
-                    "true",
+                    "false",
                     Boolean.class,
                     PropertyConverter.booleanValue());
 
@@ -71,7 +63,7 @@ public class YdbOperationProperty<T> extends AbstractYdbProperty<T, Void> {
             new YdbOperationProperty<>(
                     "autoCommit",
                     "Auto commit all operations",
-                    "false",
+                    "true",
                     Boolean.class,
                     PropertyConverter.booleanValue());
 
@@ -130,20 +122,6 @@ public class YdbOperationProperty<T> extends AbstractYdbProperty<T, Void> {
                     "true",
                     Boolean.class,
                     PropertyConverter.booleanValue());
-
-    public static final YdbOperationProperty<Boolean> TRANSFORM_STANDARD_JDBC_QUERIES =
-            new YdbOperationProperty<>("transformStandardJdbcQueries",
-                    "Make a transformation of standard JDBC queries with '?' symbols into standard YQL with declare",
-                    "false",
-                    Boolean.class,
-                    PropertyConverter.booleanValue());
-
-    public static final YdbOperationProperty<Integer> TRANSFORMED_JDBC_QUERIES_CACHE =
-            new YdbOperationProperty<>("transformedJdbcQueriesCache",
-                    "Cache size for transformed JDBC queries, only when transformStandardJdbcQueries is true",
-                    "0",
-                    Integer.class,
-                    PropertyConverter.integerValue());
 
 
     protected YdbOperationProperty(String name,

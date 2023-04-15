@@ -30,7 +30,7 @@ public class YdbStatementImplTest {
     private static final YdbHelperExtention ydb = new YdbHelperExtention();
 
     @RegisterExtension
-    private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb);
+    private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb, false);
 
     private static final String TEST_TABLE = "ydb_statement_test";
 

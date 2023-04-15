@@ -56,7 +56,6 @@ public class YdbPreparedStatementImplTest {
             // create test table
             statement.execute(QueryType.SCHEME_QUERY.getPrefix() + "\n" + TestResources.createTableSql(TEST_TABLE));
         }
-        jdbc.connection().commit();
     }
 
     @AfterAll
@@ -65,7 +64,6 @@ public class YdbPreparedStatementImplTest {
             // create test table
             statement.execute(QueryType.SCHEME_QUERY.getPrefix() + "\n drop table " + TEST_TABLE);
         }
-        jdbc.connection().commit();
     }
 
     @AfterEach
@@ -78,7 +76,6 @@ public class YdbPreparedStatementImplTest {
             statement.execute("delete from " + TEST_TABLE);
         }
 
-        jdbc.connection().commit(); // MUST be auto rollbacked
         jdbc.connection().close();
     }
 
@@ -199,8 +196,6 @@ public class YdbPreparedStatementImplTest {
             statement.execute();
         }
 
-        jdbc.connection().commit();
-
         try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
             TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
                     .nextRow(1, "value-1")
@@ -226,8 +221,6 @@ public class YdbPreparedStatementImplTest {
 
             statement.executeBatch();
         }
-
-        jdbc.connection().commit();
 
         try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
             TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
@@ -259,8 +252,6 @@ public class YdbPreparedStatementImplTest {
             Assertions.assertArrayEquals(new int[0], statement.executeBatch());
         }
 
-        jdbc.connection().commit();
-
         try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
             TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
                     .nextRow(1, "value-1")
@@ -288,8 +279,6 @@ public class YdbPreparedStatementImplTest {
             statement.executeBatch();
         }
 
-        jdbc.connection().commit();
-
         try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
             TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
                     .nextRow(1, "value-1")
@@ -305,8 +294,6 @@ public class YdbPreparedStatementImplTest {
             ExceptionAssert.ydbNonRetryable("Missing value for parameter", () -> statement.executeUpdate());
             statement.executeBatch();
         }
-
-        jdbc.connection().commit();
 
         try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
             TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
@@ -337,8 +324,6 @@ public class YdbPreparedStatementImplTest {
             }
         }
 
-        jdbc.connection().commit();
-
         ExceptionAssert.ydbResultTruncated("Result #0 was truncated to 1000 rows", () -> {
             // Result is truncated (and we catch that)
             try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
@@ -365,8 +350,6 @@ public class YdbPreparedStatementImplTest {
             statement.execute();
         }
 
-        jdbc.connection().commit();
-
         try (YdbPreparedStatement statement = prepareSelectByKey("c_Text")) {
             statement.setInt("key", 2);
 
@@ -390,8 +373,6 @@ public class YdbPreparedStatementImplTest {
             statement.execute();
         }
 
-        jdbc.connection().commit();
-
         try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
             TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
                     .nextRow(1, "value-1")
@@ -402,40 +383,50 @@ public class YdbPreparedStatementImplTest {
 
     @Test
     public void executeQueryInTx() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text?")) {
-            statement.setInt("key", 1);
-            statement.setString("c_Text", "value-1");
-            statement.execute();
-        }
-
-        // without jdbc.connection().commit() driver continues to use single transaction;
-
-        ExceptionAssert.ydbNonRetryable("Data modifications previously made to table", () -> {
-            try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
-                select.executeQuery();
+        jdbc.connection().setAutoCommit(false);
+        try {
+            try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text?")) {
+                statement.setInt("key", 1);
+                statement.setString("c_Text", "value-1");
+                statement.execute();
             }
-        });
+
+            // without jdbc.connection().commit() driver continues to use single transaction;
+
+            ExceptionAssert.ydbNonRetryable("Data modifications previously made to table", () -> {
+                try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
+                    select.executeQuery();
+                }
+            });
+        } finally {
+            jdbc.connection().setAutoCommit(true);
+        }
     }
 
     @Test
     public void executeScanQueryInTx() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text?")) {
-            statement.setInt("key", 1);
-            statement.setString("c_Text", "value-1");
-            statement.execute();
-        }
+        jdbc.connection().setAutoCommit(false);
+        try {
+            try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text?")) {
+                statement.setInt("key", 1);
+                statement.setString("c_Text", "value-1");
+                statement.execute();
+            }
 
-        try (YdbPreparedStatement select = prepareScanSelectByKey("c_Text")) {
-            select.setInt("key", 1);
-            TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
-                    .noNextRows();
+            try (YdbPreparedStatement select = prepareScanSelectByKey("c_Text")) {
+                select.setInt("key", 1);
+                TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
+                        .noNextRows();
 
-            jdbc.connection().commit();
+                jdbc.connection().commit();
 
-            select.setInt("key", 1);
-            TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
-                    .nextRow(1, "value-1")
-                    .noNextRows();
+                select.setInt("key", 1);
+                TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
+                        .nextRow(1, "value-1")
+                        .noNextRows();
+            }
+        } finally {
+            jdbc.connection().setAutoCommit(true);
         }
     }
 

@@ -61,7 +61,6 @@ public class YdbStatementImpl implements YdbStatement {
 
         this.properties = connection.getCtx().getOperationProperties();
         state.queryTimeout = properties.getQueryTimeout();
-        state.keepInQueryCache = properties.isKeepInQueryCache();
 
         this.executor = new YdbExecutor(LOGGER, state.queryTimeout);
     }

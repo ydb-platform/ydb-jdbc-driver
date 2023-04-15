@@ -24,11 +24,17 @@ public class JdbcConnectionExtention implements
         BeforeEachCallback, BeforeAllCallback, AfterEachCallback, AfterAllCallback {
 
     private final YdbHelperExtention ydb;
+    private final boolean autoCommit;
     private final Map<ExtensionContext, Connection> map = new HashMap<>();
     private final Stack<Connection> stack = new Stack<>();
 
-    public JdbcConnectionExtention(YdbHelperExtention ydb) {
+    public JdbcConnectionExtention(YdbHelperExtention ydb, boolean autoCommit) {
         this.ydb = ydb;
+        this.autoCommit = autoCommit;
+    }
+
+    public JdbcConnectionExtention(YdbHelperExtention ydb) {
+        this(ydb, true);
     }
 
     private void register(ExtensionContext ctx) throws SQLException {
@@ -49,12 +55,15 @@ public class JdbcConnectionExtention implements
 
     public String jdbcURL() {
         StringBuilder jdbc = new StringBuilder("jdbc:ydb:")
+                .append(ydb.useTls() ? "grpcs://" : "grpc://")
                 .append(ydb.endpoint())
                 .append(ydb.database())
-                .append("?");
+                .append("?autoCommit=")
+                .append(autoCommit)
+                .append("&failOnTruncatedResult=true");
 
         if (ydb.authToken() != null) {
-            jdbc.append("token=").append(ydb.authToken()).append("&");
+            jdbc.append("&token=").append(ydb.authToken());
         }
 
         return jdbc.toString();
