@@ -128,11 +128,7 @@ public class YdbDatabaseMetaDataImplTest {
         Assertions.assertEquals(YdbDriverInfo.DRIVER_MAJOR_VERSION, metaData.getDriverMajorVersion());
         Assertions.assertEquals(YdbDriverInfo.DRIVER_MINOR_VERSION, metaData.getDriverMinorVersion());
 
-        if (YdbDriverInfo.DRIVER_MINOR_VERSION == 0) {
-            Assertions.assertEquals(YdbVersionCollector.LATEST_VERSION, metaData.getDriverVersion());
-        } else {
-            Assertions.assertNotEquals(YdbVersionCollector.LATEST_VERSION, metaData.getDriverVersion());
-        }
+        Assertions.assertEquals(JdbcDriverVersion.getInstance().getFullVersion(), metaData.getDriverVersion());
 
         Assertions.assertEquals(0, metaData.getDatabaseMajorVersion());
         Assertions.assertEquals(0, metaData.getDatabaseMinorVersion());
