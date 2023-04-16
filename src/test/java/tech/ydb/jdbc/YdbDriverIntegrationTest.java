@@ -136,17 +136,14 @@ public class YdbDriverIntegrationTest {
 
             PreparedStatement ps = connection
                     .prepareStatement("" +
-                            "declare $p1 as Int32;\n" +
-                            "declare $p2 as Text;\n" +
-                            "upsert into jdbc_table_sample (id, value) values ($p1, $p2)");
+                            "upsert into jdbc_table_sample (id, value) values (?, ?)");
             ps.setInt(1, 1);
             ps.setString(2, "value-1");
             ps.executeUpdate();
 
-            YdbPreparedStatement yps = ps.unwrap(YdbPreparedStatement.class);
-            yps.setInt("p1", 2);
-            yps.setString("p2", "value-2");
-            yps.executeUpdate();
+            ps.setInt(1, 2);
+            ps.setString(2, "value-2");
+            ps.executeUpdate();
 
             connection.commit();
 

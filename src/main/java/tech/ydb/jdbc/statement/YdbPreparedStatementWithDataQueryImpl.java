@@ -18,7 +18,6 @@ import tech.ydb.table.values.Type;
 import tech.ydb.table.values.Value;
 
 import static tech.ydb.jdbc.YdbConst.BATCH_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.INDEXED_PARAMETER_PREFIX;
 import static tech.ydb.jdbc.YdbConst.PARAMETER_NOT_FOUND;
 import static tech.ydb.jdbc.YdbConst.VARIABLE_PARAMETER_PREFIX;
 
@@ -37,7 +36,7 @@ public class YdbPreparedStatementWithDataQueryImpl extends AbstractYdbDataQueryP
         this.dataQuery = dataQuery;
         this.cfg = asPreparedConfiguration(dataQuery.types());
         this.enforceVariablePrefix = connection.getCtx().getOperationProperties().isEnforceVariablePrefix();
-        this.clearParameters();
+        this.state.params = dataQuery.newParams();
     }
 
     @Override
@@ -86,7 +85,7 @@ public class YdbPreparedStatementWithDataQueryImpl extends AbstractYdbDataQueryP
     protected void setImpl(int parameterIndex, @Nullable Object x,
                            int sqlType, @Nullable String typeName, @Nullable Type type)
             throws SQLException {
-        setImpl(INDEXED_PARAMETER_PREFIX + parameterIndex, x, sqlType, typeName, null);
+        setImpl(query.getParameterName(parameterIndex), x, sqlType, typeName, null);
     }
 
     @Override

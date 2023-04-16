@@ -29,7 +29,6 @@ import tech.ydb.table.values.Value;
 
 import static tech.ydb.jdbc.YdbConst.BATCH_INVALID;
 import static tech.ydb.jdbc.YdbConst.DEFAULT_BATCH_PARAMETER;
-import static tech.ydb.jdbc.YdbConst.INDEXED_PARAMETER_PREFIX;
 import static tech.ydb.jdbc.YdbConst.PARAMETER_TYPE_UNKNOWN;
 import static tech.ydb.jdbc.YdbConst.TRY_EXECUTE_ON_BATCH_STATEMENT;
 import static tech.ydb.jdbc.YdbConst.UNKNOWN_PARAMETER_IN_BATCH;
@@ -47,12 +46,12 @@ public class YdbPreparedStatementImpl extends AbstractYdbPreparedStatementImpl {
 
         YdbOperationProperties properties = connection.getCtx().getOperationProperties();
         this.enforceVariablePrefix = properties.isEnforceVariablePrefix();
-        this.clearParameters();
+        this.state.params = new LinkedHashMap<>(this.state.descriptions.size());
     }
 
     @Override
     public void clearParameters() {
-        this.state.params = new LinkedHashMap<>(this.state.descriptions.size());
+        this.state.params.clear();
     }
 
     @Override
@@ -127,7 +126,7 @@ public class YdbPreparedStatementImpl extends AbstractYdbPreparedStatementImpl {
     protected void setImpl(int parameterIndex, @Nullable Object value,
                            int sqlType, @Nullable String typeName, @Nullable Type type)
             throws SQLException {
-        setImpl(INDEXED_PARAMETER_PREFIX + parameterIndex, value, sqlType, typeName, type);
+        setImpl(query.getParameterName(parameterIndex), value, sqlType, typeName, type);
     }
 
     @Override

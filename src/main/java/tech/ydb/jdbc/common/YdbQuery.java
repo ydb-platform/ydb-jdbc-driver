@@ -2,12 +2,14 @@ package tech.ydb.jdbc.common;
 
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
+import tech.ydb.table.query.Params;
+import tech.ydb.table.values.Value;
 
 /**
  *
@@ -31,7 +33,7 @@ public class YdbQuery {
         String sql = updateAlternativePrefix(originSQL);
         if (builder.props.isDisableJdbcParametersSupport()) {
             this.originYQL = sql;
-            this.extraParams = Collections.emptyList();
+            this.extraParams = null;
         } else {
             ArgNameGenerator generator = new ArgNameGenerator(sql);
             this.originYQL = JdbcLexer.jdbc2yql(sql, generator);
@@ -43,17 +45,22 @@ public class YdbQuery {
         return originSQL;
     }
 
-    private static String updateAlternativePrefix(String sql) {
-        String updated = sql;
-        for (QueryType type : QueryType.values()) {
-            if (updated.contains(type.getAlternativePrefix())) {
-                updated = updated.replace(type.getAlternativePrefix(), type.getPrefix()); // Support alternative mode
-            }
-        }
-        return updated;
+    public boolean hasFreeParameters() {
+        return extraParams != null && !extraParams.isEmpty();
     }
 
-    public String nativeSql(List<String> argTypes) {
+    public String getParameterName(int parameterIndex) {
+        if (extraParams == null) {
+            return YdbConst.INDEXED_PARAMETER_PREFIX + parameterIndex;
+        }
+
+        if (parameterIndex <= 0 || parameterIndex > extraParams.size()) {
+            throw new IllegalArgumentException("Wrong argument index " + parameterIndex);
+        }
+        return extraParams.get(parameterIndex - 1);
+    }
+
+    public String getYqlQuery(Params params) {
         StringBuilder yql = new StringBuilder();
 
         if (enforceV1) {
@@ -63,21 +70,26 @@ public class YdbQuery {
             }
         }
 
-        if (argTypes != null) {
-            if (argTypes.size() != extraParams.size()) {
-                throw new IllegalArgumentException("Wrong arguments count, expected "
-                        + extraParams.size() + ", but got " + argTypes.size());
-            }
+        if (extraParams != null) {
+            if (params != null) {
+                Map<String, Value<?>> values = params.values();
+                for (int idx = 0; idx < extraParams.size(); idx += 1) {
+                    String prm = extraParams.get(idx);
+                    if (!values.containsKey(prm)) {
+                        throw new IllegalArgumentException("Empty JDBC argument " + idx);
+                    }
 
-            for (int idx = 0; idx < extraParams.size(); idx += 1) {
-                yql.append("DECLARE ")
-                        .append(extraParams.get(idx))
-                        .append(" AS ")
-                        .append(argTypes.get(idx))
-                        .append(";\n");
+                    String prmType = values.get(prm).getType().toString();
+                    yql.append("DECLARE ")
+                            .append(prm)
+                            .append(" AS ")
+                            .append(prmType)
+                            .append(";\n");
+
+                }
+            } else if (!extraParams.isEmpty()) {
+                yql.append("-- DECLARE ").append(extraParams.size()).append(" PARAMETERS").append("\n");
             }
-        } else if (!extraParams.isEmpty()) {
-            yql.append("-- DECLARE ").append(extraParams.size()).append(" PARAMETERS").append("\n");
         }
 
         yql.append(originYQL);
@@ -90,6 +102,16 @@ public class YdbQuery {
 
     public QueryType type() {
         return type;
+    }
+
+    private static String updateAlternativePrefix(String sql) {
+        String updated = sql;
+        for (QueryType type : QueryType.values()) {
+            if (updated.contains(type.getAlternativePrefix())) {
+                updated = updated.replace(type.getAlternativePrefix(), type.getPrefix()); // Support alternative mode
+            }
+        }
+        return updated;
     }
 
     private static QueryType decodeQueryType(String sql, boolean autoDetect) {
