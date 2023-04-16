@@ -50,7 +50,7 @@ public class YdbQuery {
     }
 
     public String getParameterName(int parameterIndex) {
-        if (extraParams == null) {
+        if (!hasFreeParameters()) {
             return YdbConst.INDEXED_PARAMETER_PREFIX + parameterIndex;
         }
 
