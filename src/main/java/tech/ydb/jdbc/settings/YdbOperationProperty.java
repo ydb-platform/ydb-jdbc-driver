@@ -123,6 +123,12 @@ public class YdbOperationProperty<T> extends AbstractYdbProperty<T, Void> {
                     Boolean.class,
                     PropertyConverter.booleanValue());
 
+    public static final YdbOperationProperty<Boolean> DISABLE_JDBC_PARAMETERS =
+            new YdbOperationProperty<>("disableJdbcParameters",
+                    "Disable auto detect JDBC standart parameters '?'",
+                    "false",
+                    Boolean.class,
+                    PropertyConverter.booleanValue());
 
     protected YdbOperationProperty(String name,
                                    String description,

@@ -33,7 +33,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
     private static final String TEST_TABLE = "ydb_prepared_statement_with_batch_test";
 
     private static final String UPSERT_SQL = ""
-            + "declare $key as Int32?;\n"
+            + "declare $key as Optional<Int32>;\n"
             + "declare $#column as #type;\n"
             + "upsert into #tableName (key, #column) values ($key, $#column)";
 
@@ -121,7 +121,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
 
     @Test
     public void batchStatementTest() throws SQLException {
-        try (YdbPreparedStatement statement = prepareBatchUpsert("c_Text", "Text?")) {
+        try (YdbPreparedStatement statement = prepareBatchUpsert("c_Text", "Optional<Text>")) {
             Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementImpl.class));
             Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementWithDataQueryImpl.class));
             Assertions.assertTrue(statement.isWrapperFor(YdbPreparedStatementWithDataQueryBatchedImpl.class));
@@ -158,7 +158,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
 
     @Test
     public void executeEmpty() throws SQLException {
-        try (YdbPreparedStatement statement = prepareBatchUpsert("c_Text", "Text?")) {
+        try (YdbPreparedStatement statement = prepareBatchUpsert("c_Text", "Optional<Text>")) {
             statement.execute();
             jdbc.connection().commit();
 
@@ -184,7 +184,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
 
     @Test
     public void executeEmptyNoResultSet() throws SQLException {
-        try (YdbPreparedStatement statement = prepareBatchUpsert("c_Text", "Text?")) {
+        try (YdbPreparedStatement statement = prepareBatchUpsert("c_Text", "Optional<Text>")) {
             ExceptionAssert.sqlException("Query must return ResultSet", statement::executeQuery);
         }
         jdbc.connection().commit();
@@ -192,7 +192,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
 
     @Test
     public void executeWithoutBatch() throws SQLException {
-        try (YdbPreparedStatement statement = prepareBatchUpsert("c_Text", "Text?")) {
+        try (YdbPreparedStatement statement = prepareBatchUpsert("c_Text", "Optional<Text>")) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
             statement.addBatch();
@@ -215,7 +215,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
 
     @Test
     public void addBatchClearParameters() throws SQLException {
-        try (YdbPreparedStatement statement = prepareBatchUpsert("c_Text", "Text?")) {
+        try (YdbPreparedStatement statement = prepareBatchUpsert("c_Text", "Optional<Text>")) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
             statement.addBatch();
@@ -243,7 +243,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
 
     @Test
     public void addBatch() throws SQLException {
-        try (YdbPreparedStatement statement = prepareBatchUpsert("c_Text", "Text?")) {
+        try (YdbPreparedStatement statement = prepareBatchUpsert("c_Text", "Optional<Text>")) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
             statement.addBatch();
@@ -275,7 +275,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
 
     @Test
     public void addAndClearBatch() throws SQLException {
-        try (YdbPreparedStatement statement = prepareBatchUpsert("c_Text", "Text?")) {
+        try (YdbPreparedStatement statement = prepareBatchUpsert("c_Text", "Optional<Text>")) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
             statement.addBatch();
@@ -310,7 +310,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
             values[idx - 1] = "Row#" + idx;
         }
 
-        try (YdbPreparedStatement statement = prepareBatchUpsert("c_Text", "Text?")) {
+        try (YdbPreparedStatement statement = prepareBatchUpsert("c_Text", "Optional<Text>")) {
             for (int idx = 1; idx <= valuesCount; idx += 1) {
                 statement.setInt("key", idx);
                 statement.setString("c_Text", values[idx - 1]);

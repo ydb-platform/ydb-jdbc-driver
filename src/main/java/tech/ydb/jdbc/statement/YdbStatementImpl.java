@@ -67,7 +67,7 @@ public class YdbStatementImpl implements YdbStatement {
 
     @Override
     public void executeSchemeQuery(String sql) throws SQLException {
-        YdbQuery query = new YdbQuery(properties, sql, false);
+        YdbQuery query = YdbQuery.from(properties, sql).disableCache().build();
         if (executeSchemeQueryImpl(query)) {
             throw new SQLException(YdbConst.QUERY_EXPECT_UPDATE);
         }
@@ -75,7 +75,7 @@ public class YdbStatementImpl implements YdbStatement {
 
     @Override
     public YdbResultSet executeScanQuery(String sql) throws SQLException {
-        YdbQuery query = new YdbQuery(properties, sql, false);
+        YdbQuery query = YdbQuery.from(properties, sql).disableCache().build();
         if (!executeScanQueryImpl(query, Params.create())) {
             throw new SQLException(YdbConst.QUERY_EXPECT_RESULT_SET);
         }
@@ -84,7 +84,7 @@ public class YdbStatementImpl implements YdbStatement {
 
     @Override
     public YdbResultSet executeExplainQuery(String sql) throws SQLException {
-        YdbQuery query = new YdbQuery(properties, sql, false);
+        YdbQuery query = YdbQuery.from(properties, sql).disableCache().build();
 
         if (!executeExplainQueryImpl(query)) {
             throw new SQLException(QUERY_EXPECT_RESULT_SET);
@@ -173,7 +173,7 @@ public class YdbStatementImpl implements YdbStatement {
 
     @Override
     public boolean execute(String sql) throws SQLException {
-        return executeImpl(new YdbQuery(properties, sql, false));
+        return executeImpl(YdbQuery.from(properties, sql).disableCache().build());
     }
 
     @Override

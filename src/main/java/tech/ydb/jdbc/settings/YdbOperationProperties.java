@@ -23,6 +23,7 @@ public class YdbOperationProperties {
     private final boolean cacheConnectionsInDriver;
     private final boolean detectSqlOperations;
     private final boolean alwaysPrepareDataQuery;
+    private final boolean disableJdbcParametersSupport;
 
     public YdbOperationProperties(Map<YdbOperationProperty<?>, ParsedProperty> params) {
         this.params = Objects.requireNonNull(params);
@@ -42,6 +43,7 @@ public class YdbOperationProperties {
         this.cacheConnectionsInDriver = params.get(YdbOperationProperty.CACHE_CONNECTIONS_IN_DRIVER).getParsedValue();
         this.detectSqlOperations = params.get(YdbOperationProperty.DETECT_SQL_OPERATIONS).getParsedValue();
         this.alwaysPrepareDataQuery = params.get(YdbOperationProperty.ALWAYS_PREPARE_DATAQUERY).getParsedValue();
+        this.disableJdbcParametersSupport = params.get(YdbOperationProperty.DISABLE_JDBC_PARAMETERS).getParsedValue();
     }
 
     public Map<YdbOperationProperty<?>, ParsedProperty> getParams() {
@@ -106,5 +108,9 @@ public class YdbOperationProperties {
 
     public boolean isAlwaysPrepareDataQuery() {
         return alwaysPrepareDataQuery;
+    }
+
+    public boolean isDisableJdbcParametersSupport() {
+        return disableJdbcParametersSupport;
     }
 }

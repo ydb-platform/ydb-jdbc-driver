@@ -34,13 +34,13 @@ public class YdbPreparedStatementWithDataQueryImplTest {
     private static final String TEST_TABLE = "ydb_prepared_statement_with_data_query_test";
 
     private static final String UPSERT_SQL = ""
-            + "declare $key as Int32?;\n"
+            + "declare $key as Optional<Int32>;\n"
             + "declare $#column as #type;\n"
             + "upsert into #tableName (key, #column) values ($key, $#column)";
 
     private static final String SIMPLE_SELECT_SQL = "select key, #column from #tableName";
     private static final String SELECT_BY_KEY_SQL = ""
-            + "declare $key as Int32?;\n"
+            + "declare $key as Optional<Int32>;\n"
             + "select key, #column from #tableName where key=$key";
 
     @BeforeAll
@@ -111,7 +111,7 @@ public class YdbPreparedStatementWithDataQueryImplTest {
 
     @Test
     public void prepareStatement() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Text?")) {
+        try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Optional<Text>")) {
             Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementImpl.class));
             Assertions.assertTrue(statement.isWrapperFor(YdbPreparedStatementWithDataQueryImpl.class));
             Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementWithDataQueryBatchedImpl.class));
@@ -137,7 +137,7 @@ public class YdbPreparedStatementWithDataQueryImplTest {
 
     @Test
     public void addBatch() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Text?")) {
+        try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Optional<Text>")) {
             ExceptionAssert.sqlFeatureNotSupported(
                     "Batches are not supported in simple prepared statements", statement::addBatch);
             ExceptionAssert.sqlFeatureNotSupported(
@@ -149,7 +149,7 @@ public class YdbPreparedStatementWithDataQueryImplTest {
 
     @Test
     public void executeDataQuery() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Text?")) {
+        try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Optional<Text>")) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
             statement.execute();
@@ -170,7 +170,7 @@ public class YdbPreparedStatementWithDataQueryImplTest {
                     .noNextRows();
         }
 
-        try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Text?")) {
+        try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Optional<Text>")) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
             statement.execute();
@@ -194,7 +194,7 @@ public class YdbPreparedStatementWithDataQueryImplTest {
     public void executeQueryInTx() throws SQLException {
         jdbc.connection().setAutoCommit(false);
         try {
-            try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Text?")) {
+            try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Optional<Text>")) {
                 statement.setInt("key", 1);
                 statement.setString("c_Text", "value-1");
                 statement.execute();
@@ -216,7 +216,7 @@ public class YdbPreparedStatementWithDataQueryImplTest {
     public void executeScanQueryInTx() throws SQLException {
         jdbc.connection().setAutoCommit(false);
         try {
-            try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Text?")) {
+            try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Optional<Text>")) {
                 statement.setInt("key", 1);
                 statement.setString("c_Text", "value-1");
                 statement.execute();
@@ -241,7 +241,7 @@ public class YdbPreparedStatementWithDataQueryImplTest {
 
     @Test
     public void executeScanQueryAsUpdate() throws SQLException {
-        String sql = QueryType.SCAN_QUERY.getPrefix() + "\n" + upsertSql("c_Text", "Text?");
+        String sql = QueryType.SCAN_QUERY.getPrefix() + "\n" + upsertSql("c_Text", "Optional<Text>");
 
         try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class)
                 .prepareStatement(sql, YdbConnection.PreparedStatementMode.IN_MEMORY)
@@ -261,7 +261,7 @@ public class YdbPreparedStatementWithDataQueryImplTest {
             }
 
             ExceptionAssert.sqlException("Query type in prepared statement not supported: " + type, () -> {
-                String sql = type.getPrefix() + "\n" + upsertSql("c_Text", "Text?");
+                String sql = type.getPrefix() + "\n" + upsertSql("c_Text", "Optional<Text>");
                 jdbc.connection().prepareStatement(sql);
             });
         }

@@ -73,7 +73,7 @@ public abstract class AbstractYdbPreparedStatementImpl extends YdbStatementImpl 
 
     @Override
     public String getQuery() {
-        return query.sql();
+        return query.originSQL();
     }
 
     @Override

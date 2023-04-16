@@ -221,7 +221,9 @@ public class YdbConnectionImplTest {
     @Test
     public void nativeSQL() throws SQLException {
         String nativeSQL = jdbc.connection().nativeSQL("select ? + ?");
-        Assertions.assertEquals(YdbConst.PREFIX_SYNTAX_V1 + "\nselect ? + ?", nativeSQL);
+        Assertions.assertEquals(YdbConst.PREFIX_SYNTAX_V1 +
+                "\n-- DECLARE 2 PARAMETERS" +
+                "\nselect $jp1 + $jp2", nativeSQL);
     }
 
     @Test

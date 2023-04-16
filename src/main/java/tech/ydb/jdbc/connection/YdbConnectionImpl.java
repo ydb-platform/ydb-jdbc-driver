@@ -91,7 +91,7 @@ public class YdbConnectionImpl implements YdbConnection {
 
     @Override
     public String nativeSQL(String sql) {
-        return new YdbQuery(ctx.getOperationProperties(), sql, false).nativeSql();
+        return YdbQuery.from(ctx.getOperationProperties(), sql).build().nativeSql(null);
     }
 
     private void updateState(YdbTxState newState) {
@@ -246,7 +246,7 @@ public class YdbConnectionImpl implements YdbConnection {
 
         // Scheme query does not affect transactions or result sets
         ExecuteSchemeQuerySettings settings = executor.withTimeouts(new ExecuteSchemeQuerySettings());
-        String yql = query.nativeSql();
+        final String yql = query.nativeSql(null);
 
         try (Session session = executor.createSession(ctx)) {
             executor.execute(QueryType.SCHEME_QUERY + " >>\n" + yql, () -> session.executeSchemeQuery(yql, settings));
@@ -261,7 +261,7 @@ public class YdbConnectionImpl implements YdbConnection {
         if (!query.keepInCache()) {
             settings.disableQueryCache();
         }
-        final String yql = query.nativeSql();
+        final String yql = query.nativeSql(null);
 
         Session session = state.getSession(ctx, executor);
         try {
@@ -284,7 +284,7 @@ public class YdbConnectionImpl implements YdbConnection {
         Duration scanQueryTimeout = ctx.getOperationProperties().getScanQueryTimeout();
         ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()
                 .withRequestTimeout(scanQueryTimeout).build();
-        String yql = query.nativeSql();
+        String yql = query.nativeSql(null);
 
         Collection<ResultSetReader> resultSets = new LinkedBlockingQueue<>();
         try (Session session = executor.createSession(ctx)) {
@@ -300,7 +300,7 @@ public class YdbConnectionImpl implements YdbConnection {
         ensureOpened();
 
         ExplainDataQuerySettings settings = executor.withTimeouts(new ExplainDataQuerySettings());
-        String yql = query.nativeSql();
+        String yql = query.nativeSql(null);
 
         try (Session session = executor.createSession(ctx)) {
             return executor.call(
@@ -311,7 +311,7 @@ public class YdbConnectionImpl implements YdbConnection {
 
     private DataQuery prepareDataQuery(YdbQuery query) throws SQLException {
         PrepareDataQuerySettings cfg = executor.withTimeouts(new PrepareDataQuerySettings());
-        String yql = query.nativeSql();
+        String yql = query.nativeSql(null);
 
         try (Session session = executor.createSession(ctx)) {
             return executor.call("Preparing Query >>\n" + yql, () -> session.prepareDataQuery(yql, cfg));
@@ -392,7 +392,7 @@ public class YdbConnectionImpl implements YdbConnection {
         executor.clearWarnings();
 
         YdbOperationProperties props = ctx.getOperationProperties();
-        YdbQuery query = new YdbQuery(props, sql, true);
+        YdbQuery query = YdbQuery.from(props, sql).build();
 
         if (mode == PreparedStatementMode.IN_MEMORY
                 || (mode == PreparedStatementMode.DEFAULT && !props.isAlwaysPrepareDataQuery())) {

@@ -37,17 +37,17 @@ public class YdbPreparedStatementImplTest {
     private static final String TEST_TABLE = "ydb_prepared_statement_test";
 
     private static final String UPSERT_SQL = ""
-            + "declare $key as Int32?;\n"
+            + "declare $key as Optional<Int32>;\n"
             + "declare $#column as #type;\n"
             + "upsert into #tableName (key, #column) values ($key, $#column)";
 
     private static final String BATCH_UPSERT_SQL = ""
-            + "declare $values as List<Struct<key:Int32?, #column:#type>>; \n"
+            + "declare $values as List<Struct<key:Optional<Int32>, #column:#type>>; \n"
             + "upsert into #tableName select * from as_table($values)";
 
     private static final String SIMPLE_SELECT_SQL = "select key, #column from #tableName";
     private static final String SELECT_BY_KEY_SQL = ""
-            + "declare $key as Int32?;\n"
+            + "declare $key as Optional<Int32>;\n"
             + "select key, #column from #tableName where key=$key";
 
     @BeforeAll
@@ -134,7 +134,7 @@ public class YdbPreparedStatementImplTest {
 
     @Test
     public void testPrepareStatementIsMemory() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text?")) {
+        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Optional<Text>")) {
             Assertions.assertTrue(statement.isWrapperFor(YdbPreparedStatementImpl.class));
             Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementWithDataQueryImpl.class));
             Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementWithDataQueryBatchedImpl.class));
@@ -145,12 +145,12 @@ public class YdbPreparedStatementImplTest {
 
     @Test
     public void executeWrongParameters() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text")) { // Must be Text?
+        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text")) { // Must be Optional<Text>
             statement.setInt("key", 1);
             ExceptionAssert.ydbNonRetryable("Missing value for parameter", statement::execute);
         }
 
-        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text")) { // Must be Text?
+        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text")) { // Must be Optional<Text>
             statement.setInt("key", 1);
             statement.setObject("c_Text", PrimitiveType.Text.makeOptional().emptyValue());
             ExceptionAssert.ydbNonRetryable("Parameter $c_Text type mismatch", statement::execute);
@@ -159,7 +159,7 @@ public class YdbPreparedStatementImplTest {
 
     @Test
     public void unknownColumns() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text?")) {
+        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Optional<Text>")) {
             statement.setObject("column0", "value");
             statement.execute();
         }
@@ -175,7 +175,7 @@ public class YdbPreparedStatementImplTest {
 
     @Test
     public void executeWithoutBatch() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text?")) {
+        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Optional<Text>")) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
             statement.addBatch();
@@ -206,7 +206,7 @@ public class YdbPreparedStatementImplTest {
 
     @Test
     public void addBatchClearParameters() throws SQLException {
-        try (YdbPreparedStatement statement = prepareBatchUpsertInMemory("c_Text", "Text?")) {
+        try (YdbPreparedStatement statement = prepareBatchUpsertInMemory("c_Text", "Optional<Text>")) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
             statement.addBatch();
@@ -232,7 +232,7 @@ public class YdbPreparedStatementImplTest {
 
     @Test
     public void addBatch() throws SQLException {
-        try (YdbPreparedStatement statement = prepareBatchUpsertInMemory("c_Text", "Text?")) {
+        try (YdbPreparedStatement statement = prepareBatchUpsertInMemory("c_Text", "Optional<Text>")) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
             statement.addBatch();
@@ -262,7 +262,7 @@ public class YdbPreparedStatementImplTest {
 
     @Test
     public void addAndClearBatch() throws SQLException {
-        try (YdbPreparedStatement statement = prepareBatchUpsertInMemory("c_Text", "Text?")) {
+        try (YdbPreparedStatement statement = prepareBatchUpsertInMemory("c_Text", "Optional<Text>")) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
             statement.addBatch();
@@ -289,7 +289,7 @@ public class YdbPreparedStatementImplTest {
 
     @Test
     public void executeEmptyBatch() throws SQLException {
-        try (YdbPreparedStatement statement = prepareBatchUpsertInMemory("c_Text", "Text?")) {
+        try (YdbPreparedStatement statement = prepareBatchUpsertInMemory("c_Text", "Optional<Text>")) {
             ExceptionAssert.ydbNonRetryable("Missing value for parameter", () -> statement.execute());
             ExceptionAssert.ydbNonRetryable("Missing value for parameter", () -> statement.executeUpdate());
             statement.executeBatch();
@@ -309,7 +309,7 @@ public class YdbPreparedStatementImplTest {
             values[idx - 1] = "Row#" + idx;
         }
 
-        try (YdbPreparedStatement statement = prepareBatchUpsertInMemory("c_Text", "Text?")) {
+        try (YdbPreparedStatement statement = prepareBatchUpsertInMemory("c_Text", "Optional<Text>")) {
             for (int idx = 1; idx <= valuesCount; idx += 1) {
                 statement.setInt("key", idx);
                 statement.setString("c_Text", values[idx - 1]);
@@ -344,7 +344,7 @@ public class YdbPreparedStatementImplTest {
 
     @Test
     public void executeDataQuery() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text?")) {
+        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Optional<Text>")) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
             statement.execute();
@@ -363,7 +363,7 @@ public class YdbPreparedStatementImplTest {
                     .noNextRows();
         }
 
-        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text?")) {
+        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Optional<Text>")) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
             statement.execute();
@@ -385,7 +385,7 @@ public class YdbPreparedStatementImplTest {
     public void executeQueryInTx() throws SQLException {
         jdbc.connection().setAutoCommit(false);
         try {
-            try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text?")) {
+            try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Optional<Text>")) {
                 statement.setInt("key", 1);
                 statement.setString("c_Text", "value-1");
                 statement.execute();
@@ -407,7 +407,7 @@ public class YdbPreparedStatementImplTest {
     public void executeScanQueryInTx() throws SQLException {
         jdbc.connection().setAutoCommit(false);
         try {
-            try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text?")) {
+            try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Optional<Text>")) {
                 statement.setInt("key", 1);
                 statement.setString("c_Text", "value-1");
                 statement.execute();
@@ -432,7 +432,7 @@ public class YdbPreparedStatementImplTest {
 
     @Test
     public void executeScanQueryAsUpdate() throws SQLException {
-        String sql = QueryType.SCAN_QUERY.getPrefix() + "\n" + upsertSql("c_Text", "Text?");
+        String sql = QueryType.SCAN_QUERY.getPrefix() + "\n" + upsertSql("c_Text", "Optional<Text>");
 
         try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class)
                 .prepareStatement(sql, YdbConnection.PreparedStatementMode.IN_MEMORY)
@@ -452,7 +452,7 @@ public class YdbPreparedStatementImplTest {
             }
 
             ExceptionAssert.sqlException("Query type in prepared statement not supported: " + type, () -> {
-                String sql = type.getPrefix() + "\n" + upsertSql("c_Text", "Text?");
+                String sql = type.getPrefix() + "\n" + upsertSql("c_Text", "Optional<Text>");
                 jdbc.connection().prepareStatement(sql);
             });
         }
@@ -460,7 +460,7 @@ public class YdbPreparedStatementImplTest {
 
     @Test
     public void executeExplainQueryExplicitly() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text?")) {
+        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Optional<Text>")) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
 //            statement.execute();
