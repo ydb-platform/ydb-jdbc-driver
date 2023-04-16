@@ -8,8 +8,9 @@ To enable all tests make sure you have Docker or Docker Machine installed then r
 
 ## Quickstart
 
-1) Drop in [JDBC driver](https://repo1.maven.org/maven2/tech/ydb/ydb-jdbc-driver/0.9.0/ydb-jdbc-driver-0.9.0.jar) to classpath or pick this file in IDEA
+1) Drop in [JDBC driver](https://github.com/ydb-platform/ydb-jdbc-driver/releases) to classpath or pick this file in IDEA
 2) Connect to YDB
-   * Local or remote Docker: `jdbc:ydb:localhost:2135/local` or `jdbc:ydb:localhost:2135?database=/local`
-   * Dedicated: `jdbc:ydb:ydb-ru-prestable.yandex.net:2135?database=/ru-prestable/home/miroslav2/mydb&token=~/.arc/token` where `/ru-prestable/home/miroslav2/mydb` is your database and `~/.arc/token` is a location of your YDB token file.
+   * Local or remote Docker (anonymous authentication): `jdbc:ydb:grpc://localhost:2135/local`
+   * Connect with token: `jdbc:ydb:grpc://<host>:2135/path/to/database&token=~/my_token`
+   * Connect with service account: `jdbc:ydb:grpcs://<host>:2136/path/to/database&saFile=~/sa_key.json`
 3) Execute queries, see example in [YdbDriverExampleTest.java](src/test/java/tech/ydb/jdbc/YdbDriverExampleTest.java)
