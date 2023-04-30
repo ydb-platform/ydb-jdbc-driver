@@ -39,12 +39,26 @@ public class YdbJdbcTools {
             String connectionString = ydbURL;
             String safeURL = ydbURL;
 
+            String username = origProperties.getProperty("user");
+            String password = origProperties.getProperty("password");
+
             Properties properties = new Properties();
             properties.putAll(origProperties);
 
             if (!ydbURL.isEmpty()) {
                 URI url = new URI(ydbURL.contains("://") ? ydbURL : "grpc://" + ydbURL);
                 Map<String, List<String>> params = URITools.splitQuery(url);
+
+                String userInfo = url.getUserInfo();
+                if (username == null && userInfo != null) {
+                    String[] parsed = userInfo.split(":", 2);
+                    if (parsed.length > 0) {
+                        username = parsed[0];
+                    }
+                    if (parsed.length > 1) {
+                        password = parsed[1];
+                    }
+                }
 
                 String database = url.getPath();
 
@@ -88,8 +102,8 @@ public class YdbJdbcTools {
                 safeURL = sb.toString();
             }
 
-            YdbConnectionProperties ydbConnectionProps = new YdbConnectionProperties(
-                    safeURL, connectionString, parseProperties(properties, YdbConnectionProperty.properties()));
+            YdbConnectionProperties ydbConnectionProps = new YdbConnectionProperties(safeURL, connectionString,
+                    username, password, parseProperties(properties, YdbConnectionProperty.properties()));
             YdbClientProperties ydbClientProperties = new YdbClientProperties(
                     parseProperties(properties, YdbClientProperty.properties()));
             YdbOperationProperties ydbOperationProperties = new YdbOperationProperties(

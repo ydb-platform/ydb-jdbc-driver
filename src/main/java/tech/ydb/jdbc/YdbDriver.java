@@ -51,7 +51,7 @@ public class YdbDriver implements Driver {
         YdbConfig config = new YdbConfig(url, info);
         LOGGER.log(Level.INFO, "About to connect to [{0}] using properties {1}", new Object[] {
             config.getSafeUrl(),
-            info
+            config.getSafeProps()
         });
 
         if (config.getOperationProperties().isCacheConnectionsInDriver()) {
@@ -69,7 +69,7 @@ public class YdbDriver implements Driver {
         };
     }
 
-    public YdbContext getCachedContext(YdbConfig config) {
+    public YdbContext getCachedContext(YdbConfig config) throws SQLException {
         // Workaround for https://bugs.openjdk.java.net/browse/JDK-8161372 to prevent unnecessary locks in Java 8
         // Was fixed in Java 9+
         YdbContext context = cache.get(config);
@@ -77,7 +77,13 @@ public class YdbDriver implements Driver {
             LOGGER.log(Level.FINE, "Reusing YDB connection to {0}", config.getConnectionProperties());
             return context;
         }
-        return cache.computeIfAbsent(config, YdbContext::createContext);
+
+        context = YdbContext.createContext(config);
+        YdbContext old = cache.put(config, context);
+        if (old != null) {
+            old.close();
+        }
+        return context;
     }
 
     @Override

@@ -1,6 +1,10 @@
 package tech.ydb.jdbc.impl.helper;
 
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+
 import tech.ydb.test.junit5.YdbHelperExtension;
 
 /**
@@ -31,17 +35,17 @@ public class JdbcUrlHelper {
     public JdbcUrlHelper withArg(String arg, String value) {
         String newExtra = new StringBuilder(extra)
                 .append(extra.isEmpty() ? "" : "&")
-                .append(arg)
+                .append(encode(arg))
                 .append("=")
-                .append(value)
+                .append(encode(value))
                 .toString();
         return new JdbcUrlHelper(ydb, newExtra, authority, disableToken);
     }
 
     public JdbcUrlHelper withAutority(String username, String password) {
-        StringBuilder newAuthority = new StringBuilder(username);
+        StringBuilder newAuthority = new StringBuilder(encode(username));
         if (password != null && !password.isEmpty()) {
-            newAuthority = newAuthority.append(":").append(password);
+            newAuthority = newAuthority.append(":").append(encode(password));
         }
         return new JdbcUrlHelper(ydb, extra, newAuthority.append("@").toString(), disableToken);
     }
@@ -63,5 +67,13 @@ public class JdbcUrlHelper {
         }
 
         return jdbc.toString();
+    }
+
+    private static String encode(String raw) {
+        try {
+            return URLEncoder.encode(raw, StandardCharsets.UTF_8.name()).replace("+", "%20");
+        } catch (UnsupportedEncodingException ex) {
+            return raw;
+        }
     }
 }

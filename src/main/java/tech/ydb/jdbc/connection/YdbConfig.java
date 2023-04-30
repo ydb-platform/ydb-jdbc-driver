@@ -6,6 +6,7 @@ import java.util.Properties;
 
 import tech.ydb.jdbc.settings.YdbClientProperties;
 import tech.ydb.jdbc.settings.YdbConnectionProperties;
+import tech.ydb.jdbc.settings.YdbConnectionProperty;
 import tech.ydb.jdbc.settings.YdbJdbcTools;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.jdbc.settings.YdbProperties;
@@ -24,6 +25,23 @@ public class YdbConfig {
         this.url = url;
         this.properties = properties;
         this.config = YdbJdbcTools.from(url, properties);
+    }
+
+    public Properties getSafeProps() {
+        Properties safe = new Properties();
+        for (String key: properties.stringPropertyNames()) {
+            if (isSensetive(key)) {
+                safe.put(key, "***");
+            } else {
+                safe.put(key, properties.get(key));
+            }
+        }
+        return safe;
+    }
+
+    private static boolean isSensetive(String key) {
+        return YdbConnectionProperty.TOKEN.getName().equalsIgnoreCase(key)
+                || "password".equalsIgnoreCase(key);
     }
 
     @Override

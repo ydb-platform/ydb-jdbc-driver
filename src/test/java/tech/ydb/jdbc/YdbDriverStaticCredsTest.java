@@ -31,8 +31,9 @@ public class YdbDriverStaticCredsTest {
         try (Connection connection = DriverManager.getConnection(jdbcURL.build())) {
             try (Statement statement = connection.createStatement()) {
                 statement.execute(QueryType.SCHEME_QUERY.getPrefix() + "\n"
-                        + "CREATE USER user1 PASSWORD NULL;"
-                        + "CREATE USER user2 PASSWORD 'pwss';"
+                        + "CREATE USER user1 PASSWORD NULL;\n"
+                        + "CREATE USER user2 PASSWORD 'pwss';\n"
+                        + "CREATE USER user3 PASSWORD 'pw :ss;'\n;"
                 );
             }
         }
@@ -43,7 +44,7 @@ public class YdbDriverStaticCredsTest {
         try (Connection connection = DriverManager.getConnection(jdbcURL.build())) {
             try (Statement statement = connection.createStatement()) {
                 statement.execute(QueryType.SCHEME_QUERY.getPrefix() + "\n"
-                        + "DROP USER IF EXISTS user1, user2;"
+                        + "DROP USER IF EXISTS user1, user2, user3;\n"
                 );
             }
         }
@@ -70,25 +71,36 @@ public class YdbDriverStaticCredsTest {
         }
     }
 
-    @Test
-    public void connectOK() throws SQLException {
-        testConnection(connectByProperties("user1", "pwss"));
-        testConnection(connectByAuthority("user1", "pwss"));
-
-        testConnection(connectByProperties("user2", ""));
-        testConnection(connectByAuthority("user2", ""));
-
-        testConnection(connectByProperties("user2", null));
-        testConnection(connectByAuthority("user2", null));
+    private void wrongConnection(ConnectionSupplier connectionSupplier) {
+        ExceptionAssert.ydbConfiguration("Cannot connect to YDB", () -> testConnection(connectionSupplier));
     }
 
     @Test
-    public void connectWring() throws SQLException {
-        ExceptionAssert.ydbConfiguration("can't connect", () -> testConnection(connectByProperties("user1", "")));
-        ExceptionAssert.ydbConfiguration("can't connect", () -> testConnection(connectByProperties("user1", null)));
-        ExceptionAssert.ydbConfiguration("can't connect", () -> testConnection(connectByProperties("user1", "pass")));
+    public void connectOK() throws SQLException {
+        testConnection(connectByProperties("user1", ""));
+        testConnection(connectByAuthority("user1", ""));
 
-        ExceptionAssert.ydbConfiguration("can't connect", () -> testConnection(connectByProperties("user2", "a")));
+        testConnection(connectByProperties("user1", null));
+        testConnection(connectByAuthority("user1", null));
+
+        testConnection(connectByProperties("user2", "pwss"));
+        testConnection(connectByAuthority("user2", "pwss"));
+
+        testConnection(connectByProperties("user3", "pw :ss;"));
+        testConnection(connectByAuthority("user3", "pw :ss;"));
+    }
+
+    @Test
+    public void connectWrong() throws SQLException {
+        wrongConnection(connectByProperties("user1", "a"));
+
+        wrongConnection(connectByProperties("user2", ""));
+        wrongConnection(connectByProperties("user2", null));
+        wrongConnection(connectByProperties("user2", "pass"));
+
+        wrongConnection(connectByProperties("user3", ""));
+        wrongConnection(connectByProperties("user3", null));
+        wrongConnection(connectByProperties("user3", "pw:ss;"));
     }
 
     interface ConnectionSupplier {

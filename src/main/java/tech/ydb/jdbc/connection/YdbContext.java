@@ -1,10 +1,12 @@
 package tech.ydb.jdbc.connection;
 
+import java.sql.SQLException;
 import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import tech.ydb.core.grpc.GrpcTransport;
+import tech.ydb.jdbc.exception.YdbConfigurationException;
 import tech.ydb.jdbc.settings.YdbClientProperties;
 import tech.ydb.jdbc.settings.YdbConnectionProperties;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
@@ -63,16 +65,20 @@ public class YdbContext implements AutoCloseable {
         }
     }
 
-    public static YdbContext createContext(YdbConfig config) {
-        YdbConnectionProperties connProps = config.getConnectionProperties();
-        YdbClientProperties clientProps = config.getClientProperties();
+    public static YdbContext createContext(YdbConfig config) throws SQLException {
+        try {
+            YdbConnectionProperties connProps = config.getConnectionProperties();
+            YdbClientProperties clientProps = config.getClientProperties();
 
-        LOGGER.log(Level.INFO, "Creating new YDB connection to {0}", connProps.getConnectionString());
+            LOGGER.log(Level.INFO, "Creating new YDB connection to {0}", connProps.getConnectionString());
 
-        GrpcTransport grpcTransport = connProps.toGrpcTransport();
+            GrpcTransport grpcTransport = connProps.toGrpcTransport();
 
-        TableClient tableClient = clientProps.toTableClient(grpcTransport);
+            TableClient tableClient = clientProps.toTableClient(grpcTransport);
 
-        return new YdbContext(config, grpcTransport, tableClient);
+            return new YdbContext(config, grpcTransport, tableClient);
+        } catch (Exception ex) {
+            throw new YdbConfigurationException("Cannot connect to YDB", ex);
+        }
     }
 }
