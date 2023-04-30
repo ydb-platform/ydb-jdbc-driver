@@ -24,13 +24,16 @@ public class JdbcConnectionExtention implements
         BeforeEachCallback, BeforeAllCallback, AfterEachCallback, AfterAllCallback {
 
     private final YdbHelperExtension ydb;
-    private final boolean autoCommit;
+    private final JdbcUrlHelper jdbcURL;
+
     private final Map<ExtensionContext, Connection> map = new HashMap<>();
     private final Stack<Connection> stack = new Stack<>();
 
     public JdbcConnectionExtention(YdbHelperExtension ydb, boolean autoCommit) {
         this.ydb = ydb;
-        this.autoCommit = autoCommit;
+        this.jdbcURL = new JdbcUrlHelper(ydb)
+                .withArg("failOnTruncatedResult", "true")
+                .withArg("autoCommit", String.valueOf(autoCommit));
     }
 
     public JdbcConnectionExtention(YdbHelperExtension ydb) {
@@ -54,26 +57,13 @@ public class JdbcConnectionExtention implements
     }
 
     public String jdbcURL() {
-        StringBuilder jdbc = new StringBuilder("jdbc:ydb:")
-                .append(ydb.useTls() ? "grpcs://" : "grpc://")
-                .append(ydb.endpoint())
-                .append(ydb.database())
-                .append("?autoCommit=")
-                .append(autoCommit)
-                .append("&failOnTruncatedResult=true");
-
-        if (ydb.authToken() != null) {
-            jdbc.append("&token=").append(ydb.authToken());
-        }
-
-        return jdbc.toString();
+        return jdbcURL.build();
     }
 
     public Connection connection() {
         Assert.assertFalse("Retrive connection before initialization", stack.isEmpty());
         return stack.peek();
     }
-
 
     @Override
     public void beforeEach(ExtensionContext ctx) throws Exception {

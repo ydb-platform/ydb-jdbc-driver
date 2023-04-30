@@ -11,6 +11,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import tech.ydb.jdbc.connection.YdbConnectionImpl;
 import tech.ydb.jdbc.connection.YdbContext;
+import tech.ydb.jdbc.impl.helper.JdbcUrlHelper;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
 /**
@@ -21,27 +22,11 @@ public class YdbDriverIntegrationTest {
     @RegisterExtension
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
-    private static String jdbcURL(String... extras) {
-        StringBuilder jdbc = new StringBuilder("jdbc:ydb:")
-                .append(ydb.useTls() ? "grpcs://" : "grpc://")
-                .append(ydb.endpoint())
-                .append(ydb.database())
-                .append("?");
-
-        if (ydb.authToken() != null) {
-            jdbc.append("token=").append(ydb.authToken()).append("&");
-        }
-
-        for (String extra: extras) {
-            jdbc.append(extra).append("=").append(extra).append("&");
-        }
-
-        return jdbc.toString();
-    }
+    private static final JdbcUrlHelper jdbcURL = new JdbcUrlHelper(ydb);
 
     @Test
     public void connect() throws SQLException {
-        try (Connection connection = DriverManager.getConnection(jdbcURL())) {
+        try (Connection connection = DriverManager.getConnection(jdbcURL.build())) {
             Assertions.assertTrue(connection instanceof YdbConnectionImpl);
 
             YdbConnection unwrapped = connection.unwrap(YdbConnection.class);
@@ -54,7 +39,7 @@ public class YdbDriverIntegrationTest {
     @Test
     public void testContextCache() throws SQLException {
         YdbContext ctx;
-        try (Connection conn1 = DriverManager.getConnection(jdbcURL())) {
+        try (Connection conn1 = DriverManager.getConnection(jdbcURL.build())) {
             Assertions.assertTrue(conn1.isValid(5000));
 
             YdbConnection unwrapped = conn1.unwrap(YdbConnection.class);
@@ -63,7 +48,7 @@ public class YdbDriverIntegrationTest {
             ctx = unwrapped.getCtx();
         }
 
-        try (Connection conn2 = DriverManager.getConnection(jdbcURL())) {
+        try (Connection conn2 = DriverManager.getConnection(jdbcURL.build())) {
             Assertions.assertTrue(conn2.isValid(5000));
 
             YdbConnection unwrapped = conn2.unwrap(YdbConnection.class);
@@ -72,7 +57,7 @@ public class YdbDriverIntegrationTest {
         }
 
         Properties props = new Properties();
-        try (Connection conn3 = DriverManager.getConnection(jdbcURL(), props)) {
+        try (Connection conn3 = DriverManager.getConnection(jdbcURL.build(), props)) {
             Assertions.assertTrue(conn3.isValid(5000));
 
             YdbConnection unwrapped = conn3.unwrap(YdbConnection.class);
@@ -81,7 +66,7 @@ public class YdbDriverIntegrationTest {
         }
 
         props.setProperty("TEST_KEY", "TEST_VALUE");
-        try (Connection conn4 = DriverManager.getConnection(jdbcURL(), props)) {
+        try (Connection conn4 = DriverManager.getConnection(jdbcURL.build(), props)) {
             Assertions.assertTrue(conn4.isValid(5000));
 
             YdbConnection unwrapped = conn4.unwrap(YdbConnection.class);
@@ -89,7 +74,7 @@ public class YdbDriverIntegrationTest {
             Assertions.assertNotSame(ctx, unwrapped.getCtx());
         }
 
-        try (Connection conn5 = DriverManager.getConnection(jdbcURL("test"))) {
+        try (Connection conn5 = DriverManager.getConnection(jdbcURL.withArg("test", "false").build())) {
             Assertions.assertTrue(conn5.isValid(5000));
 
             YdbConnection unwrapped = conn5.unwrap(YdbConnection.class);
@@ -102,7 +87,7 @@ public class YdbDriverIntegrationTest {
             YdbDriver.register();
         }
 
-        try (Connection conn6 = DriverManager.getConnection(jdbcURL())) {
+        try (Connection conn6 = DriverManager.getConnection(jdbcURL.build())) {
             Assertions.assertTrue(conn6.isValid(5000));
 
             YdbConnection unwrapped = conn6.unwrap(YdbConnection.class);
