@@ -35,11 +35,11 @@ import tech.ydb.table.values.ListType;
 import tech.ydb.table.values.ListValue;
 import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.table.values.PrimitiveValue;
-import tech.ydb.test.junit5.YdbHelperExtention;
+import tech.ydb.test.junit5.YdbHelperExtension;
 
 public class YdbConnectionImplTest {
     @RegisterExtension
-    private static final YdbHelperExtention ydb = new YdbHelperExtention();
+    private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
     @RegisterExtension
     private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb);

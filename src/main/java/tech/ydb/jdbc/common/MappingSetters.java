@@ -137,7 +137,7 @@ public class MappingSetters {
         if (x instanceof Collection<?>) {
             Collection<?> values = (Collection<?>) x;
             int len = values.size();
-            Value<?>[] result = new Value[len];
+            Value<?>[] result = new Value<?>[len];
             int index = 0;
             for (Object value : values) {
                 if (value != null) {

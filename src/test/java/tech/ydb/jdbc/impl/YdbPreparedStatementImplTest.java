@@ -24,12 +24,12 @@ import tech.ydb.jdbc.statement.YdbPreparedStatementImpl;
 import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryBatchedImpl;
 import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryImpl;
 import tech.ydb.table.values.PrimitiveType;
-import tech.ydb.test.junit5.YdbHelperExtention;
+import tech.ydb.test.junit5.YdbHelperExtension;
 
 
 public class YdbPreparedStatementImplTest {
     @RegisterExtension
-    private static final YdbHelperExtention ydb = new YdbHelperExtention();
+    private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
     @RegisterExtension
     private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb);

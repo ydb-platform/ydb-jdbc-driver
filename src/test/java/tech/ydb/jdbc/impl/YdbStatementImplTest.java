@@ -21,13 +21,13 @@ import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.TableAssert;
 import tech.ydb.jdbc.impl.helper.TestResources;
-import tech.ydb.test.junit5.YdbHelperExtention;
+import tech.ydb.test.junit5.YdbHelperExtension;
 
 public class YdbStatementImplTest {
     private static final Logger logger = LoggerFactory.getLogger(YdbStatementImplTest.class);
 
     @RegisterExtension
-    private static final YdbHelperExtention ydb = new YdbHelperExtention();
+    private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
     @RegisterExtension
     private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb, false);

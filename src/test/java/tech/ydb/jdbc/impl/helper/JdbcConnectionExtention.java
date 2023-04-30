@@ -14,7 +14,7 @@ import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
-import tech.ydb.test.junit5.YdbHelperExtention;
+import tech.ydb.test.junit5.YdbHelperExtension;
 
 /**
  *
@@ -23,17 +23,17 @@ import tech.ydb.test.junit5.YdbHelperExtention;
 public class JdbcConnectionExtention implements
         BeforeEachCallback, BeforeAllCallback, AfterEachCallback, AfterAllCallback {
 
-    private final YdbHelperExtention ydb;
+    private final YdbHelperExtension ydb;
     private final boolean autoCommit;
     private final Map<ExtensionContext, Connection> map = new HashMap<>();
     private final Stack<Connection> stack = new Stack<>();
 
-    public JdbcConnectionExtention(YdbHelperExtention ydb, boolean autoCommit) {
+    public JdbcConnectionExtention(YdbHelperExtension ydb, boolean autoCommit) {
         this.ydb = ydb;
         this.autoCommit = autoCommit;
     }
 
-    public JdbcConnectionExtention(YdbHelperExtention ydb) {
+    public JdbcConnectionExtention(YdbHelperExtension ydb) {
         this(ydb, true);
     }
 

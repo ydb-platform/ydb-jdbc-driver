@@ -51,13 +51,13 @@ import tech.ydb.jdbc.impl.types.RowIdImpl;
 import tech.ydb.jdbc.impl.types.SQLXMLImpl;
 import tech.ydb.table.values.PrimitiveValue;
 import tech.ydb.table.values.Value;
-import tech.ydb.test.junit5.YdbHelperExtention;
+import tech.ydb.test.junit5.YdbHelperExtension;
 
 
 
 public class YdbResultSetImplTest {
     @RegisterExtension
-    private static final YdbHelperExtention ydb = new YdbHelperExtention();
+    private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
     @RegisterExtension
     private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb);

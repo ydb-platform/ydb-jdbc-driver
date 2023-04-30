@@ -11,7 +11,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import tech.ydb.jdbc.connection.YdbConnectionImpl;
 import tech.ydb.jdbc.connection.YdbContext;
-import tech.ydb.test.junit5.YdbHelperExtention;
+import tech.ydb.test.junit5.YdbHelperExtension;
 
 /**
  *
@@ -19,7 +19,7 @@ import tech.ydb.test.junit5.YdbHelperExtention;
  */
 public class YdbDriverIntegrationTest {
     @RegisterExtension
-    private static final YdbHelperExtention ydb = new YdbHelperExtention();
+    private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
     private static String jdbcURL(String... extras) {
         StringBuilder jdbc = new StringBuilder("jdbc:ydb:")
