@@ -23,14 +23,12 @@ import tech.ydb.test.junit5.YdbHelperExtension;
 public class JdbcConnectionExtention implements
         BeforeEachCallback, BeforeAllCallback, AfterEachCallback, AfterAllCallback {
 
-    private final YdbHelperExtension ydb;
     private final JdbcUrlHelper jdbcURL;
 
     private final Map<ExtensionContext, Connection> map = new HashMap<>();
     private final Stack<Connection> stack = new Stack<>();
 
     public JdbcConnectionExtention(YdbHelperExtension ydb, boolean autoCommit) {
-        this.ydb = ydb;
         this.jdbcURL = new JdbcUrlHelper(ydb)
                 .withArg("failOnTruncatedResult", "true")
                 .withArg("autoCommit", String.valueOf(autoCommit));
