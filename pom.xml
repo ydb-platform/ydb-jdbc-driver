@@ -38,6 +38,7 @@
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-jdk14</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -62,13 +63,12 @@
                 <scope>import</scope>
             </dependency>
 
+            <!-- Test dependencies -->
             <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-jdk14</artifactId>
                 <version>${slf4j.version}</version>
             </dependency>
-
-            <!-- Test dependencies -->
             <dependency>
                 <groupId>org.junit.jupiter</groupId>
                 <artifactId>junit-jupiter-params</artifactId>
@@ -76,6 +76,21 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <profiles>
+        <profile>
+            <id>uberjar</id>
+            <build>
+                <plugins>
+                    <!-- Uber JAR creation -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-shade-plugin</artifactId>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
     <build>
         <resources>
@@ -85,12 +100,6 @@
             </resource>
         </resources>
         <plugins>
-            <!-- Uber JAR creation -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-            </plugin>
-
             <!-- Code Coverage report generation -->
             <plugin>
                 <groupId>org.jacoco</groupId>
@@ -101,9 +110,9 @@
         <pluginManagement>
             <plugins>
                 <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.0.0-M9</version>
-
+                    <version>3.0.0</version>
                     <configuration>
                         <environmentVariables>
                             <TESTCONTAINERS_REUSE_ENABLE>true</TESTCONTAINERS_REUSE_ENABLE>
@@ -131,10 +140,13 @@
                     <artifactId>maven-shade-plugin</artifactId>
                     <version>3.4.0</version>
                     <configuration>
+                        <minimizeJar>true</minimizeJar>
                         <shadedArtifactAttached>true</shadedArtifactAttached>
+                        <shadedClassifierName>full</shadedClassifierName>
                         <promoteTransitiveDependencies>true</promoteTransitiveDependencies>
-                        <shadedClassifierName>shaded</shadedClassifierName>
-                        <createDependencyReducedPom>false</createDependencyReducedPom>
+                        <createDependencyReducedPom>true</createDependencyReducedPom>
+                        <dependencyReducedPomLocation>${project.build.directory}/dependency-reduced-pom.xml</dependencyReducedPomLocation>
+
                         <transformers>
                             <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer" />
                             <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheNoticeResourceTransformer" />
@@ -168,24 +180,6 @@
                                     <exclude>META-INF/*.DSA</exclude>
                                     <exclude>META-INF/*.RSA</exclude>
                                 </excludes>
-                            </filter>
-                            <filter>
-                                <artifact>com.yandex.cloud:java-genproto</artifact>
-                                <includes>
-                                    <include>yandex/cloud/api/*.class</include>
-                                    <include>yandex/cloud/api/iam/**</include>
-                                </includes>
-                            </filter>
-                            <filter>
-                                <artifact>tech.ydb:ydb-proto-api</artifact>
-                                <includes>
-                                    <include>tech/ydb/*.class</include>
-                                    <include>tech/ydb/common/**</include>
-                                    <include>tech/ydb/discovery/**</include>
-                                    <include>tech/ydb/formats/**</include>
-                                    <include>tech/ydb/table/**</include>
-                                    <include>tech/ydb/scheme/**</include>
-                                </includes>
                             </filter>
                         </filters>
                     </configuration>
