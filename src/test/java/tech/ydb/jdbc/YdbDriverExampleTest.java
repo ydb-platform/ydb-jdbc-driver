@@ -99,11 +99,29 @@ public class YdbDriverExampleTest {
                 psBatch.executeBatch();
             }
 
+            try (PreparedStatement psBatch = connection
+                    .prepareStatement("" +
+                            "declare $values as List<Struct<p1:Int32,p2:Text>>;\n" +
+                            "$mapper = ($row) -> (AsStruct($row.p1 as id, $row.p2 as value));\n" +
+                            "upsert into table_sample select * from as_table(ListMap($values, $mapper));")
+                    ) {
+
+                psBatch.setInt(1, 7);
+                psBatch.setString(2, "value-7");
+                psBatch.addBatch();
+
+                psBatch.setInt(1, 8);
+                psBatch.setString(2, "value-8");
+                psBatch.addBatch();
+
+                psBatch.executeBatch();
+            }
+
             try (PreparedStatement select = connection
                     .prepareStatement("select count(1) as cnt from table_sample")) {
                 ResultSet rs = select.executeQuery();
                 rs.next();
-                Assertions.assertEquals(6, rs.getLong("cnt"));
+                Assertions.assertEquals(8, rs.getLong("cnt"));
             }
         }
     }

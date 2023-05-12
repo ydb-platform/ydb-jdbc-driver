@@ -26,7 +26,6 @@ import tech.ydb.table.values.StructType;
 import tech.ydb.table.values.Type;
 import tech.ydb.table.values.Value;
 
-import static tech.ydb.jdbc.YdbConst.INDEXED_PARAMETERS_UNSUPPORTED;
 import static tech.ydb.jdbc.YdbConst.MISSING_VALUE_FOR_PARAMETER;
 import static tech.ydb.jdbc.YdbConst.PARAMETER_NOT_FOUND;
 
@@ -130,7 +129,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImpl extends AbstractYdbDat
     protected void setImpl(int parameterIndex, @Nullable Object x,
                            int sqlType, @Nullable String typeName, @Nullable Type type)
             throws SQLException {
-        throw new SQLException(INDEXED_PARAMETERS_UNSUPPORTED);
+        setImpl(query.getParameterName(parameterIndex), x, sqlType, typeName, type);
     }
 
     //
