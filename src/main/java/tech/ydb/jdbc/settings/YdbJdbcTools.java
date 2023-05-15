@@ -4,6 +4,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.io.UnsupportedEncodingException;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Collections;
@@ -91,9 +92,9 @@ public class YdbJdbcTools {
                         }
                         if (value != null && !value.isEmpty()) {
                             sb.append(prefix);
-                            sb.append(URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8));
+                            sb.append(URLEncoder.encode(entry.getKey(), "UTF-8"));
                             sb.append("=");
-                            sb.append(URLEncoder.encode(value, StandardCharsets.UTF_8));
+                            sb.append(URLEncoder.encode(value, "UTF-8"));
                             prefix = "&";
                         }
                     }
@@ -110,7 +111,7 @@ public class YdbJdbcTools {
                     parseProperties(properties, YdbOperationProperty.properties()));
 
             return new YdbProperties(ydbConnectionProps, ydbClientProperties, ydbOperationProperties);
-        } catch (URISyntaxException | RuntimeException ex) {
+        } catch (URISyntaxException | RuntimeException | UnsupportedEncodingException ex) {
             throw new YdbConfigurationException(ex.getMessage(), ex);
         }
     }

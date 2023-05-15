@@ -26,7 +26,7 @@ import static tech.ydb.jdbc.YdbConst.JDBC_YDB_PREFIX;
  */
 @SuppressWarnings("ClassWithMultipleLoggers")
 public class YdbDriver implements Driver {
-    private static final Logger PARENT_LOGGER = Logger.getLogger(YdbDriver.class.getPackageName());
+    private static final Logger PARENT_LOGGER = Logger.getLogger("tech.ydb.jdbc");
     private static final Logger LOGGER = Logger.getLogger(YdbDriver.class.getName());
 
     @Nullable
