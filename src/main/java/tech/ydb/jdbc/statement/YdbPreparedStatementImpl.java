@@ -23,6 +23,7 @@ import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.ListType;
 import tech.ydb.table.values.ListValue;
+import tech.ydb.table.values.OptionalValue;
 import tech.ydb.table.values.StructType;
 import tech.ydb.table.values.Type;
 import tech.ydb.table.values.Value;
@@ -119,7 +120,16 @@ public class YdbPreparedStatementImpl extends AbstractYdbPreparedStatementImpl {
             throws SQLException {
         TypeDescription description = getParameter(parameterName, value, sqlType, typeName, type);
         Value<?> ydbValue = getValue(parameterName, description, value);
-        state.params.put(parameterName, ydbValue);
+        if (ydbValue instanceof OptionalValue) {
+            OptionalValue optionalValue = (OptionalValue) ydbValue;
+            if (optionalValue.isPresent()) {
+                state.params.put(parameterName, optionalValue.get());
+            } else {
+                state.params.put(parameterName, ydbValue);
+            }
+        } else {
+            state.params.put(parameterName, ydbValue);
+        }
     }
 
     @Override
