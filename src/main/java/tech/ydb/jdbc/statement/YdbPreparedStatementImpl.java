@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.annotation.Nullable;
 
@@ -38,6 +40,7 @@ import static tech.ydb.jdbc.YdbConst.VARIABLE_PARAMETER_PREFIX;
 // This implementation support all possible scenarios with batched and simple execution mode
 // It's a default configuration for all queries
 public class YdbPreparedStatementImpl extends AbstractYdbPreparedStatementImpl {
+    private static final Logger LOGGER = Logger.getLogger(YdbPreparedStatementImpl.class.getName());
 
     private final MutableState state = new MutableState();
     private final boolean enforceVariablePrefix;
@@ -85,6 +88,7 @@ public class YdbPreparedStatementImpl extends AbstractYdbPreparedStatementImpl {
     public int[] executeBatch() throws SQLException {
         int batchSize = state.batch.size();
         if (batchSize == 0) {
+            LOGGER.log(Level.FINE, "Batch is empty, nothing to execute");
             return new int[0];
         }
         state.executeBatch = true;

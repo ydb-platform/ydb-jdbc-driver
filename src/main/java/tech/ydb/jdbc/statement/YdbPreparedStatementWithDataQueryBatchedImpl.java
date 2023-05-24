@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.annotation.Nullable;
 
@@ -30,6 +32,8 @@ import static tech.ydb.jdbc.YdbConst.MISSING_VALUE_FOR_PARAMETER;
 import static tech.ydb.jdbc.YdbConst.PARAMETER_NOT_FOUND;
 
 public class YdbPreparedStatementWithDataQueryBatchedImpl extends AbstractYdbDataQueryPreparedStatementImpl {
+    private static final Logger LOGGER = Logger.getLogger(YdbPreparedStatementWithDataQueryBatchedImpl.class.getName());
+
     private final StructBatchConfiguration cfg;
     private final StructMutableState state;
 
@@ -94,6 +98,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImpl extends AbstractYdbDat
     public int[] executeBatch() throws SQLException {
         int batchSize = state.batch.size();
         if (batchSize == 0) {
+            LOGGER.log(Level.FINE, "Batch is empty, nothing to execute");
             return new int[0];
         }
         super.execute();
