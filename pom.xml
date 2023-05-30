@@ -63,12 +63,13 @@
                 <scope>import</scope>
             </dependency>
 
-            <!-- Test dependencies -->
             <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-jdk14</artifactId>
                 <version>${slf4j.version}</version>
             </dependency>
+
+            <!-- Test dependencies -->
             <dependency>
                 <groupId>org.junit.jupiter</groupId>
                 <artifactId>junit-jupiter-params</artifactId>
@@ -162,7 +163,7 @@
 
                         <filters>
                             <!-- jjwt-impl and jjwt-jackson have to be explicitly enabled,
-                                 because there is no compiler-visible dependency  -->
+                            because there is no compiler-visible dependency  -->
                             <filter>
                                 <artifact>io.jsonwebtoken:jjwt-impl</artifact>
                                 <includes>
@@ -171,6 +172,12 @@
                             </filter>
                             <filter>
                                 <artifact>io.jsonwebtoken:jjwt-jackson</artifact>
+                                <includes>
+                                    <include>**</include>
+                                </includes>
+                            </filter>
+                            <filter>
+                                <artifact>com.fasterxml.jackson.core:jackson-databind</artifact>
                                 <includes>
                                     <include>**</include>
                                 </includes>
