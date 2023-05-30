@@ -53,7 +53,6 @@ public class YdbPreparedStatementWithDataQueryBatchedImpl extends AbstractYdbDat
     @Override
     protected void afterExecute() {
         clearParameters();
-        clearBatch();
     }
 
     @Override
@@ -97,6 +96,8 @@ public class YdbPreparedStatementWithDataQueryBatchedImpl extends AbstractYdbDat
             return new int[0];
         }
         super.execute();
+
+        clearBatch();
         int[] ret = new int[batchSize];
         Arrays.fill(ret, SUCCESS_NO_INFO);
         return ret;
