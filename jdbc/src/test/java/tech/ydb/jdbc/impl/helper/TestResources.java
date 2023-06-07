@@ -11,6 +11,8 @@ public class TestResources {
     private static final String SELECT_ALL_VALUES = YdbLookup.stringFileReference("classpath:sql/select_all_values.sql");
     private static final String UPSERT_ALL_VALUES = YdbLookup.stringFileReference("classpath:sql/upsert_all_values.sql");
 
+    private static final String PREPARED_UPSERT_VALUES = YdbLookup.stringFileReference("classpath:sql/prepare_all_values.sql");
+
     private TestResources() { }
 
     private static String withTableName(String query, String tableName) {
@@ -28,5 +30,9 @@ public class TestResources {
 
     public static String upsertAllValuesSql(String tableName) {
         return withTableName(UPSERT_ALL_VALUES, tableName);
+    }
+
+    public static String prerapedUpsertSql(String tableName) {
+        return withTableName(PREPARED_UPSERT_VALUES, tableName);
     }
 }

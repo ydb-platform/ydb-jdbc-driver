@@ -2,8 +2,11 @@ package tech.ydb.jdbc.impl;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -15,6 +18,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbPreparedStatement;
+import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.common.QueryType;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
@@ -28,6 +32,8 @@ import tech.ydb.test.junit5.YdbHelperExtension;
 
 
 public class YdbPreparedStatementImplTest {
+    private static final Logger LOGGER = Logger.getLogger(YdbPreparedStatementImplTest.class.getName());
+
     @RegisterExtension
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
@@ -129,6 +135,16 @@ public class YdbPreparedStatementImplTest {
                 .replaceAll("#column", column)
                 .replaceAll("#tableName", TEST_TABLE);
         return jdbc.connection().prepareStatement(QueryType.SCAN_QUERY.getPrefix() + "\n" + sql)
+                .unwrap(YdbPreparedStatement.class);
+    }
+
+    private YdbPreparedStatement prepareUpsertValues() throws SQLException {
+        return jdbc.connection().prepareStatement(TestResources.prerapedUpsertSql(TEST_TABLE))
+                .unwrap(YdbPreparedStatement.class);
+    }
+
+    private YdbPreparedStatement prepareSelectAll() throws SQLException {
+        return jdbc.connection().prepareStatement(TestResources.selectAllValuesSql(TEST_TABLE))
                 .unwrap(YdbPreparedStatement.class);
     }
 
@@ -463,25 +479,35 @@ public class YdbPreparedStatementImplTest {
         try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Optional<Text>")) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
-//            statement.execute();
 
             ResultSet rs = statement.executeExplainQuery();
 
             Assertions.assertTrue(rs.next());
-            Assertions.assertNotNull(rs.getString(YdbConst.EXPLAIN_COLUMN_AST));
-            Assertions.assertNotNull(rs.getString(YdbConst.EXPLAIN_COLUMN_PLAN));
-//            logger.info("AST: {}", rs.getString(ast));
-//            logger.info("PLAN: {}", rs.getString(plan));
+            String ast = rs.getString(YdbConst.EXPLAIN_COLUMN_AST);
+            String plan = rs.getString(YdbConst.EXPLAIN_COLUMN_AST);
+
+            Assertions.assertNotNull(ast);
+            Assertions.assertNotNull(plan);
+
+            LOGGER.log(Level.INFO, "AST: {0}", ast);
+            LOGGER.log(Level.INFO, "PLAN: {0}", plan);
+
             Assertions.assertFalse(rs.next());
         }
 
         try (YdbPreparedStatement statement = prepareSelectByKey("c_Text")) {
             ResultSet rs = statement.executeExplainQuery();
             Assertions.assertTrue(rs.next());
-            Assertions.assertNotNull(rs.getString(YdbConst.EXPLAIN_COLUMN_AST));
-            Assertions.assertNotNull(rs.getString(YdbConst.EXPLAIN_COLUMN_PLAN));
-//            logger.info("AST: {}", rs.getString(ast));
-//            logger.info("PLAN: {}", rs.getString(plan));
+
+            String ast = rs.getString(YdbConst.EXPLAIN_COLUMN_AST);
+            String plan = rs.getString(YdbConst.EXPLAIN_COLUMN_AST);
+
+            Assertions.assertNotNull(ast);
+            Assertions.assertNotNull(plan);
+
+            LOGGER.log(Level.INFO, "AST: {0}", ast);
+            LOGGER.log(Level.INFO, "PLAN: {0}", plan);
+
             Assertions.assertFalse(rs.next());
         }
     }
@@ -531,93 +557,112 @@ public class YdbPreparedStatementImplTest {
         }
     }
 
-    /*
+    @Test
+    public void setTypedNull() throws SQLException {
+        try (YdbPreparedStatement ps = prepareUpsertValues()) {
+            ps.setInt("key", 1);
+            YdbTypes types = ps.getConnection().getYdbTypes();
+            ps.setNull("c_Bool", types.wrapYdbJdbcType(PrimitiveType.Bool));
+            ps.setNull("c_Int32", types.wrapYdbJdbcType(PrimitiveType.Int32));
+            ps.setNull("c_Int64", types.wrapYdbJdbcType(PrimitiveType.Int64));
+            ps.setNull("c_Uint8", types.wrapYdbJdbcType(PrimitiveType.Uint8));
+            ps.setNull("c_Uint32", types.wrapYdbJdbcType(PrimitiveType.Uint32));
+            ps.setNull("c_Uint64", types.wrapYdbJdbcType(PrimitiveType.Uint64));
+            ps.setNull("c_Float", types.wrapYdbJdbcType(PrimitiveType.Float));
+            ps.setNull("c_Double", types.wrapYdbJdbcType(PrimitiveType.Double));
+            ps.setNull("c_Bytes", types.wrapYdbJdbcType(PrimitiveType.Bytes));
+            ps.setNull("c_Text", types.wrapYdbJdbcType(PrimitiveType.Text));
+            ps.setNull("c_Json", types.wrapYdbJdbcType(PrimitiveType.Json));
+            ps.setNull("c_JsonDocument", types.wrapYdbJdbcType(PrimitiveType.JsonDocument));
+            ps.setNull("c_Yson", types.wrapYdbJdbcType(PrimitiveType.Yson));
+            ps.setNull("c_Date", types.wrapYdbJdbcType(PrimitiveType.Date));
+            ps.setNull("c_Datetime", types.wrapYdbJdbcType(PrimitiveType.Datetime));
+            ps.setNull("c_Timestamp", types.wrapYdbJdbcType(PrimitiveType.Timestamp));
+            ps.setNull("c_Interval", types.wrapYdbJdbcType(PrimitiveType.Interval));
+            ps.setNull("c_Decimal", types.wrapYdbJdbcType(YdbTypes.DEFAULT_DECIMAL_TYPE));
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void setNull(boolean modeJdbcType) throws SQLException {
-        retry(connection -> {
-            YdbPreparedStatement statement = getTestAllValuesStatement(connection);
-            statement.setInt("key", 1);
-            if (sqlTypeRequired()) {
-                YdbTypes types = connection.getYdbTypes();
-                if (modeJdbcType) {
-                    statement.setNull("c_Bool", types.wrapYdbJdbcType(PrimitiveType.Bool));
-                    statement.setNull("c_Int32", types.wrapYdbJdbcType(PrimitiveType.Int32));
-                    statement.setNull("c_Int64", types.wrapYdbJdbcType(PrimitiveType.Int64));
-                    statement.setNull("c_Uint8", types.wrapYdbJdbcType(PrimitiveType.Uint8));
-                    statement.setNull("c_Uint32", types.wrapYdbJdbcType(PrimitiveType.Uint32));
-                    statement.setNull("c_Uint64", types.wrapYdbJdbcType(PrimitiveType.Uint64));
-                    statement.setNull("c_Float", types.wrapYdbJdbcType(PrimitiveType.Float));
-                    statement.setNull("c_Double", types.wrapYdbJdbcType(PrimitiveType.Double));
-                    statement.setNull("c_Bytes", types.wrapYdbJdbcType(PrimitiveType.Bytes));
-                    statement.setNull("c_Text", types.wrapYdbJdbcType(PrimitiveType.Text));
-                    statement.setNull("c_Json", types.wrapYdbJdbcType(PrimitiveType.Json));
-                    statement.setNull("c_JsonDocument", types.wrapYdbJdbcType(PrimitiveType.JsonDocument));
-                    statement.setNull("c_Yson", types.wrapYdbJdbcType(PrimitiveType.Yson));
-                    statement.setNull("c_Date", types.wrapYdbJdbcType(PrimitiveType.Date));
-                    statement.setNull("c_Datetime", types.wrapYdbJdbcType(PrimitiveType.Datetime));
-                    statement.setNull("c_Timestamp", types.wrapYdbJdbcType(PrimitiveType.Timestamp));
-                    statement.setNull("c_Interval", types.wrapYdbJdbcType(PrimitiveType.Interval));
-                    statement.setNull("c_Decimal", types.wrapYdbJdbcType(YdbTypes.DEFAULT_DECIMAL_TYPE));
-                } else {
-                    statement.setNull("c_Bool", -1, "Bool");
-                    statement.setNull("c_Int32", -1, "Int32");
-                    statement.setNull("c_Int64", -1, "Int64");
-                    statement.setNull("c_Uint8", -1, "Uint8");
-                    statement.setNull("c_Uint32", -1, "Uint32");
-                    statement.setNull("c_Uint64", -1, "Uint64");
-                    statement.setNull("c_Float", -1, "Float");
-                    statement.setNull("c_Double", -1, "Double");
-                    statement.setNull("c_Bytes", -1, "String");
-                    statement.setNull("c_Text", -1, "Text");
-                    statement.setNull("c_Json", -1, "Json");
-                    statement.setNull("c_JsonDocument", -1, "JsonDocument");
-                    statement.setNull("c_Yson", -1, "Yson");
-                    statement.setNull("c_Date", -1, "Date");
-                    statement.setNull("c_Datetime", -1, "Datetime");
-                    statement.setNull("c_Timestamp", -1, "Timestamp");
-                    statement.setNull("c_Interval", -1, "Interval");
-                    statement.setNull("c_Decimal", -1, "Decimal(22, 9)");
-                }
-            } else {
-                statement.setNull("c_Bool", -1);
-                statement.setNull("c_Int32", -1);
-                statement.setNull("c_Int64", -1);
-                statement.setNull("c_Uint8", -1);
-                statement.setNull("c_Uint32", -1);
-                statement.setNull("c_Uint64", -1);
-                statement.setNull("c_Float", -1);
-                statement.setNull("c_Double", -1);
-                statement.setNull("c_Bytes", -1);
-                statement.setNull("c_Text", -1);
-                statement.setNull("c_Json", -1);
-                statement.setNull("c_JsonDocument", -1);
-                statement.setNull("c_Yson", -1);
-                statement.setNull("c_Date", -1);
-                statement.setNull("c_Datetime", -1);
-                statement.setNull("c_Timestamp", -1);
-                statement.setNull("c_Interval", -1);
-                statement.setNull("c_Decimal", -1);
-            }
-            statement.executeUpdate();
-            connection.commit();
+            ps.executeUpdate();
+        }
 
-            PreparedStatement statementSelect =
-                    connection.prepareStatement(subst("unit_2", YdbResultSetImplTest.SELECT_ALL_VALUES));
-            ResultSet resultSet = statementSelect.executeQuery();
-            assertTrue(resultSet.next());
+        try (YdbPreparedStatement ps = prepareSelectAll()) {
+            ResultSet rs = ps.executeQuery();
+            Assertions.assertTrue(rs.next());
 
-            ResultSetMetaData metaData = resultSet.getMetaData();
-            assertEquals(19, metaData.getColumnCount());
-            assertEquals(1, resultSet.getObject(1)); // key
+            ResultSetMetaData metaData = rs.getMetaData();
+            Assertions.assertEquals(19, metaData.getColumnCount());
+            Assertions.assertEquals(1, rs.getInt(1)); // key
+
             for (int i = 2; i <= metaData.getColumnCount(); i++) {
-                assertNull(resultSet.getObject(i)); // everything else
+                Assertions.assertNull(rs.getObject(i)); // everything else
             }
 
-            assertFalse(resultSet.next());
-        });
+            Assertions.assertFalse(rs.next());
+        }
+
+//        retry(connection -> {
+//            YdbPreparedStatement statement = getTestAllValuesStatement(connection);
+//            if (sqlTypeRequired()) {
+//                if (modeJdbcType) {
+//                } else {
+//                    statement.setNull("c_Bool", -1, "Bool");
+//                    statement.setNull("c_Int32", -1, "Int32");
+//                    statement.setNull("c_Int64", -1, "Int64");
+//                    statement.setNull("c_Uint8", -1, "Uint8");
+//                    statement.setNull("c_Uint32", -1, "Uint32");
+//                    statement.setNull("c_Uint64", -1, "Uint64");
+//                    statement.setNull("c_Float", -1, "Float");
+//                    statement.setNull("c_Double", -1, "Double");
+//                    statement.setNull("c_Bytes", -1, "String");
+//                    statement.setNull("c_Text", -1, "Text");
+//                    statement.setNull("c_Json", -1, "Json");
+//                    statement.setNull("c_JsonDocument", -1, "JsonDocument");
+//                    statement.setNull("c_Yson", -1, "Yson");
+//                    statement.setNull("c_Date", -1, "Date");
+//                    statement.setNull("c_Datetime", -1, "Datetime");
+//                    statement.setNull("c_Timestamp", -1, "Timestamp");
+//                    statement.setNull("c_Interval", -1, "Interval");
+//                    statement.setNull("c_Decimal", -1, "Decimal(22, 9)");
+//                }
+//            } else {
+//                statement.setNull("c_Bool", -1);
+//                statement.setNull("c_Int32", -1);
+//                statement.setNull("c_Int64", -1);
+//                statement.setNull("c_Uint8", -1);
+//                statement.setNull("c_Uint32", -1);
+//                statement.setNull("c_Uint64", -1);
+//                statement.setNull("c_Float", -1);
+//                statement.setNull("c_Double", -1);
+//                statement.setNull("c_Bytes", -1);
+//                statement.setNull("c_Text", -1);
+//                statement.setNull("c_Json", -1);
+//                statement.setNull("c_JsonDocument", -1);
+//                statement.setNull("c_Yson", -1);
+//                statement.setNull("c_Date", -1);
+//                statement.setNull("c_Datetime", -1);
+//                statement.setNull("c_Timestamp", -1);
+//                statement.setNull("c_Interval", -1);
+//                statement.setNull("c_Decimal", -1);
+//            }
+//            statement.executeUpdate();
+//            connection.commit();
+//
+//            PreparedStatement statementSelect =
+//                    connection.prepareStatement(subst("unit_2", YdbResultSetImplTest.SELECT_ALL_VALUES));
+//            ResultSet resultSet = statementSelect.executeQuery();
+//            assertTrue(resultSet.next());
+//
+//            ResultSetMetaData metaData = resultSet.getMetaData();
+//            assertEquals(19, metaData.getColumnCount());
+//            assertEquals(1, resultSet.getObject(1)); // key
+//            for (int i = 2; i <= metaData.getColumnCount(); i++) {
+//                assertNull(resultSet.getObject(i)); // everything else
+//            }
+//
+//            assertFalse(resultSet.next());
+//        });
     }
+
+        /*
 
 
 
