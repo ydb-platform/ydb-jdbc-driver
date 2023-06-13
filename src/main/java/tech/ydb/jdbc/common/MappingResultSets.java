@@ -8,9 +8,9 @@ import java.util.Map;
 import com.google.common.base.Preconditions;
 import com.google.protobuf.NullValue;
 
-import tech.ydb.ValueProtos;
-import tech.ydb.ValueProtos.Type.PrimitiveTypeId;
 import tech.ydb.jdbc.exception.YdbRuntimeException;
+import tech.ydb.proto.ValueProtos;
+import tech.ydb.proto.ValueProtos.Type.PrimitiveTypeId;
 import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.result.impl.ProtoValueReaders;
 
