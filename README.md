@@ -1,12 +1,16 @@
-[Experimental] JDBC Driver for YDB
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/ydb-platform/ydb-jdbc-driver/blob/master/LICENSE)
+[![Maven metadata URL](https://img.shields.io/maven-metadata/v?metadataUrl=https%3A%2F%2Frepo1.maven.org%2Fmaven2%2Ftech%2Fydb%2Fjdbc%2Fydb-jdbc-driver%2Fmaven-metadata.xml)](https://mvnrepository.com/artifact/tech.ydb.jdbc/ydb-jdbc-driver)
+[![Build](https://img.shields.io/github/actions/workflow/status/ydb-platform/ydb-jdbc-driver/build.yaml?branch=develop)](https://github.com/ydb-platform/ydb-jdbc-driver/actions/workflows/build.yaml)
+
+## JDBC Driver for YDB
 ---
 This is an experimental version of JDBC driver for YDB. It is in active development and is not intended for use in production environments.
 
-## Building
+### Building
 All tests are run without Docker by default.
 To enable all tests make sure you have Docker or Docker Machine installed then run `mvn install -DSKIP_DOCKER_TESTS=false`
 
-## Quickstart
+### Quickstart
 
 1) Drop in [JDBC driver](https://github.com/ydb-platform/ydb-jdbc-driver/releases) to classpath or pick this file in IDEA
 2) Connect to YDB
@@ -16,7 +20,7 @@ To enable all tests make sure you have Docker or Docker Machine installed then r
    * Connect with service account to the cloud instance: `jdbc:ydb:grpcs://<host>:2136/path/to/database?saFile=file:~/sa_key.json`
 3) Execute queries, see example in [YdbDriverExampleTest.java](src/test/java/tech/ydb/jdbc/YdbDriverExampleTest.java)
 
-## Authentication modes
+### Authentication modes
 
 YDB JDBC Driver supports the following [authentication modes](https://ydb.tech/en/docs/reference/ydb-sdk/auth):
 * Anonymous: no authentication, used when username and password are not specified and no other authentication properties configured;
@@ -25,7 +29,7 @@ YDB JDBC Driver supports the following [authentication modes](https://ydb.tech/e
 * Metadata: used when `useMetadata` property is set to `true`, extracts the authentication data from the metadata of a virtual machine, serverless container or a serverless function running in a cloud environment;
 * Service Account Key: used when `saFile` property is configured, extracts the service account key and uses it for authentication.
 
-## Driver properties reference
+### Driver properties reference
 
 Driver supports the following configuration properties, which can be specified in the URL or passed via extra properties:
 * `saFile` - service account key for authentication, can be passed either as literal JSON value or as a file reference;
