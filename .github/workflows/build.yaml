@@ -41,7 +41,7 @@ jobs:
           echo "NEED_SDK=${{ endsWith(env.SDK_VERSION, 'SNAPSHOT') }}" >> "$GITHUB_ENV"
 
       - name: Checkout YDB Java SDK
-        if: env.NEED_SDK
+        if: env.NEED_SDK == 'true'
         uses: actions/checkout@v3
         with:
           repository: ydb-platform/ydb-java-sdk
@@ -50,15 +50,15 @@ jobs:
 
       - name: Build YDB Java SDK
         working-directory: ./ydb-java-sdk
-        if: env.NEED_SDK
+        if: env.NEED_SDK == 'true'
         run: mvn $MAVEN_ARGS install
 
       - name: Remove YDB Java SDK
-        if: env.NEED_SDK
+        if: env.NEED_SDK == 'true'
         run: rm -rf ydb-java-sdk
 
       - name: Checkout YC Auth provider
-        if: env.NEED_SDK
+        if: env.NEED_SDK == 'true'
         uses: actions/checkout@v3
         with:
           repository: ydb-platform/ydb-java-yc
@@ -67,11 +67,11 @@ jobs:
 
       - name: Build YC Auth provider
         working-directory: ./yc
-        if: env.NEED_SDK
+        if: env.NEED_SDK == 'true'
         run: mvn $MAVEN_ARGS install
 
       - name: Remove YC Auth provider
-        if: env.NEED_SDK
+        if: env.NEED_SDK == 'true'
         run: rm -rf yc
 
       - name: Download dependencies
