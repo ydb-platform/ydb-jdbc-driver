@@ -3,12 +3,13 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>tech.ydb</groupId>
+    <groupId>tech.ydb.jdbc</groupId>
 
-    <artifactId>ydb-jdbc-driver</artifactId>
+    <artifactId>ydb-jdbc-driver-parent</artifactId>
     <version>2.0.0-SNAPSHOT</version>
-    <name>YDB JDBC Driver</name>
+    <name>YDB JDBC Module</name>
     <description>JDBC Driver over YDB Java SDK</description>
+    <packaging>pom</packaging>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -19,37 +20,10 @@
         <ydb.sdk.version>2.1.0</ydb.sdk.version>
     </properties>
 
-    <dependencies>
-        <dependency>
-            <groupId>tech.ydb</groupId>
-            <artifactId>ydb-sdk-table</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>tech.ydb</groupId>
-            <artifactId>ydb-sdk-scheme</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>tech.ydb.auth</groupId>
-            <artifactId>yc-auth-provider</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-jdk14</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>tech.ydb.test</groupId>
-            <artifactId>ydb-junit5-support</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-params</artifactId>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
+    <modules>
+        <module>jdbc</module>
+        <module>jdbc-shaded</module>
+    </modules>
 
     <dependencyManagement>
         <dependencies>
@@ -59,6 +33,12 @@
                 <version>${ydb.sdk.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>tech.ydb.jdbc</groupId>
+                <artifactId>ydb-jdbc-driver</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -94,49 +74,26 @@
                 </plugins>
             </build>
         </profile>
-        <profile>
-            <id>uberjar</id>
-            <build>
-                <plugins>
-                    <!-- Uber JAR creation -->
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-shade-plugin</artifactId>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
     </profiles>
 
-    <build>
-        <resources>
-            <resource>
-                <directory>src/main/resources</directory>
-                <filtering>true</filtering>
-            </resource>
-        </resources>
-        <plugins>
-            <!-- Code Coverage report generation -->
-            <plugin>
-                <groupId>org.jacoco</groupId>
-                <artifactId>jacoco-maven-plugin</artifactId>
-            </plugin>
-        </plugins>
 
+    <build>
         <pluginManagement>
             <plugins>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>3.1.0</version>
-                    <configuration>
-                        <environmentVariables>
-                            <TESTCONTAINERS_REUSE_ENABLE>true</TESTCONTAINERS_REUSE_ENABLE>
-                        </environmentVariables>
-                        <systemPropertyVariables>
-                            <java.util.logging.config.file>src/test/resources/logging.properties</java.util.logging.config.file>
-                        </systemPropertyVariables>
-                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>3.3.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <version>3.5.0</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
@@ -155,81 +112,21 @@
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-shade-plugin</artifactId>
-                    <version>3.4.1</version>
-                    <configuration>
-                        <minimizeJar>true</minimizeJar>
-                        <shadedArtifactAttached>true</shadedArtifactAttached>
-                        <shadedClassifierName>full</shadedClassifierName>
-                        <promoteTransitiveDependencies>true</promoteTransitiveDependencies>
-                        <createDependencyReducedPom>true</createDependencyReducedPom>
-                        <dependencyReducedPomLocation>${project.build.directory}/dependency-reduced-pom.xml</dependencyReducedPomLocation>
-
-                        <transformers>
-                            <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer" />
-                            <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheNoticeResourceTransformer" />
-                            <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
-                            <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                <manifestEntries>
-                                    <Automatic-Module-Name>${project.groupId}.jdbc</Automatic-Module-Name>
-                                    <Specification-Title>${spec.title}</Specification-Title>
-                                    <Specification-Version>${spec.version}</Specification-Version>
-                                </manifestEntries>
-                            </transformer>
-                        </transformers>
-
-                        <filters>
-                            <!-- jjwt-impl and jjwt-jackson have to be explicitly enabled,
-                            because there is no compiler-visible dependency  -->
-                            <filter>
-                                <artifact>io.jsonwebtoken:jjwt-impl</artifact>
-                                <includes>
-                                    <include>**</include>
-                                </includes>
-                            </filter>
-                            <filter>
-                                <artifact>io.jsonwebtoken:jjwt-jackson</artifact>
-                                <includes>
-                                    <include>**</include>
-                                </includes>
-                            </filter>
-                            <filter>
-                                <artifact>com.fasterxml.jackson.core:jackson-databind</artifact>
-                                <includes>
-                                    <include>**</include>
-                                </includes>
-                            </filter>
-                            <filter>
-                                <artifact>*:*</artifact>
-                                <excludes>
-                                    <exclude>mozilla/**</exclude>
-                                    <exclude>**/darwin/**</exclude>
-                                    <exclude>**/linux/**</exclude>
-                                    <exclude>**/win32/**</exclude>
-                                    <exclude>**/module-info.class</exclude>
-                                    <exclude>.netbeans_automatic_build</exclude>
-
-                                    <exclude>META-INF/DEPENDENCIES</exclude>
-                                    <exclude>META-INF/MANIFEST.MF</exclude>
-                                    <exclude>META-INF/maven/**</exclude>
-                                    <exclude>META-INF/native-image/**</exclude>
-                                    <exclude>META-INF/services/java.security.Provider</exclude>
-                                    <exclude>META-INF/*.xml</exclude>
-                                    <exclude>META-INF/*.SF</exclude>
-                                    <exclude>META-INF/*.DSA</exclude>
-                                    <exclude>META-INF/*.RSA</exclude>
-                                </excludes>
-                            </filter>
-                        </filters>
-                    </configuration>
+                    <artifactId>maven-source-plugin</artifactId>
+                    <version>3.2.1</version>
                     <executions>
                         <execution>
-                            <phase>package</phase>
+                            <id>attach-sources</id>
                             <goals>
-                                <goal>shade</goal>
+                                <goal>jar-no-fork</goal>
                             </goals>
                         </execution>
                     </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-shade-plugin</artifactId>
+                    <version>3.4.1</version>
                 </plugin>
 
                 <!-- Code Coverage report generation -->
