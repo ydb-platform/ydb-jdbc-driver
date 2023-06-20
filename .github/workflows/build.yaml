@@ -75,7 +75,7 @@ jobs:
         run: rm -rf yc
 
       - name: Download dependencies
-        run: mvn $MAVEN_ARGS dependency:go-offline
+        run: mvn $MAVEN_ARGS dependency:resolve-plugins dependency:go-offline
 
       - name: Build with Maven
         run: mvn $MAVEN_ARGS package
