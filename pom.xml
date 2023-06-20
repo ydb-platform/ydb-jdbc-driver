@@ -7,8 +7,8 @@
 
     <artifactId>ydb-jdbc-driver</artifactId>
     <version>2.0.0-SNAPSHOT</version>
-    <name>JDBC client implementation over Table client</name>
-    <description>JDBC client implementation over Table client</description>
+    <name>YDB JDBC Driver</name>
+    <description>JDBC Driver over YDB Java SDK</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -16,9 +16,9 @@
         <maven.compiler.target>1.8</maven.compiler.target>
 
         <slf4j.version>1.7.36</slf4j.version>
-        <junit.version>5.9.1</junit.version>
+        <junit.version>5.9.3</junit.version>
 
-        <ydb.sdk.version>2.1.0-SNAPSHOT</ydb.sdk.version>
+        <ydb.sdk.version>2.1.0</ydb.sdk.version>
     </properties>
 
     <dependencies>
@@ -113,7 +113,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.0.0</version>
+                    <version>3.1.0</version>
                     <configuration>
                         <environmentVariables>
                             <TESTCONTAINERS_REUSE_ENABLE>true</TESTCONTAINERS_REUSE_ENABLE>
@@ -129,7 +129,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.9.0</version>
+                    <version>3.11.0</version>
                     <configuration>
                         <compilerArgs>
                             <arg>-Xlint</arg>
@@ -219,7 +219,7 @@
                 <plugin>
                     <groupId>org.jacoco</groupId>
                     <artifactId>jacoco-maven-plugin</artifactId>
-                    <version>0.8.8</version>
+                    <version>0.8.10</version>
                     <executions>
                         <execution>
                             <id>jacoco-prepare-agent</id>
