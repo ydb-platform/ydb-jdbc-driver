@@ -34,7 +34,7 @@ import tech.ydb.jdbc.impl.YdbFunctions;
 import tech.ydb.jdbc.impl.YdbResultSetImpl;
 import tech.ydb.jdbc.statement.YdbStatementImpl;
 import tech.ydb.scheme.SchemeClient;
-import tech.ydb.scheme.SchemeOperationProtos;
+import tech.ydb.proto.scheme.SchemeOperationProtos;
 import tech.ydb.scheme.description.ListDirectoryResult;
 import tech.ydb.table.Session;
 import tech.ydb.table.description.TableColumn;
@@ -45,8 +45,6 @@ import tech.ydb.table.settings.DescribeTableSettings;
 import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.table.values.Type;
 
-import static tech.ydb.scheme.SchemeOperationProtos.Entry.Type.DIRECTORY;
-import static tech.ydb.scheme.SchemeOperationProtos.Entry.Type.TABLE;
 
 public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     private static final Logger LOGGER = Logger.getLogger(YdbDatabaseMetaDataImpl.class.getName());
