@@ -1,10 +1,15 @@
 package tech.ydb.jdbc.impl;
 
+import java.sql.ParameterMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -17,6 +22,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.YdbParameterMetaData;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.common.QueryType;
@@ -27,6 +33,7 @@ import tech.ydb.jdbc.impl.helper.TextSelectAssert;
 import tech.ydb.jdbc.statement.YdbPreparedStatementImpl;
 import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryBatchedImpl;
 import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryImpl;
+import tech.ydb.table.values.DecimalValue;
 import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
@@ -558,7 +565,7 @@ public class YdbPreparedStatementImplTest {
     }
 
     @Test
-    public void setTypedNull() throws SQLException {
+    public void testSetNull() throws SQLException {
         try (YdbPreparedStatement ps = prepareUpsertValues()) {
             ps.setInt("key", 1);
             YdbTypes types = ps.getConnection().getYdbTypes();
@@ -584,223 +591,174 @@ public class YdbPreparedStatementImplTest {
             ps.executeUpdate();
         }
 
+        try (YdbPreparedStatement ps = prepareUpsertValues()) {
+            ps.setInt("key", 2);
+            ps.setNull("c_Bool", -1, "Bool");
+            ps.setNull("c_Int32", -1, "Int32");
+            ps.setNull("c_Int64", -1, "Int64");
+            ps.setNull("c_Uint8", -1, "Uint8");
+            ps.setNull("c_Uint32", -1, "Uint32");
+            ps.setNull("c_Uint64", -1, "Uint64");
+            ps.setNull("c_Float", -1, "Float");
+            ps.setNull("c_Double", -1, "Double");
+            ps.setNull("c_Bytes", -1, "String");
+            ps.setNull("c_Text", -1, "Text");
+            ps.setNull("c_Json", -1, "Json");
+            ps.setNull("c_JsonDocument", -1, "JsonDocument");
+            ps.setNull("c_Yson", -1, "Yson");
+            ps.setNull("c_Date", -1, "Date");
+            ps.setNull("c_Datetime", -1, "Datetime");
+            ps.setNull("c_Timestamp", -1, "Timestamp");
+            ps.setNull("c_Interval", -1, "Interval");
+            ps.setNull("c_Decimal", -1, "Decimal(22, 9)");
+
+            ps.executeUpdate();
+        }
+
+        try (YdbPreparedStatement ps = prepareUpsertValues()) {
+            ps.setInt("key", 3);
+            ps.setNull("c_Bool", -1);
+            ps.setNull("c_Int32", -1);
+            ps.setNull("c_Int64", -1);
+            ps.setNull("c_Uint8", -1);
+            ps.setNull("c_Uint32", -1);
+            ps.setNull("c_Uint64", -1);
+            ps.setNull("c_Float", -1);
+            ps.setNull("c_Double", -1);
+            ps.setNull("c_Bytes", -1);
+            ps.setNull("c_Text", -1);
+            ps.setNull("c_Json", -1);
+            ps.setNull("c_JsonDocument", -1);
+            ps.setNull("c_Yson", -1);
+            ps.setNull("c_Date", -1);
+            ps.setNull("c_Datetime", -1);
+            ps.setNull("c_Timestamp", -1);
+            ps.setNull("c_Interval", -1);
+            ps.setNull("c_Decimal", -1);
+
+            ps.executeUpdate();
+        }
+
         try (YdbPreparedStatement ps = prepareSelectAll()) {
             ResultSet rs = ps.executeQuery();
-            Assertions.assertTrue(rs.next());
 
-            ResultSetMetaData metaData = rs.getMetaData();
-            Assertions.assertEquals(19, metaData.getColumnCount());
-            Assertions.assertEquals(1, rs.getInt(1)); // key
+            for (int key = 1; key <= 3; key += 1) {
+                Assertions.assertTrue(rs.next());
 
-            for (int i = 2; i <= metaData.getColumnCount(); i++) {
-                Assertions.assertNull(rs.getObject(i)); // everything else
+                ResultSetMetaData metaData = rs.getMetaData();
+                Assertions.assertEquals(19, metaData.getColumnCount());
+                Assertions.assertEquals(key, rs.getInt(1)); // key
+
+                for (int i = 2; i <= metaData.getColumnCount(); i++) {
+                    Assertions.assertNull(rs.getObject(i)); // everything else
+                }
             }
 
             Assertions.assertFalse(rs.next());
         }
-
-//        retry(connection -> {
-//            YdbPreparedStatement statement = getTestAllValuesStatement(connection);
-//            if (sqlTypeRequired()) {
-//                if (modeJdbcType) {
-//                } else {
-//                    statement.setNull("c_Bool", -1, "Bool");
-//                    statement.setNull("c_Int32", -1, "Int32");
-//                    statement.setNull("c_Int64", -1, "Int64");
-//                    statement.setNull("c_Uint8", -1, "Uint8");
-//                    statement.setNull("c_Uint32", -1, "Uint32");
-//                    statement.setNull("c_Uint64", -1, "Uint64");
-//                    statement.setNull("c_Float", -1, "Float");
-//                    statement.setNull("c_Double", -1, "Double");
-//                    statement.setNull("c_Bytes", -1, "String");
-//                    statement.setNull("c_Text", -1, "Text");
-//                    statement.setNull("c_Json", -1, "Json");
-//                    statement.setNull("c_JsonDocument", -1, "JsonDocument");
-//                    statement.setNull("c_Yson", -1, "Yson");
-//                    statement.setNull("c_Date", -1, "Date");
-//                    statement.setNull("c_Datetime", -1, "Datetime");
-//                    statement.setNull("c_Timestamp", -1, "Timestamp");
-//                    statement.setNull("c_Interval", -1, "Interval");
-//                    statement.setNull("c_Decimal", -1, "Decimal(22, 9)");
-//                }
-//            } else {
-//                statement.setNull("c_Bool", -1);
-//                statement.setNull("c_Int32", -1);
-//                statement.setNull("c_Int64", -1);
-//                statement.setNull("c_Uint8", -1);
-//                statement.setNull("c_Uint32", -1);
-//                statement.setNull("c_Uint64", -1);
-//                statement.setNull("c_Float", -1);
-//                statement.setNull("c_Double", -1);
-//                statement.setNull("c_Bytes", -1);
-//                statement.setNull("c_Text", -1);
-//                statement.setNull("c_Json", -1);
-//                statement.setNull("c_JsonDocument", -1);
-//                statement.setNull("c_Yson", -1);
-//                statement.setNull("c_Date", -1);
-//                statement.setNull("c_Datetime", -1);
-//                statement.setNull("c_Timestamp", -1);
-//                statement.setNull("c_Interval", -1);
-//                statement.setNull("c_Decimal", -1);
-//            }
-//            statement.executeUpdate();
-//            connection.commit();
-//
-//            PreparedStatement statementSelect =
-//                    connection.prepareStatement(subst("unit_2", YdbResultSetImplTest.SELECT_ALL_VALUES));
-//            ResultSet resultSet = statementSelect.executeQuery();
-//            assertTrue(resultSet.next());
-//
-//            ResultSetMetaData metaData = resultSet.getMetaData();
-//            assertEquals(19, metaData.getColumnCount());
-//            assertEquals(1, resultSet.getObject(1)); // key
-//            for (int i = 2; i <= metaData.getColumnCount(); i++) {
-//                assertNull(resultSet.getObject(i)); // everything else
-//            }
-//
-//            assertFalse(resultSet.next());
-//        });
     }
-
-        /*
-
-
 
     @Test
     public void testParametersMeta() throws SQLException {
-        retry(connection -> {
-            YdbPreparedStatement statement = getTestAllValuesStatement(connection);
-            if (sqlTypeRequired()) {
-                assertEquals(0, statement.getParameterMetaData().getParameterCount());
+        try (YdbPreparedStatement ps = prepareUpsertValues()) {
+            final ParameterMetaData meta = ps.getParameterMetaData();
+            final YdbParameterMetaData ydbMeta = meta.unwrap(YdbParameterMetaData.class);
 
-                YdbTypes types = connection.getYdbTypes();
-                statement.setInt("key", 1);
-                statement.setNull("c_Bool", types.wrapYdbJdbcType(PrimitiveType.Bool));
-                statement.setNull("c_Int32", types.wrapYdbJdbcType(PrimitiveType.Int32));
-                statement.setNull("c_Int64", types.wrapYdbJdbcType(PrimitiveType.Int64));
-                statement.setNull("c_Uint8", types.wrapYdbJdbcType(PrimitiveType.Uint8));
-                statement.setNull("c_Uint32", types.wrapYdbJdbcType(PrimitiveType.Uint32));
-                statement.setNull("c_Uint64", types.wrapYdbJdbcType(PrimitiveType.Uint64));
-                statement.setNull("c_Float", types.wrapYdbJdbcType(PrimitiveType.Float));
-                statement.setNull("c_Double", types.wrapYdbJdbcType(PrimitiveType.Double));
-                statement.setNull("c_Bytes", types.wrapYdbJdbcType(PrimitiveType.Bytes));
-                statement.setNull("c_Text", types.wrapYdbJdbcType(PrimitiveType.Text));
-                statement.setNull("c_Json", types.wrapYdbJdbcType(PrimitiveType.Json));
-                statement.setNull("c_JsonDocument", types.wrapYdbJdbcType(PrimitiveType.JsonDocument));
-                statement.setNull("c_Yson", types.wrapYdbJdbcType(PrimitiveType.Yson));
-                statement.setNull("c_Date", types.wrapYdbJdbcType(PrimitiveType.Date));
-                statement.setNull("c_Datetime", types.wrapYdbJdbcType(PrimitiveType.Datetime));
-                statement.setNull("c_Timestamp", types.wrapYdbJdbcType(PrimitiveType.Timestamp));
-                statement.setNull("c_Interval", types.wrapYdbJdbcType(PrimitiveType.Interval));
-                statement.setNull("c_Decimal", types.wrapYdbJdbcType(YdbTypes.DEFAULT_DECIMAL_TYPE));
-            }
+            ExceptionAssert.sqlException("Parameter not found: some-param",
+                    () -> ydbMeta.getParameterIndex("some-param")
+            );
+            ExceptionAssert.sqlException("Parameter is out of range: 335",
+                    () -> meta.getParameterType(335)
+            );
 
-            YdbParameterMetaData metadata = statement.getParameterMetaData();
+            Assertions.assertEquals(19, meta.getParameterCount());
+            for (int param = 1; param <= meta.getParameterCount(); param++) {
+                String name = ydbMeta.getParameterName(param);
+                Assertions.assertEquals(param, ydbMeta.getParameterIndex(name), "Names and indexes are matched");
 
-            assertThrowsMsg(SQLException.class,
-                    () -> metadata.getParameterIndex("some-param"),
-                    "Parameter not found: some-param");
-            assertThrowsMsg(SQLException.class,
-                    () -> metadata.getParameterType(335),
-                    "Parameter is out of range: 335");
-
-            assertEquals(19, metadata.getParameterCount());
-            for (int param = 1; param <= metadata.getParameterCount(); param++) {
-                String name = metadata.getParameterName(param);
-                assertEquals(param, metadata.getParameterIndex(name), "Names and indexes are matched");
-
-                assertFalse(metadata.isSigned(param), "All params are not isSigned");
-                assertEquals(0, metadata.getPrecision(param), "No precision available");
-                assertEquals(0, metadata.getScale(param), "No scale available");
-                assertEquals(ParameterMetaData.parameterModeIn, metadata.getParameterMode(param),
+                Assertions.assertFalse(meta.isSigned(param), "All params are not isSigned");
+                Assertions.assertEquals(0, meta.getPrecision(param), "No precision available");
+                Assertions.assertEquals(0, meta.getScale(param), "No scale available");
+                Assertions.assertEquals(ParameterMetaData.parameterModeIn, meta.getParameterMode(param),
                         "All params are in");
 
-                int type = metadata.getParameterType(param);
-                assertTrue(type != 0, "All params have sql type, including " + name);
+                int type = meta.getParameterType(param);
+                Assertions.assertTrue(type != 0, "All params have sql type, including " + name);
 
-                String cleanParamName;
-                if (expectParameterPrefixed()) {
-                    assertTrue(name.startsWith("$"), "Parameters name must start from $s");
-                    cleanParamName = name.substring(1);
-                } else {
-                    cleanParamName = name;
+                if (name.equals("$key")) {
+                    continue;
                 }
-                if (cleanParamName.startsWith("c_")) {
-                    assertEquals(ParameterMetaData.parameterNullable, metadata.isNullable(param),
-                            "All parameters expect primary key defined as nullable");
 
-                    String expectType = cleanParamName.substring("c_".length()).toLowerCase();
-                    if (expectType.equals("decimal")) {
-                        expectType += "(22, 9)";
-                    }
+                Assertions.assertEquals(ParameterMetaData.parameterNullable, meta.isNullable(param),
+                        "All parameters expect primary key defined as nullable, including " + name);
 
-                    String actualType = metadata.getParameterTypeName(param);
-                    assertNotNull(actualType, "All parameters have database types");
-                    assertEquals(expectType, actualType.toLowerCase(),
-                            "All parameter names are similar to types");
-                } else {
-                    if (sqlTypeRequired()) {
-                        assertEquals(ParameterMetaData.parameterNullable, metadata.isNullable(param),
-                                "Primary key must be defined as nullable");
-                    } else {
-                        assertEquals(ParameterMetaData.parameterNoNulls, metadata.isNullable(param),
-                                "Primary key must be defined as non nullable");
-                    }
+                String expectType = name.substring("$c_".length()).toLowerCase();
+                if (expectType.equals("decimal")) {
+                    expectType += "(22, 9)";
                 }
+
+                String actualType = meta.getParameterTypeName(param);
+                Assertions.assertNotNull(actualType, "All parameters have database types");
+                Assertions.assertEquals(expectType, actualType.toLowerCase(),
+                        "All parameter names are similar to types");
 
                 String expectClassName;
-                switch (cleanParamName) {
-                    case "key":
-                    case "c_Int32":
-                    case "c_Uint8":
+                switch (name) {
+                    case "$key":
+                    case "$c_Int32":
+                    case "$c_Uint8":
                         expectClassName = Integer.class.getName();
                         break;
-                    case "c_Bool":
+                    case "$c_Bool":
                         expectClassName = Boolean.class.getName();
                         break;
-                    case "c_Int64":
-                    case "c_Uint64":
-                    case "c_Uint32":
+                    case "$c_Int64":
+                    case "$c_Uint64":
+                    case "$c_Uint32":
                         expectClassName = Long.class.getName();
                         break;
-                    case "c_Float":
+                    case "$c_Float":
                         expectClassName = Float.class.getName();
                         break;
-                    case "c_Double":
+                    case "$c_Double":
                         expectClassName = Double.class.getName();
                         break;
-                    case "c_Text":
-                    case "c_Json":
-                    case "c_JsonDocument":
+                    case "$c_Text":
+                    case "$c_Json":
+                    case "$c_JsonDocument":
                         expectClassName = String.class.getName();
                         break;
-                    case "c_Bytes":
-                    case "c_Yson":
+                    case "$c_Bytes":
+                    case "$c_Yson":
                         expectClassName = byte[].class.getName();
                         break;
-                    case "c_Date":
+                    case "$c_Date":
                         expectClassName = LocalDate.class.getName();
                         break;
-                    case "c_Datetime":
+                    case "$c_Datetime":
                         expectClassName = LocalDateTime.class.getName();
                         break;
-                    case "c_Timestamp":
+                    case "$c_Timestamp":
                         expectClassName = Instant.class.getName();
                         break;
-                    case "c_Interval":
+                    case "$c_Interval":
                         expectClassName = Duration.class.getName();
                         break;
-                    case "c_Decimal":
+                    case "$c_Decimal":
                         expectClassName = DecimalValue.class.getName();
                         break;
                     default:
-                        throw new IllegalStateException("Unknown param: " + cleanParamName);
+                        throw new IllegalStateException("Unknown param: " + name);
                 }
-                assertEquals(expectClassName, metadata.getParameterClassName(param),
+                Assertions.assertEquals(expectClassName, meta.getParameterClassName(param),
                         "Check class name for parameter: " + name);
             }
-        });
+        }
     }
+
+
+        /*
+
 
     @Test
     void setBoolean() throws SQLException {
