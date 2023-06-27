@@ -18,7 +18,7 @@ To enable all tests make sure you have Docker or Docker Machine installed then r
    * Self-hosted cluster: `jdbc:ydb:grpcs://<host>:2136/Root/testdb?secureConnectionCertificate=file:~/myca.cer` + username and password configured
    * Connect with token to the cloud instance: `jdbc:ydb:grpcs://<host>:2135/path/to/database?token=file:~/my_token`
    * Connect with service account to the cloud instance: `jdbc:ydb:grpcs://<host>:2136/path/to/database?saFile=file:~/sa_key.json`
-3) Execute queries, see example in [YdbDriverExampleTest.java](src/test/java/tech/ydb/jdbc/YdbDriverExampleTest.java)
+3) Execute queries, see example in [YdbDriverExampleTest.java](jdbc/src/test/java/tech/ydb/jdbc/YdbDriverExampleTest.java)
 
 ### Authentication modes
 
