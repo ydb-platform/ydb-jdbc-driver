@@ -55,7 +55,6 @@ import static tech.ydb.jdbc.YdbConst.QUERY_EXPECT_UPDATE;
 import static tech.ydb.jdbc.YdbConst.REF_UNSUPPORTED;
 import static tech.ydb.jdbc.YdbConst.ROWID_UNSUPPORTED;
 import static tech.ydb.jdbc.YdbConst.SQLXML_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.UNABLE_TO_SET_NULL_VALUE;
 
 public abstract class AbstractYdbPreparedStatementImpl extends YdbStatementImpl implements YdbPreparedStatement {
     protected final YdbQuery query;
@@ -619,7 +618,7 @@ public abstract class AbstractYdbPreparedStatementImpl extends YdbStatementImpl 
             if (description.nullValue() != null) {
                 return description.nullValue();
             } else {
-                throw new SQLException(UNABLE_TO_SET_NULL_VALUE + param);
+                return description.ydbType().makeOptional().emptyValue();
             }
         } else {
             Value<?> targetValue = description.setters().toValue(value);

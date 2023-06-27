@@ -59,19 +59,27 @@ public class YdbDriverExampleTest {
                 ps.setInt(1, 2);
                 ps.setString(2, "value-2");
                 ps.executeUpdate();
+
+                ps.setInt(1, 3);
+                ps.setNull(2, -1);
+                ps.executeUpdate();
             }
 
             try (PreparedStatement ps = connection.prepareStatement("" +
                             "declare $p1 as Int32;\n" +
-                            "declare $p2 as Text;\n" +
+                            "declare $p2 as Optional<Text>;\n" +
                             "upsert into table_sample (id, value) values ($p1, $p2)")) {
 
-                ps.setInt(1, 3);
+                ps.setInt(1, 4);
                 ps.setString(2, "value-3");
                 ps.executeUpdate();
 
-                ps.setInt(1, 4);
+                ps.setInt(1, 5);
                 ps.setString(2, "value-4");
+                ps.executeUpdate();
+
+                ps.setInt(1, 6);
+                ps.setNull(2, -1);
                 ps.executeUpdate();
             }
 
@@ -79,7 +87,7 @@ public class YdbDriverExampleTest {
                     .prepareStatement("select count(1) as cnt from table_sample")) {
                 ResultSet rs = select.executeQuery();
                 rs.next();
-                Assertions.assertEquals(4, rs.getLong("cnt"));
+                Assertions.assertEquals(6, rs.getLong("cnt"));
             }
 
             try (YdbPreparedStatement psBatch = connection
@@ -88,11 +96,11 @@ public class YdbDriverExampleTest {
                             "upsert into table_sample select * from as_table($values)")
                     .unwrap(YdbPreparedStatement.class)) {
 
-                psBatch.setInt("id", 5);
+                psBatch.setInt("id", 7);
                 psBatch.setString("value", "value-5");
                 psBatch.addBatch();
 
-                psBatch.setInt("id", 6);
+                psBatch.setInt("id", 8);
                 psBatch.setString("value", "value-6");
                 psBatch.addBatch();
 
@@ -106,11 +114,11 @@ public class YdbDriverExampleTest {
                             "upsert into table_sample select * from as_table(ListMap($values, $mapper));")
                     ) {
 
-                psBatch.setInt(1, 7);
+                psBatch.setInt(1, 9);
                 psBatch.setString(2, "value-7");
                 psBatch.addBatch();
 
-                psBatch.setInt(1, 8);
+                psBatch.setInt(1, 10);
                 psBatch.setString(2, "value-8");
                 psBatch.addBatch();
 
@@ -121,7 +129,7 @@ public class YdbDriverExampleTest {
                     .prepareStatement("select count(1) as cnt from table_sample")) {
                 ResultSet rs = select.executeQuery();
                 rs.next();
-                Assertions.assertEquals(8, rs.getLong("cnt"));
+                Assertions.assertEquals(10, rs.getLong("cnt"));
             }
         }
     }
