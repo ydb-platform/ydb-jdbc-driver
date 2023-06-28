@@ -222,7 +222,7 @@ public class YdbPreparedStatementImpl extends AbstractYdbPreparedStatementImpl {
             throw new YdbExecutionException(String.format(PARAMETER_TYPE_UNKNOWN,
                     sqlType, typeName, parameterName));
         }
-        return actualType.makeOptional();
+        return actualType;
     }
 
     private void initBatchStruct() {

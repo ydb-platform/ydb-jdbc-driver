@@ -650,7 +650,7 @@ public class YdbConnectionImplTest {
                 + "create table " + tableName + " (key Int32, payload " + type + ", primary key(key))";
 
         try (Statement statement = jdbc.connection().createStatement()) {
-            ExceptionAssert.ydbNonRetryable("Only core YQL data types are currently supported",
+            ExceptionAssert.ydbNonRetryable("Invalid type for column: payload.",
                     () -> statement.execute(sql));
         }
     }

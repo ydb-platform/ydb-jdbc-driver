@@ -45,7 +45,7 @@ public class YdbDatabaseMetaDataImplTest {
 
     @BeforeAll
     public static void createTables() throws SQLException {
-        try (Statement statement = jdbc.connection().createStatement();) {
+        try (Statement statement = jdbc.connection().createStatement()) {
             // create simple tables
             statement.execute("--jdbc:SCHEME\n"
                     + "create table t1 (id Int32, value Int32, primary key (id));\n"
@@ -205,7 +205,7 @@ public class YdbDatabaseMetaDataImplTest {
         Assertions.assertFalse(metaData.supportsSchemasInProcedureCalls());
         Assertions.assertFalse(metaData.supportsSchemasInTableDefinitions());
         Assertions.assertFalse(metaData.supportsSchemasInIndexDefinitions());
-        Assertions.assertFalse(metaData.supportsSchemasInIndexDefinitions());
+        Assertions.assertFalse(metaData.supportsSchemasInPrivilegeDefinitions());
 
         Assertions.assertTrue(metaData.supportsCatalogsInDataManipulation());
         Assertions.assertTrue(metaData.supportsCatalogsInProcedureCalls());
