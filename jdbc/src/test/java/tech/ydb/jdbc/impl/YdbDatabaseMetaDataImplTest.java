@@ -25,7 +25,7 @@ import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.TableAssert;
-import tech.ydb.jdbc.impl.helper.TestResources;
+import tech.ydb.jdbc.impl.helper.SqlQueries;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
 public class YdbDatabaseMetaDataImplTest {
@@ -58,7 +58,7 @@ public class YdbDatabaseMetaDataImplTest {
                             + "primary key(key1, key2), "
                             + "index idx_2 global on (value1, value2),"
                             + "index idx_1 global on (value3));\n"
-                    + TestResources.createTableSql(ALL_TYPES_TABLE)
+                    + SqlQueries.createTableSQL(ALL_TYPES_TABLE)
             );
         }
     }

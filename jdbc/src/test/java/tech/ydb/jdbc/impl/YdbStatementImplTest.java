@@ -20,7 +20,7 @@ import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.TableAssert;
-import tech.ydb.jdbc.impl.helper.TestResources;
+import tech.ydb.jdbc.impl.helper.SqlQueries;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
 public class YdbStatementImplTest {
@@ -46,7 +46,7 @@ public class YdbStatementImplTest {
     public static void initTable() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement();) {
             // create test table
-            statement.execute("--jdbc:SCHEME\n" + TestResources.createTableSql(TEST_TABLE));
+            statement.execute("--jdbc:SCHEME\n" + SqlQueries.createTableSQL(TEST_TABLE));
         }
         jdbc.connection().commit();
     }
@@ -266,7 +266,7 @@ public class YdbStatementImplTest {
     @Test
     public void executeSchemeQueryExplicitly() throws SQLException {
         // create test table
-        statement.execute("--jdbc:SCHEME\n" + TestResources.createTableSql("scheme_query_test"));
+        statement.execute("--jdbc:SCHEME\n" + SqlQueries.createTableSQL("scheme_query_test"));
 
         String dropSql = "drop table scheme_query_test";
         ExceptionAssert.ydbNonRetryable("'DROP TABLE' not supported in query prepare mode",

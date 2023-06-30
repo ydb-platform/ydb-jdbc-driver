@@ -43,7 +43,7 @@ import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
-import tech.ydb.jdbc.impl.helper.TestResources;
+import tech.ydb.jdbc.impl.helper.SqlQueries;
 import tech.ydb.jdbc.impl.types.ArrayImpl;
 import tech.ydb.jdbc.impl.types.NClobImpl;
 import tech.ydb.jdbc.impl.types.RefImpl;
@@ -75,8 +75,8 @@ public class YdbResultSetImplTest {
     public static void initTable() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement();) {
             // create test table
-            statement.execute("--jdbc:SCHEME\n" + TestResources.createTableSql(TEST_TABLE));
-            statement.execute(TestResources.upsertAllValuesSql(TEST_TABLE));
+            statement.execute("--jdbc:SCHEME\n" + SqlQueries.createTableSQL(TEST_TABLE));
+            statement.execute(SqlQueries.upsertAllValuesSql(TEST_TABLE));
         }
         jdbc.connection().commit();
     }
@@ -93,7 +93,7 @@ public class YdbResultSetImplTest {
     @BeforeEach
     public void beforeEach() throws SQLException {
         statement = jdbc.connection().createStatement();
-        resultSet = statement.executeQuery(TestResources.selectAllValuesSql(TEST_TABLE));
+        resultSet = statement.executeQuery(SqlQueries.selectAllValuesSql(TEST_TABLE));
     }
 
     @AfterEach

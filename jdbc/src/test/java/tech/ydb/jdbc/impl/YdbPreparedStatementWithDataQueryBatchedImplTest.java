@@ -16,7 +16,7 @@ import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.common.QueryType;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
-import tech.ydb.jdbc.impl.helper.TestResources;
+import tech.ydb.jdbc.impl.helper.SqlQueries;
 import tech.ydb.jdbc.impl.helper.TextSelectAssert;
 import tech.ydb.jdbc.statement.YdbPreparedStatementImpl;
 import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryBatchedImpl;
@@ -51,7 +51,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
     public static void initTable() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement();) {
             // create test table
-            statement.execute(QueryType.SCHEME_QUERY.getPrefix() + "\n" + TestResources.createTableSql(TEST_TABLE));
+            statement.execute(QueryType.SCHEME_QUERY.getPrefix() + "\n" + SqlQueries.createTableSQL(TEST_TABLE));
         }
         jdbc.connection().commit();
     }
