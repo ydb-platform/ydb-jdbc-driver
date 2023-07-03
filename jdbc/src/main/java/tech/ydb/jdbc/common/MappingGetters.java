@@ -30,6 +30,9 @@ import tech.ydb.table.values.Value;
 
 import static tech.ydb.jdbc.YdbConst.UNABLE_TO_CAST;
 import static tech.ydb.jdbc.YdbConst.UNABLE_TO_CONVERT;
+import static tech.ydb.table.values.PrimitiveType.Int16;
+import static tech.ydb.table.values.PrimitiveType.Int32;
+import static tech.ydb.table.values.PrimitiveType.Uint32;
 
 public class MappingGetters {
 
@@ -183,62 +186,115 @@ public class MappingGetters {
         }
     }
 
-    private static ValueToByte valueToByte(Type.Kind kind, @Nullable PrimitiveType id) {
-        Class<?> javaType = byte.class;
+    private static byte checkByteValue(PrimitiveType id, int value) throws SQLException {
+        int ch = value >= 0 ? value : ~value;
+        if ((ch & 0x7F) != ch) {
+            throw cannotConvert(id, byte.class, value);
+        }
+        return (byte)value;
+    }
+
+    private static byte checkByteValue(PrimitiveType id, long value) throws SQLException {
+        long ch = value >= 0 ? value : ~value;
+        if ((ch & 0x7Fl) != ch) {
+            throw cannotConvert(id, byte.class, value);
+        }
+        return (byte)value;
+    }
+
+    private static ValueToByte valueToByte(Type.Kind kind, PrimitiveType id) {
         if (kind == Type.Kind.PRIMITIVE) {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
             switch (id) {
                 case Bool:
-                    return value -> (byte) (value.getBool() ? 1 : 0);
+                    return value -> checkByteValue(id, value.getBool() ? 1 : 0);
                 case Int8:
                     return PrimitiveReader::getInt8;
+                case Int16:
+                    return value -> checkByteValue(id, value.getInt16());
+                case Int32:
+                    return value -> checkByteValue(id, value.getInt32());
+                case Int64:
+                    return value -> checkByteValue(id, value.getInt64());
                 case Uint8:
-                    return value -> (byte) value.getUint8();
+                    return value -> checkByteValue(id, value.getUint8());
+                case Uint16:
+                    return value -> checkByteValue(id, value.getUint16());
+                case Uint32:
+                    return value -> checkByteValue(id, value.getUint32());
+                case Uint64:
+                    return value -> checkByteValue(id, value.getUint64());
                 default:
                     return value -> {
-                        throw dataTypeNotSupported(id, javaType);
+                        throw dataTypeNotSupported(id, byte.class);
                     };
             }
         } else {
             return value -> {
-                throw dataTypeNotSupported(kind, javaType);
+                throw dataTypeNotSupported(kind, byte.class);
             };
         }
     }
 
-    private static ValueToShort valueToShort(Type.Kind kind, @Nullable PrimitiveType id) {
-        Class<?> javaType = short.class;
+    private static short checkShortValue(PrimitiveType id, int value) throws SQLException {
+        int ch = value >= 0 ? value : ~value;
+        if ((ch & 0x7FFF) != ch) {
+            throw cannotConvert(id, short.class, value);
+        }
+        return (short)value;
+    }
+
+    private static short checkShortValue(PrimitiveType id, long value) throws SQLException {
+        long ch = value >= 0 ? value : ~value;
+        if ((ch & 0x7FFFl) != ch) {
+            throw cannotConvert(id, short.class, value);
+        }
+        return (short)value;
+    }
+
+    private static ValueToShort valueToShort(Type.Kind kind, PrimitiveType id) {
         if (kind == Type.Kind.PRIMITIVE) {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
             switch (id) {
                 case Bool:
-                    return value -> (short) (value.getBool() ? 1 : 0);
+                    return value -> checkShortValue(id, value.getBool() ? 1 : 0);
                 case Int8:
                     return PrimitiveReader::getInt8;
-                case Uint8:
-                    return valueReader -> (short) valueReader.getUint8();
                 case Int16:
                     return PrimitiveReader::getInt16;
-                case Uint16:
-                    return valueReader -> (short) valueReader.getUint16();
                 case Int32:
-                    return valueReader -> (short) valueReader.getInt32();
+                    return value -> checkShortValue(id, value.getInt32());
+                case Int64:
+                    return value -> checkShortValue(id, value.getInt64());
+                case Uint8:
+                    return value -> checkShortValue(id, value.getUint8());
+                case Uint16:
+                    return value -> checkShortValue(id, value.getUint16());
                 case Uint32:
-                    return valueReader -> (short) valueReader.getUint32();
+                    return value -> checkShortValue(id, value.getUint32());
+                case Uint64:
+                    return value -> checkShortValue(id, value.getUint64());
                 default:
                     return value -> {
-                        throw dataTypeNotSupported(id, javaType);
+                        throw dataTypeNotSupported(id, short.class);
                     };
             }
         } else {
             return value -> {
-                throw dataTypeNotSupported(kind, javaType);
+                throw dataTypeNotSupported(kind, short.class);
             };
         }
     }
 
-    private static ValueToInt valueToInt(Type.Kind kind, @Nullable PrimitiveType id) {
-        Class<?> javaType = int.class;
+    private static int checkIntValue(PrimitiveType id, long value) throws SQLException {
+        long ch = value >= 0 ? value : ~value;
+        if ((ch & 0x7FFFFFFFl) != ch) {
+            throw cannotConvert(id, int.class, value);
+        }
+        return (int)value;
+    }
+
+    private static ValueToInt valueToInt(Type.Kind kind, PrimitiveType id) {
         if (kind == Type.Kind.PRIMITIVE) {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
             switch (id) {
@@ -246,30 +302,35 @@ public class MappingGetters {
                     return value -> value.getBool() ? 1 : 0;
                 case Int8:
                     return PrimitiveReader::getInt8;
-                case Uint8:
-                    return PrimitiveReader::getUint8;
                 case Int16:
                     return PrimitiveReader::getInt16;
-                case Uint16:
-                    return PrimitiveReader::getUint16;
                 case Int32:
                     return PrimitiveReader::getInt32;
+                case Int64:
+                    return value -> checkIntValue(id, value.getInt64());
+                case Uint8:
+                    return PrimitiveReader::getUint8;
+                case Uint16:
+                    return PrimitiveReader::getUint16;
                 case Uint32:
-                    return valueReader -> (int) valueReader.getUint32();
+                    return value -> checkIntValue(id, value.getUint32());
+                case Uint64:
+                    return value -> checkIntValue(id, value.getUint64());
                 default:
                     return value -> {
-                        throw dataTypeNotSupported(id, javaType);
+                        throw dataTypeNotSupported(id, int.class);
                     };
             }
+        } else if (kind == Type.Kind.DECIMAL) {
+            return value -> value.getDecimal().toBigInteger().intValue(); // TODO: Improve performance
         } else {
             return value -> {
-                throw dataTypeNotSupported(kind, javaType);
+                throw dataTypeNotSupported(kind, int.class);
             };
         }
     }
 
     private static ValueToLong valueToLong(Type.Kind kind, @Nullable PrimitiveType id) {
-        Class<?> javaType = long.class;
         if (kind == Type.Kind.PRIMITIVE) {
             Preconditions.checkState(id != null, "Primitive type must not be null when kind is %s", kind);
             switch (id) {
@@ -303,14 +364,14 @@ public class MappingGetters {
                     return value -> TimeUnit.NANOSECONDS.toMicros(value.getInterval().toNanos());
                 default:
                     return value -> {
-                        throw dataTypeNotSupported(id, javaType);
+                        throw dataTypeNotSupported(id, long.class);
                     };
             }
         } else if (kind == Type.Kind.DECIMAL) {
             return value -> value.getDecimal().toBigInteger().longValue(); // TODO: Improve performance
         } else {
             return value -> {
-                throw dataTypeNotSupported(kind, javaType);
+                throw dataTypeNotSupported(kind, long.class);
             };
         }
     }
@@ -324,18 +385,24 @@ public class MappingGetters {
                     return value -> value.getBool() ? 1 : 0;
                 case Int8:
                     return PrimitiveReader::getInt8;
-                case Uint8:
-                    return PrimitiveReader::getUint8;
                 case Int16:
                     return PrimitiveReader::getInt16;
-                case Uint16:
-                    return PrimitiveReader::getUint16;
                 case Int32:
                     return PrimitiveReader::getInt32;
+                case Int64:
+                    return PrimitiveReader::getInt64;
+                case Uint8:
+                    return PrimitiveReader::getUint8;
+                case Uint16:
+                    return PrimitiveReader::getUint16;
                 case Uint32:
                     return PrimitiveReader::getUint32;
+                case Uint64:
+                    return PrimitiveReader::getUint64;
                 case Float:
                     return PrimitiveReader::getFloat;
+                case Double:
+                    return value -> (float) value.getDouble();
                 default:
                     return value -> {
                         throw dataTypeNotSupported(id, javaType);

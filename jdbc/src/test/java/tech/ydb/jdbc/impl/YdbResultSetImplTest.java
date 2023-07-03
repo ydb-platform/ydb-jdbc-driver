@@ -150,7 +150,7 @@ public class YdbResultSetImplTest {
     @Test
     public void findColumn() throws SQLException {
         Assertions.assertEquals(1, resultSet.findColumn("key"));
-        Assertions.assertEquals(11, resultSet.findColumn("c_Text"));
+        Assertions.assertEquals(14, resultSet.findColumn("c_Text"));
         ExceptionAssert.sqlException("Column not found: value0", () -> resultSet.findColumn("value0"));
     }
 
@@ -178,7 +178,7 @@ public class YdbResultSetImplTest {
         ExceptionAssert.sqlException("Column is out of range: 995", () -> metadata.getColumnName(995));
         ExceptionAssert.sqlException("Column not found: column0", () -> ydbMetadata.getColumnIndex("column0"));
 
-        Assertions.assertEquals(19, metadata.getColumnCount());
+        Assertions.assertEquals(22, metadata.getColumnCount());
 
         for (int index = 0; index < metadata.getColumnCount(); index++) {
             int column = index + 1;
@@ -246,7 +246,8 @@ public class YdbResultSetImplTest {
 
     @Test
     public void moveOnEmptyResultSet() throws SQLException {
-        try (ResultSet rs = statement.executeQuery("select * from " + TEST_TABLE + " where 1 = 0")) {
+        String select = TEST_TABLE.withTableName("select * from ${tableName} where 1 = 0");
+        try (ResultSet rs = statement.executeQuery(select)) {
             assertIsEmpty(rs);
             rs.beforeFirst();
             assertIsEmpty(rs);
@@ -665,107 +666,122 @@ public class YdbResultSetImplTest {
         checker.nextRow()
                 .value(1, "key", "1")
                 .value(2, "c_Bool", "true")
-                .value(3, "c_Int32", "2000000001")
-                .value(4, "c_Int64", "2000000000001")
-                .value(5, "c_Uint8", "100")
-                .value(6, "c_Uint32", "2000000002")
-                .value(7, "c_Uint64", "2000000000002")
-                .value(8, "c_Float", "123456.78")
-                .value(9, "c_Double", "1.2345678912345679E8")
-                .value(10, "c_Bytes", "bytes array")
-                .value(11, "c_Text", "text text text")
-                .value(12, "c_Json", "{\"key\": \"value Json\"}")
-                .value(13, "c_JsonDocument", "{\"key\":\"value JsonDocument\"}")
-                .value(14, "c_Yson", "{key=\"value yson\"}")
-                .value(15, "c_Date", "1978-07-09")
-                .value(16, "c_Datetime", "1970-02-06T00:11:51")
-                .value(17, "c_Timestamp", "1970-01-01T00:00:03.111112Z")
-                .value(18, "c_Interval", "PT3.111113S")
-                .value(19, "c_Decimal", "3.335000000");
+                .value(3, "c_Int8", "101")
+                .value(4, "c_Int16", "20001")
+                .value(5, "c_Int32", "2000000001")
+                .value(6, "c_Int64", "2000000000001")
+                .value(7, "c_Uint8", "100")
+                .value(8, "c_Uint16", "20002")
+                .value(9, "c_Uint32", "2000000002")
+                .value(10, "c_Uint64", "2000000000002")
+                .value(11, "c_Float", "123456.78")
+                .value(12, "c_Double", "1.2345678912345679E8")
+                .value(13, "c_Bytes", "bytes array")
+                .value(14, "c_Text", "text text text")
+                .value(15, "c_Json", "{\"key\": \"value Json\"}")
+                .value(16, "c_JsonDocument", "{\"key\":\"value JsonDocument\"}")
+                .value(17, "c_Yson", "{key=\"value yson\"}")
+                .value(18, "c_Date", "1978-07-09")
+                .value(19, "c_Datetime", "1970-02-06T00:11:51")
+                .value(20, "c_Timestamp", "1970-01-01T00:00:03.111112Z")
+                .value(21, "c_Interval", "PT3.111113S")
+                .value(22, "c_Decimal", "3.335000000");
 
         checker.nextRow()
                 .value(1, "key", "2")
                 .value(2, "c_Bool", "false")
-                .value(3, "c_Int32", "-2000000001")
-                .value(4, "c_Int64", "-2000000000001")
-                .value(5, "c_Uint8", "200")
-                .value(6, "c_Uint32", "4000000002")
-                .value(7, "c_Uint64", "4000000000002")
-                .value(8, "c_Float", "-123456.78")
-                .value(9, "c_Double", "-1.2345678912345679E8")
-                .value(10, "c_Bytes", "")
-                .value(11, "c_Text", "")
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .value(14, "c_Yson", "\"\"")
-                .value(15, "c_Date", "1978-07-10")
-                .value(16, "c_Datetime", "1970-02-06T00:28:31")
-                .value(17, "c_Timestamp", "1970-01-01T00:00:03.112112Z")
-                .value(18, "c_Interval", "PT3.112113S")
-                .value(19, "c_Decimal", "-3.335000000");
+                .value(3, "c_Int8", "-101")
+                .value(4, "c_Int16", "-20001")
+                .value(5, "c_Int32", "-2000000001")
+                .value(6, "c_Int64", "-2000000000001")
+                .value(7, "c_Uint8", "200")
+                .value(8, "c_Uint16", "40002")
+                .value(9, "c_Uint32", "4000000002")
+                .value(10, "c_Uint64", "4000000000002")
+                .value(11, "c_Float", "-123456.78")
+                .value(12, "c_Double", "-1.2345678912345679E8")
+                .value(13, "c_Bytes", "")
+                .value(14, "c_Text", "")
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .value(17, "c_Yson", "\"\"")
+                .value(18, "c_Date", "1978-07-10")
+                .value(19, "c_Datetime", "1970-02-06T00:28:31")
+                .value(20, "c_Timestamp", "1970-01-01T00:00:03.112112Z")
+                .value(21, "c_Interval", "PT3.112113S")
+                .value(22, "c_Decimal", "-3.335000000");
 
         checker.nextRow()
                 .value(1, "key", "3")
                 .value(2, "c_Bool", "false")
-                .value(3, "c_Int32", "0")
-                .value(4, "c_Int64", "0")
-                .value(5, "c_Uint8", "0")
-                .value(6, "c_Uint32", "0")
-                .value(7, "c_Uint64", "0")
-                .value(8, "c_Float", "0.0")
-                .value(9, "c_Double", "0.0")
-                .value(10, "c_Bytes", "0")
-                .value(11, "c_Text", "0")
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .value(14, "c_Yson", "0")
-                .value(15, "c_Date", "1970-01-01")
-                .value(16, "c_Datetime", "1970-01-01T00:00")
-                .value(17, "c_Timestamp", "1970-01-01T00:00:00Z")
-                .value(18, "c_Interval", "PT0S")
-                .value(19, "c_Decimal", "0"); // Zero always converts without scale
+                .value(3, "c_Int8", "0")
+                .value(4, "c_Int16", "0")
+                .value(5, "c_Int32", "0")
+                .value(6, "c_Int64", "0")
+                .value(7, "c_Uint8", "0")
+                .value(8, "c_Uint16", "0")
+                .value(9, "c_Uint32", "0")
+                .value(10, "c_Uint64", "0")
+                .value(11, "c_Float", "0.0")
+                .value(12, "c_Double", "0.0")
+                .value(13, "c_Bytes", "0")
+                .value(14, "c_Text", "0")
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .value(17, "c_Yson", "0")
+                .value(18, "c_Date", "1970-01-01")
+                .value(19, "c_Datetime", "1970-01-01T00:00")
+                .value(20, "c_Timestamp", "1970-01-01T00:00:00Z")
+                .value(21, "c_Interval", "PT0S")
+                .value(22, "c_Decimal", "0"); // Zero always converts without scale
 
         checker.nextRow()
                 .value(1, "key", "4")
                 .value(2, "c_Bool", "true")
-                .value(3, "c_Int32", "1")
-                .value(4, "c_Int64", "1")
-                .value(5, "c_Uint8", "1")
-                .value(6, "c_Uint32", "1")
-                .value(7, "c_Uint64", "1")
-                .value(8, "c_Float", "1.0")
-                .value(9, "c_Double", "1.0")
-                .value(10, "c_Bytes", "file:///tmp/report.txt")
-                .value(11, "c_Text", "https://ydb.tech")
-                .value(12, "c_Json", "{}")
-                .value(13, "c_JsonDocument", "{}")
-                .value(14, "c_Yson", "1")
-                .value(15, "c_Date", "1970-01-02")
-                .value(16, "c_Datetime", "1970-01-01T00:00:01")
-                .value(17, "c_Timestamp", "1970-01-01T00:00:00.000001Z")
-                .value(18, "c_Interval", "PT0.000001S")
-                .value(19, "c_Decimal", "1.000000000");
+                .value(3, "c_Int8", "1")
+                .value(4, "c_Int16", "1")
+                .value(5, "c_Int32", "1")
+                .value(6, "c_Int64", "1")
+                .value(7, "c_Uint8", "1")
+                .value(8, "c_Uint16", "1")
+                .value(9, "c_Uint32", "1")
+                .value(10, "c_Uint64", "1")
+                .value(11, "c_Float", "1.0")
+                .value(12, "c_Double", "1.0")
+                .value(13, "c_Bytes", "file:///tmp/report.txt")
+                .value(14, "c_Text", "https://ydb.tech")
+                .value(15, "c_Json", "{}")
+                .value(16, "c_JsonDocument", "{}")
+                .value(17, "c_Yson", "1")
+                .value(18, "c_Date", "1970-01-02")
+                .value(19, "c_Datetime", "1970-01-01T00:00:01")
+                .value(20, "c_Timestamp", "1970-01-01T00:00:00.000001Z")
+                .value(21, "c_Interval", "PT0.000001S")
+                .value(22, "c_Decimal", "1.000000000");
 
         checker.nextRow()
                 .value(1, "key", "5")
                 .value(2, "c_Bool", null)
-                .value(3, "c_Int32", null)
-                .value(4, "c_Int64", null)
-                .value(5, "c_Uint8", null)
-                .value(6, "c_Uint32", null)
-                .value(7, "c_Uint64", null)
-                .value(8, "c_Float", null)
-                .value(9, "c_Double", null)
-                .value(10, "c_Bytes", null)
-                .value(11, "c_Text", null)
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .value(14, "c_Yson", null)
-                .value(15, "c_Date", null)
-                .value(16, "c_Datetime", null)
-                .value(17, "c_Timestamp", null)
-                .value(18, "c_Interval", null)
-                .value(19, "c_Decimal", null);
+                .value(3, "c_Int8", null)
+                .value(4, "c_Int16", null)
+                .value(5, "c_Int32", null)
+                .value(6, "c_Int64", null)
+                .value(7, "c_Uint8", null)
+                .value(8, "c_Uint16", null)
+                .value(9, "c_Uint32", null)
+                .value(10, "c_Uint64", null)
+                .value(11, "c_Float", null)
+                .value(12, "c_Double", null)
+                .value(13, "c_Bytes", null)
+                .value(14, "c_Text", null)
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .value(17, "c_Yson", null)
+                .value(18, "c_Date", null)
+                .value(19, "c_Datetime", null)
+                .value(20, "c_Timestamp", null)
+                .value(21, "c_Interval", null)
+                .value(22, "c_Decimal", null);
 
         checker.assertNoRows();
     }
@@ -827,24 +843,70 @@ public class YdbResultSetImplTest {
         ResultSetChecker<Byte> checker = check(resultSet, ResultSet::getByte, ResultSet::getByte);
 
         checker.nextRow()
-                .value(2, "c_Bool", (byte) 1)
-                .value(5, "c_Uint8", (byte) 100);
+                .value(1, "key", (byte)1)
+                .value(2, "c_Bool", (byte)1)
+                .value(3, "c_Int8", (byte)101)
+                .exceptionValue(4, "c_Int16", "Cannot cast [Int16] with value [20001] to [byte]")
+                .exceptionValue(5, "c_Int32", "Cannot cast [Int32] with value [2000000001] to [byte]")
+                .exceptionValue(6, "c_Int64", "Cannot cast [Int64] with value [2000000000001] to [byte]")
+                .value(7, "c_Uint8",  (byte)100)
+                .exceptionValue(8, "c_Uint16", "Cannot cast [Uint16] with value [20002] to [byte]")
+                .exceptionValue(9, "c_Uint32", "Cannot cast [Uint32] with value [2000000002] to [byte]")
+                .exceptionValue(10, "c_Uint64", "Cannot cast [Uint64] with value [2000000000002] to [byte]")
+                .exceptionValue(22, "c_Decimal", "Cannot cast [DECIMAL] to [byte]");
 
         checker.nextRow()
-                .value(2, "c_Bool", (byte) 0)
-                .value(5, "c_Uint8", (byte) 200);
+                .value(1, "key", (byte)2)
+                .value(2, "c_Bool", (byte)0)
+                .value(3, "c_Int8", (byte)(-101))
+                .exceptionValue(4, "c_Int16", "Cannot cast [Int16] with value [-20001] to [byte]")
+                .exceptionValue(5, "c_Int32", "Cannot cast [Int32] with value [-2000000001] to [byte]")
+                .exceptionValue(6, "c_Int64", "Cannot cast [Int64] with value [-2000000000001] to [byte]")
+                .exceptionValue(7, "c_Uint8", "Cannot cast [Uint8] with value [200] to [byte]")
+                .exceptionValue(8, "c_Uint16", "Cannot cast [Uint16] with value [40002] to [byte]")
+                .exceptionValue(9, "c_Uint32", "Cannot cast [Uint32] with value [4000000002] to [byte]")
+                .exceptionValue(10, "c_Uint64", "Cannot cast [Uint64] with value [4000000000002] to [byte]")
+                .exceptionValue(22, "c_Decimal", "Cannot cast [DECIMAL] to [byte]");
+
 
         checker.nextRow()
-                .value(2, "c_Bool", (byte) 0)
-                .value(5, "c_Uint8", (byte) 0);
+                .value(1, "key", (byte)3)
+                .value(2, "c_Bool", (byte)0)
+                .value(3, "c_Int8", (byte)0)
+                .value(4, "c_Int16", (byte)0)
+                .value(5, "c_Int32", (byte)0)
+                .value(6, "c_Int64", (byte)0)
+                .value(7, "c_Uint8", (byte)0)
+                .value(8, "c_Uint16", (byte)0)
+                .value(9, "c_Uint32", (byte)0)
+                .value(10, "c_Uint64", (byte)0)
+                .exceptionValue(22, "c_Decimal", "Cannot cast [DECIMAL] to [byte]");
 
         checker.nextRow()
-                .value(2, "c_Bool", (byte) 1)
-                .value(5, "c_Uint8", (byte) 1);
+                .value(1, "key", (byte)4)
+                .value(2, "c_Bool", (byte)1)
+                .value(3, "c_Int8", (byte)1)
+                .value(4, "c_Int16", (byte)1)
+                .value(5, "c_Int32", (byte)1)
+                .value(6, "c_Int64", (byte)1)
+                .value(7, "c_Uint8", (byte)1)
+                .value(8, "c_Uint16", (byte)1)
+                .value(9, "c_Uint32", (byte)1)
+                .value(10, "c_Uint64", (byte)1)
+                .exceptionValue(22, "c_Decimal", "Cannot cast [DECIMAL] to [byte]");
 
         checker.nextRow()
-                .nullValue(2, "c_Bool", (byte) 0)
-                .nullValue(5, "c_Uint8", (byte) 0);
+                .value(1, "key", (byte)5)
+                .nullValue(2, "c_Bool", (byte)0)
+                .nullValue(3, "c_Int8", (byte)0)
+                .nullValue(4, "c_Int16", (byte)0)
+                .nullValue(5, "c_Int32", (byte)0)
+                .nullValue(6, "c_Int64", (byte)0)
+                .nullValue(7, "c_Uint8", (byte)0)
+                .nullValue(8, "c_Uint16", (byte)0)
+                .nullValue(9, "c_Uint32", (byte)0)
+                .nullValue(10, "c_Uint64", (byte)0)
+                .exceptionValue(22, "c_Decimal", "Cannot cast [DECIMAL] to [byte]");
 
         checker.assertNoRows();
     }
@@ -854,24 +916,70 @@ public class YdbResultSetImplTest {
         ResultSetChecker<Short> checker = check(resultSet, ResultSet::getShort, ResultSet::getShort);
 
         checker.nextRow()
-                .value(2, "c_Bool", (short) 1)
-                .value(5, "c_Uint8", (short) 100);
+                .value(1, "key", (short)1)
+                .value(2, "c_Bool", (short)1)
+                .value(3, "c_Int8", (short)101)
+                .value(4, "c_Int16", (short)20001)
+                .exceptionValue(5, "c_Int32", "Cannot cast [Int32] with value [2000000001] to [short]")
+                .exceptionValue(6, "c_Int64", "Cannot cast [Int64] with value [2000000000001] to [short]")
+                .value(7, "c_Uint8",  (short)100)
+                .value(8, "c_Uint16",  (short)20002)
+                .exceptionValue(9, "c_Uint32", "Cannot cast [Uint32] with value [2000000002] to [short]")
+                .exceptionValue(10, "c_Uint64", "Cannot cast [Uint64] with value [2000000000002] to [short]")
+                .exceptionValue(22, "c_Decimal", "Cannot cast [DECIMAL] to [short]");
 
         checker.nextRow()
-                .value(2, "c_Bool", (short) 0)
-                .value(5, "c_Uint8", (short) 200);
+                .value(1, "key", (short)2)
+                .value(2, "c_Bool", (short)0)
+                .value(3, "c_Int8", (short)(-101))
+                .value(4, "c_Int16", (short)-20001)
+                .exceptionValue(5, "c_Int32", "Cannot cast [Int32] with value [-2000000001] to [short]")
+                .exceptionValue(6, "c_Int64", "Cannot cast [Int64] with value [-2000000000001] to [short]")
+                .value(7, "c_Uint8", (short)200)
+                .exceptionValue(8, "c_Uint16", "Cannot cast [Uint16] with value [40002] to [short]")
+                .exceptionValue(9, "c_Uint32", "Cannot cast [Uint32] with value [4000000002] to [short]")
+                .exceptionValue(10, "c_Uint64", "Cannot cast [Uint64] with value [4000000000002] to [short]")
+                .exceptionValue(22, "c_Decimal", "Cannot cast [DECIMAL] to [short]");
+
 
         checker.nextRow()
-                .value(2, "c_Bool", (short) 0)
-                .value(5, "c_Uint8", (short) 0);
+                .value(1, "key", (short)3)
+                .value(2, "c_Bool", (short)0)
+                .value(3, "c_Int8", (short)0)
+                .value(4, "c_Int16", (short)0)
+                .value(5, "c_Int32", (short)0)
+                .value(6, "c_Int64", (short)0)
+                .value(7, "c_Uint8", (short)0)
+                .value(8, "c_Uint16", (short)0)
+                .value(9, "c_Uint32", (short)0)
+                .value(10, "c_Uint64", (short)0)
+                .exceptionValue(22, "c_Decimal", "Cannot cast [DECIMAL] to [short]");
 
         checker.nextRow()
-                .value(2, "c_Bool", (short) 1)
-                .value(5, "c_Uint8", (short) 1);
+                .value(1, "key", (short)4)
+                .value(2, "c_Bool", (short)1)
+                .value(3, "c_Int8", (short)1)
+                .value(4, "c_Int16", (short)1)
+                .value(5, "c_Int32", (short)1)
+                .value(6, "c_Int64", (short)1)
+                .value(7, "c_Uint8", (short)1)
+                .value(8, "c_Uint16", (short)1)
+                .value(9, "c_Uint32", (short)1)
+                .value(10, "c_Uint64", (short)1)
+                .exceptionValue(22, "c_Decimal", "Cannot cast [DECIMAL] to [short]");
 
         checker.nextRow()
-                .nullValue(2, "c_Bool", (short) 0)
-                .nullValue(5, "c_Uint8", (short) 0);
+                .value(1, "key", (short)5)
+                .nullValue(2, "c_Bool", (short)0)
+                .nullValue(3, "c_Int8", (short)0)
+                .nullValue(4, "c_Int16", (short)0)
+                .nullValue(5, "c_Int32", (short)0)
+                .nullValue(6, "c_Int64", (short)0)
+                .nullValue(7, "c_Uint8", (short)0)
+                .nullValue(8, "c_Uint16", (short)0)
+                .nullValue(9, "c_Uint32", (short)0)
+                .nullValue(10, "c_Uint64", (short)0)
+                .exceptionValue(22, "c_Decimal", "Cannot cast [DECIMAL] to [short]");
 
         checker.assertNoRows();
     }
@@ -886,18 +994,26 @@ public class YdbResultSetImplTest {
                 .value(3, "c_Int8", 101)
                 .value(4, "c_Int16", 20001)
                 .value(5, "c_Int32", 2000000001)
-                .value(5, "c_Int64", 2000000001)
-                .value(6, "c_Uint8", 101)
-                .value(7, "c_Uint16", 20002)
-                .value(8, "c_Uint32", 2000000002)
-                .value(7, "c_Uint64", 2000000002);
+                .exceptionValue(6, "c_Int64", "Cannot cast [Int64] with value [2000000000001] to [int]")
+                .value(7, "c_Uint8", 100)
+                .value(8, "c_Uint16", 20002)
+                .value(9, "c_Uint32", 2000000002)
+                .exceptionValue(10, "c_Uint64", "Cannot cast [Uint64] with value [2000000000002] to [int]")
+                .value(22, "c_Decimal", 3);
 
         checker.nextRow()
                 .value(1, "key", 2)
                 .value(2, "c_Bool", 0)
-                .value(3, "c_Int32", -2000000001)
-                .value(5, "c_Uint8", 200)
-                .value(6, "c_Uint32", -294967294); // TODO: cannot be casted without loosing precision
+                .value(3, "c_Int8", -101)
+                .value(4, "c_Int16", -20001)
+                .value(5, "c_Int32", -2000000001)
+                .exceptionValue(6, "c_Int64", "Cannot cast [Int64] with value [-2000000000001] to [int]")
+                .value(7, "c_Uint8", 200)
+                .value(8, "c_Uint16", 40002)
+                .exceptionValue(9, "c_Uint32", "Cannot cast [Uint32] with value [4000000002] to [int]")
+                .exceptionValue(10, "c_Uint64", "Cannot cast [Uint64] with value [4000000000002] to [int]")
+                .value(22, "c_Decimal", -3);
+
 
         checker.nextRow()
                 .value(1, "key", 3)
@@ -909,7 +1025,8 @@ public class YdbResultSetImplTest {
                 .value(7, "c_Uint8", 0)
                 .value(8, "c_Uint16", 0)
                 .value(9, "c_Uint32", 0)
-                .value(10, "c_Uint64", 0);
+                .value(10, "c_Uint64", 0)
+                .value(22, "c_Decimal", 0);
 
         checker.nextRow()
                 .value(1, "key", 4)
@@ -921,7 +1038,8 @@ public class YdbResultSetImplTest {
                 .value(7, "c_Uint8", 1)
                 .value(8, "c_Uint16", 1)
                 .value(9, "c_Uint32", 1)
-                .value(10, "c_Uint64", 1);
+                .value(10, "c_Uint64", 1)
+                .value(22, "c_Decimal", 1);
 
         checker.nextRow()
                 .value(1, "key", 5)
@@ -933,7 +1051,8 @@ public class YdbResultSetImplTest {
                 .nullValue(7, "c_Uint8", 0)
                 .nullValue(8, "c_Uint16", 0)
                 .nullValue(9, "c_Uint32", 0)
-                .nullValue(10, "c_Uint64", 0);
+                .nullValue(10, "c_Uint64", 0)
+                .nullValue(22, "c_Decimal", 0);
 
         checker.assertNoRows();
     }
@@ -945,72 +1064,87 @@ public class YdbResultSetImplTest {
         checker.nextRow()
                 .value(1, "key", 1L)
                 .value(2, "c_Bool", 1L)
-                .value(3, "c_Int32", 2000000001L)
-                .value(4, "c_Int64", 2000000000001L)
-                .value(5, "c_Uint8", 100L)
-                .value(6, "c_Uint32", 2000000002L)
-                .value(7, "c_Uint64", 2000000000002L)
-                .value(15, "c_Date", 3111L * 86400 * 1000)
-                .value(16, "c_Datetime", 3111111L * 1000)
-                .value(17, "c_Timestamp", 3111L)
-                .value(18, "c_Interval", 3111113L)
-                .value(19, "c_Decimal", 3L);
+                .value(3, "c_Int8", 101L)
+                .value(4, "c_Int16", 20001L)
+                .value(5, "c_Int32", 2000000001L)
+                .value(6, "c_Int64", 2000000000001L)
+                .value(7, "c_Uint8", 100L)
+                .value(8, "c_Uint16", 20002L)
+                .value(9, "c_Uint32", 2000000002L)
+                .value(10, "c_Uint64", 2000000000002L)
+                .value(18, "c_Date", 3111L * 86400 * 1000)
+                .value(19, "c_Datetime", 3111111L * 1000)
+                .value(20, "c_Timestamp", 3111L)
+                .value(21, "c_Interval", 3111113L)
+                .value(22, "c_Decimal", 3L);
 
         checker.nextRow()
                 .value(1, "key", 2L)
                 .value(2, "c_Bool", 0L)
-                .value(3, "c_Int32", -2000000001L)
-                .value(4, "c_Int64", -2000000000001L)
-                .value(5, "c_Uint8", 200L)
-                .value(6, "c_Uint32", 4000000002L)
-                .value(7, "c_Uint64", 4000000000002L)
-                .value(15, "c_Date", 3112L * 86400 * 1000)
-                .value(16, "c_Datetime", 3112111L * 1000)
-                .value(17, "c_Timestamp", 3112L)
-                .value(18, "c_Interval", 3112113L)
-                .value(19, "c_Decimal", -3L);
+                .value(3, "c_Int8", -101L)
+                .value(4, "c_Int16", -20001L)
+                .value(5, "c_Int32", -2000000001L)
+                .value(6, "c_Int64", -2000000000001L)
+                .value(7, "c_Uint8", 200L)
+                .value(8, "c_Uint16", 40002L)
+                .value(9, "c_Uint32", 4000000002L)
+                .value(10, "c_Uint64", 4000000000002L)
+                .value(18, "c_Date", 3112L * 86400 * 1000)
+                .value(19, "c_Datetime", 3112111L * 1000)
+                .value(20, "c_Timestamp", 3112L)
+                .value(21, "c_Interval", 3112113L)
+                .value(22, "c_Decimal", -3L);
 
         checker.nextRow()
                 .value(1, "key", 3L)
                 .value(2, "c_Bool", 0L)
-                .value(3, "c_Int32", 0L)
-                .value(4, "c_Int64", 0L)
-                .value(5, "c_Uint8", 0L)
-                .value(6, "c_Uint32", 0L)
-                .value(7, "c_Uint64", 0L)
-                .value(15, "c_Date", 0L)
-                .value(16, "c_Datetime", 0L)
-                .value(17, "c_Timestamp", 0L)
-                .value(18, "c_Interval", 0L)
-                .value(19, "c_Decimal", 0L);
+                .value(3, "c_Int8", 0L)
+                .value(4, "c_Int16", 0L)
+                .value(5, "c_Int32", 0L)
+                .value(6, "c_Int64", 0L)
+                .value(7, "c_Uint8", 0L)
+                .value(8, "c_Uint16", 0L)
+                .value(9, "c_Uint32", 0L)
+                .value(10, "c_Uint64", 0L)
+                .value(18, "c_Date", 0L)
+                .value(19, "c_Datetime", 0L)
+                .value(20, "c_Timestamp", 0L)
+                .value(21, "c_Interval", 0L)
+                .value(22, "c_Decimal", 0L);
 
         checker.nextRow()
                 .value(1, "key", 4L)
                 .value(2, "c_Bool", 1L)
-                .value(3, "c_Int32", 1L)
-                .value(4, "c_Int64", 1L)
-                .value(5, "c_Uint8", 1L)
-                .value(6, "c_Uint32", 1L)
-                .value(7, "c_Uint64", 1L)
-                .value(15, "c_Date", 86400000L)
-                .value(16, "c_Datetime", 1000L)
-                .value(17, "c_Timestamp", 0L)
-                .value(18, "c_Interval", 1L)
-                .value(19, "c_Decimal", 1L);
+                .value(3, "c_Int8", 1L)
+                .value(4, "c_Int16", 1L)
+                .value(5, "c_Int32", 1L)
+                .value(6, "c_Int64", 1L)
+                .value(7, "c_Uint8", 1L)
+                .value(8, "c_Uint16", 1L)
+                .value(9, "c_Uint32", 1L)
+                .value(10, "c_Uint64", 1L)
+                .value(18, "c_Date", 86400000L)
+                .value(19, "c_Datetime", 1000L)
+                .value(20, "c_Timestamp", 0L)
+                .value(21, "c_Interval", 1L)
+                .value(22, "c_Decimal", 1L);
 
         checker.nextRow()
                 .value(1, "key", 5L)
                 .nullValue(2, "c_Bool", 0l)
-                .nullValue(3, "c_Int32", 0l)
-                .nullValue(4, "c_Int64", 0l)
-                .nullValue(5, "c_Uint8", 0l)
-                .nullValue(6, "c_Uint32", 0l)
-                .nullValue(7, "c_Uint64", 0l)
-                .nullValue(15, "c_Date", 0l)
-                .nullValue(16, "c_Datetime", 0l)
-                .nullValue(17, "c_Timestamp", 0l)
-                .nullValue(18, "c_Interval", 0l)
-                .nullValue(19, "c_Decimal", 0l);
+                .nullValue(3, "c_Int8", 0l)
+                .nullValue(4, "c_Int16", 0l)
+                .nullValue(5, "c_Int32", 0l)
+                .nullValue(6, "c_Int64", 0l)
+                .nullValue(7, "c_Uint8", 0l)
+                .nullValue(8, "c_Uint16", 0l)
+                .nullValue(9, "c_Uint32", 0l)
+                .nullValue(10, "c_Uint64", 0l)
+                .nullValue(18, "c_Date", 0l)
+                .nullValue(19, "c_Datetime", 0l)
+                .nullValue(20, "c_Timestamp", 0l)
+                .nullValue(21, "c_Interval", 0l)
+                .nullValue(22, "c_Decimal", 0l);
 
         checker.assertNoRows();
     }
@@ -1022,47 +1156,77 @@ public class YdbResultSetImplTest {
         checker.nextRow()
                 .value(1, "key", 1f)
                 .value(2, "c_Bool", 1f)
-                .value(3, "c_Int32", 2000000001f)
-                .value(5, "c_Uint8", 100f)
-                .value(6, "c_Uint32", 2000000002f)
-                .value(8, "c_Float", 123456.78f)
-                .value(19, "c_Decimal", 3.335f);
+                .value(3, "c_Int8", 101f)
+                .value(4, "c_Int16", 20001f)
+                .value(5, "c_Int32", 2000000001f)
+                .value(6, "c_Int64", 2000000000001f)
+                .value(7, "c_Uint8", 100f)
+                .value(8, "c_Uint16", 20002f)
+                .value(9, "c_Uint32", 2000000002f)
+                .value(10, "c_Uint64", 2000000000002f)
+                .value(11, "c_Float", 123456.78f)
+                .value(12, "c_Double", 123456789.123456789f)
+                .value(22, "c_Decimal", 3.335f);
 
         checker.nextRow()
                 .value(1, "key", 2f)
                 .value(2, "c_Bool", 0f)
-                .value(3, "c_Int32", -2000000001f)
-                .value(5, "c_Uint8", 200f)
-                .value(6, "c_Uint32", 4000000002f)
-                .value(8, "c_Float", -123456.78f)
-                .value(19, "c_Decimal", -3.335f);
+                .value(3, "c_Int8", -101f)
+                .value(4, "c_Int16", -20001f)
+                .value(5, "c_Int32", -2000000001f)
+                .value(6, "c_Int64", -2000000000001f)
+                .value(7, "c_Uint8", 200f)
+                .value(8, "c_Uint16", 40002f)
+                .value(9, "c_Uint32", 4000000002f)
+                .value(10, "c_Uint64", 4000000000002f)
+                .value(11, "c_Float", -123456.78f)
+                .value(12, "c_Double", -123456789.123456789f)
+                .value(22, "c_Decimal", -3.335f);
 
         checker.nextRow()
                 .value(1, "key", 3f)
                 .value(2, "c_Bool", 0f)
-                .value(3, "c_Int32", 0f)
-                .value(5, "c_Uint8", 0f)
-                .value(6, "c_Uint32", 0f)
-                .value(8, "c_Float", 0f)
-                .value(19, "c_Decimal", 0f);
+                .value(3, "c_Int8", 0f)
+                .value(4, "c_Int16", 0f)
+                .value(5, "c_Int32", 0f)
+                .value(6, "c_Int64", 0f)
+                .value(7, "c_Uint8", 0f)
+                .value(8, "c_Uint16", 0f)
+                .value(9, "c_Uint32", 0f)
+                .value(10, "c_Uint64", 0f)
+                .value(11, "c_Float", 0f)
+                .value(12, "c_Double", 0f)
+                .value(22, "c_Decimal", 0f);
 
         checker.nextRow()
                 .value(1, "key", 4f)
                 .value(2, "c_Bool", 1f)
-                .value(3, "c_Int32", 1f)
-                .value(5, "c_Uint8", 1f)
-                .value(6, "c_Uint32", 1f)
-                .value(8, "c_Float", 1f)
-                .value(19, "c_Decimal", 1f);
+                .value(3, "c_Int8", 1f)
+                .value(4, "c_Int16", 1f)
+                .value(5, "c_Int32", 1f)
+                .value(6, "c_Int64", 1f)
+                .value(7, "c_Uint8", 1f)
+                .value(8, "c_Uint16", 1f)
+                .value(9, "c_Uint32", 1f)
+                .value(10, "c_Uint64", 1f)
+                .value(11, "c_Float", 1f)
+                .value(12, "c_Double", 1f)
+                .value(22, "c_Decimal", 1f);
 
         checker.nextRow()
                 .value(1, "key", 5f)
                 .nullValue(2, "c_Bool", 0f)
-                .nullValue(3, "c_Int32", 0f)
-                .nullValue(5, "c_Uint8", 0f)
-                .nullValue(6, "c_Uint32", 0f)
-                .nullValue(8, "c_Float", 0f)
-                .nullValue(19, "c_Decimal", 0f);
+                .nullValue(3, "c_Int8", 0f)
+                .nullValue(4, "c_Int16", 0f)
+                .nullValue(5, "c_Int32", 0f)
+                .nullValue(6, "c_Int64", 0f)
+                .nullValue(7, "c_Uint8", 0f)
+                .nullValue(8, "c_Uint16", 0f)
+                .nullValue(9, "c_Uint32", 0f)
+                .nullValue(10, "c_Uint64", 0f)
+                .nullValue(11, "c_Float", 0f)
+                .nullValue(12, "c_Double", 0f)
+                .nullValue(22, "c_Decimal", 0f);
 
         checker.assertNoRows();
     }
@@ -1074,62 +1238,77 @@ public class YdbResultSetImplTest {
         checker.nextRow()
                 .value(1, "key", 1d)
                 .value(2, "c_Bool", 1d)
-                .value(3, "c_Int32", 2000000001d)
-                .value(4, "c_Int64", 2000000000001d)
-                .value(5, "c_Uint8", 100d)
-                .value(6, "c_Uint32", 2000000002d)
-                .value(7, "c_Uint64", 2000000000002d)
-                .value(8, "c_Float", 123456.78125d) // TODO: cannot be casted from float without loosing precision
-                .value(9, "c_Double", 123456789.123456789d)
-                .value(19, "c_Decimal", 3.335d);
+                .value(3, "c_Int8", 101d)
+                .value(4, "c_Int16", 20001d)
+                .value(5, "c_Int32", 2000000001d)
+                .value(6, "c_Int64", 2000000000001d)
+                .value(7, "c_Uint8", 100d)
+                .value(8, "c_Uint16", 20002d)
+                .value(9, "c_Uint32", 2000000002d)
+                .value(10, "c_Uint64", 2000000000002d)
+                .value(11, "c_Float", 123456.78125d) // TODO: cannot be casted from float without loosing precision
+                .value(12, "c_Double", 123456789.123456789d)
+                .value(22, "c_Decimal", 3.335d);
 
         checker.nextRow()
                 .value(1, "key", 2d)
                 .value(2, "c_Bool", 0d)
-                .value(3, "c_Int32", -2000000001d)
-                .value(4, "c_Int64", -2000000000001d)
-                .value(5, "c_Uint8", 200d)
-                .value(6, "c_Uint32", 4000000002d)
-                .value(7, "c_Uint64", 4000000000002d)
-                .value(8, "c_Float", -123456.78125d)
-                .value(9, "c_Double", -123456789.123456789d)
-                .value(19, "c_Decimal", -3.335d);
+                .value(3, "c_Int8", -101d)
+                .value(4, "c_Int16", -20001d)
+                .value(5, "c_Int32", -2000000001d)
+                .value(6, "c_Int64", -2000000000001d)
+                .value(7, "c_Uint8", 200d)
+                .value(8, "c_Uint16", 40002d)
+                .value(9, "c_Uint32", 4000000002d)
+                .value(10, "c_Uint64", 4000000000002d)
+                .value(11, "c_Float", -123456.78125d) // TODO: cannot be casted from float without loosing precision
+                .value(12, "c_Double", -123456789.123456789d)
+                .value(22, "c_Decimal", -3.335d);
 
         checker.nextRow()
                 .value(1, "key", 3d)
                 .value(2, "c_Bool", 0d)
-                .value(3, "c_Int32", 0d)
-                .value(4, "c_Int64", 0d)
-                .value(5, "c_Uint8", 0d)
-                .value(6, "c_Uint32", 0d)
-                .value(7, "c_Uint64", 0d)
-                .value(8, "c_Float", 0d)
-                .value(9, "c_Double", 0d)
-                .value(19, "c_Decimal", 0d);
+                .value(3, "c_Int8", 0d)
+                .value(4, "c_Int16", 0d)
+                .value(5, "c_Int32", 0d)
+                .value(6, "c_Int64", 0d)
+                .value(7, "c_Uint8", 0d)
+                .value(8, "c_Uint16", 0d)
+                .value(9, "c_Uint32", 0d)
+                .value(10, "c_Uint64", 0d)
+                .value(11, "c_Float", 0d)
+                .value(12, "c_Double", 0d)
+                .value(22, "c_Decimal", 0d);
 
         checker.nextRow()
                 .value(1, "key", 4d)
                 .value(2, "c_Bool", 1d)
-                .value(3, "c_Int32", 1d)
-                .value(4, "c_Int64", 1d)
-                .value(5, "c_Uint8", 1d)
-                .value(6, "c_Uint32", 1d)
-                .value(7, "c_Uint64", 1d)
-                .value(8, "c_Float", 1d)
-                .value(9, "c_Double", 1d)
-                .value(19, "c_Decimal", 1d);
+                .value(3, "c_Int8", 1d)
+                .value(4, "c_Int16", 1d)
+                .value(5, "c_Int32", 1d)
+                .value(6, "c_Int64", 1d)
+                .value(7, "c_Uint8", 1d)
+                .value(8, "c_Uint16", 1d)
+                .value(9, "c_Uint32", 1d)
+                .value(10, "c_Uint64", 1d)
+                .value(11, "c_Float", 1d)
+                .value(12, "c_Double", 1d)
+                .value(22, "c_Decimal", 1d);
 
         checker.nextRow()
                 .value(1, "key", 5d)
                 .nullValue(2, "c_Bool", 0d)
-                .nullValue(3, "c_Int32", 0d)
-                .nullValue(4, "c_Int64", 0d)
-                .nullValue(5, "c_Uint8", 0d)
-                .nullValue(6, "c_Uint32", 0d)
-                .nullValue(7, "c_Uint64", 0d)
-                .nullValue(8, "c_Float", 0d)
-                .nullValue(9, "c_Double", 0d)
-                .nullValue(19, "c_Decimal", 0d);
+                .nullValue(3, "c_Int8", 0d)
+                .nullValue(4, "c_Int16", 0d)
+                .nullValue(5, "c_Int32", 0d)
+                .nullValue(6, "c_Int64", 0d)
+                .nullValue(7, "c_Uint8", 0d)
+                .nullValue(8, "c_Uint16", 0d)
+                .nullValue(9, "c_Uint32", 0d)
+                .nullValue(10, "c_Uint64", 0d)
+                .nullValue(11, "c_Float", 0d)
+                .nullValue(12, "c_Double", 0d)
+                .nullValue(22, "c_Decimal", 0d);
 
         checker.assertNoRows();
     }
@@ -1141,62 +1320,77 @@ public class YdbResultSetImplTest {
         checker.nextRow()
                 .value(1, "key", BigDecimal.valueOf(1))
                 .value(2, "c_Bool", BigDecimal.valueOf(1))
-                .value(3, "c_Int32", BigDecimal.valueOf(2000000001))
-                .value(4, "c_Int64", BigDecimal.valueOf(2000000000001l))
-                .value(5, "c_Uint8", BigDecimal.valueOf(100))
-                .value(6, "c_Uint32", BigDecimal.valueOf(2000000002))
-                .value(7, "c_Uint64", BigDecimal.valueOf(2000000000002l))
-                .value(8, "c_Float", BigDecimal.valueOf(123456.78125f))
-                .value(9, "c_Double", BigDecimal.valueOf(123456789.123456789d))
-                .value(19, "c_Decimal", new BigDecimal("3.335000000"));
+                .value(3, "c_Int8", BigDecimal.valueOf(101))
+                .value(4, "c_Int16", BigDecimal.valueOf(20001))
+                .value(5, "c_Int32", BigDecimal.valueOf(2000000001))
+                .value(6, "c_Int64", BigDecimal.valueOf(2000000000001l))
+                .value(7, "c_Uint8", BigDecimal.valueOf(100))
+                .value(8, "c_Uint16", BigDecimal.valueOf(20002))
+                .value(9, "c_Uint32", BigDecimal.valueOf(2000000002))
+                .value(10, "c_Uint64", BigDecimal.valueOf(2000000000002l))
+                .value(11, "c_Float", BigDecimal.valueOf(123456.78125f))
+                .value(12, "c_Double", BigDecimal.valueOf(123456789.123456789d))
+                .value(22, "c_Decimal", new BigDecimal("3.335000000"));
 
         checker.nextRow()
                 .value(1, "key", BigDecimal.valueOf(2))
                 .value(2, "c_Bool", BigDecimal.valueOf(0))
-                .value(3, "c_Int32", BigDecimal.valueOf(-2000000001))
-                .value(4, "c_Int64", BigDecimal.valueOf(-2000000000001l))
-                .value(5, "c_Uint8", BigDecimal.valueOf(200))
-                .value(6, "c_Uint32", BigDecimal.valueOf(4000000002l))
-                .value(7, "c_Uint64", BigDecimal.valueOf(4000000000002l))
-                .value(8, "c_Float", BigDecimal.valueOf(-123456.78125f))
-                .value(9, "c_Double", BigDecimal.valueOf(-123456789.123456789d))
-                .value(19, "c_Decimal", new BigDecimal("-3.335000000"));
+                .value(3, "c_Int8", BigDecimal.valueOf(-101))
+                .value(4, "c_Int16", BigDecimal.valueOf(-20001))
+                .value(5, "c_Int32", BigDecimal.valueOf(-2000000001))
+                .value(6, "c_Int64", BigDecimal.valueOf(-2000000000001l))
+                .value(7, "c_Uint8", BigDecimal.valueOf(200))
+                .value(8, "c_Uint16", BigDecimal.valueOf(40002))
+                .value(9, "c_Uint32", BigDecimal.valueOf(4000000002l))
+                .value(10, "c_Uint64", BigDecimal.valueOf(4000000000002l))
+                .value(11, "c_Float", BigDecimal.valueOf(-123456.78125f))
+                .value(12, "c_Double", BigDecimal.valueOf(-123456789.123456789d))
+                .value(22, "c_Decimal", new BigDecimal("-3.335000000"));
 
         checker.nextRow()
                 .value(1, "key", BigDecimal.valueOf(3))
                 .value(2, "c_Bool", BigDecimal.ZERO)
-                .value(3, "c_Int32", BigDecimal.ZERO)
-                .value(4, "c_Int64", BigDecimal.ZERO)
-                .value(5, "c_Uint8", BigDecimal.ZERO)
-                .value(6, "c_Uint32", BigDecimal.ZERO)
-                .value(7, "c_Uint64", BigDecimal.ZERO)
-                .value(8, "c_Float", new BigDecimal("0.0"))
-                .value(9, "c_Double", new BigDecimal("0.0"))
-                .value(19, "c_Decimal", new BigDecimal("0E-9"));
+                .value(3, "c_Int8", BigDecimal.ZERO)
+                .value(4, "c_Int16", BigDecimal.ZERO)
+                .value(5, "c_Int32", BigDecimal.ZERO)
+                .value(6, "c_Int64", BigDecimal.ZERO)
+                .value(7, "c_Uint8", BigDecimal.ZERO)
+                .value(8, "c_Uint16", BigDecimal.ZERO)
+                .value(9, "c_Uint32", BigDecimal.ZERO)
+                .value(10, "c_Uint64", BigDecimal.ZERO)
+                .value(11, "c_Float", new BigDecimal("0.0"))
+                .value(12, "c_Double", new BigDecimal("0.0"))
+                .value(22, "c_Decimal", new BigDecimal("0E-9"));
 
         checker.nextRow()
                 .value(1, "key", BigDecimal.valueOf(4))
                 .value(2, "c_Bool", BigDecimal.valueOf(1))
-                .value(3, "c_Int32", BigDecimal.valueOf(1))
-                .value(4, "c_Int64", BigDecimal.valueOf(1))
-                .value(5, "c_Uint8", BigDecimal.valueOf(1))
-                .value(6, "c_Uint32", BigDecimal.valueOf(1))
-                .value(7, "c_Uint64", BigDecimal.valueOf(1))
-                .value(8, "c_Float", new BigDecimal("1.0"))
-                .value(9, "c_Double", new BigDecimal("1.0"))
-                .value(19, "c_Decimal", new BigDecimal("1.000000000"));
+                .value(3, "c_Int8", BigDecimal.valueOf(1))
+                .value(4, "c_Int16", BigDecimal.valueOf(1))
+                .value(5, "c_Int32", BigDecimal.valueOf(1))
+                .value(6, "c_Int64", BigDecimal.valueOf(1))
+                .value(7, "c_Uint8", BigDecimal.valueOf(1))
+                .value(8, "c_Uint16", BigDecimal.valueOf(1))
+                .value(9, "c_Uint32", BigDecimal.valueOf(1))
+                .value(10, "c_Uint64", BigDecimal.valueOf(1))
+                .value(11, "c_Float", new BigDecimal("1.0"))
+                .value(12, "c_Double", new BigDecimal("1.0"))
+                .value(22, "c_Decimal", new BigDecimal("1.000000000"));
 
         checker.nextRow()
                 .value(1, "key", BigDecimal.valueOf(5))
                 .value(2, "c_Bool", null)
-                .value(3, "c_Int32", null)
-                .value(4, "c_Int64", null)
-                .value(5, "c_Uint8", null)
-                .value(6, "c_Uint32", null)
-                .value(7, "c_Uint64", null)
-                .value(8, "c_Float", null)
-                .value(9, "c_Double", null)
-                .value(19, "c_Decimal", null);
+                .value(3, "c_Int8", null)
+                .value(4, "c_Int16", null)
+                .value(5, "c_Int32", null)
+                .value(6, "c_Int64", null)
+                .value(7, "c_Uint8", null)
+                .value(8, "c_Uint16", null)
+                .value(9, "c_Uint32", null)
+                .value(10, "c_Uint64", null)
+                .value(11, "c_Float", null)
+                .value(12, "c_Double", null)
+                .value(22, "c_Decimal", null);
 
         checker.assertNoRows();
     }
@@ -1210,39 +1404,39 @@ public class YdbResultSetImplTest {
         ResultSetChecker<byte[]> checker = check(resultSet, ResultSet::getBytes, ResultSet::getBytes);
 
         checker.nextRow()
-                .value(10, "c_Bytes", bytes("bytes array"))
-                .value(11, "c_Text", bytes("text text text"))
-                .value(12, "c_Json", bytes("{\"key\": \"value Json\"}"))
-                .value(13, "c_JsonDocument", bytes("{\"key\":\"value JsonDocument\"}"))
-                .value(14, "c_Yson", bytes("{key=\"value yson\"}"));
+                .value(13, "c_Bytes", bytes("bytes array"))
+                .value(14, "c_Text", bytes("text text text"))
+                .value(15, "c_Json", bytes("{\"key\": \"value Json\"}"))
+                .value(16, "c_JsonDocument", bytes("{\"key\":\"value JsonDocument\"}"))
+                .value(17, "c_Yson", bytes("{key=\"value yson\"}"));
 
         checker.nextRow()
-                .value(10, "c_Bytes", bytes(""))
-                .value(11, "c_Text", bytes(""))
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .value(14, "c_Yson", bytes("\"\""));
+                .value(13, "c_Bytes", bytes(""))
+                .value(14, "c_Text", bytes(""))
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .value(17, "c_Yson", bytes("\"\""));
 
         checker.nextRow()
-                .value(10, "c_Bytes", bytes("0"))
-                .value(11, "c_Text", bytes("0"))
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .value(14, "c_Yson", bytes("0"));
+                .value(13, "c_Bytes", bytes("0"))
+                .value(14, "c_Text", bytes("0"))
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .value(17, "c_Yson", bytes("0"));
 
         checker.nextRow()
-                .value(10, "c_Bytes", bytes("file:///tmp/report.txt"))
-                .value(11, "c_Text", bytes("https://ydb.tech"))
-                .value(12, "c_Json", bytes("{}"))
-                .value(13, "c_JsonDocument", bytes("{}"))
-                .value(14, "c_Yson", bytes("1"));
+                .value(13, "c_Bytes", bytes("file:///tmp/report.txt"))
+                .value(14, "c_Text", bytes("https://ydb.tech"))
+                .value(15, "c_Json", bytes("{}"))
+                .value(16, "c_JsonDocument", bytes("{}"))
+                .value(17, "c_Yson", bytes("1"));
 
         checker.nextRow()
-                .value(10, "c_Bytes", null)
-                .value(11, "c_Text", null)
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .value(14, "c_Yson", null);
+                .value(13, "c_Bytes", null)
+                .value(14, "c_Text", null)
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .value(17, "c_Yson", null);
 
         checker.assertNoRows();
     }
@@ -1252,39 +1446,39 @@ public class YdbResultSetImplTest {
         ResultSetChecker<Date> checker = check(resultSet, ResultSet::getDate, ResultSet::getDate);
 
         checker.nextRow()
-                .value(4, "c_Int64", new Date(2000000000001l))
-                .value(7, "c_Uint64", new Date(2000000000002l))
-                .value(15, "c_Date", new Date(3111L * 86400 * 1000))
-                .value(16, "c_Datetime", new Date(3111111L * 1000))
-                .value(17, "c_Timestamp", new Date(3111));
+                .value(6, "c_Int64", new Date(2000000000001l))
+                .value(10, "c_Uint64", new Date(2000000000002l))
+                .value(18, "c_Date", new Date(3111L * 86400 * 1000))
+                .value(19, "c_Datetime", new Date(3111111L * 1000))
+                .value(20, "c_Timestamp", new Date(3111));
 
         checker.nextRow()
-                .value(4, "c_Int64", new Date(-2000000000001l))
-                .value(7, "c_Uint64", new Date(4000000000002l))
-                .value(15, "c_Date", new Date(3112L * 86400 * 1000))
-                .value(16, "c_Datetime", new Date(3112111L * 1000))
-                .value(17, "c_Timestamp", new Date(3112));
+                .value(6, "c_Int64", new Date(-2000000000001l))
+                .value(10, "c_Uint64", new Date(4000000000002l))
+                .value(18, "c_Date", new Date(3112L * 86400 * 1000))
+                .value(19, "c_Datetime", new Date(3112111L * 1000))
+                .value(20, "c_Timestamp", new Date(3112));
 
         checker.nextRow()
-                .value(4, "c_Int64", new Date(0))
-                .value(7, "c_Uint64", new Date(0))
-                .value(15, "c_Date", new Date(0))
-                .value(16, "c_Datetime", new Date(0))
-                .value(17, "c_Timestamp", new Date(0));
+                .value(6, "c_Int64", new Date(0))
+                .value(10, "c_Uint64", new Date(0))
+                .value(18, "c_Date", new Date(0))
+                .value(19, "c_Datetime", new Date(0))
+                .value(20, "c_Timestamp", new Date(0));
 
         checker.nextRow()
-                .value(4, "c_Int64", new Date(1))
-                .value(7, "c_Uint64", new Date(1))
-                .value(15, "c_Date", new Date(86400000L))
-                .value(16, "c_Datetime", new Date(1000))
-                .value(17, "c_Timestamp", new Date(0));
+                .value(6, "c_Int64", new Date(1))
+                .value(10, "c_Uint64", new Date(1))
+                .value(18, "c_Date", new Date(86400000L))
+                .value(19, "c_Datetime", new Date(1000))
+                .value(20, "c_Timestamp", new Date(0));
 
         checker.nextRow()
-                .value(4, "c_Int64", null)
-                .value(7, "c_Uint64", null)
-                .value(15, "c_Date", null)
-                .value(16, "c_Datetime", null)
-                .value(17, "c_Timestamp", null);
+                .value(6, "c_Int64", null)
+                .value(10, "c_Uint64", null)
+                .value(18, "c_Date", null)
+                .value(19, "c_Datetime", null)
+                .value(20, "c_Timestamp", null);
 
         checker.assertNoRows();
     }
@@ -1294,39 +1488,39 @@ public class YdbResultSetImplTest {
         ResultSetChecker<Time> checker = check(resultSet, ResultSet::getTime, ResultSet::getTime);
 
         checker.nextRow()
-                .value(4, "c_Int64", new Time(2000000000001l))
-                .value(7, "c_Uint64", new Time(2000000000002l))
-                .value(15, "c_Date", new Time(3111L * 86400 * 1000))
-                .value(16, "c_Datetime", new Time(3111111L * 1000))
-                .value(17, "c_Timestamp", new Time(3111));
+                .value(6, "c_Int64", new Time(2000000000001l))
+                .value(10, "c_Uint64", new Time(2000000000002l))
+                .value(18, "c_Date", new Time(3111L * 86400 * 1000))
+                .value(19, "c_Datetime", new Time(3111111L * 1000))
+                .value(20, "c_Timestamp", new Time(3111));
 
         checker.nextRow()
-                .value(4, "c_Int64", new Time(-2000000000001l))
-                .value(7, "c_Uint64", new Time(4000000000002l))
-                .value(15, "c_Date", new Time(3112L * 86400 * 1000))
-                .value(16, "c_Datetime", new Time(3112111L * 1000))
-                .value(17, "c_Timestamp", new Time(3112));
+                .value(6, "c_Int64", new Time(-2000000000001l))
+                .value(10, "c_Uint64", new Time(4000000000002l))
+                .value(18, "c_Date", new Time(3112L * 86400 * 1000))
+                .value(19, "c_Datetime", new Time(3112111L * 1000))
+                .value(20, "c_Timestamp", new Time(3112));
 
         checker.nextRow()
-                .value(4, "c_Int64", new Time(0))
-                .value(7, "c_Uint64", new Time(0))
-                .value(15, "c_Date", new Time(0))
-                .value(16, "c_Datetime", new Time(0))
-                .value(17, "c_Timestamp", new Time(0));
+                .value(6, "c_Int64", new Time(0))
+                .value(10, "c_Uint64", new Time(0))
+                .value(18, "c_Date", new Time(0))
+                .value(19, "c_Datetime", new Time(0))
+                .value(20, "c_Timestamp", new Time(0));
 
         checker.nextRow()
-                .value(4, "c_Int64", new Time(1))
-                .value(7, "c_Uint64", new Time(1))
-                .value(15, "c_Date", new Time(86400000L))
-                .value(16, "c_Datetime", new Time(1000))
-                .value(17, "c_Timestamp", new Time(0));
+                .value(6, "c_Int64", new Time(1))
+                .value(10, "c_Uint64", new Time(1))
+                .value(18, "c_Date", new Time(86400000L))
+                .value(19, "c_Datetime", new Time(1000))
+                .value(20, "c_Timestamp", new Time(0));
 
         checker.nextRow()
-                .value(4, "c_Int64", null)
-                .value(7, "c_Uint64", null)
-                .value(15, "c_Date", null)
-                .value(16, "c_Datetime", null)
-                .value(17, "c_Timestamp", null);
+                .value(6, "c_Int64", null)
+                .value(10, "c_Uint64", null)
+                .value(18, "c_Date", null)
+                .value(19, "c_Datetime", null)
+                .value(20, "c_Timestamp", null);
 
         checker.assertNoRows();
     }
@@ -1336,39 +1530,39 @@ public class YdbResultSetImplTest {
         ResultSetChecker<Timestamp> checker = check(resultSet, ResultSet::getTimestamp, ResultSet::getTimestamp);
 
         checker.nextRow()
-                .value(4, "c_Int64", new Timestamp(2000000000001l))
-                .value(7, "c_Uint64", new Timestamp(2000000000002l))
-                .value(15, "c_Date", new Timestamp(3111L * 86400 * 1000))
-                .value(16, "c_Datetime", new Timestamp(3111111L * 1000))
-                .value(17, "c_Timestamp", new Timestamp(3111));
+                .value(6, "c_Int64", new Timestamp(2000000000001l))
+                .value(10, "c_Uint64", new Timestamp(2000000000002l))
+                .value(18, "c_Date", new Timestamp(3111L * 86400 * 1000))
+                .value(19, "c_Datetime", new Timestamp(3111111L * 1000))
+                .value(20, "c_Timestamp", new Timestamp(3111));
 
         checker.nextRow()
-                .value(4, "c_Int64", new Timestamp(-2000000000001l))
-                .value(7, "c_Uint64", new Timestamp(4000000000002l))
-                .value(15, "c_Date", new Timestamp(3112L * 86400 * 1000))
-                .value(16, "c_Datetime", new Timestamp(3112111L * 1000))
-                .value(17, "c_Timestamp", new Timestamp(3112));
+                .value(6, "c_Int64", new Timestamp(-2000000000001l))
+                .value(10, "c_Uint64", new Timestamp(4000000000002l))
+                .value(18, "c_Date", new Timestamp(3112L * 86400 * 1000))
+                .value(19, "c_Datetime", new Timestamp(3112111L * 1000))
+                .value(20, "c_Timestamp", new Timestamp(3112));
 
         checker.nextRow()
-                .value(4, "c_Int64", new Timestamp(0))
-                .value(7, "c_Uint64", new Timestamp(0))
-                .value(15, "c_Date", new Timestamp(0))
-                .value(16, "c_Datetime", new Timestamp(0))
-                .value(17, "c_Timestamp", new Timestamp(0));
+                .value(6, "c_Int64", new Timestamp(0))
+                .value(10, "c_Uint64", new Timestamp(0))
+                .value(18, "c_Date", new Timestamp(0))
+                .value(19, "c_Datetime", new Timestamp(0))
+                .value(20, "c_Timestamp", new Timestamp(0));
 
         checker.nextRow()
-                .value(4, "c_Int64", new Timestamp(1))
-                .value(7, "c_Uint64", new Timestamp(1))
-                .value(15, "c_Date", new Timestamp(86400000L))
-                .value(16, "c_Datetime", new Timestamp(1000))
-                .value(17, "c_Timestamp", new Timestamp(0));
+                .value(6, "c_Int64", new Timestamp(1))
+                .value(10, "c_Uint64", new Timestamp(1))
+                .value(18, "c_Date", new Timestamp(86400000L))
+                .value(19, "c_Datetime", new Timestamp(1000))
+                .value(20, "c_Timestamp", new Timestamp(0));
 
         checker.nextRow()
-                .value(4, "c_Int64", null)
-                .value(7, "c_Uint64", null)
-                .value(15, "c_Date", null)
-                .value(16, "c_Datetime", null)
-                .value(17, "c_Timestamp", null);
+                .value(6, "c_Int64", null)
+                .value(10, "c_Uint64", null)
+                .value(18, "c_Date", null)
+                .value(19, "c_Datetime", null)
+                .value(20, "c_Timestamp", null);
 
         checker.assertNoRows();
     }
@@ -1384,39 +1578,39 @@ public class YdbResultSetImplTest {
                 ResultSet::getUnicodeStream, ResultSet::getUnicodeStream);
 
         checker.nextRow()
-                .value(10, "c_Bytes", stream("bytes array"))
-                .value(11, "c_Text", stream("text text text"))
-                .value(12, "c_Json", stream("{\"key\": \"value Json\"}"))
-                .value(13, "c_JsonDocument", stream("{\"key\":\"value JsonDocument\"}"))
-                .value(14, "c_Yson", stream("{key=\"value yson\"}"));
+                .value(13, "c_Bytes", stream("bytes array"))
+                .value(14, "c_Text", stream("text text text"))
+                .value(15, "c_Json", stream("{\"key\": \"value Json\"}"))
+                .value(16, "c_JsonDocument", stream("{\"key\":\"value JsonDocument\"}"))
+                .value(17, "c_Yson", stream("{key=\"value yson\"}"));
 
         checker.nextRow()
-                .value(10, "c_Bytes", stream(""))
-                .value(11, "c_Text", stream(""))
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .value(14, "c_Yson", stream("\"\""));
+                .value(13, "c_Bytes", stream(""))
+                .value(14, "c_Text", stream(""))
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .value(17, "c_Yson", stream("\"\""));
 
         checker.nextRow()
-                .value(10, "c_Bytes", stream("0"))
-                .value(11, "c_Text", stream("0"))
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .value(14, "c_Yson", stream("0"));
+                .value(13, "c_Bytes", stream("0"))
+                .value(14, "c_Text", stream("0"))
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .value(17, "c_Yson", stream("0"));
 
         checker.nextRow()
-                .value(10, "c_Bytes", stream("file:///tmp/report.txt"))
-                .value(11, "c_Text", stream("https://ydb.tech"))
-                .value(12, "c_Json", stream("{}"))
-                .value(13, "c_JsonDocument", stream("{}"))
-                .value(14, "c_Yson", stream("1"));
+                .value(13, "c_Bytes", stream("file:///tmp/report.txt"))
+                .value(14, "c_Text", stream("https://ydb.tech"))
+                .value(15, "c_Json", stream("{}"))
+                .value(16, "c_JsonDocument", stream("{}"))
+                .value(17, "c_Yson", stream("1"));
 
         checker.nextRow()
-                .value(10, "c_Bytes", null)
-                .value(11, "c_Text", null)
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .value(14, "c_Yson", null);
+                .value(13, "c_Bytes", null)
+                .value(14, "c_Text", null)
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .value(17, "c_Yson", null);
 
         checker.assertNoRows();
     }
@@ -1427,39 +1621,39 @@ public class YdbResultSetImplTest {
                 ResultSet::getBinaryStream, ResultSet::getBinaryStream);
 
         checker.nextRow()
-                .value(10, "c_Bytes", stream("bytes array"))
-                .value(11, "c_Text", stream("text text text"))
-                .value(12, "c_Json", stream("{\"key\": \"value Json\"}"))
-                .value(13, "c_JsonDocument", stream("{\"key\":\"value JsonDocument\"}"))
-                .value(14, "c_Yson", stream("{key=\"value yson\"}"));
+                .value(13, "c_Bytes", stream("bytes array"))
+                .value(14, "c_Text", stream("text text text"))
+                .value(15, "c_Json", stream("{\"key\": \"value Json\"}"))
+                .value(16, "c_JsonDocument", stream("{\"key\":\"value JsonDocument\"}"))
+                .value(17, "c_Yson", stream("{key=\"value yson\"}"));
 
         checker.nextRow()
-                .value(10, "c_Bytes", stream(""))
-                .value(11, "c_Text", stream(""))
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .value(14, "c_Yson", stream("\"\""));
+                .value(13, "c_Bytes", stream(""))
+                .value(14, "c_Text", stream(""))
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .value(17, "c_Yson", stream("\"\""));
 
         checker.nextRow()
-                .value(10, "c_Bytes", stream("0"))
-                .value(11, "c_Text", stream("0"))
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .value(14, "c_Yson", stream("0"));
+                .value(13, "c_Bytes", stream("0"))
+                .value(14, "c_Text", stream("0"))
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .value(17, "c_Yson", stream("0"));
 
         checker.nextRow()
-                .value(10, "c_Bytes", stream("file:///tmp/report.txt"))
-                .value(11, "c_Text", stream("https://ydb.tech"))
-                .value(12, "c_Json", stream("{}"))
-                .value(13, "c_JsonDocument", stream("{}"))
-                .value(14, "c_Yson", stream("1"));
+                .value(13, "c_Bytes", stream("file:///tmp/report.txt"))
+                .value(14, "c_Text", stream("https://ydb.tech"))
+                .value(15, "c_Json", stream("{}"))
+                .value(16, "c_JsonDocument", stream("{}"))
+                .value(17, "c_Yson", stream("1"));
 
         checker.nextRow()
-                .value(10, "c_Bytes", null)
-                .value(11, "c_Text", null)
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .value(14, "c_Yson", null);
+                .value(13, "c_Bytes", null)
+                .value(14, "c_Text", null)
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .value(17, "c_Yson", null);
 
         checker.assertNoRows();
     }
@@ -1471,107 +1665,122 @@ public class YdbResultSetImplTest {
         checker.nextRow()
                 .typedValue(1, "key", 1)
                 .typedValue(2, "c_Bool", true)
-                .typedValue(3, "c_Int32", 2000000001)
-                .typedValue(4, "c_Int64", 2000000000001l)
-                .typedValue(5, "c_Uint8", 100)
-                .typedValue(6, "c_Uint32", 2000000002l)
-                .typedValue(7, "c_Uint64", 2000000000002l)
-                .typedValue(8, "c_Float", 123456.78f)
-                .typedValue(9, "c_Double", 1.2345678912345679E8d)
-                .typedValue(10, "c_Bytes", bytes("bytes array"))
-                .typedValue(11, "c_Text", "text text text")
-                .typedValue(12, "c_Json", "{\"key\": \"value Json\"}")
-                .typedValue(13, "c_JsonDocument", "{\"key\":\"value JsonDocument\"}")
-                .typedValue(14, "c_Yson", bytes("{key=\"value yson\"}"))
-                .typedValue(15, "c_Date", LocalDate.parse("1978-07-09"))
-                .typedValue(16, "c_Datetime", LocalDateTime.parse("1970-02-06T00:11:51"))
-                .typedValue(17, "c_Timestamp", Instant.parse("1970-01-01T00:00:03.111112Z"))
-                .typedValue(18, "c_Interval", Duration.parse("PT3.111113S"))
-                .typedValue(19, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("3.335000000"));
+                .typedValue(3, "c_Int8", (byte)101)
+                .typedValue(4, "c_Int16", (short)20001)
+                .typedValue(5, "c_Int32", 2000000001)
+                .typedValue(6, "c_Int64", 2000000000001l)
+                .typedValue(7, "c_Uint8", 100)
+                .typedValue(8, "c_Uint16", 20002)
+                .typedValue(9, "c_Uint32", 2000000002l)
+                .typedValue(10, "c_Uint64", 2000000000002l)
+                .typedValue(11, "c_Float", 123456.78f)
+                .typedValue(12, "c_Double", 1.2345678912345679E8d)
+                .typedValue(13, "c_Bytes", bytes("bytes array"))
+                .typedValue(14, "c_Text", "text text text")
+                .typedValue(15, "c_Json", "{\"key\": \"value Json\"}")
+                .typedValue(16, "c_JsonDocument", "{\"key\":\"value JsonDocument\"}")
+                .typedValue(17, "c_Yson", bytes("{key=\"value yson\"}"))
+                .typedValue(18, "c_Date", LocalDate.parse("1978-07-09"))
+                .typedValue(19, "c_Datetime", LocalDateTime.parse("1970-02-06T00:11:51"))
+                .typedValue(20, "c_Timestamp", Instant.parse("1970-01-01T00:00:03.111112Z"))
+                .typedValue(21, "c_Interval", Duration.parse("PT3.111113S"))
+                .typedValue(22, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("3.335000000"));
 
         checker.nextRow()
                 .typedValue(1, "key", 2)
                 .typedValue(2, "c_Bool", false)
-                .typedValue(3, "c_Int32", -2000000001)
-                .typedValue(4, "c_Int64", -2000000000001l)
-                .typedValue(5, "c_Uint8", 200)
-                .typedValue(6, "c_Uint32", 4000000002l)
-                .typedValue(7, "c_Uint64", 4000000000002l)
-                .typedValue(8, "c_Float", -123456.78f)
-                .typedValue(9, "c_Double", -1.2345678912345679E8d)
-                .typedValue(10, "c_Bytes", bytes(""))
-                .typedValue(11, "c_Text", "")
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .typedValue(14, "c_Yson", bytes("\"\""))
-                .typedValue(15, "c_Date", LocalDate.parse("1978-07-10"))
-                .typedValue(16, "c_Datetime", LocalDateTime.parse("1970-02-06T00:28:31"))
-                .typedValue(17, "c_Timestamp", Instant.parse("1970-01-01T00:00:03.112112Z"))
-                .typedValue(18, "c_Interval", Duration.parse("PT3.112113S"))
-                .typedValue(19, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("-3.335000000"));
+                .typedValue(3, "c_Int8", (byte)-101)
+                .typedValue(4, "c_Int16", (short)-20001)
+                .typedValue(5, "c_Int32", -2000000001)
+                .typedValue(6, "c_Int64", -2000000000001l)
+                .typedValue(7, "c_Uint8", 200)
+                .typedValue(8, "c_Uint16", 40002)
+                .typedValue(9, "c_Uint32", 4000000002l)
+                .typedValue(10, "c_Uint64", 4000000000002l)
+                .typedValue(11, "c_Float", -123456.78f)
+                .typedValue(12, "c_Double", -1.2345678912345679E8d)
+                .typedValue(13, "c_Bytes", bytes(""))
+                .typedValue(14, "c_Text", "")
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .typedValue(17, "c_Yson", bytes("\"\""))
+                .typedValue(18, "c_Date", LocalDate.parse("1978-07-10"))
+                .typedValue(19, "c_Datetime", LocalDateTime.parse("1970-02-06T00:28:31"))
+                .typedValue(20, "c_Timestamp", Instant.parse("1970-01-01T00:00:03.112112Z"))
+                .typedValue(21, "c_Interval", Duration.parse("PT3.112113S"))
+                .typedValue(22, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("-3.335000000"));
 
         checker.nextRow()
                 .typedValue(1, "key", 3)
                 .typedValue(2, "c_Bool", false)
-                .typedValue(3, "c_Int32", 0)
-                .typedValue(4, "c_Int64", 0l)
-                .typedValue(5, "c_Uint8", 0)
-                .typedValue(6, "c_Uint32", 0l)
-                .typedValue(7, "c_Uint64", 0l)
-                .typedValue(8, "c_Float", 0.0f)
-                .typedValue(9, "c_Double", 0.0d)
-                .typedValue(10, "c_Bytes", bytes("0"))
-                .typedValue(11, "c_Text", "0")
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .typedValue(14, "c_Yson", bytes("0"))
-                .typedValue(15, "c_Date", LocalDate.parse("1970-01-01"))
-                .typedValue(16, "c_Datetime", LocalDateTime.parse("1970-01-01T00:00:00"))
-                .typedValue(17, "c_Timestamp", Instant.parse("1970-01-01T00:00:00.000000Z"))
-                .typedValue(18, "c_Interval", Duration.parse("PT0.000000S"))
-                .typedValue(19, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("0.00000000"));
+                .typedValue(3, "c_Int8", (byte)0)
+                .typedValue(4, "c_Int16", (short)0)
+                .typedValue(5, "c_Int32", 0)
+                .typedValue(6, "c_Int64", 0l)
+                .typedValue(7, "c_Uint8", 0)
+                .typedValue(8, "c_Uint16", 0)
+                .typedValue(9, "c_Uint32", 0l)
+                .typedValue(10, "c_Uint64", 0l)
+                .typedValue(11, "c_Float", 0.0f)
+                .typedValue(12, "c_Double", 0.0d)
+                .typedValue(13, "c_Bytes", bytes("0"))
+                .typedValue(14, "c_Text", "0")
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .typedValue(17, "c_Yson", bytes("0"))
+                .typedValue(18, "c_Date", LocalDate.parse("1970-01-01"))
+                .typedValue(19, "c_Datetime", LocalDateTime.parse("1970-01-01T00:00:00"))
+                .typedValue(20, "c_Timestamp", Instant.parse("1970-01-01T00:00:00.000000Z"))
+                .typedValue(21, "c_Interval", Duration.parse("PT0.000000S"))
+                .typedValue(22, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("0.00000000"));
 
         checker.nextRow()
                 .typedValue(1, "key", 4)
                 .typedValue(2, "c_Bool", true)
-                .typedValue(3, "c_Int32", 1)
-                .typedValue(4, "c_Int64", 1l)
-                .typedValue(5, "c_Uint8", 1)
-                .typedValue(6, "c_Uint32", 1l)
-                .typedValue(7, "c_Uint64", 1l)
-                .typedValue(8, "c_Float", 1.0f)
-                .typedValue(9, "c_Double", 1.0d)
-                .typedValue(10, "c_Bytes", bytes("file:///tmp/report.txt"))
-                .typedValue(11, "c_Text", "https://ydb.tech")
-                .typedValue(12, "c_Json", "{}")
-                .typedValue(13, "c_JsonDocument", "{}")
-                .typedValue(14, "c_Yson", bytes("1"))
-                .typedValue(15, "c_Date", LocalDate.parse("1970-01-02"))
-                .typedValue(16, "c_Datetime", LocalDateTime.parse("1970-01-01T00:00:01"))
-                .typedValue(17, "c_Timestamp", Instant.parse("1970-01-01T00:00:00.000001Z"))
-                .typedValue(18, "c_Interval", Duration.parse("PT0.000001S"))
-                .typedValue(19, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("1.00000000"));
+                .typedValue(3, "c_Int8", (byte)1)
+                .typedValue(4, "c_Int16", (short)1)
+                .typedValue(5, "c_Int32", 1)
+                .typedValue(6, "c_Int64", 1l)
+                .typedValue(7, "c_Uint8", 1)
+                .typedValue(8, "c_Uint16", 1)
+                .typedValue(9, "c_Uint32", 1l)
+                .typedValue(10, "c_Uint64", 1l)
+                .typedValue(11, "c_Float", 1.0f)
+                .typedValue(12, "c_Double", 1.0d)
+                .typedValue(13, "c_Bytes", bytes("file:///tmp/report.txt"))
+                .typedValue(14, "c_Text", "https://ydb.tech")
+                .typedValue(15, "c_Json", "{}")
+                .typedValue(16, "c_JsonDocument", "{}")
+                .typedValue(17, "c_Yson", bytes("1"))
+                .typedValue(18, "c_Date", LocalDate.parse("1970-01-02"))
+                .typedValue(19, "c_Datetime", LocalDateTime.parse("1970-01-01T00:00:01"))
+                .typedValue(20, "c_Timestamp", Instant.parse("1970-01-01T00:00:00.000001Z"))
+                .typedValue(21, "c_Interval", Duration.parse("PT0.000001S"))
+                .typedValue(22, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("1.00000000"));
 
         checker.nextRow()
                 .value(1, "key", 5)
                 .value(2, "c_Bool", null)
-                .value(3, "c_Int32", null)
-                .value(4, "c_Int64", null)
-                .value(5, "c_Uint8", null)
-                .value(6, "c_Uint32", null)
-                .value(7, "c_Uint64", null)
-                .value(8, "c_Float", null)
-                .value(9, "c_Double", null)
-                .value(10, "c_Bytes", null)
-                .value(11, "c_Text", null)
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .value(14, "c_Yson", null)
-                .value(15, "c_Date", null)
-                .value(16, "c_Datetime", null)
-                .value(17, "c_Timestamp", null)
-                .value(18, "c_Interval", null)
-                .value(19, "c_Decimal", null);
+                .value(3, "c_Int8", null)
+                .value(4, "c_Int16", null)
+                .value(5, "c_Int32", null)
+                .value(6, "c_Int64", null)
+                .value(7, "c_Uint8", null)
+                .value(8, "c_Uint16", null)
+                .value(9, "c_Uint32", null)
+                .value(10, "c_Uint64", null)
+                .value(11, "c_Float", null)
+                .value(12, "c_Double", null)
+                .value(13, "c_Bytes", null)
+                .value(14, "c_Text", null)
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .value(17, "c_Yson", null)
+                .value(18, "c_Date", null)
+                .value(19, "c_Datetime", null)
+                .value(20, "c_Timestamp", null)
+                .value(21, "c_Interval", null)
+                .value(22, "c_Decimal", null);
 
         checker.assertNoRows();
     }
@@ -1585,39 +1794,39 @@ public class YdbResultSetImplTest {
         ResultSetChecker<Reader> checker = check(resultSet, ResultSet::getCharacterStream, ResultSet::getCharacterStream);
 
         checker.nextRow()
-                .value(10, "c_Bytes", reader("bytes array"))
-                .value(11, "c_Text", reader("text text text"))
-                .value(12, "c_Json", reader("{\"key\": \"value Json\"}"))
-                .value(13, "c_JsonDocument", reader("{\"key\":\"value JsonDocument\"}"))
-                .value(14, "c_Yson", reader("{key=\"value yson\"}"));
+                .value(13, "c_Bytes", reader("bytes array"))
+                .value(14, "c_Text", reader("text text text"))
+                .value(15, "c_Json", reader("{\"key\": \"value Json\"}"))
+                .value(16, "c_JsonDocument", reader("{\"key\":\"value JsonDocument\"}"))
+                .value(17, "c_Yson", reader("{key=\"value yson\"}"));
 
         checker.nextRow()
-                .value(10, "c_Bytes", reader(""))
-                .value(11, "c_Text", reader(""))
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .value(14, "c_Yson", reader("\"\""));
+                .value(13, "c_Bytes", reader(""))
+                .value(14, "c_Text", reader(""))
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .value(17, "c_Yson", reader("\"\""));
 
         checker.nextRow()
-                .value(10, "c_Bytes", reader("0"))
-                .value(11, "c_Text", reader("0"))
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .value(14, "c_Yson", reader("0"));
+                .value(13, "c_Bytes", reader("0"))
+                .value(14, "c_Text", reader("0"))
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .value(17, "c_Yson", reader("0"));
 
         checker.nextRow()
-                .value(10, "c_Bytes", reader("file:///tmp/report.txt"))
-                .value(11, "c_Text", reader("https://ydb.tech"))
-                .value(12, "c_Json", reader("{}"))
-                .value(13, "c_JsonDocument", reader("{}"))
-                .value(14, "c_Yson", reader("1"));
+                .value(13, "c_Bytes", reader("file:///tmp/report.txt"))
+                .value(14, "c_Text", reader("https://ydb.tech"))
+                .value(15, "c_Json", reader("{}"))
+                .value(16, "c_JsonDocument", reader("{}"))
+                .value(17, "c_Yson", reader("1"));
 
         checker.nextRow()
-                .value(10, "c_Bytes", null)
-                .value(11, "c_Text", null)
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .value(14, "c_Yson", null);
+                .value(13, "c_Bytes", null)
+                .value(14, "c_Text", null)
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .value(17, "c_Yson", null);
 
         checker.assertNoRows();
     }
@@ -1630,11 +1839,11 @@ public class YdbResultSetImplTest {
         checker.nextRow();
         checker.nextRow();
         checker.nextRow()
-                .value(10, "c_Bytes", new URL("file:///tmp/report.txt"))
-                .value(11, "c_Text", new URL("https://ydb.tech"));
+                .value(13, "c_Bytes", new URL("file:///tmp/report.txt"))
+                .value(14, "c_Text", new URL("https://ydb.tech"));
         checker.nextRow()
-                .value(10, "c_Bytes", null)
-                .value(11, "c_Text", null);
+                .value(13, "c_Bytes", null)
+                .value(14, "c_Text", null);
 
         checker.assertNoRows();
     }
@@ -1644,39 +1853,39 @@ public class YdbResultSetImplTest {
         ResultSetChecker<String> checker = check(resultSet, ResultSet::getNString, ResultSet::getNString);
 
         checker.nextRow()
-                .value(10, "c_Bytes", "bytes array")
-                .value(11, "c_Text", "text text text")
-                .value(12, "c_Json", "{\"key\": \"value Json\"}")
-                .value(13, "c_JsonDocument", "{\"key\":\"value JsonDocument\"}")
-                .value(14, "c_Yson", "{key=\"value yson\"}");
+                .value(13, "c_Bytes", "bytes array")
+                .value(14, "c_Text", "text text text")
+                .value(15, "c_Json", "{\"key\": \"value Json\"}")
+                .value(16, "c_JsonDocument", "{\"key\":\"value JsonDocument\"}")
+                .value(17, "c_Yson", "{key=\"value yson\"}");
 
         checker.nextRow()
-                .value(10, "c_Bytes", "")
-                .value(11, "c_Text", "")
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .value(14, "c_Yson", "\"\"");
+                .value(13, "c_Bytes", "")
+                .value(14, "c_Text", "")
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .value(17, "c_Yson", "\"\"");
 
         checker.nextRow()
-                .value(10, "c_Bytes", "0")
-                .value(11, "c_Text", "0")
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .value(14, "c_Yson", "0");
+                .value(13, "c_Bytes", "0")
+                .value(14, "c_Text", "0")
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .value(17, "c_Yson", "0");
 
         checker.nextRow()
-                .value(10, "c_Bytes", "file:///tmp/report.txt")
-                .value(11, "c_Text", "https://ydb.tech")
-                .value(12, "c_Json", "{}")
-                .value(13, "c_JsonDocument", "{}")
-                .value(14, "c_Yson", "1");
+                .value(13, "c_Bytes", "file:///tmp/report.txt")
+                .value(14, "c_Text", "https://ydb.tech")
+                .value(15, "c_Json", "{}")
+                .value(16, "c_JsonDocument", "{}")
+                .value(17, "c_Yson", "1");
 
         checker.nextRow()
-                .value(10, "c_Bytes", null)
-                .value(11, "c_Text", null)
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .value(14, "c_Yson", null);
+                .value(13, "c_Bytes", null)
+                .value(14, "c_Text", null)
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .value(17, "c_Yson", null);
 
         checker.assertNoRows();
     }
@@ -1686,39 +1895,39 @@ public class YdbResultSetImplTest {
         ResultSetChecker<Reader> checker = check(resultSet, ResultSet::getNCharacterStream, ResultSet::getNCharacterStream);
 
         checker.nextRow()
-                .value(10, "c_Bytes", reader("bytes array"))
-                .value(11, "c_Text", reader("text text text"))
-                .value(12, "c_Json", reader("{\"key\": \"value Json\"}"))
-                .value(13, "c_JsonDocument", reader("{\"key\":\"value JsonDocument\"}"))
-                .value(14, "c_Yson", reader("{key=\"value yson\"}"));
+                .value(13, "c_Bytes", reader("bytes array"))
+                .value(14, "c_Text", reader("text text text"))
+                .value(15, "c_Json", reader("{\"key\": \"value Json\"}"))
+                .value(16, "c_JsonDocument", reader("{\"key\":\"value JsonDocument\"}"))
+                .value(17, "c_Yson", reader("{key=\"value yson\"}"));
 
         checker.nextRow()
-                .value(10, "c_Bytes", reader(""))
-                .value(11, "c_Text", reader(""))
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .value(14, "c_Yson", reader("\"\""));
+                .value(13, "c_Bytes", reader(""))
+                .value(14, "c_Text", reader(""))
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .value(17, "c_Yson", reader("\"\""));
 
         checker.nextRow()
-                .value(10, "c_Bytes", reader("0"))
-                .value(11, "c_Text", reader("0"))
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .value(14, "c_Yson", reader("0"));
+                .value(13, "c_Bytes", reader("0"))
+                .value(14, "c_Text", reader("0"))
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .value(17, "c_Yson", reader("0"));
 
         checker.nextRow()
-                .value(10, "c_Bytes", reader("file:///tmp/report.txt"))
-                .value(11, "c_Text", reader("https://ydb.tech"))
-                .value(12, "c_Json", reader("{}"))
-                .value(13, "c_JsonDocument", reader("{}"))
-                .value(14, "c_Yson", reader("1"));
+                .value(13, "c_Bytes", reader("file:///tmp/report.txt"))
+                .value(14, "c_Text", reader("https://ydb.tech"))
+                .value(15, "c_Json", reader("{}"))
+                .value(16, "c_JsonDocument", reader("{}"))
+                .value(17, "c_Yson", reader("1"));
 
         checker.nextRow()
-                .value(10, "c_Bytes", null)
-                .value(11, "c_Text", null)
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .value(14, "c_Yson", null);
+                .value(13, "c_Bytes", null)
+                .value(14, "c_Text", null)
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .value(17, "c_Yson", null);
 
         checker.assertNoRows();
     }
@@ -1777,107 +1986,122 @@ public class YdbResultSetImplTest {
         checker.nextRow()
                 .typedValue(1, "key", PrimitiveValue.newInt32(1))
                 .typedValue(2, "c_Bool", PrimitiveValue.newBool(true))
-                .typedValue(3, "c_Int32", PrimitiveValue.newInt32(2000000001))
-                .typedValue(4, "c_Int64", PrimitiveValue.newInt64(2000000000001L))
-                .typedValue(5, "c_Uint8", PrimitiveValue.newUint8((byte) 100))
-                .typedValue(6, "c_Uint32", PrimitiveValue.newUint32(2000000002))
-                .typedValue(7, "c_Uint64", PrimitiveValue.newUint64(2000000000002L))
-                .typedValue(8, "c_Float", PrimitiveValue.newFloat(123456.78f))
-                .typedValue(9, "c_Double", PrimitiveValue.newDouble(123456789.123456789d))
-                .typedValue(10, "c_Bytes", PrimitiveValue.newBytes(bytes("bytes array")))
-                .typedValue(11, "c_Text", PrimitiveValue.newText("text text text"))
-                .typedValue(12, "c_Json", PrimitiveValue.newJson("{\"key\": \"value Json\"}"))
-                .typedValue(13, "c_JsonDocument", PrimitiveValue.newJsonDocument("{\"key\":\"value JsonDocument\"}"))
-                .typedValue(14, "c_Yson", PrimitiveValue.newYson(bytes("{key=\"value yson\"}")))
-                .typedValue(15, "c_Date", PrimitiveValue.newDate(LocalDate.parse("1978-07-09")))
-                .typedValue(16, "c_Datetime", PrimitiveValue.newDatetime(Instant.parse("1970-02-06T00:11:51Z")))
-                .typedValue(17, "c_Timestamp", PrimitiveValue.newTimestamp(3111112L))
-                .typedValue(18, "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT3.111113S")))
-                .typedValue(19, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("3.335000000"));
+                .typedValue(3, "c_Int8", PrimitiveValue.newInt8((byte)101))
+                .typedValue(4, "c_Int16", PrimitiveValue.newInt16((short)20001))
+                .typedValue(5, "c_Int32", PrimitiveValue.newInt32(2000000001))
+                .typedValue(6, "c_Int64", PrimitiveValue.newInt64(2000000000001L))
+                .typedValue(7, "c_Uint8", PrimitiveValue.newUint8((short) 100))
+                .typedValue(8, "c_Uint16", PrimitiveValue.newUint16(20002))
+                .typedValue(9, "c_Uint32", PrimitiveValue.newUint32(2000000002))
+                .typedValue(10, "c_Uint64", PrimitiveValue.newUint64(2000000000002L))
+                .typedValue(11, "c_Float", PrimitiveValue.newFloat(123456.78f))
+                .typedValue(12, "c_Double", PrimitiveValue.newDouble(123456789.123456789d))
+                .typedValue(13, "c_Bytes", PrimitiveValue.newBytes(bytes("bytes array")))
+                .typedValue(14, "c_Text", PrimitiveValue.newText("text text text"))
+                .typedValue(15, "c_Json", PrimitiveValue.newJson("{\"key\": \"value Json\"}"))
+                .typedValue(16, "c_JsonDocument", PrimitiveValue.newJsonDocument("{\"key\":\"value JsonDocument\"}"))
+                .typedValue(17, "c_Yson", PrimitiveValue.newYson(bytes("{key=\"value yson\"}")))
+                .typedValue(18, "c_Date", PrimitiveValue.newDate(LocalDate.parse("1978-07-09")))
+                .typedValue(19, "c_Datetime", PrimitiveValue.newDatetime(Instant.parse("1970-02-06T00:11:51Z")))
+                .typedValue(20, "c_Timestamp", PrimitiveValue.newTimestamp(3111112L))
+                .typedValue(21, "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT3.111113S")))
+                .typedValue(22, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("3.335000000"));
 
         checker.nextRow()
                 .typedValue(1, "key", PrimitiveValue.newInt32(2))
                 .typedValue(2, "c_Bool", PrimitiveValue.newBool(false))
-                .typedValue(3, "c_Int32", PrimitiveValue.newInt32(-2000000001))
-                .typedValue(4, "c_Int64", PrimitiveValue.newInt64(-2000000000001L))
-                .typedValue(5, "c_Uint8", PrimitiveValue.newUint8((byte) 200))
-                .typedValue(6, "c_Uint32", PrimitiveValue.newUint32(4000000002l))
-                .typedValue(7, "c_Uint64", PrimitiveValue.newUint64(4000000000002L))
-                .typedValue(8, "c_Float", PrimitiveValue.newFloat(-123456.78f))
-                .typedValue(9, "c_Double", PrimitiveValue.newDouble(-123456789.123456789d))
-                .typedValue(10, "c_Bytes", PrimitiveValue.newBytes(bytes("")))
-                .typedValue(11, "c_Text", PrimitiveValue.newText(""))
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .typedValue(14, "c_Yson", PrimitiveValue.newYson(bytes("\"\"")))
-                .typedValue(15, "c_Date", PrimitiveValue.newDate(LocalDate.parse("1978-07-10")))
-                .typedValue(16, "c_Datetime", PrimitiveValue.newDatetime(Instant.parse("1970-02-06T00:28:31Z")))
-                .typedValue(17, "c_Timestamp", PrimitiveValue.newTimestamp(3112112l))
-                .typedValue(18, "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT3.112113S")))
-                .typedValue(19, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("-3.335000000"));
+                .typedValue(3, "c_Int8", PrimitiveValue.newInt8((byte)-101))
+                .typedValue(4, "c_Int16", PrimitiveValue.newInt16((short)-20001))
+                .typedValue(5, "c_Int32", PrimitiveValue.newInt32(-2000000001))
+                .typedValue(6, "c_Int64", PrimitiveValue.newInt64(-2000000000001L))
+                .typedValue(7, "c_Uint8", PrimitiveValue.newUint8((short) 200))
+                .typedValue(8, "c_Uint16", PrimitiveValue.newUint16(40002))
+                .typedValue(9, "c_Uint32", PrimitiveValue.newUint32(4000000002l))
+                .typedValue(10, "c_Uint64", PrimitiveValue.newUint64(4000000000002L))
+                .typedValue(11, "c_Float", PrimitiveValue.newFloat(-123456.78f))
+                .typedValue(12, "c_Double", PrimitiveValue.newDouble(-123456789.123456789d))
+                .typedValue(13, "c_Bytes", PrimitiveValue.newBytes(bytes("")))
+                .typedValue(14, "c_Text", PrimitiveValue.newText(""))
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .typedValue(17, "c_Yson", PrimitiveValue.newYson(bytes("\"\"")))
+                .typedValue(18, "c_Date", PrimitiveValue.newDate(LocalDate.parse("1978-07-10")))
+                .typedValue(19, "c_Datetime", PrimitiveValue.newDatetime(Instant.parse("1970-02-06T00:28:31Z")))
+                .typedValue(20, "c_Timestamp", PrimitiveValue.newTimestamp(3112112l))
+                .typedValue(21, "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT3.112113S")))
+                .typedValue(22, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("-3.335000000"));
 
         checker.nextRow()
                 .typedValue(1, "key", PrimitiveValue.newInt32(3))
                 .typedValue(2, "c_Bool", PrimitiveValue.newBool(false))
-                .typedValue(3, "c_Int32", PrimitiveValue.newInt32(0))
-                .typedValue(4, "c_Int64", PrimitiveValue.newInt64(0))
-                .typedValue(5, "c_Uint8", PrimitiveValue.newUint8((byte) 0))
-                .typedValue(6, "c_Uint32", PrimitiveValue.newUint32(0))
-                .typedValue(7, "c_Uint64", PrimitiveValue.newUint64(0))
-                .typedValue(8, "c_Float", PrimitiveValue.newFloat(0))
-                .typedValue(9, "c_Double", PrimitiveValue.newDouble(0))
-                .typedValue(10, "c_Bytes", PrimitiveValue.newBytes(bytes("0")))
-                .typedValue(11, "c_Text", PrimitiveValue.newText("0"))
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .typedValue(14, "c_Yson", PrimitiveValue.newYson(bytes("0")))
-                .typedValue(15, "c_Date", PrimitiveValue.newDate(LocalDate.parse("1970-01-01")))
-                .typedValue(16, "c_Datetime", PrimitiveValue.newDatetime(Instant.parse("1970-01-01T00:00:00Z")))
-                .typedValue(17, "c_Timestamp", PrimitiveValue.newTimestamp(Instant.ofEpochMilli(0)))
-                .typedValue(18, "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT0S")))
-                .typedValue(19, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue(0));
+                .typedValue(3, "c_Int8", PrimitiveValue.newInt8((byte)0))
+                .typedValue(4, "c_Int16", PrimitiveValue.newInt16((short)0))
+                .typedValue(5, "c_Int32", PrimitiveValue.newInt32(0))
+                .typedValue(6, "c_Int64", PrimitiveValue.newInt64(0))
+                .typedValue(7, "c_Uint8", PrimitiveValue.newUint8((short) 0))
+                .typedValue(8, "c_Uint16", PrimitiveValue.newUint16(0))
+                .typedValue(9, "c_Uint32", PrimitiveValue.newUint32(0))
+                .typedValue(10, "c_Uint64", PrimitiveValue.newUint64(0))
+                .typedValue(11, "c_Float", PrimitiveValue.newFloat(0))
+                .typedValue(12, "c_Double", PrimitiveValue.newDouble(0))
+                .typedValue(13, "c_Bytes", PrimitiveValue.newBytes(bytes("0")))
+                .typedValue(14, "c_Text", PrimitiveValue.newText("0"))
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .typedValue(17, "c_Yson", PrimitiveValue.newYson(bytes("0")))
+                .typedValue(18, "c_Date", PrimitiveValue.newDate(LocalDate.parse("1970-01-01")))
+                .typedValue(19, "c_Datetime", PrimitiveValue.newDatetime(Instant.parse("1970-01-01T00:00:00Z")))
+                .typedValue(20, "c_Timestamp", PrimitiveValue.newTimestamp(Instant.ofEpochMilli(0)))
+                .typedValue(21, "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT0S")))
+                .typedValue(22, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue(0));
 
         checker.nextRow()
                 .typedValue(1, "key", PrimitiveValue.newInt32(4))
                 .typedValue(2, "c_Bool", PrimitiveValue.newBool(true))
-                .typedValue(3, "c_Int32", PrimitiveValue.newInt32(1))
-                .typedValue(4, "c_Int64", PrimitiveValue.newInt64(1))
-                .typedValue(5, "c_Uint8", PrimitiveValue.newUint8((byte) 1))
-                .typedValue(6, "c_Uint32", PrimitiveValue.newUint32(1))
-                .typedValue(7, "c_Uint64", PrimitiveValue.newUint64(1))
-                .typedValue(8, "c_Float", PrimitiveValue.newFloat(1))
-                .typedValue(9, "c_Double", PrimitiveValue.newDouble(1))
-                .typedValue(10, "c_Bytes", PrimitiveValue.newBytes(bytes("file:///tmp/report.txt")))
-                .typedValue(11, "c_Text", PrimitiveValue.newText("https://ydb.tech"))
-                .typedValue(12, "c_Json", PrimitiveValue.newJson("{}"))
-                .typedValue(13, "c_JsonDocument", PrimitiveValue.newJsonDocument("{}"))
-                .typedValue(14, "c_Yson", PrimitiveValue.newYson(bytes("1")))
-                .typedValue(15, "c_Date", PrimitiveValue.newDate(LocalDate.parse("1970-01-02")))
-                .typedValue(16, "c_Datetime", PrimitiveValue.newDatetime(Instant.parse("1970-01-01T00:00:01Z")))
-                .typedValue(17, "c_Timestamp", PrimitiveValue.newTimestamp(1))
-                .typedValue(18, "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT0.000001S")))
-                .typedValue(19, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("1.000000000"));
+                .typedValue(3, "c_Int8", PrimitiveValue.newInt8((byte)1))
+                .typedValue(4, "c_Int16", PrimitiveValue.newInt16((short)1))
+                .typedValue(5, "c_Int32", PrimitiveValue.newInt32(1))
+                .typedValue(6, "c_Int64", PrimitiveValue.newInt64(1))
+                .typedValue(7, "c_Uint8", PrimitiveValue.newUint8((short) 1))
+                .typedValue(8, "c_Uint16", PrimitiveValue.newUint16(1))
+                .typedValue(9, "c_Uint32", PrimitiveValue.newUint32(1))
+                .typedValue(10, "c_Uint64", PrimitiveValue.newUint64(1))
+                .typedValue(11, "c_Float", PrimitiveValue.newFloat(1))
+                .typedValue(12, "c_Double", PrimitiveValue.newDouble(1))
+                .typedValue(13, "c_Bytes", PrimitiveValue.newBytes(bytes("file:///tmp/report.txt")))
+                .typedValue(14, "c_Text", PrimitiveValue.newText("https://ydb.tech"))
+                .typedValue(15, "c_Json", PrimitiveValue.newJson("{}"))
+                .typedValue(16, "c_JsonDocument", PrimitiveValue.newJsonDocument("{}"))
+                .typedValue(17, "c_Yson", PrimitiveValue.newYson(bytes("1")))
+                .typedValue(18, "c_Date", PrimitiveValue.newDate(LocalDate.parse("1970-01-02")))
+                .typedValue(19, "c_Datetime", PrimitiveValue.newDatetime(Instant.parse("1970-01-01T00:00:01Z")))
+                .typedValue(20, "c_Timestamp", PrimitiveValue.newTimestamp(1))
+                .typedValue(21, "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT0.000001S")))
+                .typedValue(22, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("1.000000000"));
 
         checker.nextRow()
                 .value(1, "key", PrimitiveValue.newInt32(5))
                 .value(2, "c_Bool", null)
-                .value(3, "c_Int32", null)
-                .value(4, "c_Int64", null)
-                .value(5, "c_Uint8", null)
-                .value(6, "c_Uint32", null)
-                .value(7, "c_Uint64", null)
-                .value(8, "c_Float", null)
-                .value(9, "c_Double", null)
-                .value(10, "c_Bytes", null)
-                .value(11, "c_Text", null)
-                .value(12, "c_Json", null)
-                .value(13, "c_JsonDocument", null)
-                .value(14, "c_Yson", null)
-                .value(15, "c_Date", null)
-                .value(16, "c_Datetime", null)
-                .value(17, "c_Timestamp", null)
-                .value(18, "c_Interval", null)
-                .value(19, "c_Decimal", null);
+                .value(3, "c_Int8", null)
+                .value(4, "c_Int16", null)
+                .value(5, "c_Int32", null)
+                .value(6, "c_Int64", null)
+                .value(7, "c_Uint8", null)
+                .value(8, "c_Uint16", null)
+                .value(9, "c_Uint32", null)
+                .value(10, "c_Uint64", null)
+                .value(11, "c_Float", null)
+                .value(12, "c_Double", null)
+                .value(13, "c_Bytes", null)
+                .value(14, "c_Text", null)
+                .value(15, "c_Json", null)
+                .value(16, "c_JsonDocument", null)
+                .value(17, "c_Yson", null)
+                .value(18, "c_Date", null)
+                .value(19, "c_Datetime", null)
+                .value(20, "c_Timestamp", null)
+                .value(21, "c_Interval", null)
+                .value(22, "c_Decimal", null);
 
         checker.assertNoRows();
     }
@@ -1917,6 +2141,12 @@ public class YdbResultSetImplTest {
         public ResultSetChecker<T> nullValue(int index, String column, T expected) throws SQLException {
             assertValue(expected, nameFunctor.apply(rs, column), true, "for column label " + column);
             assertValue(expected, indexFunctor.apply(rs, index), true, "for column index " + index);
+            return this;
+        }
+
+        public ResultSetChecker<T> exceptionValue(int index, String column, String message) throws SQLException {
+            ExceptionAssert.sqlException(message, () -> nameFunctor.apply(rs, column));
+            ExceptionAssert.sqlException(message, () -> indexFunctor.apply(rs, index));
             return this;
         }
 
