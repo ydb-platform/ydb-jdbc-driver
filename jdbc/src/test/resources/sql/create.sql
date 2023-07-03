@@ -42,4 +42,4 @@ create table ${tableName}
     -- unsupported c_Dict Dict,
     -- TODO: support DyNumber?
     primary key (key)
-)
+);

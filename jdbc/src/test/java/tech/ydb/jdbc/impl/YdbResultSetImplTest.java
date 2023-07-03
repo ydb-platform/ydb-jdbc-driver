@@ -62,7 +62,7 @@ public class YdbResultSetImplTest {
     @RegisterExtension
     private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb);
 
-    private static final String TEST_TABLE = "ydb_result_set_test";
+    private static final SqlQueries TEST_TABLE = new SqlQueries("ydb_result_set_test");
 
     static {
         Locale.setDefault(Locale.US);
@@ -75,8 +75,8 @@ public class YdbResultSetImplTest {
     public static void initTable() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement();) {
             // create test table
-            statement.execute("--jdbc:SCHEME\n" + SqlQueries.createTableSQL(TEST_TABLE));
-            statement.execute(SqlQueries.upsertAllValuesSql(TEST_TABLE));
+            statement.execute(TEST_TABLE.createTableSQL());
+            statement.execute(TEST_TABLE.initTableSQL());
         }
         jdbc.connection().commit();
     }
@@ -84,8 +84,7 @@ public class YdbResultSetImplTest {
     @AfterAll
     public static void dropTable() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement();) {
-            // create test table
-            statement.execute("--jdbc:SCHEME\n drop table " + TEST_TABLE);
+            statement.execute(TEST_TABLE.dropTableSQL());
         }
         jdbc.connection().commit();
     }
@@ -93,7 +92,7 @@ public class YdbResultSetImplTest {
     @BeforeEach
     public void beforeEach() throws SQLException {
         statement = jdbc.connection().createStatement();
-        resultSet = statement.executeQuery(SqlQueries.selectAllValuesSql(TEST_TABLE));
+        resultSet = statement.executeQuery(TEST_TABLE.selectSQL());
     }
 
     @AfterEach
@@ -884,9 +883,14 @@ public class YdbResultSetImplTest {
         checker.nextRow()
                 .value(1, "key", 1)
                 .value(2, "c_Bool", 1)
-                .value(3, "c_Int32", 2000000001)
-                .value(5, "c_Uint8", 100)
-                .value(6, "c_Uint32", 2000000002);
+                .value(3, "c_Int8", 101)
+                .value(4, "c_Int16", 20001)
+                .value(5, "c_Int32", 2000000001)
+                .value(5, "c_Int64", 2000000001)
+                .value(6, "c_Uint8", 101)
+                .value(7, "c_Uint16", 20002)
+                .value(8, "c_Uint32", 2000000002)
+                .value(7, "c_Uint64", 2000000002);
 
         checker.nextRow()
                 .value(1, "key", 2)
@@ -898,23 +902,38 @@ public class YdbResultSetImplTest {
         checker.nextRow()
                 .value(1, "key", 3)
                 .value(2, "c_Bool", 0)
-                .value(3, "c_Int32", 0)
-                .value(5, "c_Uint8", 0)
-                .value(6, "c_Uint32", 0);
+                .value(3, "c_Int8", 0)
+                .value(4, "c_Int16", 0)
+                .value(5, "c_Int32", 0)
+                .value(6, "c_Int64", 0)
+                .value(7, "c_Uint8", 0)
+                .value(8, "c_Uint16", 0)
+                .value(9, "c_Uint32", 0)
+                .value(10, "c_Uint64", 0);
 
         checker.nextRow()
                 .value(1, "key", 4)
                 .value(2, "c_Bool", 1)
-                .value(3, "c_Int32", 1)
-                .value(5, "c_Uint8", 1)
-                .value(6, "c_Uint32", 1);
+                .value(3, "c_Int8", 1)
+                .value(4, "c_Int16", 1)
+                .value(5, "c_Int32", 1)
+                .value(6, "c_Int64", 1)
+                .value(7, "c_Uint8", 1)
+                .value(8, "c_Uint16", 1)
+                .value(9, "c_Uint32", 1)
+                .value(10, "c_Uint64", 1);
 
         checker.nextRow()
                 .value(1, "key", 5)
                 .nullValue(2, "c_Bool", 0)
-                .nullValue(3, "c_Int32", 0)
-                .nullValue(5, "c_Uint8", 0)
-                .nullValue(6, "c_Uint32", 0);
+                .nullValue(3, "c_Int8", 0)
+                .nullValue(4, "c_Int16", 0)
+                .nullValue(5, "c_Int32", 0)
+                .nullValue(6, "c_Int64", 0)
+                .nullValue(7, "c_Uint8", 0)
+                .nullValue(8, "c_Uint16", 0)
+                .nullValue(9, "c_Uint32", 0)
+                .nullValue(10, "c_Uint64", 0);
 
         checker.assertNoRows();
     }

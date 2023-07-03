@@ -19,8 +19,8 @@ import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
-import tech.ydb.jdbc.impl.helper.TableAssert;
 import tech.ydb.jdbc.impl.helper.SqlQueries;
+import tech.ydb.jdbc.impl.helper.TableAssert;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
 public class YdbStatementImplTest {
@@ -32,13 +32,14 @@ public class YdbStatementImplTest {
     @RegisterExtension
     private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb, false);
 
-    private static final String TEST_TABLE = "ydb_statement_test";
+    private static final SqlQueries TEST_TABLE = new SqlQueries("ydb_statement_test");
 
-    private static final String TEST_UPSERT1_SQL = "upsert into ydb_statement_test(key, c_Text) values (1, '2')";
-    private static final String TEST_UPSERT2_SQL = "upsert into ydb_statement_test(key, c_Text) values (2, '3')";
-    private static final String TEST_UPSERT3_SQL = "upsert into ydb_statement_test(key, c_Text) values (3, '4')";
-
-    private static final String TEST_SELECT_SQL = "select * from ydb_statement_test";
+    private static final String TEST_UPSERT1_SQL = TEST_TABLE
+            .withTableName("upsert into ${tableName} (key, c_Text) values (1, '2')");
+    private static final String TEST_UPSERT2_SQL = TEST_TABLE
+            .withTableName("upsert into ${tableName} (key, c_Text) values (2, '3')");
+    private static final String TEST_UPSERT3_SQL = TEST_TABLE
+            .withTableName("upsert into ${tableName} (key, c_Text) values (3, '4')");
 
     private Statement statement;
 
@@ -46,7 +47,7 @@ public class YdbStatementImplTest {
     public static void initTable() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement();) {
             // create test table
-            statement.execute("--jdbc:SCHEME\n" + SqlQueries.createTableSQL(TEST_TABLE));
+            statement.execute(TEST_TABLE.createTableSQL());
         }
         jdbc.connection().commit();
     }
@@ -54,8 +55,7 @@ public class YdbStatementImplTest {
     @AfterAll
     public static void dropTable() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement();) {
-            // create test table
-            statement.execute("--jdbc:SCHEME\n drop table " + TEST_TABLE);
+            statement.execute(TEST_TABLE.dropTableSQL());
         }
         jdbc.connection().commit();
     }
@@ -74,7 +74,7 @@ public class YdbStatementImplTest {
         statement.close();
 
         try (Statement st = jdbc.connection().createStatement()) {
-            st.execute("delete from " + TEST_TABLE);
+            st.execute(TEST_TABLE.deleteAllSQL());
         }
         jdbc.connection().commit(); // MUST be auto rollbacked
         jdbc.connection().close();
@@ -266,7 +266,7 @@ public class YdbStatementImplTest {
     @Test
     public void executeSchemeQueryExplicitly() throws SQLException {
         // create test table
-        statement.execute("--jdbc:SCHEME\n" + SqlQueries.createTableSQL("scheme_query_test"));
+        statement.execute("--jdbc:SCHEME\n create table scheme_query_test(id Int32, primary key(id))");
 
         String dropSql = "drop table scheme_query_test";
         ExceptionAssert.ydbNonRetryable("'DROP TABLE' not supported in query prepare mode",
@@ -287,7 +287,7 @@ public class YdbStatementImplTest {
         // Cannot select from table already updated in transaction
         statement.executeUpdate(TEST_UPSERT1_SQL);
         ExceptionAssert.ydbNonRetryable("Data modifications previously made to table",
-                () -> statement.executeQuery(TEST_SELECT_SQL));
+                () -> statement.executeQuery(TEST_TABLE.selectAllSQL()));
     }
 
     @Test
@@ -316,12 +316,12 @@ public class YdbStatementImplTest {
     public void executeScanQueryInTx() throws SQLException {
         statement.executeUpdate(TEST_UPSERT1_SQL);
 
-        try (ResultSet rs = statement.executeQuery("--jdbc:SCAN\n" + TEST_SELECT_SQL)) {
+        try (ResultSet rs = statement.executeQuery("--jdbc:SCAN\n" + TEST_TABLE.selectSQL())) {
             Assertions.assertFalse(rs.next());
         }
 
         jdbc.connection().commit();
-        try (ResultSet rs = statement.executeQuery("--jdbc:SCAN\n" + TEST_SELECT_SQL)) {
+        try (ResultSet rs = statement.executeQuery("--jdbc:SCAN\n" + TEST_TABLE.selectSQL())) {
             Assertions.assertTrue(rs.next());
             Assertions.assertEquals(1, rs.getInt("key"));
         }
@@ -330,17 +330,17 @@ public class YdbStatementImplTest {
     @Test
     public void executeScanQueryExplicitlyInTx() throws SQLException {
         statement.executeUpdate(TEST_UPSERT1_SQL);
-        try (ResultSet rs = statement.executeQuery("--jdbc:SCAN\n" + TEST_SELECT_SQL)) {
+        try (ResultSet rs = statement.executeQuery("--jdbc:SCAN\n" + TEST_TABLE.selectSQL())) {
             Assertions.assertFalse(rs.next());
         }
 
         jdbc.connection().commit();
-        try (ResultSet rs = statement.executeQuery("--jdbc:SCAN\n" + TEST_SELECT_SQL)) {
+        try (ResultSet rs = statement.executeQuery("--jdbc:SCAN\n" + TEST_TABLE.selectSQL())) {
             Assertions.assertTrue(rs.next());
             Assertions.assertEquals(1, rs.getInt("key"));
         }
 
-        try (ResultSet rs = statement.unwrap(YdbStatement.class).executeScanQuery(TEST_SELECT_SQL)) {
+        try (ResultSet rs = statement.unwrap(YdbStatement.class).executeScanQuery(TEST_TABLE.selectSQL())) {
             Assertions.assertTrue(rs.next());
             Assertions.assertEquals(1, rs.getInt("key"));
         }
@@ -481,7 +481,7 @@ public class YdbStatementImplTest {
 
         jdbc.connection().commit();
 
-        try (YdbResultSet result = statement.executeQuery(TEST_SELECT_SQL).unwrap(YdbResultSet.class)) {
+        try (YdbResultSet result = statement.executeQuery(TEST_TABLE.selectSQL()).unwrap(YdbResultSet.class)) {
             Assertions.assertEquals(3, result.getYdbResultSetReader().getRowCount());
         }
     }

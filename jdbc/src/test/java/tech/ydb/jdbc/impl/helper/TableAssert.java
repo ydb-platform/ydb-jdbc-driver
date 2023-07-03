@@ -276,6 +276,10 @@ public class TableAssert {
             return this;
         }
 
+        public ValueAssert eq(int value) {
+            return eq((short)value);
+        }
+
         public ValueAssert eq(short value) {
             return new ValueAssert(this) {
                 @Override

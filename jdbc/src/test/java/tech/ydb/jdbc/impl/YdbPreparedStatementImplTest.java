@@ -49,7 +49,8 @@ public class YdbPreparedStatementImplTest {
     @RegisterExtension
     private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb);
 
-    private static final String TEST_TABLE = "ydb_prepared_statement_test";
+    private static final String TEST_TABLE_NAME = "ydb_prepared_statement_test";
+    private static final SqlQueries TEST_TABLE = new SqlQueries(TEST_TABLE_NAME);
 
     private static final String UPSERT_SQL = ""
             + "declare $key as Int32;\n"
@@ -69,15 +70,14 @@ public class YdbPreparedStatementImplTest {
     public static void initTable() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement();) {
             // create test table
-            statement.execute(QueryType.SCHEME_QUERY.getPrefix() + "\n" + SqlQueries.createTableSQL(TEST_TABLE));
+            statement.execute(TEST_TABLE.createTableSQL());
         }
     }
 
     @AfterAll
     public static void dropTable() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement();) {
-            // create test table
-            statement.execute(QueryType.SCHEME_QUERY.getPrefix() + "\n drop table " + TEST_TABLE);
+            statement.execute(TEST_TABLE.dropTableSQL());
         }
     }
 
@@ -98,14 +98,14 @@ public class YdbPreparedStatementImplTest {
         return UPSERT_SQL
                 .replaceAll("#column", column)
                 .replaceAll("#type", type)
-                .replaceAll("#tableName", TEST_TABLE);
+                .replaceAll("#tableName", TEST_TABLE_NAME);
     }
 
     private String batchUpsertSql(String column, String type) {
         return BATCH_UPSERT_SQL
                 .replaceAll("#column", column)
                 .replaceAll("#type", type)
-                .replaceAll("#tableName", TEST_TABLE);
+                .replaceAll("#tableName", TEST_TABLE_NAME);
     }
 
     private YdbPreparedStatement prepareUpsert(YdbConnection.PreparedStatementMode mode,String column, String type)
@@ -121,39 +121,39 @@ public class YdbPreparedStatementImplTest {
     private PreparedStatement prepareSimpleSelect(String column) throws SQLException {
         String sql = SIMPLE_SELECT_SQL
                 .replaceAll("#column", column)
-                .replaceAll("#tableName", TEST_TABLE);
+                .replaceAll("#tableName", TEST_TABLE_NAME);
         return jdbc.connection().prepareStatement(sql);
     }
 
     private YdbPreparedStatement prepareSelectByKey(String column) throws SQLException {
         String sql = SELECT_BY_KEY_SQL
                 .replaceAll("#column", column)
-                .replaceAll("#tableName", TEST_TABLE);
+                .replaceAll("#tableName", TEST_TABLE_NAME);
         return jdbc.connection().prepareStatement(sql).unwrap(YdbPreparedStatement.class);
     }
 
     private PreparedStatement prepareScanSelect(String column) throws SQLException {
         String sql = SIMPLE_SELECT_SQL
                 .replaceAll("#column", column)
-                .replaceAll("#tableName", TEST_TABLE);
+                .replaceAll("#tableName", TEST_TABLE_NAME);
         return jdbc.connection().prepareStatement(QueryType.SCAN_QUERY.getPrefix() + "\n" + sql);
     }
 
     private YdbPreparedStatement prepareScanSelectByKey(String column) throws SQLException {
         String sql = SELECT_BY_KEY_SQL
                 .replaceAll("#column", column)
-                .replaceAll("#tableName", TEST_TABLE);
+                .replaceAll("#tableName", TEST_TABLE_NAME);
         return jdbc.connection().prepareStatement(QueryType.SCAN_QUERY.getPrefix() + "\n" + sql)
                 .unwrap(YdbPreparedStatement.class);
     }
 
     private YdbPreparedStatement prepareUpsertValues() throws SQLException {
-        return jdbc.connection().prepareStatement(SqlQueries.namedUpsertSQL(TEST_TABLE))
+        return jdbc.connection().prepareStatement(SqlQueries.namedUpsertSQL(TEST_TABLE_NAME))
                 .unwrap(YdbPreparedStatement.class);
     }
 
     private YdbPreparedStatement prepareSelectAll() throws SQLException {
-        return jdbc.connection().prepareStatement(SqlQueries.selectAllValuesSql(TEST_TABLE))
+        return jdbc.connection().prepareStatement(SqlQueries.selectAllValuesSql(TEST_TABLE_NAME))
                 .unwrap(YdbPreparedStatement.class);
     }
 

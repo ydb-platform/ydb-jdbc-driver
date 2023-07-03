@@ -36,12 +36,16 @@ public class SqlQueries {
         return withTableName(DROP_TABLE);
     }
 
+    public String initTableSQL() {
+        return withTableName(INIT_TABLE);
+    }
+
     /** @return select * from ${tableName} */
     public String selectAllSQL() {
         return withTableName(SELECT_ALL);
     }
 
-    /** @return select key, c_Int8, ... , from ${tableName} */
+    /** @return select key, c_Bool, c_Int8, ... , from ${tableName} */
     public String selectSQL() {
         return withTableName(SELECT);
     }
@@ -53,11 +57,6 @@ public class SqlQueries {
 
     private static String withTableName(String query, String tableName) {
         return query.replace("${tableName}", tableName);
-    }
-
-
-    public static String createTableSQL(String tableName) {
-        return withTableName(CREATE_TABLE, tableName);
     }
 
     public static String selectAllValuesSql(String tableName) {

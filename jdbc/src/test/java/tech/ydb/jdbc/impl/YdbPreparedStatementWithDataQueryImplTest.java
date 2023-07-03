@@ -31,7 +31,8 @@ public class YdbPreparedStatementWithDataQueryImplTest {
     @RegisterExtension
     private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb);
 
-    private static final String TEST_TABLE = "ydb_prepared_statement_with_data_query_test";
+    private static final String TEST_TABLE_NAME = "ydb_prepared_statement_with_data_query_test";
+    private static final SqlQueries TEST_TABLE = new SqlQueries(TEST_TABLE_NAME);
 
     private static final String UPSERT_SQL = ""
             + "declare $key as Optional<Int32>;\n"
@@ -47,7 +48,7 @@ public class YdbPreparedStatementWithDataQueryImplTest {
     public static void initTable() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement();) {
             // create test table
-            statement.execute(QueryType.SCHEME_QUERY.getPrefix() + "\n" + SqlQueries.createTableSQL(TEST_TABLE));
+            statement.execute(TEST_TABLE.createTableSQL());
         }
         jdbc.connection().commit();
     }
@@ -55,8 +56,7 @@ public class YdbPreparedStatementWithDataQueryImplTest {
     @AfterAll
     public static void dropTable() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement();) {
-            // create test table
-            statement.execute(QueryType.SCHEME_QUERY.getPrefix() + "\n drop table " + TEST_TABLE);
+            statement.execute(TEST_TABLE.dropTableSQL());
         }
         jdbc.connection().commit();
     }
@@ -68,7 +68,7 @@ public class YdbPreparedStatementWithDataQueryImplTest {
         }
 
         try (Statement statement = jdbc.connection().createStatement()) {
-            statement.execute("delete from " + TEST_TABLE);
+            statement.execute(TEST_TABLE.deleteAllSQL());
         }
 
         jdbc.connection().commit(); // MUST be auto rollbacked
@@ -79,7 +79,7 @@ public class YdbPreparedStatementWithDataQueryImplTest {
         return UPSERT_SQL
                 .replaceAll("#column", column)
                 .replaceAll("#type", type)
-                .replaceAll("#tableName", TEST_TABLE);
+                .replaceAll("#tableName", TEST_TABLE_NAME);
     }
 
     private YdbPreparedStatement prepareUpsert(String column, String type) throws SQLException {
@@ -90,21 +90,21 @@ public class YdbPreparedStatementWithDataQueryImplTest {
     private PreparedStatement prepareSimpleSelect(String column) throws SQLException {
         String sql = SIMPLE_SELECT_SQL
                 .replaceAll("#column", column)
-                .replaceAll("#tableName", TEST_TABLE);
+                .replaceAll("#tableName", TEST_TABLE_NAME);
         return jdbc.connection().prepareStatement(sql);
     }
 
     private YdbPreparedStatement prepareSelectByKey(String column) throws SQLException {
         String sql = SELECT_BY_KEY_SQL
                 .replaceAll("#column", column)
-                .replaceAll("#tableName", TEST_TABLE);
+                .replaceAll("#tableName", TEST_TABLE_NAME);
         return jdbc.connection().prepareStatement(sql).unwrap(YdbPreparedStatement.class);
     }
 
     private YdbPreparedStatement prepareScanSelectByKey(String column) throws SQLException {
         String sql = SELECT_BY_KEY_SQL
                 .replaceAll("#column", column)
-                .replaceAll("#tableName", TEST_TABLE);
+                .replaceAll("#tableName", TEST_TABLE_NAME);
         return jdbc.connection().prepareStatement(QueryType.SCAN_QUERY.getPrefix() + "\n" + sql)
                 .unwrap(YdbPreparedStatement.class);
     }
