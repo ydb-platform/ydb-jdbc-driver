@@ -49,7 +49,7 @@ public class YdbDriver implements Driver {
         }
 
         YdbConfig config = new YdbConfig(url, info);
-        LOGGER.log(Level.INFO, "About to connect to [{0}] using properties {1}", new Object[] {
+        LOGGER.log(Level.FINE, "About to connect to [{0}] using properties {1}", new Object[] {
             config.getSafeUrl(),
             config.getSafeProps()
         });
@@ -146,6 +146,9 @@ public class YdbDriver implements Driver {
             throw new IllegalStateException(YdbConst.DRIVER_IS_NOT_REGISTERED);
         }
         DriverManager.deregisterDriver(registeredDriver);
+        registeredDriver.close();
+
+        LOGGER.log(Level.INFO, "YDB JDBC Driver deregistered: {0}", registeredDriver);
         registeredDriver = null;
     }
 }
