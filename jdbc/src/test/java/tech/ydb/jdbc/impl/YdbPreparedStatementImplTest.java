@@ -88,7 +88,7 @@ public class YdbPreparedStatementImplTest {
         }
 
         try (Statement statement = jdbc.connection().createStatement()) {
-            statement.execute("delete from " + TEST_TABLE);
+            statement.execute(TEST_TABLE.deleteAllSQL());
         }
 
         jdbc.connection().close();
@@ -153,7 +153,7 @@ public class YdbPreparedStatementImplTest {
     }
 
     private YdbPreparedStatement prepareSelectAll() throws SQLException {
-        return jdbc.connection().prepareStatement(SqlQueries.selectAllValuesSql(TEST_TABLE_NAME))
+        return jdbc.connection().prepareStatement(TEST_TABLE.selectSQL())
                 .unwrap(YdbPreparedStatement.class);
     }
 
@@ -600,9 +600,12 @@ public class YdbPreparedStatementImplTest {
             ps.setInt("key", 1);
             YdbTypes types = ps.getConnection().getYdbTypes();
             ps.setNull("c_Bool", types.wrapYdbJdbcType(PrimitiveType.Bool));
+            ps.setNull("c_Int8", types.wrapYdbJdbcType(PrimitiveType.Int8));
+            ps.setNull("c_Int16", types.wrapYdbJdbcType(PrimitiveType.Int16));
             ps.setNull("c_Int32", types.wrapYdbJdbcType(PrimitiveType.Int32));
             ps.setNull("c_Int64", types.wrapYdbJdbcType(PrimitiveType.Int64));
             ps.setNull("c_Uint8", types.wrapYdbJdbcType(PrimitiveType.Uint8));
+            ps.setNull("c_Uint16", types.wrapYdbJdbcType(PrimitiveType.Uint16));
             ps.setNull("c_Uint32", types.wrapYdbJdbcType(PrimitiveType.Uint32));
             ps.setNull("c_Uint64", types.wrapYdbJdbcType(PrimitiveType.Uint64));
             ps.setNull("c_Float", types.wrapYdbJdbcType(PrimitiveType.Float));
@@ -624,9 +627,12 @@ public class YdbPreparedStatementImplTest {
         try (YdbPreparedStatement ps = prepareUpsertValues()) {
             ps.setInt("key", 2);
             ps.setNull("c_Bool", -1, "Bool");
+            ps.setNull("c_Int8", -1, "Int8");
+            ps.setNull("c_Int16", -1, "Int16");
             ps.setNull("c_Int32", -1, "Int32");
             ps.setNull("c_Int64", -1, "Int64");
             ps.setNull("c_Uint8", -1, "Uint8");
+            ps.setNull("c_Uint16", -1, "Uint16");
             ps.setNull("c_Uint32", -1, "Uint32");
             ps.setNull("c_Uint64", -1, "Uint64");
             ps.setNull("c_Float", -1, "Float");
@@ -648,9 +654,12 @@ public class YdbPreparedStatementImplTest {
         try (YdbPreparedStatement ps = prepareUpsertValues()) {
             ps.setInt("key", 3);
             ps.setNull("c_Bool", -1);
+            ps.setNull("c_Int8", -1);
+            ps.setNull("c_Int16", -1);
             ps.setNull("c_Int32", -1);
             ps.setNull("c_Int64", -1);
             ps.setNull("c_Uint8", -1);
+            ps.setNull("c_Uint16", -1);
             ps.setNull("c_Uint32", -1);
             ps.setNull("c_Uint64", -1);
             ps.setNull("c_Float", -1);
@@ -676,8 +685,8 @@ public class YdbPreparedStatementImplTest {
                 Assertions.assertTrue(rs.next());
 
                 ResultSetMetaData metaData = rs.getMetaData();
-                Assertions.assertEquals(19, metaData.getColumnCount());
-                Assertions.assertEquals(key, rs.getInt(1)); // key
+                Assertions.assertEquals(22, metaData.getColumnCount());
+                Assertions.assertEquals(key, rs.getInt("key")); // key
 
                 for (int i = 2; i <= metaData.getColumnCount(); i++) {
                     Assertions.assertNull(rs.getObject(i)); // everything else
@@ -701,7 +710,7 @@ public class YdbPreparedStatementImplTest {
                     () -> meta.getParameterType(335)
             );
 
-            Assertions.assertEquals(19, meta.getParameterCount());
+            Assertions.assertEquals(22, meta.getParameterCount());
             for (int param = 1; param <= meta.getParameterCount(); param++) {
                 String name = ydbMeta.getParameterName(param);
                 Assertions.assertEquals(param, ydbMeta.getParameterIndex(name), "Names and indexes are matched");
@@ -735,12 +744,19 @@ public class YdbPreparedStatementImplTest {
                 String expectClassName;
                 switch (name) {
                     case "$key":
-                    case "$c_Int32":
-                    case "$c_Uint8":
-                        expectClassName = Integer.class.getName();
-                        break;
                     case "$c_Bool":
                         expectClassName = Boolean.class.getName();
+                        break;
+                    case "$c_Int8":
+                        expectClassName = Byte.class.getName();
+                        break;
+                    case "$c_Int16":
+                        expectClassName = Short.class.getName();
+                        break;
+                    case "$c_Int32":
+                    case "$c_Uint8":
+                    case "$c_Uint16":
+                        expectClassName = Integer.class.getName();
                         break;
                     case "$c_Int64":
                     case "$c_Uint64":
