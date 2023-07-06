@@ -30,4 +30,4 @@ declare $list as List<Struct<
     c_Decimal:Decimal(22,9)?
 >>;
 
-upsert into ${tableName} select * from as_table($list)
+upsert into #tableName select * from as_table($list)

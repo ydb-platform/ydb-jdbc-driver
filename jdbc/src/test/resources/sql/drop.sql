@@ -1,2 +1,2 @@
 --jdbc:SCHEME
-drop table ${tableName};
+drop table #tableName;

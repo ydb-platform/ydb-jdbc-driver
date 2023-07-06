@@ -27,4 +27,4 @@ select
     c_Interval,
 
     c_Decimal
-from ${tableName}
+from #tableName

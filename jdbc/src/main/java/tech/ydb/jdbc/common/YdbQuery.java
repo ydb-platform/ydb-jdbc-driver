@@ -1,15 +1,20 @@
 package tech.ydb.jdbc.common;
 
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
+import tech.ydb.core.StatusCode;
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.exception.YdbNonRetryableException;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Value;
+
+import static tech.ydb.jdbc.YdbConst.MISSING_VALUE_FOR_PARAMETER;
 
 /**
  *
@@ -60,7 +65,7 @@ public class YdbQuery {
         return extraParams.get(parameterIndex - 1);
     }
 
-    public String getYqlQuery(Params params) {
+    public String getYqlQuery(Params params) throws SQLException {
         StringBuilder yql = new StringBuilder();
 
         if (enforceV1) {
@@ -76,7 +81,7 @@ public class YdbQuery {
                 for (int idx = 0; idx < extraParams.size(); idx += 1) {
                     String prm = extraParams.get(idx);
                     if (!values.containsKey(prm)) {
-                        throw new IllegalArgumentException("Empty JDBC argument " + idx);
+                        throw new YdbNonRetryableException(MISSING_VALUE_FOR_PARAMETER + prm, StatusCode.BAD_REQUEST);
                     }
 
                     String prmType = values.get(prm).getType().toString();

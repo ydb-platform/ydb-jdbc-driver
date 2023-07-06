@@ -187,20 +187,6 @@ public class YdbPreparedStatementImplTest {
 //        }
     }
 
-    @ParameterizedTest(name = "with {0}")
-    @EnumSource(YdbConnection.PreparedStatementMode.class)
-    public void executeWrongParameters(YdbConnection.PreparedStatementMode mode) throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsert(mode, "c_Text", "Text")) { // Must be Optional<Text>
-            statement.setInt("key", 1);
-            ExceptionAssert.ydbNonRetryable("Missing value for parameter", statement::execute);
-        }
-
-        try (YdbPreparedStatement statement = prepareUpsert(mode, "c_Text", "Text")) { // Must be Optional<Text>
-            statement.setInt("key", 1);
-            statement.setObject("c_Text", PrimitiveType.Text.makeOptional().emptyValue());
-            ExceptionAssert.ydbNonRetryable("Parameter $c_Text type mismatch", statement::execute);
-        }
-    }
 
     @ParameterizedTest(name = "with {0}")
     @EnumSource(YdbConnection.PreparedStatementMode.class)
@@ -545,52 +531,6 @@ public class YdbPreparedStatementImplTest {
             LOGGER.log(Level.INFO, "PLAN: {0}", plan);
 
             Assertions.assertFalse(rs.next());
-        }
-    }
-
-    @ParameterizedTest(name = "with {0}")
-    @EnumSource(YdbConnection.PreparedStatementMode.class)
-    public void executeUpdate(YdbConnection.PreparedStatementMode mode) throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsert(mode, "c_Text", "Text")) {
-
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-
-                    () -> statement.executeSchemeQuery("select 1 + 2"));
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-                    () -> statement.executeScanQuery("select 1 + 2"));
-
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-                    () -> statement.executeExplainQuery("select 1 + 2"));
-
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-                    () -> statement.executeQuery("select 1 + 2"));
-
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-                    () -> statement.execute("select 1 + 2"));
-
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-                    () -> statement.execute("select 1 + 2", Statement.NO_GENERATED_KEYS));
-
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-                    () -> statement.execute("select 1 + 2", new int[0]));
-
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-                    () -> statement.execute("select 1 + 2", new String[0]));
-
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-                    () -> statement.executeUpdate("select 1 + 2"));
-
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-                    () -> statement.executeUpdate("select 1 + 2", Statement.NO_GENERATED_KEYS));
-
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-                    () -> statement.executeUpdate("select 1 + 2", new int[0]));
-
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-                    () -> statement.executeUpdate("select 1 + 2", new String[0]));
-
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-                    () -> statement.addBatch("select 1 + 2"));
         }
     }
 

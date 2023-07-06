@@ -47,7 +47,7 @@ public class YdbConnectionImplTest {
     private static final SqlQueries QUERIES = new SqlQueries("ydb_connection_test");
     private static final String SELECT_2_2 = "select 2 + 2";
     private static final String SIMPLE_UPSERT = QUERIES
-            .withTableName("upsert into ${tableName} (key, c_Text) values (1, '2')");
+            .withTableName("upsert into #tableName (key, c_Text) values (1, '2')");
 
     @BeforeAll
     public static void createTable() throws SQLException {
@@ -534,8 +534,8 @@ public class YdbConnectionImplTest {
     @Test
     public void testDDLInsideTransaction() throws SQLException {
         String createTempTable = QUERIES.withTableName("--jdbc:SCHEME\n"
-                + "create table temp_${tableName}(id Int32, value Int32, primary key(id))");
-        String dropTempTable = QUERIES.withTableName("--jdbc:SCHEME\ndrop table temp_${tableName}");
+                + "create table temp_#tableName(id Int32, value Int32, primary key(id))");
+        String dropTempTable = QUERIES.withTableName("--jdbc:SCHEME\ndrop table temp_#tableName");
 
         try (Statement statement = jdbc.connection().createStatement()) {
             statement.execute(SIMPLE_UPSERT);
@@ -606,13 +606,13 @@ public class YdbConnectionImplTest {
 
             // TODO: Must be "unit_1" t, see YQL-12618
             try (ResultSet rs = statement.executeQuery("--!ansi_lexer\n" +
-                    QUERIES.withTableName("select t.c_Text from ${tableName} as t where t.key = 1"))) {
+                    QUERIES.withTableName("select t.c_Text from #tableName as t where t.key = 1"))) {
                 Assertions.assertTrue(rs.next());
                 Assertions.assertEquals("2", rs.getString("c_Text"));
             }
 
             try (ResultSet rs = statement.executeQuery("--!ansi_lexer\n" +
-                    QUERIES.withTableName("select t.c_Text from ${tableName} t where t.key = 1"))) {
+                    QUERIES.withTableName("select t.c_Text from #tableName t where t.key = 1"))) {
                 Assertions.assertTrue(rs.next());
                 Assertions.assertEquals("2", rs.getString("c_Text"));
             }

@@ -14,11 +14,14 @@ import javax.annotation.Nullable;
 
 import com.google.common.base.Preconditions;
 
+import tech.ydb.core.StatusCode;
+import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.common.TypeDescription;
 import tech.ydb.jdbc.common.YdbQuery;
 import tech.ydb.jdbc.connection.YdbConnectionImpl;
 import tech.ydb.jdbc.exception.YdbExecutionException;
+import tech.ydb.jdbc.exception.YdbNonRetryableException;
 import tech.ydb.table.query.DataQuery;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.ListType;
@@ -120,9 +123,11 @@ public class YdbPreparedStatementWithDataQueryBatchedImpl extends AbstractYdbDat
     protected void setImpl(String parameterName, @Nullable Object x,
                            int sqlType, @Nullable String typeName, @Nullable Type type)
             throws SQLException {
-        int index = cfg.getIndex(parameterName);
+        String name = YdbConst.VARIABLE_PARAMETER_PREFIX + parameterName;
+
+        int index = cfg.getIndex(name);
         TypeDescription description = cfg.descriptions[index];
-        Value<?> value = getValue(parameterName, description, x);
+        Value<?> value = getValue(name, description, x);
         state.addParam(index, value);
     }
 
@@ -168,7 +173,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImpl extends AbstractYdbDat
         String[] names = new String[membersCount];
         TypeDescription[] descriptions = new TypeDescription[membersCount];
         for (int i = 0; i < membersCount; i++) {
-            String name = structType.getMemberName(i);
+            String name = "$" + structType.getMemberName(i);
             Type type = structType.getMemberType(i);
             TypeDescription description = TypeDescription.of(type);
             if (indexes.put(name, i) != null) {
@@ -240,7 +245,9 @@ public class YdbPreparedStatementWithDataQueryBatchedImpl extends AbstractYdbDat
             if (modified) {
                 for (int i = 0; i < members.length; i++) {
                     if (members[i] == null) {
-                        throw new SQLException(MISSING_VALUE_FOR_PARAMETER + cfg.names[i]);
+                        throw new YdbNonRetryableException(
+                                MISSING_VALUE_FOR_PARAMETER + cfg.names[i], StatusCode.BAD_REQUEST
+                        );
                     }
                 }
                 batch.add(cfg.structType.newValueUnsafe(members)); // The fastest way to prepare struct

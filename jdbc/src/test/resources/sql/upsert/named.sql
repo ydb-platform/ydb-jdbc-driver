@@ -28,7 +28,7 @@ declare $c_Interval as Optional<Interval>;
 
 declare $c_Decimal as Optional<Decimal(22,9)>;
 
-upsert into ${tableName} (
+upsert into #tableName (
     key,
 
     c_Bool,

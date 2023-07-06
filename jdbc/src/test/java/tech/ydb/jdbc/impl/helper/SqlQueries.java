@@ -1,5 +1,9 @@
 package tech.ydb.jdbc.impl.helper;
 
+import java.util.Map;
+
+import com.google.common.collect.ImmutableMap;
+
 import tech.ydb.jdbc.settings.YdbLookup;
 
 /**
@@ -7,6 +11,17 @@ import tech.ydb.jdbc.settings.YdbLookup;
  * @author Aleksandr Gorshenin
  */
 public class SqlQueries {
+    public enum JdbcQuery {
+        STANDART,
+        TYPED,
+        BATCHED,
+    }
+
+    public enum YdbType {
+        STANDART,
+        BATCHED,
+    }
+
     private static final String CREATE_TABLE = YdbLookup.stringFileReference("classpath:sql/create.sql");
     private static final String DROP_TABLE = YdbLookup.stringFileReference("classpath:sql/drop.sql");
     private static final String INIT_TABLE = YdbLookup.stringFileReference("classpath:sql/init.sql");
@@ -15,8 +30,23 @@ public class SqlQueries {
 
     private static final String NAMED_UPSERT = YdbLookup.stringFileReference("classpath:sql/upsert/named.sql");
 
-    private static final String SELECT_ALL = "select * from ${tableName}";
-    private static final String DELETE_ALL = "delete from ${tableName}";
+    private static final String SELECT_ALL = "select * from #tableName";
+    private static final String DELETE_ALL = "delete from #tableName";
+
+    private static final Map<JdbcQuery, String> UPSERT_ONE = ImmutableMap.of(
+            JdbcQuery.STANDART, "" +
+                    "upsert into #tableName (key, #column) values (?, ?)",
+
+            JdbcQuery.TYPED, "" +
+                    "declare $p1 as Int32;\n" +
+                    "declare $p2 as #type;\n" +
+                    "upsert into #tableName (key, #column) values ($p1, $p2)",
+
+            JdbcQuery.BATCHED, "" +
+                    "declare $values as List<Struct<p1:Int32,p2:#type>>;\n" +
+                    "$mapper = ($row) -> (AsStruct($row.p1 as key, $row.p2 as #column));\n" +
+                    "upsert into #tableName select * from as_table(ListMap($values, $mapper));"
+    );
 
     private final String tableName;
 
@@ -25,7 +55,7 @@ public class SqlQueries {
     }
 
     public String withTableName(String query) {
-        return query.replace("${tableName}", tableName);
+        return query.replace("#tableName", tableName);
     }
 
     public String createTableSQL() {
@@ -55,8 +85,15 @@ public class SqlQueries {
         return withTableName(DELETE_ALL);
     }
 
+    public String upsertOne(JdbcQuery query, String column, String type) {
+        return UPSERT_ONE.get(query)
+                .replaceAll("#column", column)
+                .replaceAll("#type", type)
+                .replaceAll("#tableName", tableName);
+    }
+
     private static String withTableName(String query, String tableName) {
-        return query.replace("${tableName}", tableName);
+        return query.replace("#tableName", tableName);
     }
 
     public static String selectAllValuesSql(String tableName) {

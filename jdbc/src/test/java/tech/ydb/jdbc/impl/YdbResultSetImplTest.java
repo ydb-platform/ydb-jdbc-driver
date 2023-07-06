@@ -246,7 +246,7 @@ public class YdbResultSetImplTest {
 
     @Test
     public void moveOnEmptyResultSet() throws SQLException {
-        String select = TEST_TABLE.withTableName("select * from ${tableName} where 1 = 0");
+        String select = TEST_TABLE.withTableName("select * from #tableName where 1 = 0");
         try (ResultSet rs = statement.executeQuery(select)) {
             assertIsEmpty(rs);
             rs.beforeFirst();

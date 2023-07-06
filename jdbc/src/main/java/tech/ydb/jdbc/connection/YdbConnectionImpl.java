@@ -91,7 +91,11 @@ public class YdbConnectionImpl implements YdbConnection {
 
     @Override
     public String nativeSQL(String sql) {
-        return YdbQuery.from(ctx.getOperationProperties(), sql).build().getYqlQuery(null);
+        try {
+            return YdbQuery.from(ctx.getOperationProperties(), sql).build().getYqlQuery(null);
+        } catch (SQLException ex) {
+            return ex.getMessage();
+        }
     }
 
     private void updateState(YdbTxState newState) {

@@ -1,4 +1,4 @@
-upsert into ${tableName} (
+upsert into #tableName (
     key,
 
     c_Bool,

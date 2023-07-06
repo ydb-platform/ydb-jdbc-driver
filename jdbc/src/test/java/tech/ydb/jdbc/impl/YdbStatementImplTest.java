@@ -35,11 +35,11 @@ public class YdbStatementImplTest {
     private static final SqlQueries TEST_TABLE = new SqlQueries("ydb_statement_test");
 
     private static final String TEST_UPSERT1_SQL = TEST_TABLE
-            .withTableName("upsert into ${tableName} (key, c_Text) values (1, '2')");
+            .withTableName("upsert into #tableName (key, c_Text) values (1, '2')");
     private static final String TEST_UPSERT2_SQL = TEST_TABLE
-            .withTableName("upsert into ${tableName} (key, c_Text) values (2, '3')");
+            .withTableName("upsert into #tableName (key, c_Text) values (2, '3')");
     private static final String TEST_UPSERT3_SQL = TEST_TABLE
-            .withTableName("upsert into ${tableName} (key, c_Text) values (3, '4')");
+            .withTableName("upsert into #tableName (key, c_Text) values (3, '4')");
 
     private Statement statement;
 

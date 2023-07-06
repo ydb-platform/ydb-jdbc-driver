@@ -1,5 +1,5 @@
 --jdbc:SCHEME
-create table ${tableName}
+create table #tableName
 (
     -- KEY
     key            Int32,
