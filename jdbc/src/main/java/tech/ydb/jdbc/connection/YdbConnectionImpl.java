@@ -26,6 +26,9 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.google.common.base.Suppliers;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Timer;
 
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
@@ -60,6 +63,54 @@ import tech.ydb.table.settings.RollbackTxSettings;
 
 public class YdbConnectionImpl implements YdbConnection {
     private static final Logger LOGGER = Logger.getLogger(YdbConnectionImpl.class.getName());
+
+    private static final Counter DATA_QUERY_COUNT = Counter.builder("jdbc_count").register(Metrics.globalRegistry);
+
+    private static final Timer DATA_QUERY_DURATION = Timer.builder("jdbc_data_query")
+            .serviceLevelObjectives(
+                    Duration.ofMillis(1),
+                    Duration.ofMillis(2),
+                    Duration.ofMillis(4),
+                    Duration.ofMillis(8),
+                    Duration.ofMillis(16),
+                    Duration.ofMillis(32),
+                    Duration.ofMillis(64),
+                    Duration.ofMillis(128),
+                    Duration.ofMillis(256),
+                    Duration.ofMillis(512),
+                    Duration.ofMillis(1024),
+                    Duration.ofMillis(2048),
+                    Duration.ofMillis(4096),
+                    Duration.ofMillis(8192),
+                    Duration.ofMillis(16384),
+                    Duration.ofMillis(32768),
+                    Duration.ofMillis(65536)
+            )
+            .publishPercentiles()
+            .register(Metrics.globalRegistry);
+
+    private static final Timer GET_SESSION_DURATION = Timer.builder("jdbc_get_session")
+            .serviceLevelObjectives(
+                    Duration.ofMillis(1),
+                    Duration.ofMillis(2),
+                    Duration.ofMillis(4),
+                    Duration.ofMillis(8),
+                    Duration.ofMillis(16),
+                    Duration.ofMillis(32),
+                    Duration.ofMillis(64),
+                    Duration.ofMillis(128),
+                    Duration.ofMillis(256),
+                    Duration.ofMillis(512),
+                    Duration.ofMillis(1024),
+                    Duration.ofMillis(2048),
+                    Duration.ofMillis(4096),
+                    Duration.ofMillis(8192),
+                    Duration.ofMillis(16384),
+                    Duration.ofMillis(32768),
+                    Duration.ofMillis(65536)
+            )
+            .publishPercentiles()
+            .register(Metrics.globalRegistry);
 
     private final YdbContext ctx;
     private final YdbExecutor executor;
@@ -263,8 +314,11 @@ public class YdbConnectionImpl implements YdbConnection {
         }
         final String yql = query.getYqlQuery(params);
 
+        long init = System.nanoTime();
         Session session = state.getSession(ctx, executor);
+        long start = System.nanoTime();
         try {
+            DATA_QUERY_COUNT.increment();
             DataQueryResult result = executor.call(
                     QueryType.DATA_QUERY + " >>\n" + yql,
                     () -> session.executeDataQuery(yql, state.txControl(), params, settings)
@@ -274,6 +328,10 @@ public class YdbConnectionImpl implements YdbConnection {
         } catch (SQLException | RuntimeException ex) {
             updateState(state.withRollback(session));
             throw ex;
+        } finally {
+            long end = System.nanoTime();
+            GET_SESSION_DURATION.record(Duration.ofNanos(start - init));
+            DATA_QUERY_DURATION.record(Duration.ofNanos(end - start));
         }
     }
 
