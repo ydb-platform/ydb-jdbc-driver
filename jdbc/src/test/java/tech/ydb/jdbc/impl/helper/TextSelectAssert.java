@@ -20,7 +20,7 @@ public class TextSelectAssert {
     }
 
     public TextSelectAssert nextRow(int keyValue, String columnValue) throws SQLException {
-        check.nextRow(key.eq(keyValue), text.eq(columnValue));
+        check.nextRow(key.eq(keyValue), text.eq(columnValue)).assertAll();
         return this;
     }
 

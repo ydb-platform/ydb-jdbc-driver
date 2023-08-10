@@ -32,6 +32,7 @@ public class SqlQueries {
 
     private static final String SELECT_ALL = "select * from #tableName";
     private static final String DELETE_ALL = "delete from #tableName";
+    private static final String SELECT_COLUMN = "select key, #column from #tableName";
 
     private static final Map<JdbcQuery, String> UPSERT_ONE = ImmutableMap.of(
             JdbcQuery.STANDART, "" +
@@ -70,19 +71,28 @@ public class SqlQueries {
         return withTableName(INIT_TABLE);
     }
 
-    /** @return select * from ${tableName} */
+    /** @return select * from #tableName */
     public String selectAllSQL() {
         return withTableName(SELECT_ALL);
     }
 
-    /** @return select key, c_Bool, c_Int8, ... , from ${tableName} */
+    /** @return select key, c_Bool, c_Int8, ... , from #tableName */
     public String selectSQL() {
         return withTableName(SELECT);
     }
 
-    /** @return delete from ${tableName} */
+    /** @return delete from #tableName */
     public String deleteAllSQL() {
         return withTableName(DELETE_ALL);
+    }
+
+    /**
+     * @param column name of column
+     * @return select key, #column from #tableName */
+    public String selectColumn(String column) {
+        return SELECT_COLUMN
+                .replaceAll("#column", column)
+                .replaceAll("#tableName", tableName);
     }
 
     public String upsertOne(JdbcQuery query, String column, String type) {

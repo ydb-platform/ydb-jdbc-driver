@@ -51,7 +51,8 @@ public class YdbPreparedStatementWithDataQueryImpl extends AbstractYdbDataQueryP
 
     @Override
     public void addBatch() throws SQLException {
-        throw new SQLFeatureNotSupportedException(BATCH_UNSUPPORTED);
+        // TODO: Unimplemeted
+        clearParameters();
     }
 
     @Override

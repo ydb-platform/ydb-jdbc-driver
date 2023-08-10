@@ -16,15 +16,12 @@ import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.SqlQueries;
+import tech.ydb.jdbc.impl.helper.TextSelectAssert;
 import tech.ydb.jdbc.statement.YdbPreparedStatementImpl;
 import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryBatchedImpl;
 import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryImpl;
 import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.test.junit5.YdbHelperExtension;
-
-import static tech.ydb.jdbc.impl.helper.SqlQueries.JdbcQuery.BATCHED;
-import static tech.ydb.jdbc.impl.helper.SqlQueries.JdbcQuery.STANDART;
-import static tech.ydb.jdbc.impl.helper.SqlQueries.JdbcQuery.TYPED;
 
 /**
  *
@@ -37,8 +34,7 @@ public class YdbPreparedStatementTest {
     @RegisterExtension
     private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb);
 
-    private static final String TEST_TABLE_NAME = "ydb_prepared_test";
-    private static final SqlQueries TEST_TABLE = new SqlQueries(TEST_TABLE_NAME);
+    private static final SqlQueries TEST_TABLE = new SqlQueries("ydb_prepared_test");
 
     @BeforeAll
     public static void createTable() throws SQLException {
@@ -72,14 +68,15 @@ public class YdbPreparedStatementTest {
     @EnumSource(SqlQueries.JdbcQuery.class)
     public void prepareStatementTest(SqlQueries.JdbcQuery query) throws SQLException {
         String sql = TEST_TABLE.upsertOne(query, "c_Text", "Text");
+
         try (PreparedStatement statement = jdbc.connection().prepareStatement(sql)) {
             Assertions.assertTrue(statement.isWrapperFor(YdbPreparedStatement.class));
 
-            Assertions.assertEquals(query == STANDART,
+            Assertions.assertEquals(query == SqlQueries.JdbcQuery.STANDART,
                     statement.isWrapperFor(YdbPreparedStatementImpl.class));
-            Assertions.assertEquals(query == TYPED,
+            Assertions.assertEquals(query == SqlQueries.JdbcQuery.TYPED,
                     statement.isWrapperFor(YdbPreparedStatementWithDataQueryImpl.class));
-            Assertions.assertEquals(query == BATCHED,
+            Assertions.assertEquals(query == SqlQueries.JdbcQuery.BATCHED,
                     statement.isWrapperFor(YdbPreparedStatementWithDataQueryBatchedImpl.class));
         }
     }
@@ -88,6 +85,7 @@ public class YdbPreparedStatementTest {
     @EnumSource(SqlQueries.JdbcQuery.class)
     public void executeUpdateTest(SqlQueries.JdbcQuery query) throws SQLException {
         String sql = TEST_TABLE.upsertOne(query, "c_Text", "Text");
+
         try (PreparedStatement statement = jdbc.connection().prepareStatement(sql)) {
             ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
                     () -> statement.executeQuery("select 1 + 2"));
@@ -132,10 +130,14 @@ public class YdbPreparedStatementTest {
         }
     }
 
-    // Standart mode doesn't use types
     @ParameterizedTest(name = "with {0}")
-    @EnumSource(value=SqlQueries.JdbcQuery.class, mode=EnumSource.Mode.EXCLUDE, names = { "STANDART" })
+    @EnumSource(value=SqlQueries.JdbcQuery.class)
     public void executeWithWrongType(SqlQueries.JdbcQuery query) throws SQLException {
+        if (query == SqlQueries.JdbcQuery.STANDART) {
+            // Standart mode doesn't support type checking
+            return;
+        }
+
         String sql = TEST_TABLE.upsertOne(query, "c_Text", "Text"); // Must be Optional<Text>
 
         try (PreparedStatement statement = jdbc.connection().prepareStatement(sql)) {
@@ -145,4 +147,77 @@ public class YdbPreparedStatementTest {
             );
         }
     }
+
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(SqlQueries.JdbcQuery.class)
+    public void simpleUpsertTest(SqlQueries.JdbcQuery query) throws SQLException {
+        String upsert = TEST_TABLE.upsertOne(query, "c_Text", "Text");
+
+        try (PreparedStatement statement = jdbc.connection().prepareStatement(upsert)) {
+            statement.setInt(1, 1);
+            statement.setString(2, "value-1");
+            statement.execute();
+
+            statement.setInt(1, 2);
+            statement.setString(2, "value-2");
+            statement.execute();
+        }
+
+        String select = TEST_TABLE.selectColumn("c_Text");
+        try (Statement statement = jdbc.connection().createStatement()) {
+            TextSelectAssert.of(statement.executeQuery(select), "c_Text", "Text")
+                    .nextRow(1, "value-1")
+                    .nextRow(2, "value-2")
+                    .noNextRows();
+        }
+    };
+
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(SqlQueries.JdbcQuery.class)
+    public void batchUpsertTest(SqlQueries.JdbcQuery query) throws SQLException {
+        String upsert = TEST_TABLE.upsertOne(query, "c_Text", "Text");
+
+        try (PreparedStatement statement = jdbc.connection().prepareStatement(upsert)) {
+            // ----- base usage -----
+            statement.setInt(1, 1);
+            statement.setString(2, "value-1");
+            statement.addBatch();
+
+            statement.setInt(1, 2);
+            statement.setString(2, "value-2");
+            statement.addBatch();
+
+            statement.executeBatch();
+
+            // ----- executeBatch without addBatch -----
+            statement.setInt(1, 3);
+            statement.setString(2, "value-3");
+            statement.addBatch();
+
+            statement.setInt(1, 4);
+            statement.setString(2, "value-4");
+
+            statement.executeBatch();
+
+            // ----- execute instead of executeBatch -----
+            statement.setInt(1, 5);
+            statement.setString(2, "value-5");
+            statement.addBatch();
+
+            statement.setInt(1, 6);
+            statement.setString(2, "value-6");
+
+            statement.execute();
+        }
+
+        String select = TEST_TABLE.selectColumn("c_Text");
+        try (Statement statement = jdbc.connection().createStatement()) {
+            TextSelectAssert.of(statement.executeQuery(select), "c_Text", "Text")
+                    .nextRow(1, "value-1")
+                    .nextRow(2, "value-2")
+                    .nextRow(3, "value-3")
+                    .nextRow(6, "value-6")
+                    .noNextRows();
+        }
+    };
 }
