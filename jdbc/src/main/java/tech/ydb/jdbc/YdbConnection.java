@@ -12,6 +12,7 @@ import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
+import tech.ydb.table.settings.ExecuteDataQuerySettings;
 
 public interface YdbConnection extends Connection {
 
@@ -47,11 +48,12 @@ public interface YdbConnection extends Connection {
      *
      * @param query query to execute
      * @param params parameters for query
+     * @param settings settings of execution
      * @param executor executor for logging and warnings
      * @return list of result set
      * @throws SQLException if query cannot be executed
      */
-    DataQueryResult executeDataQuery(YdbQuery query, Params params, YdbExecutor executor) throws SQLException;
+    DataQueryResult executeDataQuery(YdbQuery query, YdbExecutor executor, ExecuteDataQuerySettings settings, Params params) throws SQLException;
 
     /**
      * Explicitly execute query as a scan query
@@ -62,7 +64,7 @@ public interface YdbConnection extends Connection {
      * @return single result set with rows
      * @throws SQLException if query cannot be executed
      */
-    ResultSetReader executeScanQuery(YdbQuery query, Params params, YdbExecutor executor) throws SQLException;
+    ResultSetReader executeScanQuery(YdbQuery query, YdbExecutor executor, Params params) throws SQLException;
 
     /**
      * Explicitly explain this query

@@ -21,7 +21,6 @@ import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.jdbc.exception.YdbNonRetryableException;
 import tech.ydb.jdbc.exception.YdbRetryableException;
 import tech.ydb.table.Session;
-import tech.ydb.table.settings.RequestSettings;
 
 /**
  *
@@ -31,15 +30,11 @@ public class YdbExecutor {
     @SuppressWarnings("NonConstantLogger")
     private final Logger logger;
     private final boolean isDebug;
-    private final Duration clientTimeout;
-    private final Duration serverTimeout;
     private final List<Issue> issues = new ArrayList<>();
 
-    public YdbExecutor(Logger logger, Duration operationTimeout) {
+    public YdbExecutor(Logger logger) {
         this.logger = logger;
         this.isDebug = logger.isLoggable(Level.FINE);
-        this.clientTimeout = operationTimeout;
-        this.serverTimeout = operationTimeout.plusSeconds(5);
     }
 
     public void clearWarnings() {
@@ -60,12 +55,6 @@ public class YdbExecutor {
             warning = nextWarning;
         }
         return firstWarning;
-    }
-
-    public <T extends RequestSettings<?>> T withTimeouts(T settings) {
-        settings.setTimeout(clientTimeout);
-        settings.setOperationTimeout(serverTimeout);
-        return settings;
     }
 
     public Session createSession(YdbContext ctx) throws SQLException {

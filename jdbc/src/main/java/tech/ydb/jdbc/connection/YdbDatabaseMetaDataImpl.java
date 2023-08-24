@@ -33,8 +33,8 @@ import tech.ydb.jdbc.impl.MappingResultSets;
 import tech.ydb.jdbc.impl.YdbFunctions;
 import tech.ydb.jdbc.impl.YdbResultSetImpl;
 import tech.ydb.jdbc.statement.YdbStatementImpl;
-import tech.ydb.scheme.SchemeClient;
 import tech.ydb.proto.scheme.SchemeOperationProtos;
+import tech.ydb.scheme.SchemeClient;
 import tech.ydb.scheme.description.ListDirectoryResult;
 import tech.ydb.table.Session;
 import tech.ydb.table.description.TableColumn;
@@ -52,14 +52,14 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     static final String TABLE = "TABLE";
     static final String SYSTEM_TABLE = "SYSTEM TABLE";
 
-    private final YdbConnection connection;
+    private final YdbConnectionImpl connection;
     private final YdbTypes types;
     private final YdbExecutor executor;
 
     public YdbDatabaseMetaDataImpl(YdbConnectionImpl connection) {
         this.connection = Objects.requireNonNull(connection);
         this.types = connection.getYdbTypes();
-        this.executor = new YdbExecutor(LOGGER, connection.getCtx().getOperationProperties().getDeadlineTimeout());
+        this.executor = new YdbExecutor(LOGGER);
     }
 
     @Override
@@ -1284,7 +1284,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     }
 
     private Map<String, TableDescription> collectTableDescriptions(Session session, Collection<String> tables) throws SQLException {
-        DescribeTableSettings settings = executor.withTimeouts(new DescribeTableSettings());
+        DescribeTableSettings settings = connection.withDefaultTimeout(new DescribeTableSettings());
         String databaseWithSuffix = withSuffix(connection.getCtx().getDatabase());
 
         Map<String, TableDescription> target = new LinkedHashMap<>(tables.size());
