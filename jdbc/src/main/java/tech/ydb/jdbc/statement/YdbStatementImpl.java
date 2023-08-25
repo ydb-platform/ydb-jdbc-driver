@@ -15,9 +15,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
-
-import com.google.common.base.Preconditions;
 
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
@@ -33,6 +30,7 @@ import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
+import tech.ydb.table.settings.ExecuteDataQuerySettings;
 
 import static tech.ydb.jdbc.YdbConst.AUTO_GENERATED_KEYS_UNSUPPORTED;
 import static tech.ydb.jdbc.YdbConst.CANNOT_UNWRAP_TO;
@@ -41,13 +39,9 @@ import static tech.ydb.jdbc.YdbConst.DIRECTION_UNSUPPORTED;
 import static tech.ydb.jdbc.YdbConst.NAMED_CURSORS_UNSUPPORTED;
 import static tech.ydb.jdbc.YdbConst.QUERY_EXPECT_RESULT_SET;
 import static tech.ydb.jdbc.YdbConst.QUERY_EXPECT_UPDATE;
-import static tech.ydb.jdbc.YdbConst.RESULT_SET_MODE_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.RESULT_SET_UNAVAILABLE;
 
 public class YdbStatementImpl implements YdbStatement {
     private static final Logger LOGGER = Logger.getLogger(YdbStatementImpl.class.getName());
-
-    private final MutableState state = new MutableState();
 
     private final List<String> batch = new ArrayList<>();
     private final YdbConnection connection;
@@ -55,65 +49,71 @@ public class YdbStatementImpl implements YdbStatement {
     private final YdbOperationProperties properties;
     private final int resultSetType;
 
+    private YdbStatementResultSets results = YdbStatementResultSets.EMPTY;
+    private int queryTimeout;
+    private boolean isPoolable;
+    private boolean isClosed = false;
+
     public YdbStatementImpl(YdbConnection connection, int resultSetType) {
         this.connection = Objects.requireNonNull(connection);
         this.resultSetType = resultSetType;
-
         this.properties = connection.getCtx().getOperationProperties();
-        state.queryTimeout = properties.getQueryTimeout();
-
-        this.executor = new YdbExecutor(LOGGER, state.queryTimeout);
+        this.executor = new YdbExecutor(LOGGER);
+        this.queryTimeout = (int) properties.getQueryTimeout().toSeconds();
+        this.isPoolable = false;
     }
 
     @Override
     public void executeSchemeQuery(String sql) throws SQLException {
-        YdbQuery query = YdbQuery.from(properties, sql).disableCache().build();
-        if (executeSchemeQueryImpl(query)) {
-            throw new SQLException(YdbConst.QUERY_EXPECT_UPDATE);
-        }
+        executeSchemeQuery(YdbQuery.from(properties, sql));
     }
 
     @Override
     public YdbResultSet executeScanQuery(String sql) throws SQLException {
-        YdbQuery query = YdbQuery.from(properties, sql).disableCache().build();
-        if (!executeScanQueryImpl(query, Params.create())) {
+        ensureOpened();
+        clearWarnings();
+
+        YdbQuery query = YdbQuery.from(properties, sql);
+        results = executeScanQueryImpl(query);
+        if (!results.hasResultSets()) {
             throw new SQLException(YdbConst.QUERY_EXPECT_RESULT_SET);
         }
-        return getResultSet(0);
+        return getResultSet();
     }
 
     @Override
     public YdbResultSet executeExplainQuery(String sql) throws SQLException {
-        YdbQuery query = YdbQuery.from(properties, sql).disableCache().build();
+        ensureOpened();
+        clearWarnings();
 
-        if (!executeExplainQueryImpl(query)) {
-            throw new SQLException(QUERY_EXPECT_RESULT_SET);
+        YdbQuery query = YdbQuery.from(properties, sql);
+        results = executeExplainQueryImpl(query);
+        if (!results.hasResultSets()) {
+            throw new SQLException(YdbConst.QUERY_EXPECT_RESULT_SET);
         }
-        return getResultSet(0);
+        return getResultSet();
     }
 
     @Override
     public YdbResultSet executeQuery(String sql) throws SQLException {
-        boolean result = this.execute(sql);
-        if (!result) {
+        if (!execute(sql)) {
             throw new SQLException(QUERY_EXPECT_RESULT_SET);
         }
-        return getResultSet(0);
+        return getResultSet();
     }
 
     @Override
     public int executeUpdate(String sql) throws SQLException {
-        boolean result = this.execute(sql);
-        if (result) {
+        if (execute(sql)) {
             throw new SQLException(QUERY_EXPECT_UPDATE);
         }
-        return state.updateCount;
+        return getUpdateCount();
     }
 
     @Override
     public void close() {
         // do nothing
-        state.closed = true;
+        isClosed = true;
     }
 
     @Override
@@ -143,12 +143,12 @@ public class YdbStatementImpl implements YdbStatement {
 
     @Override
     public int getQueryTimeout() {
-        return (int) state.queryTimeout.getSeconds();
+        return queryTimeout;
     }
 
     @Override
     public void setQueryTimeout(int seconds) {
-        state.queryTimeout = Duration.ofSeconds(seconds);
+        queryTimeout = seconds;
     }
 
     @Override
@@ -173,40 +173,52 @@ public class YdbStatementImpl implements YdbStatement {
 
     @Override
     public boolean execute(String sql) throws SQLException {
-        return executeImpl(YdbQuery.from(properties, sql).disableCache().build());
+        ensureOpened();
+        clearWarnings();
+
+        YdbQuery query = YdbQuery.from(properties, sql);
+        results = YdbStatementResultSets.EMPTY;
+
+        switch (query.type()) {
+            case SCHEME_QUERY:
+                executeSchemeQuery(query);
+                break;
+            case DATA_QUERY:
+                results = executeDataQueryImpl(query);
+                break;
+            case SCAN_QUERY:
+                results = executeScanQueryImpl(query);
+                break;
+            case EXPLAIN_QUERY:
+                results = executeExplainQueryImpl(query);
+                break;
+            default:
+                throw new IllegalStateException("Internal error. Unsupported query type " + query.type());
+        }
+
+        return results.hasResultSets();
     }
 
     @Override
     public YdbResultSet getResultSet() throws SQLException {
         ensureOpened();
-
-        if (state.lastResultSets != null && state.resultSetIndex < state.lastResultSets.size()) {
-            return getResultSet(state.resultSetIndex);
-        } else {
-            return null;
-        }
+        return results.getCurrentResultSet();
     }
 
     @Override
     public YdbResultSet getResultSetAt(int resultSetIndex) throws SQLException {
         ensureOpened();
-
-        if (resultSetIndex >= 0 && resultSetIndex < state.lastResultSets.size()) {
-            return state.lastResultSets.get(resultSetIndex);
-        } else {
-            return null;
-        }
+        return results.getResultSet(resultSetIndex);
     }
 
     @Override
     public int getUpdateCount() {
-        return state.updateCount;
+        return results.getUpdateCount();
     }
 
     @Override
     public boolean getMoreResults() throws SQLException {
         ensureOpened();
-
         return getMoreResults(Statement.KEEP_CURRENT_RESULT);
     }
 
@@ -245,7 +257,6 @@ public class YdbStatementImpl implements YdbStatement {
     @Override
     public void addBatch(String sql) throws SQLException {
         ensureOpened();
-
         batch.add(sql);
     }
 
@@ -285,34 +296,7 @@ public class YdbStatementImpl implements YdbStatement {
     @Override
     public boolean getMoreResults(int current) throws SQLException {
         ensureOpened();
-
-        List<YdbResultSet> lastResultSets = state.lastResultSets;
-        int resultSetIndex = state.resultSetIndex;
-        switch (current) {
-            case Statement.KEEP_CURRENT_RESULT:
-                // do nothing
-                break;
-            case Statement.CLOSE_CURRENT_RESULT:
-                if (lastResultSets != null && resultSetIndex < lastResultSets.size()) {
-                    lastResultSets.get(resultSetIndex).close();
-                }
-                break;
-            case Statement.CLOSE_ALL_RESULTS:
-                if (lastResultSets != null && resultSetIndex < lastResultSets.size()) {
-                    for (int idx = 0; idx <= resultSetIndex; idx += 1) {
-                        lastResultSets.get(idx).close();
-                    }
-                }
-                break;
-            default:
-                throw new SQLException(RESULT_SET_MODE_UNSUPPORTED + current);
-        }
-        if (lastResultSets != null) {
-            state.resultSetIndex++;
-            return state.resultSetIndex < lastResultSets.size();
-        } else {
-            return false;
-        }
+        return results.getMoreResults(current);
     }
 
     @Override
@@ -338,17 +322,17 @@ public class YdbStatementImpl implements YdbStatement {
 
     @Override
     public boolean isClosed() {
-        return state.closed;
+        return isClosed;
     }
 
     @Override
     public void setPoolable(boolean poolable) {
-        state.keepInQueryCache = poolable;
+        isPoolable = poolable;
     }
 
     @Override
     public boolean isPoolable() {
-        return state.keepInQueryCache;
+        return isPoolable;
     }
 
     @Override
@@ -361,135 +345,62 @@ public class YdbStatementImpl implements YdbStatement {
         return false;
     }
 
-    protected boolean executeImpl(YdbQuery query) throws SQLException {
-        ensureOpened();
+//    protected boolean executeImpl(YdbQuery query) throws SQLException {
+//    }
 
-        Preconditions.checkState(query != null, "queryType cannot be null");
-        this.clearState();
-        switch (query.type()) {
-            case SCHEME_QUERY:
-                return executeSchemeQueryImpl(query);
-            case DATA_QUERY:
-                return executeDataQueryImpl(query, Params.create());
-            case SCAN_QUERY:
-                return executeScanQueryImpl(query, Params.create());
-            case EXPLAIN_QUERY:
-                return executeExplainQueryImpl(query);
-            default:
-                throw new IllegalStateException("Internal error. Unsupported query type " + query.type());
-        }
-    }
-
-    private boolean executeSchemeQueryImpl(YdbQuery query) throws SQLException {
-        ensureOpened();
+    private void executeSchemeQuery(YdbQuery query) throws SQLException {
         connection.executeSchemeQuery(query, executor);
-        return false;
     }
 
-    protected boolean executeDataQueryImpl(YdbQuery query, Params params) throws SQLException {
+    private YdbStatementResultSets executeDataQueryImpl(YdbQuery query) throws SQLException {
         ensureOpened();
-        updateStateWithDataQueryResult(connection.executeDataQuery(query, params, executor));
-        return state.lastResultSets != null && !state.lastResultSets.isEmpty();
+
+        ExecuteDataQuerySettings settings = new ExecuteDataQuerySettings()
+                .setOperationTimeout(Duration.ofSeconds(queryTimeout))
+                .setTimeout(Duration.ofSeconds(queryTimeout + 1));
+        if (!isPoolable) {
+            settings = settings.disableQueryCache();
+        }
+
+        DataQueryResult result = connection.executeDataQuery(query, executor, settings, Params.empty());
+        List<YdbResultSet> list = new ArrayList<>();
+        for (int idx = 0; idx < result.getResultSetCount(); idx += 1) {
+            ResultSetReader rs = result.getResultSet(idx);
+            if (properties.isFailOnTruncatedResult() && rs.isTruncated()) {
+                String msg = String.format(YdbConst.RESULT_IS_TRUNCATED, idx, rs.getRowCount());
+                throw new YdbResultTruncatedException(msg);
+            }
+            list.add(new YdbResultSetImpl(this, rs));
+        }
+
+        return new YdbStatementResultSets(list);
     }
 
-    protected boolean executeScanQueryImpl(YdbQuery query, Params params) throws SQLException {
+    protected YdbStatementResultSets executeScanQueryImpl(YdbQuery query) throws SQLException {
         ensureOpened();
-        updateStateWithResultSet(connection.executeScanQuery(query, params, executor));
-        return state.lastResultSets != null && !state.lastResultSets.isEmpty();
+        ResultSetReader result = connection.executeScanQuery(query, executor, Params.empty());
+        List<YdbResultSet> list = Collections.singletonList(new YdbResultSetImpl(this, result));
+        return new YdbStatementResultSets(list);
     }
 
-    protected boolean executeExplainQueryImpl(YdbQuery query) throws SQLException {
+    protected YdbStatementResultSets executeExplainQueryImpl(YdbQuery query) throws SQLException {
         ensureOpened();
 
         ExplainDataQueryResult explainDataQuery = connection.executeExplainQuery(query, executor);
 
-        Map<String, Object> result = new HashMap<>();
-        result.put(YdbConst.EXPLAIN_COLUMN_AST, explainDataQuery.getQueryAst());
-        result.put(YdbConst.EXPLAIN_COLUMN_PLAN, explainDataQuery.getQueryPlan());
-        ResultSetReader resultSetReader = MappingResultSets.readerFromMap(result);
+        Map<String, Object> row = new HashMap<>();
+        row.put(YdbConst.EXPLAIN_COLUMN_AST, explainDataQuery.getQueryAst());
+        row.put(YdbConst.EXPLAIN_COLUMN_PLAN, explainDataQuery.getQueryPlan());
+        ResultSetReader result = MappingResultSets.readerFromMap(row);
 
-        updateStateWithResultSet(resultSetReader);
-        return true;
-    }
-
-    private void clearState() {
-        this.clearWarnings();
-        state.lastResultSets = null;
-        state.resultSetIndex = 0;
-        state.updateCount = -1;
-    }
-
-    protected YdbResultSet getResultSet(int index) throws SQLException {
-        List<YdbResultSet> lastResultSets = state.lastResultSets;
-        if (lastResultSets == null) {
-            throw new IllegalStateException("Internal error, not result to use");
-        }
-        if (index < 0 || index >= lastResultSets.size()) {
-            throw new IllegalStateException("Internal error, no result at position: " + index);
-        }
-        YdbResultSet resultSet = lastResultSets.get(index);
-        if (resultSet.isClosed()) {
-            throw new SQLException(RESULT_SET_UNAVAILABLE + index);
-        }
-        return resultSet;
-    }
-
-    private void updateStateWithDataQueryResult(DataQueryResult result) throws YdbResultTruncatedException {
-        if (result == null) {
-            updateStateWithResultList(null);
-            return;
-        }
-        List<ResultSetReader> list = new ArrayList<>(result.getResultSetCount());
-        for (int idx = 0; idx < result.getResultSetCount(); idx += 1) {
-            list.add(result.getResultSet(idx));
-        }
-        updateStateWithResultList(list);
-    }
-
-    private void updateStateWithResultSet(ResultSetReader reader) throws YdbResultTruncatedException {
-        if (reader == null) {
-            updateStateWithResultList(null);
-            return;
-        }
-        updateStateWithResultList(Collections.singletonList(reader));
-    }
-
-    private void updateStateWithResultList(List<ResultSetReader> list) throws YdbResultTruncatedException {
-        if (list == null || list.isEmpty()) {
-            state.resultSetIndex = 0;
-            state.updateCount = 1;
-            state.lastResultSets = null;
-            return;
-        }
-
-        if (properties.isFailOnTruncatedResult()) {
-            for (int idx = 0; idx < list.size(); idx++) {
-                if (list.get(idx).isTruncated()) {
-                    String msg = String.format(YdbConst.RESULT_IS_TRUNCATED, idx, list.get(idx).getRowCount());
-                    throw new YdbResultTruncatedException(msg);
-                }
-            }
-        }
-
-        state.resultSetIndex = 0;
-        state.lastResultSets = list.stream().map(rs -> new YdbResultSetImpl(this, rs)).collect(Collectors.toList());
+        List<YdbResultSet> list = Collections.singletonList(new YdbResultSetImpl(this, result));
+        return new YdbStatementResultSets(list);
     }
 
     protected void ensureOpened() throws SQLException {
-        if (state.closed) {
+        if (isClosed) {
             throw new SQLException(CLOSED_CONNECTION);
         }
-    }
-
-    private static class MutableState {
-        private List<YdbResultSet> lastResultSets = null;
-        private int resultSetIndex;
-        private int updateCount = -1; // TODO: figure out how to get update count from DML
-
-        private Duration queryTimeout;
-        private boolean keepInQueryCache;
-
-        private boolean closed;
     }
 
     // UNSUPPORTED

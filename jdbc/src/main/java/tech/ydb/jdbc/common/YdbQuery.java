@@ -14,8 +14,6 @@ import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Value;
 
-import static tech.ydb.jdbc.YdbConst.MISSING_VALUE_FOR_PARAMETER;
-
 /**
  *
  * @author Aleksandr Gorshenin
@@ -24,19 +22,17 @@ public class YdbQuery {
     private final String originSQL;
     private final String originYQL;
     private final QueryType type;
-    private final boolean keepInCache;
     private final boolean enforceV1;
     private final List<String> extraParams;
 
-    private YdbQuery(Builder builder) {
-        this.originSQL = builder.sql;
-        this.type = decodeQueryType(originSQL, builder.props.isDetectSqlOperations());
+    private YdbQuery(YdbOperationProperties props, String originSQL) {
+        this.originSQL = originSQL;
+        this.type = decodeQueryType(originSQL, props.isDetectSqlOperations());
 
-        this.enforceV1 = builder.props.isEnforceSqlV1();
-        this.keepInCache = builder.keepInCache;
+        this.enforceV1 = props.isEnforceSqlV1();
 
         String sql = updateAlternativePrefix(originSQL);
-        if (builder.props.isDisableJdbcParametersSupport()) {
+        if (props.isDisableJdbcParametersSupport()) {
             this.originYQL = sql;
             this.extraParams = null;
         } else {
@@ -81,7 +77,10 @@ public class YdbQuery {
                 for (int idx = 0; idx < extraParams.size(); idx += 1) {
                     String prm = extraParams.get(idx);
                     if (!values.containsKey(prm)) {
-                        throw new YdbNonRetryableException(MISSING_VALUE_FOR_PARAMETER + prm, StatusCode.BAD_REQUEST);
+                        throw new YdbNonRetryableException(
+                                YdbConst.MISSING_VALUE_FOR_PARAMETER + prm,
+                                StatusCode.BAD_REQUEST
+                        );
                     }
 
                     String prmType = values.get(prm).getType().toString();
@@ -99,10 +98,6 @@ public class YdbQuery {
 
         yql.append(originYQL);
         return yql.toString();
-    }
-
-    public boolean keepInCache() {
-        return keepInCache;
     }
 
     public QueryType type() {
@@ -136,7 +131,7 @@ public class YdbQuery {
         return QueryType.DATA_QUERY;
     }
 
-    private static class ArgNameGenerator  implements Supplier<String> {
+    private static class ArgNameGenerator implements Supplier<String> {
         private final static String JDBC_ARG_PREFIX = "$jp";
 
         private final String query;
@@ -161,27 +156,7 @@ public class YdbQuery {
         }
     }
 
-    public static Builder from(YdbOperationProperties props, String sql) {
-        return new Builder(props, sql);
-    }
-
-    public static class Builder {
-        private final YdbOperationProperties props;
-        private final String sql;
-        private boolean keepInCache = true;
-
-        public Builder(YdbOperationProperties props, String sql) {
-            this.props = props;
-            this.sql = sql;
-        }
-
-        public Builder disableCache() {
-            this.keepInCache = false;
-            return this;
-        }
-
-        public YdbQuery build() {
-            return new YdbQuery(this);
-        }
+    public static YdbQuery from(YdbOperationProperties props, String sql) {
+        return new YdbQuery(props, sql);
     }
 }

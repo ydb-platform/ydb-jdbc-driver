@@ -92,7 +92,6 @@ public class YdbResultSetImpl implements YdbResultSet {
         return state.nullValue;
     }
 
-    //
     @Override
     public String getString(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
@@ -158,11 +157,11 @@ public class YdbResultSetImpl implements YdbResultSet {
     @Override
     public byte[] getBytes(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        byte[] result = state.description.getters().toBytes.fromValue(state.value);
+        byte[] copy = state.description.getters().toBytes.fromValue(state.value);
         if (state.nullValue) { // TODO: do not parse empty value when optional and no value present
             return null;
         }
-        return result;
+        return copy;
     }
 
 
@@ -310,11 +309,11 @@ public class YdbResultSetImpl implements YdbResultSet {
     @Override
     public Reader getCharacterStream(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        Reader result = state.description.getters().toReader.fromValue(state.value);
+        Reader copy = state.description.getters().toReader.fromValue(state.value);
         if (state.nullValue) {
             return null;
         }
-        return result;
+        return copy;
     }
 
     @Override
@@ -325,11 +324,11 @@ public class YdbResultSetImpl implements YdbResultSet {
     @Override
     public BigDecimal getBigDecimal(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        BigDecimal result = state.description.getters().toBigDecimal.fromValue(state.value);
+        BigDecimal copy = state.description.getters().toBigDecimal.fromValue(state.value);
         if (state.nullValue) {
             return null;
         }
-        return result;
+        return copy;
     }
 
     @Override
@@ -489,12 +488,12 @@ public class YdbResultSetImpl implements YdbResultSet {
     @Override
     public URL getURL(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        String result = state.description.getters().toURL.fromValue(state.value);
+        String copy = state.description.getters().toURL.fromValue(state.value);
         if (state.nullValue) {
             return null;
         }
         try {
-            return new URL(result);
+            return new URL(copy);
         } catch (MalformedURLException e) {
             throw new SQLException(UNABLE_TO_CONVERT_AS_URL + result, e);
         }
@@ -518,11 +517,11 @@ public class YdbResultSetImpl implements YdbResultSet {
     @Override
     public String getNString(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        String result = state.description.getters().toNString.fromValue(state.value);
+        String copy = state.description.getters().toNString.fromValue(state.value);
         if (state.nullValue) {
             return null;
         }
-        return result;
+        return copy;
     }
 
     @Override
