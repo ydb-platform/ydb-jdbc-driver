@@ -55,7 +55,7 @@ public final class YdbConst {
     public static final String OBJECT_TYPED_UNSUPPORTED = "Object with type conversion is not supported yet";
     public static final String QUERY_EXPECT_RESULT_SET = "Query must return ResultSet";
     public static final String QUERY_EXPECT_UPDATE = "Query must not return ResultSet";
-    public static final String UNABLE_TO_SET_NULL_VALUE = "Unable to set NULL value, param is mandatory: ";
+    public static final String UNABLE_TO_SET_NULL_OBJECT = "Unable to set null object, type is required";
     public static final String DIRECTION_UNSUPPORTED = "Direction is not supported: ";
     public static final String RESULT_SET_MODE_UNSUPPORTED = "ResultSet mode is not supported: ";
     public static final String RESULT_SET_UNAVAILABLE = "ResultSet is not available at index: ";

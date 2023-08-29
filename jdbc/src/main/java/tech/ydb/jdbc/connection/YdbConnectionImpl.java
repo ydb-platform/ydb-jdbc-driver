@@ -38,7 +38,7 @@ import tech.ydb.jdbc.common.YdbQuery;
 import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.jdbc.impl.YdbTypesImpl;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
-import tech.ydb.jdbc.statement.YdbPreparedStatementImpl;
+import tech.ydb.jdbc.statement.YdbPreparedStatementImplOld;
 import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryBatchedImpl;
 import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryImpl;
 import tech.ydb.jdbc.statement.YdbStatementImpl;
@@ -405,7 +405,7 @@ public class YdbConnectionImpl implements YdbConnection {
         if (mode == PreparedStatementMode.IN_MEMORY
                 || (mode == PreparedStatementMode.DEFAULT && !props.isAlwaysPrepareDataQuery())
                 || query.hasFreeParameters()) {
-            return new YdbPreparedStatementImpl(this, query, resultSetType);
+            return new YdbPreparedStatementImplOld(this, query, resultSetType);
         }
 
         DataQuery prepared = prepareDataQuery(query);

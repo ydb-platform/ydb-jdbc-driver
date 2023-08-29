@@ -20,9 +20,6 @@ import java.util.Calendar;
 import tech.ydb.table.values.Type;
 
 public interface YdbPreparedStatement extends YdbStatement, PreparedStatement {
-
-    // TODO: add future calls
-
     /**
      * Returns query text
      *
@@ -46,7 +43,12 @@ public interface YdbPreparedStatement extends YdbStatement, PreparedStatement {
      */
     YdbResultSet executeExplainQuery() throws SQLException;
 
-    //
+
+    @Override
+    YdbResultSet executeQuery() throws SQLException;
+
+    @Override
+    YdbParameterMetaData getParameterMetaData() throws SQLException;
 
     void setObject(String parameterName, Object value, Type type) throws SQLException;
 
@@ -147,13 +149,4 @@ public interface YdbPreparedStatement extends YdbStatement, PreparedStatement {
     void setBlob(String parameterName, InputStream inputStream) throws SQLException;
 
     void setNClob(String parameterName, Reader reader) throws SQLException;
-
-    //
-
-
-    @Override
-    YdbResultSet executeQuery() throws SQLException;
-
-    @Override
-    YdbParameterMetaData getParameterMetaData() throws SQLException;
 }

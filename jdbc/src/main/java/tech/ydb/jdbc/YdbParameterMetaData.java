@@ -3,7 +3,6 @@ package tech.ydb.jdbc;
 import java.sql.ParameterMetaData;
 import java.sql.SQLException;
 
-import tech.ydb.jdbc.common.TypeDescription;
 
 public interface YdbParameterMetaData extends ParameterMetaData {
 
@@ -25,6 +24,4 @@ public interface YdbParameterMetaData extends ParameterMetaData {
      * @throws SQLException if parameter index is invalid
      */
     String getParameterName(int param) throws SQLException;
-
-    TypeDescription getTypeDescription(int param) throws SQLException;
 }
