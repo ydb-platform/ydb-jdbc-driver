@@ -1,5 +1,8 @@
 package tech.ydb.jdbc.impl;
 
+import tech.ydb.jdbc.common.JdbcDriverVersion;
+import tech.ydb.jdbc.common.YdbFunctions;
+
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;

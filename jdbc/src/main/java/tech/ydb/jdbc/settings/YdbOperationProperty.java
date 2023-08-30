@@ -79,14 +79,6 @@ public class YdbOperationProperty<T> extends AbstractYdbProperty<T, Void> {
 
     // Some JDBC driver specific options
 
-    public static final YdbOperationProperty<Boolean> AUTO_PREPARED_BATCHES =
-            new YdbOperationProperty<>("autoPreparedBatches",
-                    "Automatically detect list of tuples or structs in prepared statement and support #addBatch, " +
-                            "only when alwaysPrepareDataQuery is true",
-                    "true",
-                    Boolean.class,
-                    PropertyConverter.booleanValue());
-
     public static final YdbOperationProperty<Boolean> ENFORCE_SQL_V1 =
             new YdbOperationProperty<>("enforceSqlV1",
                     "Enforce SQL v1 grammar by adding --!syntax_v1 in the beginning of each SQL statement",
@@ -116,12 +108,20 @@ public class YdbOperationProperty<T> extends AbstractYdbProperty<T, Void> {
                     Boolean.class,
                     PropertyConverter.booleanValue());
 
-    public static final YdbOperationProperty<Boolean> ALWAYS_PREPARE_DATAQUERY =
-            new YdbOperationProperty<>("alwaysPrepareDataQuery",
-                    "Always execute #prepareDataQuery when creating PreparedStatements",
-                    "true",
+    public static final YdbOperationProperty<Boolean> DISABLE_PREPARE_DATAQUERY =
+            new YdbOperationProperty<>("disablePrepareDataQuery",
+                    "Disable executing #prepareDataQuery when creating PreparedStatements",
+                    "false",
                     Boolean.class,
                     PropertyConverter.booleanValue());
+
+    public static final YdbOperationProperty<Boolean> DISABLE_AUTO_PREPARED_BATCHES =
+            new YdbOperationProperty<>("disableAutoPreparedBatches",
+                    "Disable automatically detect list of tuples or structs in prepared statement",
+                    "false",
+                    Boolean.class,
+                    PropertyConverter.booleanValue());
+
 
     public static final YdbOperationProperty<Boolean> DISABLE_JDBC_PARAMETERS =
             new YdbOperationProperty<>("disableJdbcParameters",
@@ -135,8 +135,7 @@ public class YdbOperationProperty<T> extends AbstractYdbProperty<T, Void> {
                                    @Nullable String defaultValue,
                                    Class<T> type,
                                    PropertyConverter<T> converter) {
-        super(name, description, defaultValue, type, converter, (op, value) -> {
-        });
+        super(name, description, defaultValue, type, converter, (op, value) -> {});
         PROPERTIES.register(this);
     }
 

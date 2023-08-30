@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.statement;
+package tech.ydb.jdbc.impl;
 
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
@@ -12,7 +12,7 @@ import java.util.logging.Logger;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
-import tech.ydb.jdbc.common.YdbQuery;
+import tech.ydb.jdbc.context.YdbQuery;
 import tech.ydb.table.query.Params;
 
 public class YdbStatementImpl extends BaseYdbStatement {
@@ -21,7 +21,7 @@ public class YdbStatementImpl extends BaseYdbStatement {
     private final List<String> batch = new ArrayList<>();
 
     public YdbStatementImpl(YdbConnection connection, int resultSetType) {
-        super(LOGGER, connection, resultSetType);
+        super(LOGGER, connection, resultSetType, false); // is not poolable by default
     }
 
     @Override

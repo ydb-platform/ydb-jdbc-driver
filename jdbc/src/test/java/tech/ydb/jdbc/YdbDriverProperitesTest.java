@@ -323,12 +323,12 @@ public class YdbDriverProperitesTest {
                 YdbOperationProperty.AUTOCOMMIT.toDriverPropertyInfo("true"),
                 YdbOperationProperty.TRANSACTION_LEVEL.toDriverPropertyInfo("8"),
 
-                YdbOperationProperty.AUTO_PREPARED_BATCHES.toDriverPropertyInfo("true"),
                 YdbOperationProperty.ENFORCE_SQL_V1.toDriverPropertyInfo("true"),
                 YdbOperationProperty.ENFORCE_VARIABLE_PREFIX.toDriverPropertyInfo("true"),
                 YdbOperationProperty.CACHE_CONNECTIONS_IN_DRIVER.toDriverPropertyInfo("true"),
                 YdbOperationProperty.DETECT_SQL_OPERATIONS.toDriverPropertyInfo("true"),
-                YdbOperationProperty.ALWAYS_PREPARE_DATAQUERY.toDriverPropertyInfo("true"),
+                YdbOperationProperty.DISABLE_AUTO_PREPARED_BATCHES.toDriverPropertyInfo("false"),
+                YdbOperationProperty.DISABLE_PREPARE_DATAQUERY.toDriverPropertyInfo("false"),
                 YdbOperationProperty.DISABLE_JDBC_PARAMETERS.toDriverPropertyInfo("false")
         };
     }
@@ -394,12 +394,12 @@ public class YdbDriverProperitesTest {
                 YdbOperationProperty.AUTOCOMMIT.toDriverPropertyInfo("true"),
                 YdbOperationProperty.TRANSACTION_LEVEL.toDriverPropertyInfo("4"),
 
-                YdbOperationProperty.AUTO_PREPARED_BATCHES.toDriverPropertyInfo("false"),
                 YdbOperationProperty.ENFORCE_SQL_V1.toDriverPropertyInfo("false"),
                 YdbOperationProperty.ENFORCE_VARIABLE_PREFIX.toDriverPropertyInfo("false"),
                 YdbOperationProperty.CACHE_CONNECTIONS_IN_DRIVER.toDriverPropertyInfo("false"),
                 YdbOperationProperty.DETECT_SQL_OPERATIONS.toDriverPropertyInfo("false"),
-                YdbOperationProperty.ALWAYS_PREPARE_DATAQUERY.toDriverPropertyInfo("false"),
+                YdbOperationProperty.DISABLE_AUTO_PREPARED_BATCHES.toDriverPropertyInfo("true"),
+                YdbOperationProperty.DISABLE_PREPARE_DATAQUERY.toDriverPropertyInfo("true"),
                 YdbOperationProperty.DISABLE_JDBC_PARAMETERS.toDriverPropertyInfo("true")
         };
     }
@@ -417,11 +417,14 @@ public class YdbDriverProperitesTest {
         Assertions.assertEquals(Duration.ofSeconds(6), ops.getSessionTimeout());
         Assertions.assertTrue(ops.isAutoCommit());
         Assertions.assertEquals(YdbConst.ONLINE_CONSISTENT_READ_ONLY, ops.getTransactionLevel());
-        Assertions.assertFalse(ops.isAutoPreparedBatches());
         Assertions.assertFalse(ops.isEnforceSqlV1());
         Assertions.assertFalse(ops.isEnforceVariablePrefix());
         Assertions.assertFalse(ops.isCacheConnectionsInDriver());
         Assertions.assertFalse(ops.isDetectSqlOperations());
+
+        Assertions.assertFalse(ops.isAutoPreparedBatchesDisabled());
+        Assertions.assertFalse(ops.isPrepareDataQueryDisabled());
+        Assertions.assertFalse(ops.isJdbcParametersSupportDisabled());
     }
 
     static String asString(DriverPropertyInfo info) {

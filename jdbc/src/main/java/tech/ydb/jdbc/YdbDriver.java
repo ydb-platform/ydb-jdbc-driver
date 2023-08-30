@@ -12,9 +12,9 @@ import java.util.logging.Logger;
 
 import javax.annotation.Nullable;
 
-import tech.ydb.jdbc.connection.YdbConfig;
-import tech.ydb.jdbc.connection.YdbConnectionImpl;
-import tech.ydb.jdbc.connection.YdbContext;
+import tech.ydb.jdbc.context.YdbConfig;
+import tech.ydb.jdbc.impl.YdbConnectionImpl;
+import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.settings.YdbJdbcTools;
 import tech.ydb.scheme.SchemeClient;
 import tech.ydb.table.TableClient;

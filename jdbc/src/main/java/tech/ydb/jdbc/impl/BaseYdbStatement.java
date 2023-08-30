@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.statement;
+package tech.ydb.jdbc.impl;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -18,11 +18,10 @@ import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
-import tech.ydb.jdbc.common.YdbQuery;
-import tech.ydb.jdbc.connection.YdbExecutor;
+import tech.ydb.jdbc.context.YdbQuery;
+import tech.ydb.jdbc.context.YdbExecutor;
 import tech.ydb.jdbc.exception.YdbResultTruncatedException;
 import tech.ydb.jdbc.impl.MappingResultSets;
-import tech.ydb.jdbc.impl.YdbResultSetImpl;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.ExplainDataQueryResult;
@@ -50,11 +49,13 @@ public abstract class BaseYdbStatement implements YdbStatement {
     private boolean isPoolable;
     private boolean isClosed = false;
 
-    public BaseYdbStatement(Logger logger, YdbConnection connection, int resultSetType) {
+    public BaseYdbStatement(Logger logger, YdbConnection connection, int resultSetType, boolean isPoolable) {
         this.connection = Objects.requireNonNull(connection);
         this.executor = new YdbExecutor(logger);
         this.properties = connection.getCtx().getOperationProperties();
         this.resultSetType = resultSetType;
+        this.queryTimeout = (int) connection.getCtx().getOperationProperties().getQueryTimeout().getSeconds();
+        this.isPoolable = isPoolable;
     }
 
     @Override

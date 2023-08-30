@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.common;
+package tech.ydb.jdbc.context;
 
 
 import java.sql.SQLException;
@@ -9,6 +9,8 @@ import java.util.function.Supplier;
 
 import tech.ydb.core.StatusCode;
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.common.JdbcLexer;
+import tech.ydb.jdbc.common.QueryType;
 import tech.ydb.jdbc.exception.YdbNonRetryableException;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.table.query.Params;
@@ -32,7 +34,7 @@ public class YdbQuery {
         this.enforceV1 = props.isEnforceSqlV1();
 
         String sql = updateAlternativePrefix(originSQL);
-        if (props.isDisableJdbcParametersSupport()) {
+        if (props.isJdbcParametersSupportDisabled()) {
             this.originYQL = sql;
             this.extraParams = null;
         } else {
@@ -46,12 +48,12 @@ public class YdbQuery {
         return originSQL;
     }
 
-    public boolean hasFreeParameters() {
+    public boolean hasIndexesParameters() {
         return extraParams != null && !extraParams.isEmpty();
     }
 
     public String getParameterName(int parameterIndex) {
-        if (!hasFreeParameters()) {
+        if (!hasIndexesParameters()) {
             return YdbConst.INDEXED_PARAMETER_PREFIX + parameterIndex;
         }
 

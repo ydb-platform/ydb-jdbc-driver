@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.common;
+package tech.ydb.jdbc.context;
 
 import java.sql.SQLWarning;
 import java.util.ArrayList;

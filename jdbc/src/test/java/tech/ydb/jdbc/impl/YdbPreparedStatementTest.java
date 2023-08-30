@@ -17,9 +17,6 @@ import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.SqlQueries;
 import tech.ydb.jdbc.impl.helper.TextSelectAssert;
-import tech.ydb.jdbc.statement.YdbPreparedStatementImpl;
-import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryBatchedImpl;
-import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryImpl;
 import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
@@ -73,7 +70,7 @@ public class YdbPreparedStatementTest {
             Assertions.assertTrue(statement.isWrapperFor(YdbPreparedStatement.class));
 
             Assertions.assertEquals(query == SqlQueries.JdbcQuery.STANDART,
-                    statement.isWrapperFor(YdbPreparedStatementImpl.class));
+                    statement.isWrapperFor(YdbPreparedStatementImplOld.class));
             Assertions.assertEquals(query == SqlQueries.JdbcQuery.TYPED,
                     statement.isWrapperFor(YdbPreparedStatementWithDataQueryImpl.class));
             Assertions.assertEquals(query == SqlQueries.JdbcQuery.BATCHED,

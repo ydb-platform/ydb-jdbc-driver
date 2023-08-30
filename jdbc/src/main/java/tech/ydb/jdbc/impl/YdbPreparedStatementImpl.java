@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.statement;
+package tech.ydb.jdbc.impl;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -20,6 +20,7 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.Calendar;
 import java.util.Objects;
+import java.util.logging.Logger;
 
 import javax.annotation.Nullable;
 
@@ -30,9 +31,8 @@ import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.common.MappingSetters;
-import tech.ydb.jdbc.common.QueryType;
 import tech.ydb.jdbc.common.TypeDescription;
-import tech.ydb.jdbc.common.YdbQuery;
+import tech.ydb.jdbc.context.YdbQuery;
 import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.table.values.OptionalValue;
 import tech.ydb.table.values.Type;
@@ -53,23 +53,17 @@ import static tech.ydb.jdbc.YdbConst.ROWID_UNSUPPORTED;
 import static tech.ydb.jdbc.YdbConst.SQLXML_UNSUPPORTED;
 
 public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPreparedStatement {
+    private static final Logger LOGGER = Logger.getLogger(YdbPreparedStatementImpl.class.getName());
     private final YdbQuery query;
-    private final YdbQueryParams params;
+    private final YdbJdbcParams params;
     private final YdbTypes types;
 
-    public YdbPreparedStatementImpl(
-            YdbConnection connection,
-            YdbQuery query,
-            YdbQueryParams params,
-            int resultSetType) throws SQLException {
-        super(connection, resultSetType, true); // is poolable by default
+    public YdbPreparedStatementImpl(YdbConnection connection, YdbQuery query, YdbJdbcParams params, int resultSetType) {
+        super(LOGGER, connection, resultSetType, true); // is poolable by default
+
         this.query = Objects.requireNonNull(query);
         this.params = Objects.requireNonNull(params);
         this.types = connection.getYdbTypes();
-
-        if (query.type() != QueryType.DATA_QUERY && query.type() != QueryType.SCAN_QUERY) {
-            throw new SQLException(YdbConst.UNSUPPORTED_QUERY_TYPE_IN_PS + query.type());
-        }
     }
 
     @Override
@@ -80,6 +74,11 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
     @Override
     public void addBatch() throws SQLException {
         params.addBatch();
+    }
+
+    @Override
+    public void clearBatch() throws SQLException {
+        params.clearBatch();
     }
 
     @Override
@@ -96,6 +95,11 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
     public void close() {
         clearParameters();
         super.close();
+    }
+
+    @Override
+    public int[] executeBatch() throws SQLException {
+        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
     }
 
     @Override

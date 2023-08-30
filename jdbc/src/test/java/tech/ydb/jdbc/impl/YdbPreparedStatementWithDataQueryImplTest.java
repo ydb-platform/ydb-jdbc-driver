@@ -12,15 +12,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import tech.ydb.jdbc.YdbConnection;
+import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.common.QueryType;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.SqlQueries;
 import tech.ydb.jdbc.impl.helper.TextSelectAssert;
-import tech.ydb.jdbc.statement.YdbPreparedStatementImpl;
-import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryBatchedImpl;
-import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryImpl;
 import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
@@ -112,7 +110,7 @@ public class YdbPreparedStatementWithDataQueryImplTest {
     @Test
     public void prepareStatement() throws SQLException {
         try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Optional<Text>")) {
-            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementImpl.class));
+            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementImplOld.class));
             Assertions.assertTrue(statement.isWrapperFor(YdbPreparedStatementWithDataQueryImpl.class));
             Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementWithDataQueryBatchedImpl.class));
 
@@ -244,7 +242,7 @@ public class YdbPreparedStatementWithDataQueryImplTest {
         String sql = QueryType.SCAN_QUERY.getPrefix() + "\n" + upsertSql("c_Text", "Optional<Text>");
 
         try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class)
-                .prepareStatement(sql, YdbConnection.PreparedStatementMode.IN_MEMORY)
+                .prepareStatement(sql, YdbPrepareMode.IN_MEMORY)
                 .unwrap(YdbPreparedStatement.class)) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");

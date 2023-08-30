@@ -12,15 +12,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import tech.ydb.jdbc.YdbConnection;
+import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.common.QueryType;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.SqlQueries;
 import tech.ydb.jdbc.impl.helper.TextSelectAssert;
-import tech.ydb.jdbc.statement.YdbPreparedStatementImpl;
-import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryBatchedImpl;
-import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryImpl;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
 public class YdbPreparedStatementWithDataQueryBatchedImplTest {
@@ -103,7 +101,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
 
     private YdbPreparedStatement prepareBatchUpsert(String column, String type) throws SQLException {
         return jdbc.connection().unwrap(YdbConnection.class)
-                .prepareStatement(batchUpsertSql(column, type), YdbConnection.PreparedStatementMode.DATA_QUERY_BATCH);
+                .prepareStatement(batchUpsertSql(column, type), YdbPrepareMode.DATA_QUERY_BATCH);
     }
 
     private PreparedStatement prepareSimpleSelect(String column) throws SQLException {
@@ -123,7 +121,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
     @Test
     public void batchStatementTest() throws SQLException {
         try (YdbPreparedStatement statement = prepareBatchUpsert("c_Text", "Optional<Text>")) {
-            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementImpl.class));
+            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementImplOld.class));
             Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementWithDataQueryImpl.class));
             Assertions.assertTrue(statement.isWrapperFor(YdbPreparedStatementWithDataQueryBatchedImpl.class));
 
@@ -133,7 +131,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
         // Batch mode autodetect
         try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class)
                 .prepareStatement(batchUpsertSql("c_Text", "Text"))) {
-            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementImpl.class));
+            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementImplOld.class));
             Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementWithDataQueryImpl.class));
             Assertions.assertTrue(statement.isWrapperFor(YdbPreparedStatementWithDataQueryBatchedImpl.class));
 
@@ -144,7 +142,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
         String sql = upsertSql("c_Text", "Text");
         ExceptionAssert.ydbExecution("Statement cannot be executed as batch statement: " + sql,
                 () -> jdbc.connection().unwrap(YdbConnection.class).prepareStatement(
-                        sql, YdbConnection.PreparedStatementMode.DATA_QUERY_BATCH)
+                        sql, YdbPrepareMode.DATA_QUERY_BATCH)
         );
     }
 
@@ -153,7 +151,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
         ExceptionAssert.ydbNonRetryable("Duplicated member: key", () -> {
             jdbc.connection().unwrap(YdbConnection.class).prepareStatement(
                     invalidBatchUpsertSql("c_Text", "Text"),
-                    YdbConnection.PreparedStatementMode.DATA_QUERY_BATCH);
+                    YdbPrepareMode.DATA_QUERY_BATCH);
         });
     }
 

@@ -5,9 +5,9 @@ import java.sql.SQLException;
 
 import javax.annotation.Nullable;
 
-import tech.ydb.jdbc.common.YdbQuery;
-import tech.ydb.jdbc.connection.YdbContext;
-import tech.ydb.jdbc.connection.YdbExecutor;
+import tech.ydb.jdbc.context.YdbQuery;
+import tech.ydb.jdbc.context.YdbContext;
+import tech.ydb.jdbc.context.YdbExecutor;
 import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.query.Params;
@@ -126,12 +126,5 @@ public interface YdbConnection extends Connection {
      * @return prepared statement
      * @throws SQLException in case of any internal error
      */
-    YdbPreparedStatement prepareStatement(String sql, PreparedStatementMode mode) throws SQLException;
-
-    enum PreparedStatementMode {
-        DEFAULT,
-        IN_MEMORY,
-        DATA_QUERY,
-        DATA_QUERY_BATCH
-    }
+    YdbPreparedStatement prepareStatement(String sql, YdbPrepareMode mode) throws SQLException;
 }

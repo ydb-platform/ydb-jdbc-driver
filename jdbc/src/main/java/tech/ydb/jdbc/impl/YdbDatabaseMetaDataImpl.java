@@ -1,4 +1,6 @@
-package tech.ydb.jdbc.connection;
+package tech.ydb.jdbc.impl;
+
+import tech.ydb.jdbc.impl.YdbConnectionImpl;
 
 import java.sql.ResultSet;
 import java.sql.RowIdLifetime;
@@ -29,10 +31,10 @@ import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbDatabaseMetaData;
 import tech.ydb.jdbc.YdbDriverInfo;
 import tech.ydb.jdbc.YdbTypes;
+import tech.ydb.jdbc.context.YdbExecutor;
 import tech.ydb.jdbc.impl.MappingResultSets;
-import tech.ydb.jdbc.impl.YdbFunctions;
-import tech.ydb.jdbc.impl.YdbResultSetImpl;
-import tech.ydb.jdbc.statement.YdbStatementImpl;
+import tech.ydb.jdbc.common.YdbFunctions;
+import tech.ydb.jdbc.impl.YdbStatementImpl;
 import tech.ydb.proto.scheme.SchemeOperationProtos;
 import tech.ydb.scheme.SchemeClient;
 import tech.ydb.scheme.description.ListDirectoryResult;

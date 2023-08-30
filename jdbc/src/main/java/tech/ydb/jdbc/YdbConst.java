@@ -94,7 +94,8 @@ public final class YdbConst {
     public static final String STATEMENT_IS_NOT_A_BATCH = "Statement cannot be executed as batch statement: ";
     public static final String TRY_EXECUTE_ON_BATCH_STATEMENT = "Cannot call #execute method after #addBatch, " +
             "must use #executeBatch";
-    public static final String INDEXED_PARAMETERS_UNSUPPORTED = "Indexed parameters are not supported here";
+    public static final String INDEXES_PARAMETERS_UNSUPPORTED =
+            "Indexed parameters are not supported in prepared query: ";
 
     // Cast errors
 
