@@ -52,16 +52,20 @@ public class YdbQuery {
         return extraParams != null && !extraParams.isEmpty();
     }
 
-    public String getParameterName(int parameterIndex) {
-        if (!hasIndexesParameters()) {
-            return YdbConst.INDEXED_PARAMETER_PREFIX + parameterIndex;
-        }
-
-        if (parameterIndex <= 0 || parameterIndex > extraParams.size()) {
-            throw new IllegalArgumentException("Wrong argument index " + parameterIndex);
-        }
-        return extraParams.get(parameterIndex - 1);
+    public List<String> getIndexesParameters() {
+        return extraParams;
     }
+
+//    public String getIndexParameterName(int parameterIndex) {
+//        if (!hasIndexParameters()) {
+//            return YdbConst.INDEXED_PARAMETER_PREFIX + parameterIndex;
+//        }
+//
+//        if (parameterIndex < 0 || parameterIndex >= extraParams.size()) {
+//            throw new IllegalArgumentException("Wrong argument index " + parameterIndex);
+//        }
+//        return extraParams.get(parameterIndex);
+//    }
 
     public String getYqlQuery(Params params) throws SQLException {
         StringBuilder yql = new StringBuilder();

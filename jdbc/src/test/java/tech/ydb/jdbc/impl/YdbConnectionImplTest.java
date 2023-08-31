@@ -26,7 +26,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbDatabaseMetaData;
-import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.SqlQueries;
@@ -378,6 +377,7 @@ public class YdbConnectionImplTest {
             jdbc.connection().commit(); // Nothing to commit, transaction was rolled back already
             Assertions.assertNull(currentTxId());
         } finally {
+            cleanTable();
             jdbc.connection().setAutoCommit(true);
         }
     }
@@ -398,6 +398,7 @@ public class YdbConnectionImplTest {
             jdbc.connection().rollback();
             Assertions.assertNull(currentTxId());
         } finally {
+            cleanTable();
             jdbc.connection().setAutoCommit(true);
         }
     }
@@ -567,7 +568,7 @@ public class YdbConnectionImplTest {
             ListValue value = ListType.of(PrimitiveType.Int32).newValue(
                     Arrays.asList(PrimitiveValue.newInt32(1), PrimitiveValue.newInt32(2)));
             try (PreparedStatement ps = jdbc.connection().prepareStatement(query)) {
-                ps.unwrap(YdbPreparedStatement.class).setObject("list", value);
+                ps.setObject(1, value);
 
                 ResultSet rs = ps.executeQuery();
                 Assertions.assertFalse(rs.next());

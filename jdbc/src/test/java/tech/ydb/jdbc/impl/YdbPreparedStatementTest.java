@@ -6,13 +6,11 @@ import java.sql.Statement;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.SqlQueries;
@@ -59,23 +57,6 @@ public class YdbPreparedStatementTest {
         }
 
         jdbc.connection().close();
-    }
-
-    @ParameterizedTest(name = "with {0}")
-    @EnumSource(SqlQueries.JdbcQuery.class)
-    public void prepareStatementTest(SqlQueries.JdbcQuery query) throws SQLException {
-        String sql = TEST_TABLE.upsertOne(query, "c_Text", "Text");
-
-        try (PreparedStatement statement = jdbc.connection().prepareStatement(sql)) {
-            Assertions.assertTrue(statement.isWrapperFor(YdbPreparedStatement.class));
-
-            Assertions.assertEquals(query == SqlQueries.JdbcQuery.STANDART,
-                    statement.isWrapperFor(YdbPreparedStatementImplOld.class));
-            Assertions.assertEquals(query == SqlQueries.JdbcQuery.TYPED,
-                    statement.isWrapperFor(YdbPreparedStatementWithDataQueryImpl.class));
-            Assertions.assertEquals(query == SqlQueries.JdbcQuery.BATCHED,
-                    statement.isWrapperFor(YdbPreparedStatementWithDataQueryBatchedImpl.class));
-        }
     }
 
     @ParameterizedTest(name = "with {0}")

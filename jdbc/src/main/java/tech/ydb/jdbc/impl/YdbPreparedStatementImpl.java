@@ -18,11 +18,10 @@ import java.sql.SQLXML;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Objects;
 import java.util.logging.Logger;
-
-import javax.annotation.Nullable;
 
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
@@ -31,26 +30,10 @@ import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.common.MappingSetters;
-import tech.ydb.jdbc.common.TypeDescription;
 import tech.ydb.jdbc.context.YdbQuery;
 import tech.ydb.jdbc.exception.YdbExecutionException;
-import tech.ydb.table.values.OptionalValue;
+import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Type;
-import tech.ydb.table.values.Value;
-
-import static tech.ydb.jdbc.YdbConst.ARRAYS_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.ASCII_STREAM_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.BLOB_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.CANNOT_UNWRAP_TO;
-import static tech.ydb.jdbc.YdbConst.CLOB_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.CUSTOM_SQL_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.INVALID_PARAMETER_TYPE;
-import static tech.ydb.jdbc.YdbConst.METADATA_RS_UNSUPPORTED_IN_PS;
-import static tech.ydb.jdbc.YdbConst.MISSING_REQUIRED_VALUE;
-import static tech.ydb.jdbc.YdbConst.NCLOB_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.REF_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.ROWID_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.SQLXML_UNSUPPORTED;
 
 public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPreparedStatement {
     private static final Logger LOGGER = Logger.getLogger(YdbPreparedStatementImpl.class.getName());
@@ -99,32 +82,77 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
 
     @Override
     public int[] executeBatch() throws SQLException {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
-    }
+        cleanState();
 
-    @Override
-    public YdbResultSet executeScanQuery() throws SQLException {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
-    }
+        int[] results = new int[params.batchSize()];
+        if (results.length == 0) {
+            return results;
+        }
 
-    @Override
-    public YdbResultSet executeExplainQuery() throws SQLException {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
+        try {
+            for (Params prm: params.getBatchParams()) {
+                executeDataQuery(query, prm);
+            }
+        } finally {
+            clearBatch();
+        }
+
+        Arrays.fill(results, SUCCESS_NO_INFO);
+        return results;
     }
 
     @Override
     public YdbResultSet executeQuery() throws SQLException {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
+        if (!execute()) {
+            throw new SQLException(YdbConst.QUERY_EXPECT_RESULT_SET);
+        }
+        return getResultSet();
     }
 
     @Override
     public int executeUpdate() throws SQLException {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
+        if (execute()) {
+            throw new SQLException(YdbConst.QUERY_EXPECT_UPDATE);
+        }
+        return getUpdateCount();
     }
 
     @Override
     public boolean execute() throws SQLException {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
+        cleanState();
+        clearBatch();
+
+        ResultState newState = EMPTY_STATE;
+        switch (query.type()) {
+            case DATA_QUERY:
+                newState = executeDataQuery(query, params.getCurrentParams());
+                break;
+            case SCAN_QUERY:
+                newState = executeScanQuery(query, params.getCurrentParams());
+                break;
+            default:
+                throw new IllegalStateException("Internal error. Unsupported query type " + query.type());
+        }
+        params.clearParameters();
+
+        return updateState(newState);
+    }
+
+    @Override
+    public YdbResultSet executeScanQuery() throws SQLException {
+        cleanState();
+        ResultState state = executeScanQuery(query, params.getCurrentParams());
+        params.clearParameters();
+        updateState(state);
+        return getResultSet();
+    }
+
+    @Override
+    public YdbResultSet executeExplainQuery() throws SQLException {
+        cleanState();
+        ResultState state = executeExplainQuery(query);
+        updateState(state);
+        return getResultSet();
     }
 
     private Type ydbType(int sqlType) {
@@ -375,7 +403,11 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
 
     @Override
     public void setNull(int parameterIndex, int sqlType) throws SQLException {
-        params.setParam(parameterIndex, null, ydbType(sqlType));
+        Type type = ydbType(sqlType);
+        if (type == null) {
+            throw new YdbExecutionException(String.format(YdbConst.PARAMETER_TYPE_UNKNOWN, sqlType, parameterIndex));
+        }
+        params.setParam(parameterIndex, null, type);
     }
 
     @Override
@@ -471,22 +503,22 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
 
     @Override
     public void setRef(int parameterIndex, Ref x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(REF_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.REF_UNSUPPORTED);
     }
 
     @Override
     public void setBlob(int parameterIndex, Blob x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(BLOB_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.BLOB_UNSUPPORTED);
     }
 
     @Override
     public void setClob(int parameterIndex, Clob x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CLOB_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CLOB_UNSUPPORTED);
     }
 
     @Override
     public void setArray(int parameterIndex, Array x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(ARRAYS_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.ARRAYS_UNSUPPORTED);
     }
 
     @Override
@@ -536,7 +568,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
 
     @Override
     public void setNClob(int parameterIndex, NClob value) throws SQLException {
-        throw new SQLFeatureNotSupportedException(NCLOB_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.NCLOB_UNSUPPORTED);
     }
 
     @Override
@@ -556,7 +588,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
 
     @Override
     public void setSQLXML(int parameterIndex, SQLXML xmlObject) throws SQLException {
-        throw new SQLFeatureNotSupportedException(SQLXML_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.SQLXML_UNSUPPORTED);
     }
 
     @Override
@@ -615,196 +647,126 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
         setImplReader(parameterIndex, reader, -1);
     }
 
-    @Nullable
-    protected static Value<?> getValue(String param, TypeDescription description, Object value) throws SQLException {
-        if (value instanceof Value<?>) {
-            // For all external values (passed 'as is') we have to check data types
-            Value<?> targetValue = (Value<?>) value;
-            if (description.isOptional()) {
-                if (targetValue instanceof OptionalValue) {
-                    checkType(param, description, ((OptionalValue) targetValue).getType().getItemType());
-                    return targetValue; // Could be null
-                } else {
-                    checkType(param, description, targetValue.getType());
-                    return targetValue.makeOptional();
-                }
-            } else {
-                if (targetValue instanceof OptionalValue) {
-                    OptionalValue optionalValue = (OptionalValue) value;
-                    if (!optionalValue.isPresent()) {
-                        throw new SQLException(MISSING_REQUIRED_VALUE + param);
-                    }
-                    checkType(param, description, optionalValue.getType().getItemType());
-                    return optionalValue.get();
-                } else {
-                    checkType(param, description, targetValue.getType());
-                    return targetValue;
-                }
-            }
-        } else if (value == null) {
-            if (description.nullValue() != null) {
-                return description.nullValue();
-            } else {
-                return description.ydbType().makeOptional().emptyValue();
-            }
-        } else {
-            Value<?> targetValue = description.setters().toValue(value);
-            if (description.isOptional()) {
-                return targetValue.makeOptional();
-            } else {
-                return targetValue;
-            }
-        }
-    }
-
-    protected static void checkType(String param, TypeDescription description, Type type) throws SQLException {
-        if (!description.ydbType().equals(type)) {
-            throw new SQLException(String.format(INVALID_PARAMETER_TYPE, param, type, description.ydbType()));
-        }
-    }
-
-//    protected String paramsToString(Params params) {
-//        Map<String, Value<?>> values = params.values();
-//        if (values.size() == 1) {
-//            Map.Entry<String, Value<?>> entry = values.entrySet().iterator().next();
-//            String key = entry.getKey();
-//            Value<?> value = entry.getValue();
-//            if (value instanceof ListValue) {
-//                ListValue list = (ListValue) value;
-//                if (list.size() > 10) {
-//                    String first10Elements = IntStream.range(0, 10)
-//                            .mapToObj(list::get)
-//                            .map(String::valueOf)
-//                            .collect(Collectors.joining(", "));
-//                    return "{" + key + "=List<" + list.getType().getItemType() + ">" +
-//                            "[" + first10Elements + "...], and " + (list.size() - 10) + " more";
-//                }
-//            }
-//        }
-//        return String.valueOf(values);
-//    }
-
     // UNSUPPORTED
-
     @Override
     public ResultSetMetaData getMetaData() throws SQLException {
-        throw new SQLFeatureNotSupportedException(METADATA_RS_UNSUPPORTED_IN_PS);
+        throw new SQLFeatureNotSupportedException(YdbConst.METADATA_RS_UNSUPPORTED_IN_PS);
     }
 
     @Override
     public void setRowId(int parameterIndex, RowId x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(ROWID_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.ROWID_UNSUPPORTED);
     }
 
     @Override
     public void executeSchemeQuery(String sql) throws SQLException {
-        throw new SQLException(CUSTOM_SQL_UNSUPPORTED);
+        throw new SQLException(YdbConst.CUSTOM_SQL_UNSUPPORTED);
     }
 
     @Override
     public YdbResultSet executeScanQuery(String sql) throws SQLException {
-        throw new SQLException(CUSTOM_SQL_UNSUPPORTED);
+        throw new SQLException(YdbConst.CUSTOM_SQL_UNSUPPORTED);
     }
 
     @Override
     public YdbResultSet executeExplainQuery(String sql) throws SQLException {
-        throw new SQLException(CUSTOM_SQL_UNSUPPORTED);
+        throw new SQLException(YdbConst.CUSTOM_SQL_UNSUPPORTED);
     }
 
     @Override
     public YdbResultSet executeQuery(String sql) throws SQLException {
-        throw new SQLException(CUSTOM_SQL_UNSUPPORTED);
+        throw new SQLException(YdbConst.CUSTOM_SQL_UNSUPPORTED);
     }
 
     @Override
     public boolean execute(String sql) throws SQLException {
-        throw new SQLException(CUSTOM_SQL_UNSUPPORTED);
+        throw new SQLException(YdbConst.CUSTOM_SQL_UNSUPPORTED);
     }
 
     @Override
     public boolean execute(String sql, int autoGeneratedKeys) throws SQLException {
-        throw new SQLException(CUSTOM_SQL_UNSUPPORTED);
+        throw new SQLException(YdbConst.CUSTOM_SQL_UNSUPPORTED);
     }
 
     @Override
     public boolean execute(String sql, int[] columnIndexes) throws SQLException {
-        throw new SQLException(CUSTOM_SQL_UNSUPPORTED);
+        throw new SQLException(YdbConst.CUSTOM_SQL_UNSUPPORTED);
     }
 
     @Override
     public boolean execute(String sql, String[] columnNames) throws SQLException {
-        throw new SQLException(CUSTOM_SQL_UNSUPPORTED);
+        throw new SQLException(YdbConst.CUSTOM_SQL_UNSUPPORTED);
     }
 
     @Override
     public int executeUpdate(String sql) throws SQLException {
-        throw new SQLException(CUSTOM_SQL_UNSUPPORTED);
+        throw new SQLException(YdbConst.CUSTOM_SQL_UNSUPPORTED);
     }
 
     @Override
     public int executeUpdate(String sql, int[] columnIndexes) throws SQLException {
-        throw new SQLException(CUSTOM_SQL_UNSUPPORTED);
+        throw new SQLException(YdbConst.CUSTOM_SQL_UNSUPPORTED);
     }
 
     @Override
     public int executeUpdate(String sql, String[] columnNames) throws SQLException {
-        throw new SQLException(CUSTOM_SQL_UNSUPPORTED);
+        throw new SQLException(YdbConst.CUSTOM_SQL_UNSUPPORTED);
     }
 
     @Override
     public int executeUpdate(String sql, int autoGeneratedKeys) throws SQLException {
-        throw new SQLException(CUSTOM_SQL_UNSUPPORTED);
+        throw new SQLException(YdbConst.CUSTOM_SQL_UNSUPPORTED);
     }
 
     @Override
     public void addBatch(String sql) throws SQLException {
-        throw new SQLException(CUSTOM_SQL_UNSUPPORTED);
+        throw new SQLException(YdbConst.CUSTOM_SQL_UNSUPPORTED);
     }
 
     @Override
     public void setArray(String parameterName, Array x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(ARRAYS_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.ARRAYS_UNSUPPORTED);
     }
 
 
     @Override
     public void setAsciiStream(String parameterName, InputStream x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(ASCII_STREAM_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.ASCII_STREAM_UNSUPPORTED);
     }
 
     @Override
     public void setAsciiStream(String parameterName, InputStream x, int length) throws SQLException {
-        throw new SQLFeatureNotSupportedException(ASCII_STREAM_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.ASCII_STREAM_UNSUPPORTED);
     }
 
     @Override
     public void setAsciiStream(String parameterName, InputStream x, long length) throws SQLException {
-        throw new SQLFeatureNotSupportedException(ASCII_STREAM_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.ASCII_STREAM_UNSUPPORTED);
     }
 
     @Override
     public void setBlob(String parameterName, Blob x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(BLOB_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.BLOB_UNSUPPORTED);
     }
 
     @Override
     public void setClob(String parameterName, Clob x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CLOB_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CLOB_UNSUPPORTED);
     }
 
     @Override
     public void setNClob(String parameterName, NClob value) throws SQLException {
-        throw new SQLFeatureNotSupportedException(NCLOB_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.NCLOB_UNSUPPORTED);
     }
 
     @Override
     public void setRef(String parameterName, Ref x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(REF_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.REF_UNSUPPORTED);
     }
 
     @Override
     public void setSQLXML(String parameterName, SQLXML xmlObject) throws SQLException {
-        throw new SQLFeatureNotSupportedException(SQLXML_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.SQLXML_UNSUPPORTED);
     }
 
     @Override
@@ -812,7 +774,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
         if (iface.isAssignableFrom(getClass())) {
             return iface.cast(this);
         }
-        throw new SQLException(CANNOT_UNWRAP_TO + iface);
+        throw new SQLException(YdbConst.CANNOT_UNWRAP_TO + iface);
     }
 
     @Override

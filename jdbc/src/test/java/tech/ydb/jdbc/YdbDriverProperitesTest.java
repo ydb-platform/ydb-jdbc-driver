@@ -23,7 +23,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -260,15 +259,6 @@ public class YdbDriverProperitesTest {
     }
 
     @Test
-    @Disabled
-    public void invalidAuthProviderProperty() {
-        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/pr/testing/ci?authProvider=test";
-        ExceptionAssert.ydbConfiguration("Unable to convert property authProvider: " +
-                        "Property authProvider must be configured with object, not a string",
-                () -> YdbJdbcTools.from(url, new Properties()));
-    }
-
-    @Test
     public void getMajorVersion() {
         Assertions.assertEquals(2, driver.getMajorVersion());
     }
@@ -327,8 +317,9 @@ public class YdbDriverProperitesTest {
                 YdbOperationProperty.ENFORCE_VARIABLE_PREFIX.toDriverPropertyInfo("true"),
                 YdbOperationProperty.CACHE_CONNECTIONS_IN_DRIVER.toDriverPropertyInfo("true"),
                 YdbOperationProperty.DETECT_SQL_OPERATIONS.toDriverPropertyInfo("true"),
-                YdbOperationProperty.DISABLE_AUTO_PREPARED_BATCHES.toDriverPropertyInfo("false"),
+
                 YdbOperationProperty.DISABLE_PREPARE_DATAQUERY.toDriverPropertyInfo("false"),
+                YdbOperationProperty.DISABLE_AUTO_PREPARED_BATCHES.toDriverPropertyInfo("false"),
                 YdbOperationProperty.DISABLE_JDBC_PARAMETERS.toDriverPropertyInfo("false")
         };
     }
@@ -359,12 +350,13 @@ public class YdbDriverProperitesTest {
         properties.setProperty("autoCommit", "true");
         properties.setProperty("transactionLevel", "4");
 
-        properties.setProperty("autoPreparedBatches", "false");
         properties.setProperty("enforceSqlV1", "false");
         properties.setProperty("enforceVariablePrefix", "false");
         properties.setProperty("cacheConnectionsInDriver", "false");
         properties.setProperty("detectSqlOperations", "false");
-        properties.setProperty("alwaysPrepareDataQuery", "false");
+
+        properties.setProperty("disableAutoPreparedBatches", "true");
+        properties.setProperty("disablePrepareDataQuery", "true");
         properties.setProperty("disableJdbcParameters", "true");
         return properties;
     }
@@ -398,8 +390,8 @@ public class YdbDriverProperitesTest {
                 YdbOperationProperty.ENFORCE_VARIABLE_PREFIX.toDriverPropertyInfo("false"),
                 YdbOperationProperty.CACHE_CONNECTIONS_IN_DRIVER.toDriverPropertyInfo("false"),
                 YdbOperationProperty.DETECT_SQL_OPERATIONS.toDriverPropertyInfo("false"),
-                YdbOperationProperty.DISABLE_AUTO_PREPARED_BATCHES.toDriverPropertyInfo("true"),
                 YdbOperationProperty.DISABLE_PREPARE_DATAQUERY.toDriverPropertyInfo("true"),
+                YdbOperationProperty.DISABLE_AUTO_PREPARED_BATCHES.toDriverPropertyInfo("true"),
                 YdbOperationProperty.DISABLE_JDBC_PARAMETERS.toDriverPropertyInfo("true")
         };
     }
@@ -422,9 +414,9 @@ public class YdbDriverProperitesTest {
         Assertions.assertFalse(ops.isCacheConnectionsInDriver());
         Assertions.assertFalse(ops.isDetectSqlOperations());
 
-        Assertions.assertFalse(ops.isAutoPreparedBatchesDisabled());
-        Assertions.assertFalse(ops.isPrepareDataQueryDisabled());
-        Assertions.assertFalse(ops.isJdbcParametersSupportDisabled());
+        Assertions.assertTrue(ops.isAutoPreparedBatchesDisabled());
+        Assertions.assertTrue(ops.isPrepareDataQueryDisabled());
+        Assertions.assertTrue(ops.isJdbcParametersSupportDisabled());
     }
 
     static String asString(DriverPropertyInfo info) {

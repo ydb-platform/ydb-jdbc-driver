@@ -119,34 +119,6 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
     }
 
     @Test
-    public void batchStatementTest() throws SQLException {
-        try (YdbPreparedStatement statement = prepareBatchUpsert("c_Text", "Optional<Text>")) {
-            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementImplOld.class));
-            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementWithDataQueryImpl.class));
-            Assertions.assertTrue(statement.isWrapperFor(YdbPreparedStatementWithDataQueryBatchedImpl.class));
-
-            Assertions.assertNotNull(statement.unwrap(YdbPreparedStatementWithDataQueryBatchedImpl.class));
-        }
-
-        // Batch mode autodetect
-        try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class)
-                .prepareStatement(batchUpsertSql("c_Text", "Text"))) {
-            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementImplOld.class));
-            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementWithDataQueryImpl.class));
-            Assertions.assertTrue(statement.isWrapperFor(YdbPreparedStatementWithDataQueryBatchedImpl.class));
-
-            Assertions.assertNotNull(statement.unwrap(YdbPreparedStatementWithDataQueryBatchedImpl.class));
-        }
-
-        // Wrong query for batch statement
-        String sql = upsertSql("c_Text", "Text");
-        ExceptionAssert.ydbExecution("Statement cannot be executed as batch statement: " + sql,
-                () -> jdbc.connection().unwrap(YdbConnection.class).prepareStatement(
-                        sql, YdbPrepareMode.DATA_QUERY_BATCH)
-        );
-    }
-
-    @Test
     public void testInvalidStruct() throws SQLException {
         ExceptionAssert.ydbNonRetryable("Duplicated member: key", () -> {
             jdbc.connection().unwrap(YdbConnection.class).prepareStatement(

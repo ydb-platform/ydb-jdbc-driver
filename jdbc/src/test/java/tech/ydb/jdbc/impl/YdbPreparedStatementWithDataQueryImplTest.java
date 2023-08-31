@@ -6,7 +6,6 @@ import java.sql.Statement;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -105,17 +104,6 @@ public class YdbPreparedStatementWithDataQueryImplTest {
                 .replaceAll("#tableName", TEST_TABLE_NAME);
         return jdbc.connection().prepareStatement(QueryType.SCAN_QUERY.getPrefix() + "\n" + sql)
                 .unwrap(YdbPreparedStatement.class);
-    }
-
-    @Test
-    public void prepareStatement() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Optional<Text>")) {
-            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementImplOld.class));
-            Assertions.assertTrue(statement.isWrapperFor(YdbPreparedStatementWithDataQueryImpl.class));
-            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementWithDataQueryBatchedImpl.class));
-
-            Assertions.assertNotNull(statement.unwrap(YdbPreparedStatementWithDataQueryImpl.class));
-        }
     }
 
     @Test

@@ -79,11 +79,6 @@ public class YdbParameterMetaDataImpl implements YdbParameterMetaData {
     }
 
     @Override
-    public int getParameterIndex(String parameterName) throws SQLException {
-        return params.getIndexByName(parameterName);
-    }
-
-    @Override
     public String getParameterName(int param) throws SQLException {
         return params.getNameByIndex(param - 1);
     }

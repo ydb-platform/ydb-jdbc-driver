@@ -1,23 +1,130 @@
 package tech.ydb.jdbc.impl.params;
 
 
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
 import tech.ydb.jdbc.impl.YdbJdbcParams;
+import tech.ydb.table.query.Params;
 import tech.ydb.table.values.ListType;
+import tech.ydb.table.values.ListValue;
 import tech.ydb.table.values.StructType;
+import tech.ydb.table.values.StructValue;
 import tech.ydb.table.values.Type;
+import tech.ydb.table.values.Value;
 
 /**
  *
  * @author Aleksandr Gorshenin
  */
 public class BatchedParams implements YdbJdbcParams {
-    private final Map<String, TypeDescription> types;
+    private final String batchParamName;
+    private final Map<String, ParamDescription> paramsByName;
+    private final ParamDescription[] params;
 
-    private BatchedParams(String listName, ListType listType, StructType itemType) {
+    private final List<StructValue> batchList = new ArrayList<>();
+    private final Map<String, Value<?>> currentValues = new HashMap<>();
 
+    private BatchedParams(String listName, StructType structType) {
+        this.batchParamName = listName;
+        this.paramsByName = new HashMap<>();
+        this.params = new ParamDescription[structType.getMembersCount()];
+
+        for (int idx = 0; idx < structType.getMembersCount(); idx += 1) {
+            String paramName = structType.getMemberName(idx);
+            TypeDescription type = TypeDescription.of(structType.getMemberType(idx));
+
+            ParamDescription param = new ParamDescription(idx, paramName, type);
+            params[idx] = param;
+            paramsByName.put(paramName, param);
+        }
+    }
+
+    @Override
+    public int parametersCount() {
+        return params.length;
+    }
+
+    @Override
+    public int batchSize() {
+        return batchList.size();
+    }
+
+    @Override
+    public void clearParameters() {
+        currentValues.clear();
+    }
+
+    @Override
+    public void addBatch() {
+        StructValue batch = StructValue.of(currentValues);
+        batchList.add(batch);
+        currentValues.clear();
+    }
+
+    @Override
+    public void clearBatch() {
+        batchList.clear();
+    }
+
+    @Override
+    public Params getCurrentParams() {
+        StructValue batch = StructValue.of(currentValues);
+        ListValue list = ListValue.of(batch);
+        return Params.of(batchParamName, list);
+    }
+
+    @Override
+    public List<Params> getBatchParams() {
+        if (batchList.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Value<?>[] batchStructs = batchList.toArray(new Value<?>[0]);
+        ListValue list = ListValue.of(batchStructs);
+        return Collections.singletonList(Params.of(batchParamName, list));
+    }
+
+    @Override
+    public void setParam(int index, Object obj, Type type) throws SQLException {
+        if (index <= 0 || index > params.length) {
+            throw new SQLException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + index);
+        }
+        ParamDescription desc = params[index - 1];
+        Value<?> value = desc.getValue(obj);
+        currentValues.put(desc.name(), value);
+    }
+
+    @Override
+    public void setParam(String name, Object obj, Type type) throws SQLException {
+        if (!paramsByName.containsKey(name)) {
+            throw new SQLException(YdbConst.PARAMETER_NOT_FOUND + name);
+        }
+        ParamDescription desc = paramsByName.get(name);
+        Value<?> value = desc.getValue(obj);
+        currentValues.put(desc.name(), value);
+    }
+
+    @Override
+    public String getNameByIndex(int index) throws SQLException {
+        if (index <= 0 || index > params.length) {
+            throw new SQLException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + index);
+        }
+        return params[index - 1].name();
+    }
+
+    @Override
+    public TypeDescription getDescription(int index) throws SQLException {
+        if (index <= 0 || index > params.length) {
+            throw new SQLException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + index);
+        }
+        return params[index - 1].type();
     }
 
     public static BatchedParams fromDataQueryTypes(Map<String, Type> types) {
@@ -43,28 +150,6 @@ public class BatchedParams implements YdbJdbcParams {
         }
 
         StructType itemType = (StructType)innerType;
-        return new BatchedParams(listName, listType, itemType);
+        return new BatchedParams(listName, itemType);
     }
-
-//    private static StructBatchConfiguration fromStruct(String paramName, ListType listType, StructType structType) {
-//        int membersCount = structType.getMembersCount();
-//
-//        Map<String, TypeDescription> types = new LinkedHashMap<>(membersCount);
-//        Map<String, Integer> indexes = new HashMap<>(membersCount);
-//        String[] names = new String[membersCount];
-//        TypeDescription[] descriptions = new TypeDescription[membersCount];
-//        for (int i = 0; i < membersCount; i++) {
-//            String name = "$" + structType.getMemberName(i);
-//            Type type = structType.getMemberType(i);
-//            TypeDescription description = TypeDescription.of(type);
-//            if (indexes.put(name, i) != null) {
-//                throw new IllegalStateException("Internal error. YDB must not bypass this struct " +
-//                        "with duplicate member " + paramName);
-//            }
-//            types.put(name, description);
-//            names[i] = name;
-//            descriptions[i] = description;
-//        }
-//        return new StructBatchConfiguration(paramName, listType, structType, types, indexes, names, descriptions);
-//    }
 }

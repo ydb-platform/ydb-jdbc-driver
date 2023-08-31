@@ -65,8 +65,7 @@ public final class YdbConst {
     public static final String COLUMN_NUMBER_NOT_FOUND = "Column is out of range: ";
     public static final String PARAMETER_NUMBER_NOT_FOUND = "Parameter is out of range: ";
     public static final String PARAMETER_NOT_FOUND = "Parameter not found: ";
-    public static final String PARAMETER_TYPE_UNKNOWN = "Unable to convert sqlType %s (name %s) to " +
-            "YDB type for parameter: %s";
+    public static final String PARAMETER_TYPE_UNKNOWN = "Unable to convert sqlType %s to YDB type for parameter: %s";
     public static final String INVALID_ROW = "Current row index is out of bounds: ";
     public static final String BATCH_UNSUPPORTED = "Batches are not supported in simple prepared statements";
     public static final String BATCH_INVALID = "Batches are not supported for query type: ";

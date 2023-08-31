@@ -155,44 +155,6 @@ public class YdbPreparedStatementImplTest {
                 .unwrap(YdbPreparedStatement.class);
     }
 
-    @Test
-    public void testPrepareStatement() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsert(YdbPrepareMode.IN_MEMORY, "c_Text", "Optional<Text>")) {
-            Assertions.assertTrue(statement.isWrapperFor(YdbPreparedStatementImplOld.class));
-            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementWithDataQueryImpl.class));
-            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementWithDataQueryBatchedImpl.class));
-
-            Assertions.assertNotNull(statement.unwrap(YdbPreparedStatementImplOld.class));
-        }
-
-        try (YdbPreparedStatement statement = prepareUpsert(YdbPrepareMode.DATA_QUERY, "c_Text", "Optional<Text>")) {
-            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementImplOld.class));
-            Assertions.assertTrue(statement.isWrapperFor(YdbPreparedStatementWithDataQueryImpl.class));
-            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementWithDataQueryBatchedImpl.class));
-
-            Assertions.assertNotNull(statement.unwrap(YdbPreparedStatementWithDataQueryImpl.class));
-        }
-
-//        try (YdbPreparedStatement statement = prepareUpsert(
-//                YdbConnection.PreparedStatementMode.DATA_QUERY_BATCH, "c_Text", "Optional<Text>")) {
-//            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementImpl.class));
-//            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementWithDataQueryImpl.class));
-//            Assertions.assertTrue(statement.isWrapperFor(YdbPreparedStatementWithDataQueryBatchedImpl.class));
-//
-//            Assertions.assertNotNull(statement.unwrap(YdbPreparedStatementWithDataQueryBatchedImpl.class));
-//        }
-
-//        try (YdbPreparedStatement statement = prepareUpsert(
-//                YdbConnection.PreparedStatementMode.DATA_QUERY_BATCH, "c_Text", "Optional<Text>")) {
-//            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementImplOld.class));
-//            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementWithDataQueryImpl.class));
-//            Assertions.assertTrue(statement.isWrapperFor(YdbPreparedStatementWithDataQueryBatchedImpl.class));
-//
-//            Assertions.assertNotNull(statement.unwrap(YdbPreparedStatementWithDataQueryBatchedImpl.class));
-//        }
-    }
-
-
     @ParameterizedTest(name = "with {0}")
     @EnumSource(YdbPrepareMode.class)
     public void unknownColumns(YdbPrepareMode mode) throws SQLException {
@@ -648,9 +610,6 @@ public class YdbPreparedStatementImplTest {
             final ParameterMetaData meta = ps.getParameterMetaData();
             final YdbParameterMetaData ydbMeta = meta.unwrap(YdbParameterMetaData.class);
 
-            ExceptionAssert.sqlException("Parameter not found: some-param",
-                    () -> ydbMeta.getParameterIndex("some-param")
-            );
             ExceptionAssert.sqlException("Parameter is out of range: 335",
                     () -> meta.getParameterType(335)
             );
@@ -658,7 +617,6 @@ public class YdbPreparedStatementImplTest {
             Assertions.assertEquals(22, meta.getParameterCount());
             for (int param = 1; param <= meta.getParameterCount(); param++) {
                 String name = ydbMeta.getParameterName(param);
-                Assertions.assertEquals(param, ydbMeta.getParameterIndex(name), "Names and indexes are matched");
 
                 Assertions.assertFalse(meta.isSigned(param), "All params are not isSigned");
                 Assertions.assertEquals(0, meta.getPrecision(param), "No precision available");
