@@ -15,19 +15,30 @@ import tech.ydb.table.values.Value;
 public class ParamDescription {
     private final int index;
     private final String name;
+    private final String displayName;
     private final TypeDescription type;
 
-    public ParamDescription(int index, String name, TypeDescription type) {
+    public ParamDescription(int index, String name, String displayName, TypeDescription type) {
         this.index = index;
         this.name = name;
+        this.displayName = displayName;
         this.type = type;
     }
+
+    public ParamDescription(int index, String name, TypeDescription type) {
+        this(index, name, name, type);
+    }
+
     public int index() {
         return index;
     }
 
     public String name() {
         return name;
+    }
+
+    public String displayName() {
+        return displayName;
     }
 
     public TypeDescription type() {
@@ -58,7 +69,7 @@ public class ParamDescription {
                 if (ydbValue instanceof OptionalValue) {
                     OptionalValue optional = ydbValue.asOptional();
                     if (!optional.isPresent()) {
-                        throw new SQLException(YdbConst.MISSING_REQUIRED_VALUE + name);
+                        throw new SQLException(YdbConst.MISSING_REQUIRED_VALUE + displayName);
                     }
                     checkType(optional.getType().getItemType());
                     return optional.get();
@@ -79,7 +90,8 @@ public class ParamDescription {
 
     private void checkType(Type objectType) throws SQLException {
         if (!type.ydbType().equals(objectType)) {
-            throw new SQLException(String.format(YdbConst.INVALID_PARAMETER_TYPE, name, objectType, type.ydbType()));
+            String msg = String.format(YdbConst.INVALID_PARAMETER_TYPE, displayName, objectType, type.ydbType());
+            throw new SQLException(msg);
         }
     }
 }

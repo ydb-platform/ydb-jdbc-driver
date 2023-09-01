@@ -299,7 +299,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
         }
 
         private ResultState(List<YdbResultSet> list) {
-            updateCount = 0;
+            updateCount = (list == null || list.isEmpty()) ? 1 : -1; // TODO: Get update count?
             results = list;
             resultSetIndex = 0;
         }
@@ -324,11 +324,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
                 return null;
             }
 
-            YdbResultSet resultSet = results.get(index);
-            if (resultSet.isClosed()) {
-                throw new SQLException(YdbConst.RESULT_SET_UNAVAILABLE + index);
-            }
-            return resultSet;
+            return results.get(index);
         }
 
         public boolean getMoreResults(int current) throws SQLException {

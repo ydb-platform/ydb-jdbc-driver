@@ -78,7 +78,6 @@ public class YdbStatementImpl extends BaseYdbStatement {
     @Override
     public boolean execute(String sql) throws SQLException {
         cleanState();
-        clearBatch();
 
         YdbQuery query = parseYdbQuery(sql);
         ResultState newState = EMPTY_STATE;

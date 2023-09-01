@@ -34,6 +34,7 @@ import tech.ydb.jdbc.context.YdbQuery;
 import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Type;
+import tech.ydb.table.values.VoidType;
 
 public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPreparedStatement {
     private static final Logger LOGGER = Logger.getLogger(YdbPreparedStatementImpl.class.getName());
@@ -207,7 +208,11 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
 
     @Override
     public void setNull(String parameterName, int sqlType) throws SQLException {
-        params.setParam(parameterName, null, ydbType(sqlType));
+        Type type = ydbType(sqlType);
+        if (type == null) {
+            type = VoidType.of();
+        }
+        params.setParam(parameterName, null, type);
     }
 
     @Override
@@ -320,7 +325,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
             type = types.toYdbType(sqlType);
         }
         if (type == null) {
-            throw new YdbExecutionException(String.format(YdbConst.UNABLE_TO_SET_NULL_OBJECT));
+            type = VoidType.of();
         }
         params.setParam(parameterName, null, type);
     }
@@ -405,7 +410,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
     public void setNull(int parameterIndex, int sqlType) throws SQLException {
         Type type = ydbType(sqlType);
         if (type == null) {
-            throw new YdbExecutionException(String.format(YdbConst.PARAMETER_TYPE_UNKNOWN, sqlType, parameterIndex));
+            type = VoidType.of();
         }
         params.setParam(parameterIndex, null, type);
     }
@@ -546,7 +551,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
             type = types.toYdbType(sqlType);
         }
         if (type == null) {
-            throw new YdbExecutionException(String.format(YdbConst.UNABLE_TO_SET_NULL_OBJECT));
+            type = VoidType.of();
         }
         params.setParam(parameterIndex, null, type);
     }

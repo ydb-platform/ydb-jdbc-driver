@@ -31,7 +31,7 @@ public interface YdbJdbcParams {
 
     String getNameByIndex(int index) throws SQLException;
 
-    void addBatch();
+    void addBatch() throws SQLException;
     void clearBatch();
     int batchSize();
 
@@ -39,8 +39,8 @@ public interface YdbJdbcParams {
 
     TypeDescription getDescription(int index) throws SQLException;
 
-    List<Params> getBatchParams();
-    Params getCurrentParams();
+    List<Params> getBatchParams() throws SQLException;
+    Params getCurrentParams() throws SQLException;
 
     static YdbJdbcParams create(YdbConnectionImpl connection, YdbQuery query, YdbPrepareMode mode) throws SQLException {
         YdbOperationProperties props = connection.getCtx().getOperationProperties();
@@ -54,8 +54,8 @@ public interface YdbJdbcParams {
         DataQuery prepared = connection.prepareDataQuery(query);
 
         boolean requireBatch = mode == YdbPrepareMode.DATA_QUERY_BATCH;
-        if (requireBatch && !props.isAutoPreparedBatchesDisabled()) {
-            BatchedParams params = BatchedParams.fromDataQueryTypes(prepared.types());
+        if (requireBatch || (mode == YdbPrepareMode.AUTO && !props.isAutoPreparedBatchesDisabled())) {
+            BatchedParams params = BatchedParams.tryCreateBatched(prepared.types());
             if (params != null) {
                 return params;
             }

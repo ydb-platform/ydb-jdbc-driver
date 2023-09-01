@@ -48,7 +48,7 @@ public class YdbParameterMetaDataImpl implements YdbParameterMetaData {
 
     @Override
     public int getParameterType(int param) throws SQLException {
-        TypeDescription description = params.getDescription(param - 1);
+        TypeDescription description = params.getDescription(param);
         if (description == null) {
             return Types.OTHER;
         }

@@ -8,8 +8,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import tech.ydb.core.StatusCode;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
+import tech.ydb.jdbc.exception.YdbNonRetryableException;
 import tech.ydb.jdbc.impl.YdbJdbcParams;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.ListType;
@@ -38,9 +40,10 @@ public class BatchedParams implements YdbJdbcParams {
 
         for (int idx = 0; idx < structType.getMembersCount(); idx += 1) {
             String paramName = structType.getMemberName(idx);
+            String displayName = YdbConst.VARIABLE_PARAMETER_PREFIX + paramName;
             TypeDescription type = TypeDescription.of(structType.getMemberType(idx));
 
-            ParamDescription param = new ParamDescription(idx, paramName, type);
+            ParamDescription param = new ParamDescription(idx, paramName, displayName, type);
             params[idx] = param;
             paramsByName.put(paramName, param);
         }
@@ -62,9 +65,8 @@ public class BatchedParams implements YdbJdbcParams {
     }
 
     @Override
-    public void addBatch() {
-        StructValue batch = StructValue.of(currentValues);
-        batchList.add(batch);
+    public void addBatch() throws SQLException {
+        batchList.add(validatedCurrentStruct());
         currentValues.clear();
     }
 
@@ -73,10 +75,27 @@ public class BatchedParams implements YdbJdbcParams {
         batchList.clear();
     }
 
+    private StructValue validatedCurrentStruct() throws SQLException {
+        for (ParamDescription prm: params) {
+            if (currentValues.containsKey(prm.name())) {
+                continue;
+            }
+
+            if (prm.type().isOptional()) {
+                currentValues.put(prm.name(), prm.type().nullValue());
+            }
+
+            throw new YdbNonRetryableException(
+                    YdbConst.MISSING_VALUE_FOR_PARAMETER + prm.displayName(),
+                    StatusCode.BAD_REQUEST
+            );
+        }
+        return StructValue.of(currentValues);
+    }
+
     @Override
-    public Params getCurrentParams() {
-        StructValue batch = StructValue.of(currentValues);
-        ListValue list = ListValue.of(batch);
+    public Params getCurrentParams() throws SQLException {
+        ListValue list = ListValue.of(validatedCurrentStruct());
         return Params.of(batchParamName, list);
     }
 
@@ -127,7 +146,7 @@ public class BatchedParams implements YdbJdbcParams {
         return params[index - 1].type();
     }
 
-    public static BatchedParams fromDataQueryTypes(Map<String, Type> types) {
+    public static BatchedParams tryCreateBatched(Map<String, Type> types) {
         // Only single parameter
         if (types.size() != 1) {
             return null;
