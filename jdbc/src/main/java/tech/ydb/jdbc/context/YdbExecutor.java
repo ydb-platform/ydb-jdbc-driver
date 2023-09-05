@@ -68,12 +68,12 @@ public class YdbExecutor {
             return;
         }
 
-        logger.fine(msg);
+        logger.finest(msg);
         Stopwatch sw = Stopwatch.createStarted();
 
         try {
             simpleExecute(runnableSupplier);
-            logger.log(Level.FINE, "[{0}] OK ", sw.stop());
+            logger.log(Level.FINEST, "[{0}] OK ", sw.stop());
         } catch (SQLException | RuntimeException ex) {
             logger.log(Level.FINE, "[{0}] {1} ", new Object[] { sw.stop(), ex.getMessage() });
             throw ex;
@@ -85,12 +85,12 @@ public class YdbExecutor {
             return simpleCall(callSupplier);
         }
 
-        logger.fine(msg);
+        logger.finest(msg);
         Stopwatch sw = Stopwatch.createStarted();
 
         try {
             T value = simpleCall(callSupplier);
-            logger.log(Level.FINE, "[{0}] OK ", sw.stop());
+            logger.log(Level.FINEST, "[{0}] OK ", sw.stop());
             return value;
         } catch (SQLException | RuntimeException ex) {
             logger.log(Level.FINE, "[{0}] {1} ", new Object[] { sw.stop(), ex.getMessage() });

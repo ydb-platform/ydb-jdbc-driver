@@ -3,8 +3,8 @@ package tech.ydb.jdbc.settings;
 import java.util.Map;
 
 import javax.annotation.Nullable;
-import tech.ydb.core.grpc.GrpcTransport;
 
+import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.table.TableClient;
 
 public class YdbClientProperties {
@@ -30,11 +30,21 @@ public class YdbClientProperties {
                 entry.getKey().getSetter().accept(builder, entry.getValue().getParsedValue());
             }
         }
-        ParsedProperty minSize = params.get(YdbClientProperty.SESSION_POOL_SIZE_MIN);
-        ParsedProperty maxSize = params.get(YdbClientProperty.SESSION_POOL_SIZE_MAX);
-        if (minSize != null && maxSize != null) {
-            builder.sessionPoolSize(minSize.getParsedValue(), maxSize.getParsedValue());
+
+        int minSize = 0;
+        int maxSize = 50;
+
+        ParsedProperty minSizeConfig = params.get(YdbClientProperty.SESSION_POOL_SIZE_MIN);
+        ParsedProperty maxSizeConfig = params.get(YdbClientProperty.SESSION_POOL_SIZE_MAX);
+
+        if (minSizeConfig != null) {
+            minSize = Math.max(0, minSizeConfig.getParsedValue());
+            maxSize = Math.min(maxSize, minSize);
         }
-        return builder.build();
+        if (maxSizeConfig != null) {
+            maxSize = Math.max(minSize, maxSizeConfig.getParsedValue());
+        }
+
+        return builder.sessionPoolSize(minSize, maxSize).build();
     }
 }
