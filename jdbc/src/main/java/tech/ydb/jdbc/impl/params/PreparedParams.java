@@ -36,7 +36,7 @@ public class PreparedParams implements YdbJdbcParams {
         // Firstly put all indexed params (p1, p2, ...,  pN) in correct places of paramNames
         Set<String> indexedNames = new HashSet<>();
         for (int idx = 0; idx < paramNames.length; idx += 1) {
-            String indexedName = YdbConst.INDEXED_PARAMETER_PREFIX + (1 + idx);
+            String indexedName = YdbConst.VARIABLE_PARAMETER_PREFIX + YdbConst.INDEXED_PARAMETER_PREFIX + (1 + idx);
             if (types.containsKey(indexedName)) {
                 TypeDescription typeDesc = TypeDescription.of(types.get(indexedName));
                 ParamDescription paramDesc = new ParamDescription(idx, indexedName, typeDesc);
@@ -72,17 +72,20 @@ public class PreparedParams implements YdbJdbcParams {
         if (index <= 0 || index > paramNames.length) {
             throw new SQLException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + index);
         }
-        setParam(paramNames[index - 1], obj, type);
+        String varName = paramNames[index - 1];
+        ParamDescription desc = params.get(varName);
+        paramValues.put(varName, desc.getValue(obj));
     }
 
     @Override
     public void setParam(String name, Object obj, Type type) throws SQLException {
-        if (!params.containsKey(name)) {
+        String varName = YdbConst.VARIABLE_PARAMETER_PREFIX + name;
+        if (!params.containsKey(varName)) {
             throw new SQLException(YdbConst.PARAMETER_NOT_FOUND + name);
         }
 
-        ParamDescription desc = params.get(name);
-        paramValues.put(name, desc.getValue(obj));
+        ParamDescription desc = params.get(varName);
+        paramValues.put(varName, desc.getValue(obj));
     }
 
     @Override

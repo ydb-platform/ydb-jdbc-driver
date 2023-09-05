@@ -21,6 +21,7 @@ import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.SqlQueries;
 import tech.ydb.jdbc.impl.helper.TableAssert;
+import tech.ydb.jdbc.impl.helper.TextSelectAssert;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
 public class YdbStatementImplTest {
@@ -269,7 +270,7 @@ public class YdbStatementImplTest {
         statement.execute("--jdbc:SCHEME\n create table scheme_query_test(id Int32, primary key(id))");
 
         String dropSql = "drop table scheme_query_test";
-        ExceptionAssert.ydbNonRetryable("'DROP TABLE' not supported in query prepare mode",
+        ExceptionAssert.ydbNonRetryable("Operation 'DropTable' can't be performed in data query",
                 () -> statement.execute(dropSql));
         statement.unwrap(YdbStatement.class).executeSchemeQuery(dropSql);
     }
@@ -286,8 +287,12 @@ public class YdbStatementImplTest {
     public void executeDataQueryInTx() throws SQLException {
         // Cannot select from table already updated in transaction
         statement.executeUpdate(TEST_UPSERT1_SQL);
-        ExceptionAssert.ydbNonRetryable("Data modifications previously made to table",
-                () -> statement.executeQuery(TEST_TABLE.selectAllSQL()));
+
+        try (ResultSet rs = statement.executeQuery(TEST_TABLE.selectColumn("c_Text"))) {
+            TextSelectAssert.of(rs, "c_Text", "Text")
+                    .nextRow(1, "2")
+                    .noNextRows();
+        }
     }
 
     @Test

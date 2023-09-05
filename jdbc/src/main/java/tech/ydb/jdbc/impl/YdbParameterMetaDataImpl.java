@@ -24,7 +24,7 @@ public class YdbParameterMetaDataImpl implements YdbParameterMetaData {
 
     @Override
     public int isNullable(int param) throws SQLException {
-        TypeDescription description = params.getDescription(param - 1);
+        TypeDescription description = params.getDescription(param);
         if (description == null) {
             return ParameterMetaData.parameterNullableUnknown;
         }
@@ -57,7 +57,7 @@ public class YdbParameterMetaDataImpl implements YdbParameterMetaData {
 
     @Override
     public String getParameterTypeName(int param) throws SQLException {
-        TypeDescription description = params.getDescription(param - 1);
+        TypeDescription description = params.getDescription(param);
         if (description == null) {
             return null;
         }
@@ -66,7 +66,7 @@ public class YdbParameterMetaDataImpl implements YdbParameterMetaData {
 
     @Override
     public String getParameterClassName(int param) throws SQLException {
-        TypeDescription description = params.getDescription(param - 1);
+        TypeDescription description = params.getDescription(param);
         if (description == null) {
             return null;
         }
@@ -80,7 +80,7 @@ public class YdbParameterMetaDataImpl implements YdbParameterMetaData {
 
     @Override
     public String getParameterName(int param) throws SQLException {
-        return params.getNameByIndex(param - 1);
+        return params.getNameByIndex(param);
     }
 
     @Override

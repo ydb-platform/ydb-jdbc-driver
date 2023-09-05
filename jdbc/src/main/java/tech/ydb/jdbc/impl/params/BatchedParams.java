@@ -83,6 +83,7 @@ public class BatchedParams implements YdbJdbcParams {
 
             if (prm.type().isOptional()) {
                 currentValues.put(prm.name(), prm.type().nullValue());
+                continue;
             }
 
             throw new YdbNonRetryableException(

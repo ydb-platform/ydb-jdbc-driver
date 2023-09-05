@@ -17,8 +17,8 @@ public class SqlQueries {
         BATCHED,
     }
 
-    public enum YdbType {
-        STANDART,
+    public enum YqlQuery {
+        SIMPLE,
         BATCHED,
     }
 
@@ -33,8 +33,9 @@ public class SqlQueries {
     private static final String SELECT_ALL = "select * from #tableName";
     private static final String DELETE_ALL = "delete from #tableName";
     private static final String SELECT_COLUMN = "select key, #column from #tableName";
+    private static final String WRONG_SELECT = "select key2 from #tableName";
 
-    private static final Map<JdbcQuery, String> UPSERT_ONE = ImmutableMap.of(
+    private static final Map<JdbcQuery, String> JDBC_UPSERT_ONE = ImmutableMap.of(
             JdbcQuery.STANDART, "" +
                     "upsert into #tableName (key, #column) values (?, ?)",
 
@@ -47,6 +48,17 @@ public class SqlQueries {
                     "declare $values as List<Struct<p1:Int32,p2:#type>>;\n" +
                     "$mapper = ($row) -> (AsStruct($row.p1 as key, $row.p2 as #column));\n" +
                     "upsert into #tableName select * from as_table(ListMap($values, $mapper));"
+    );
+
+    private static final Map<YqlQuery, String> YQL_UPSERT_ONE = ImmutableMap.of(
+            YqlQuery.SIMPLE, "" +
+                    "declare $key as Int32;\n" +
+                    "declare $#column as #type;\n" +
+                    "upsert into #tableName (key, #column) values ($key, $#column)",
+
+            YqlQuery.BATCHED, "" +
+                    "declare $values as List<Struct<key:Int32,#column:#type>>;\n" +
+                    "upsert into #tableName select * from as_table($values);"
     );
 
     private final String tableName;
@@ -81,6 +93,11 @@ public class SqlQueries {
         return withTableName(SELECT);
     }
 
+    /** @return select key2 from #tableName */
+    public String wrongSelectSQL() {
+        return withTableName(WRONG_SELECT);
+    }
+
     /** @return delete from #tableName */
     public String deleteAllSQL() {
         return withTableName(DELETE_ALL);
@@ -96,7 +113,14 @@ public class SqlQueries {
     }
 
     public String upsertOne(JdbcQuery query, String column, String type) {
-        return UPSERT_ONE.get(query)
+        return JDBC_UPSERT_ONE.get(query)
+                .replaceAll("#column", column)
+                .replaceAll("#type", type)
+                .replaceAll("#tableName", tableName);
+    }
+
+    public String upsertOne(YqlQuery query, String column, String type) {
+        return YQL_UPSERT_ONE.get(query)
                 .replaceAll("#column", column)
                 .replaceAll("#type", type)
                 .replaceAll("#tableName", tableName);

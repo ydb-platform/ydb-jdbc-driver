@@ -130,20 +130,6 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
     @Test
     public void executeEmpty() throws SQLException {
         try (YdbPreparedStatement statement = prepareBatchUpsert("c_Text", "Optional<Text>")) {
-            statement.execute();
-            jdbc.connection().commit();
-
-            try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
-                TextSelectAssert.of(select.executeQuery(), "c_Text", "Text").noNextRows();
-            }
-
-            statement.executeUpdate();
-            jdbc.connection().commit();
-
-            try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
-                TextSelectAssert.of(select.executeQuery(), "c_Text", "Text").noNextRows();
-            }
-
             statement.executeBatch();
             jdbc.connection().commit();
 
@@ -156,6 +142,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
     @Test
     public void executeEmptyNoResultSet() throws SQLException {
         try (YdbPreparedStatement statement = prepareBatchUpsert("c_Text", "Optional<Text>")) {
+            statement.setInt("key", 1); // key is requiered value
             ExceptionAssert.sqlException("Query must return ResultSet", statement::executeQuery);
         }
         jdbc.connection().commit();
@@ -171,14 +158,13 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
             statement.setInt("key", 2);
             statement.setString("c_Text", "value-2");
 
-            statement.execute(); // Just added silently
+            statement.execute(); // Just added only last params
         }
 
         jdbc.connection().commit();
 
         try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
             TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
-                    .nextRow(1, "value-1")
                     .nextRow(2, "value-2")
                     .noNextRows();
         }

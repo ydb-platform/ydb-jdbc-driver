@@ -369,8 +369,8 @@ public class YdbConnectionImplTest {
             statement.execute(SIMPLE_UPSERT);
             statement.execute(SIMPLE_UPSERT);
 
-            ExceptionAssert.ydbNonRetryable("Data modifications previously made to table",
-                    () -> statement.executeQuery(QUERIES.selectAllSQL()));
+            ExceptionAssert.ydbNonRetryable("Member not found: key2. Did you mean key?",
+                    () -> statement.executeQuery(QUERIES.wrongSelectSQL()));
 
             Assertions.assertNull(currentTxId());
 
@@ -391,8 +391,8 @@ public class YdbConnectionImplTest {
 
             statement.execute(SIMPLE_UPSERT);
 
-            ExceptionAssert.ydbNonRetryable("Data modifications previously made to table",
-                    () -> statement.executeQuery(QUERIES.selectAllSQL()));
+            ExceptionAssert.ydbNonRetryable("Member not found: key2. Did you mean key?",
+                    () -> statement.executeQuery(QUERIES.wrongSelectSQL()));
 
             Assertions.assertNull(currentTxId());
             jdbc.connection().rollback();

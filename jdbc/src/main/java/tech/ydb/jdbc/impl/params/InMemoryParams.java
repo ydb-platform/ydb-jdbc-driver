@@ -4,7 +4,6 @@ package tech.ydb.jdbc.impl.params;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,23 +22,18 @@ import tech.ydb.table.values.Value;
  */
 public class InMemoryParams implements YdbJdbcParams {
     private final String[] paramNames;
-    private final Map<String, Integer> paramIndexes;
-    private final Value<?>[] paramValues;
+    private final Map<String, Value<?>> paramValues;
     private final List<Params> batchList;
 
     public InMemoryParams(List<String> params) {
         this.paramNames = params.toArray(new String[0]);
-        this.paramIndexes = new HashMap<>();
-        for (int idx = 0; idx < paramNames.length; idx += 1) {
-            paramIndexes.put(paramNames[idx], idx);
-        }
-        this.paramValues = new Value<?>[paramNames.length];
+        this.paramValues = new HashMap<>();
         this.batchList = new ArrayList<>();
     }
 
     @Override
     public int parametersCount() {
-        return paramValues.length;
+        return paramValues.size();
     }
 
     @Override
@@ -49,14 +43,8 @@ public class InMemoryParams implements YdbJdbcParams {
 
     @Override
     public void addBatch() {
-        Params batch = Params.create();
-        for (int idx = 0; idx < paramValues.length; idx += 1) {
-            if (paramValues[idx] != null) {
-                batch.put(paramNames[idx], paramValues[idx]);
-                paramValues[idx] = null;
-            }
-        }
-        batchList.add(batch);
+        batchList.add(Params.copyOf(paramValues));
+        paramValues.clear();
     }
 
     @Override
@@ -66,7 +54,7 @@ public class InMemoryParams implements YdbJdbcParams {
 
     @Override
     public void clearParameters() {
-        Arrays.fill(paramValues, null);
+        paramValues.clear();
     }
 
     @Override
@@ -76,13 +64,7 @@ public class InMemoryParams implements YdbJdbcParams {
 
     @Override
     public Params getCurrentParams() {
-        Params batch = Params.create();
-        for (int idx = 0; idx < paramValues.length; idx += 1) {
-            if (paramValues[idx] != null) {
-                batch.put(paramNames[idx], paramValues[idx]);
-            }
-        }
-        return batch;
+        return Params.copyOf(paramValues);
     }
 
     @Override
@@ -95,33 +77,31 @@ public class InMemoryParams implements YdbJdbcParams {
 
     @Override
     public TypeDescription getDescription(int index) throws SQLException {
-        if (index <= 0 || index > paramValues.length) {
+        if (index <= 0 || index > paramNames.length) {
             throw new SQLException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + index);
         }
-        Value<?> arg = paramValues[index - 1];
+        String name = paramNames[index - 1];
+        Value<?> arg = paramValues.get(name);
         return arg == null ? null : TypeDescription.of(arg.getType());
     }
 
     @Override
     public void setParam(int index, Object obj, Type type) throws SQLException {
-        if (index <= 0 || index > paramValues.length) {
+        if (index <= 0 || index > paramNames.length) {
             throw new SQLException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + index);
         }
 
-        if (obj instanceof Value<?>) {
-            paramValues[index - 1] = (Value<?>)obj;
-            return;
-        }
-
-        ParamDescription desc = new ParamDescription(index - 1, paramNames[index - 1], TypeDescription.of(type));
-        paramValues[index - 1] = desc.getValue(obj);
+        setParam(paramNames[index - 1], obj, type);
     }
 
     @Override
     public void setParam(String name, Object obj, Type type) throws SQLException {
-        if (!paramIndexes.containsKey(name)) {
-            throw new SQLException(YdbConst.PARAMETER_NOT_FOUND + name);
+        if (obj instanceof Value<?>) {
+            paramValues.put(name, (Value<?>)obj);
+            return;
         }
-        setParam(paramIndexes.get(name), obj, type);
+
+        ParamDescription desc = new ParamDescription(-1, name, TypeDescription.of(type));
+        paramValues.put(name, desc.getValue(obj));
     }
 }

@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import tech.ydb.jdbc.YdbConnection;
-import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.common.QueryType;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
@@ -122,18 +121,6 @@ public class YdbPreparedStatementWithDataQueryImplTest {
     }
 
     @Test
-    public void addBatch() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Optional<Text>")) {
-            ExceptionAssert.sqlFeatureNotSupported(
-                    "Batches are not supported in simple prepared statements", statement::addBatch);
-            ExceptionAssert.sqlFeatureNotSupported(
-                    "Batches are not supported in simple prepared statements", statement::clearBatch);
-            ExceptionAssert.sqlFeatureNotSupported(
-                    "Batches are not supported in simple prepared statements", statement::executeBatch);
-        }
-    }
-
-    @Test
     public void executeDataQuery() throws SQLException {
         try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Optional<Text>")) {
             statement.setInt("key", 1);
@@ -186,15 +173,19 @@ public class YdbPreparedStatementWithDataQueryImplTest {
                 statement.execute();
             }
 
-            // without jdbc.connection().commit() driver continues to use single transaction;
-
-            ExceptionAssert.ydbNonRetryable("Data modifications previously made to table", () -> {
-                try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
-                    select.executeQuery();
-                }
-            });
+            try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
+                TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
+                        .nextRow(1, "value-1")
+                        .noNextRows();
+            }
         } finally {
             jdbc.connection().setAutoCommit(true);
+        }
+
+        try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
+            TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
+                    .nextRow(1, "value-1")
+                    .noNextRows();
         }
     }
 
@@ -230,7 +221,7 @@ public class YdbPreparedStatementWithDataQueryImplTest {
         String sql = QueryType.SCAN_QUERY.getPrefix() + "\n" + upsertSql("c_Text", "Optional<Text>");
 
         try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class)
-                .prepareStatement(sql, YdbPrepareMode.IN_MEMORY)
+                .prepareStatement(sql)
                 .unwrap(YdbPreparedStatement.class)) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
