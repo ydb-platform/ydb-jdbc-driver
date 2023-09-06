@@ -30,7 +30,7 @@ import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.common.MappingSetters;
-import tech.ydb.jdbc.context.YdbQuery;
+import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Type;

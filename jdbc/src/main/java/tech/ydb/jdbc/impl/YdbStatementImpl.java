@@ -12,7 +12,7 @@ import java.util.logging.Logger;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
-import tech.ydb.jdbc.context.YdbQuery;
+import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.Params;
 
 public class YdbStatementImpl extends BaseYdbStatement {

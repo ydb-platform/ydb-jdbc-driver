@@ -5,7 +5,7 @@ import java.sql.SQLException;
 
 import javax.annotation.Nullable;
 
-import tech.ydb.jdbc.context.YdbQuery;
+import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbExecutor;
 import tech.ydb.table.query.DataQueryResult;

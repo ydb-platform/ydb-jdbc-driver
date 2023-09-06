@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.context;
+package tech.ydb.jdbc.query;
 
 
 import java.sql.SQLException;
@@ -9,7 +9,6 @@ import java.util.function.Supplier;
 
 import tech.ydb.core.StatusCode;
 import tech.ydb.jdbc.YdbConst;
-import tech.ydb.jdbc.common.JdbcLexer;
 import tech.ydb.jdbc.common.QueryType;
 import tech.ydb.jdbc.exception.YdbNonRetryableException;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
@@ -55,17 +54,6 @@ public class YdbQuery {
     public List<String> getIndexesParameters() {
         return extraParams;
     }
-
-//    public String getIndexParameterName(int parameterIndex) {
-//        if (!hasIndexParameters()) {
-//            return YdbConst.INDEXED_PARAMETER_PREFIX + parameterIndex;
-//        }
-//
-//        if (parameterIndex < 0 || parameterIndex >= extraParams.size()) {
-//            throw new IllegalArgumentException("Wrong argument index " + parameterIndex);
-//        }
-//        return extraParams.get(parameterIndex);
-//    }
 
     public String getYqlQuery(Params params) throws SQLException {
         StringBuilder yql = new StringBuilder();

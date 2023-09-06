@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.common;
+package tech.ydb.jdbc.query;
 
 import java.util.function.Supplier;
 

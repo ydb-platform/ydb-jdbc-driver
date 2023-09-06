@@ -19,7 +19,7 @@ import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.context.YdbExecutor;
-import tech.ydb.jdbc.context.YdbQuery;
+import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.exception.YdbResultTruncatedException;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.table.query.DataQueryResult;

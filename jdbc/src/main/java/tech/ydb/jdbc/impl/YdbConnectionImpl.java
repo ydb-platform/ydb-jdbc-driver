@@ -36,7 +36,7 @@ import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.common.QueryType;
 import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbExecutor;
-import tech.ydb.jdbc.context.YdbQuery;
+import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.context.YdbTxState;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.table.Session;
