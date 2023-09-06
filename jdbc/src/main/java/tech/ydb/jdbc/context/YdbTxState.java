@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.connection;
+package tech.ydb.jdbc.context;
 
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;

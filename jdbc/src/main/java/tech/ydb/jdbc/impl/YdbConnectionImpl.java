@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.connection;
+package tech.ydb.jdbc.impl;
 
 import java.sql.Array;
 import java.sql.Blob;
@@ -17,7 +17,6 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -30,18 +29,16 @@ import com.google.common.base.Suppliers;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbDatabaseMetaData;
+import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.common.QueryType;
-import tech.ydb.jdbc.common.YdbQuery;
-import tech.ydb.jdbc.exception.YdbExecutionException;
-import tech.ydb.jdbc.impl.YdbTypesImpl;
+import tech.ydb.jdbc.context.YdbContext;
+import tech.ydb.jdbc.context.YdbExecutor;
+import tech.ydb.jdbc.context.YdbQuery;
+import tech.ydb.jdbc.context.YdbTxState;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
-import tech.ydb.jdbc.statement.YdbPreparedStatementImpl;
-import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryBatchedImpl;
-import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryImpl;
-import tech.ydb.jdbc.statement.YdbStatementImpl;
 import tech.ydb.table.Session;
 import tech.ydb.table.query.DataQuery;
 import tech.ydb.table.query.DataQueryResult;
@@ -56,6 +53,7 @@ import tech.ydb.table.settings.ExecuteSchemeQuerySettings;
 import tech.ydb.table.settings.ExplainDataQuerySettings;
 import tech.ydb.table.settings.KeepAliveSessionSettings;
 import tech.ydb.table.settings.PrepareDataQuerySettings;
+import tech.ydb.table.settings.RequestSettings;
 import tech.ydb.table.settings.RollbackTxSettings;
 
 public class YdbConnectionImpl implements YdbConnection {
@@ -70,11 +68,18 @@ public class YdbConnectionImpl implements YdbConnection {
     public YdbConnectionImpl(YdbContext context) throws SQLException {
         this.ctx = context;
         this.metaDataSupplier = Suppliers.memoize(() -> new YdbDatabaseMetaDataImpl(this))::get;
-        this.executor = new YdbExecutor(LOGGER, ctx.getOperationProperties().getDeadlineTimeout());
+        this.executor = new YdbExecutor(LOGGER);
 
         int txLevel = ctx.getOperationProperties().getTransactionLevel();
         boolean txAutoCommit = ctx.getOperationProperties().isAutoCommit();
         this.state = YdbTxState.create(txLevel, txAutoCommit);
+    }
+
+    <T extends RequestSettings<?>> T withDefaultTimeout(T settings) {
+        Duration operation = ctx.getOperationProperties().getDeadlineTimeout();
+        settings.setOperationTimeout(operation);
+        settings.setTimeout(operation.plusSeconds(1));
+        return settings;
     }
 
     @Override
@@ -91,7 +96,11 @@ public class YdbConnectionImpl implements YdbConnection {
 
     @Override
     public String nativeSQL(String sql) {
-        return YdbQuery.from(ctx.getOperationProperties(), sql).build().getYqlQuery(null);
+        try {
+            return YdbQuery.from(ctx.getOperationProperties(), sql).getYqlQuery(null);
+        } catch (SQLException ex) {
+            return ex.getMessage();
+        }
     }
 
     private void updateState(YdbTxState newState) {
@@ -132,9 +141,10 @@ public class YdbConnectionImpl implements YdbConnection {
         }
 
         Session session = state.getSession(ctx, executor);
+        CommitTxSettings settings = withDefaultTimeout(new CommitTxSettings());
+
         try {
             executor.clearWarnings();
-            CommitTxSettings settings = executor.withTimeouts(new CommitTxSettings());
             executor.execute(
                     "Commit TxId: " + state.txID(),
                     () -> session.commitTransaction(state.txID(), settings)
@@ -153,9 +163,10 @@ public class YdbConnectionImpl implements YdbConnection {
         }
 
         Session session = state.getSession(ctx, executor);
+        RollbackTxSettings settings = withDefaultTimeout(new RollbackTxSettings());
+
         try {
             executor.clearWarnings();
-            RollbackTxSettings settings = executor.withTimeouts(new RollbackTxSettings());
             executor.execute(
                     "Rollback TxId: " + state.txID(),
                     () -> session.rollbackTransaction(state.txID(), settings)
@@ -245,7 +256,7 @@ public class YdbConnectionImpl implements YdbConnection {
         }
 
         // Scheme query does not affect transactions or result sets
-        ExecuteSchemeQuerySettings settings = executor.withTimeouts(new ExecuteSchemeQuerySettings());
+        ExecuteSchemeQuerySettings settings = withDefaultTimeout(new ExecuteSchemeQuerySettings());
         final String yql = query.getYqlQuery(null);
 
         try (Session session = executor.createSession(ctx)) {
@@ -254,16 +265,12 @@ public class YdbConnectionImpl implements YdbConnection {
     }
 
     @Override
-    public DataQueryResult executeDataQuery(YdbQuery query, Params params, YdbExecutor executor) throws SQLException {
+    public DataQueryResult executeDataQuery(YdbQuery query, YdbExecutor executor,
+            ExecuteDataQuerySettings settings, Params params) throws SQLException {
         ensureOpened();
 
-        final ExecuteDataQuerySettings settings = executor.withTimeouts(new ExecuteDataQuerySettings());
-        if (!query.keepInCache()) {
-            settings.disableQueryCache();
-        }
         final String yql = query.getYqlQuery(params);
-
-        Session session = state.getSession(ctx, executor);
+        final Session session = state.getSession(ctx, executor);
         try {
             DataQueryResult result = executor.call(
                     QueryType.DATA_QUERY + " >>\n" + yql,
@@ -278,15 +285,15 @@ public class YdbConnectionImpl implements YdbConnection {
     }
 
     @Override
-    public ResultSetReader executeScanQuery(YdbQuery query, Params params, YdbExecutor executor) throws SQLException {
+    public ResultSetReader executeScanQuery(YdbQuery query, YdbExecutor executor, Params params) throws SQLException {
         ensureOpened();
 
+        String yql = query.getYqlQuery(params);
+        Collection<ResultSetReader> resultSets = new LinkedBlockingQueue<>();
         Duration scanQueryTimeout = ctx.getOperationProperties().getScanQueryTimeout();
         ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()
-                .withRequestTimeout(scanQueryTimeout).build();
-        String yql = query.getYqlQuery(params);
-
-        Collection<ResultSetReader> resultSets = new LinkedBlockingQueue<>();
+                .withRequestTimeout(scanQueryTimeout)
+                .build();
         try (Session session = executor.createSession(ctx)) {
             executor.execute(QueryType.SCAN_QUERY + " >>\n" + yql,
                     () -> session.executeScanQuery(yql, params, settings).start(resultSets::add));
@@ -299,22 +306,20 @@ public class YdbConnectionImpl implements YdbConnection {
     public ExplainDataQueryResult executeExplainQuery(YdbQuery query, YdbExecutor executor) throws SQLException {
         ensureOpened();
 
-        ExplainDataQuerySettings settings = executor.withTimeouts(new ExplainDataQuerySettings());
         String yql = query.getYqlQuery(null);
-
+        ExplainDataQuerySettings settings = withDefaultTimeout(new ExplainDataQuerySettings());
         try (Session session = executor.createSession(ctx)) {
-            return executor.call(
-                    QueryType.EXPLAIN_QUERY + " >>\n" + yql,
-                    () -> session.explainDataQuery(yql, settings));
+            String msg = QueryType.EXPLAIN_QUERY + " >>\n" + yql;
+            return executor.call(msg, () -> session.explainDataQuery(yql, settings));
         }
     }
 
-    private DataQuery prepareDataQuery(YdbQuery query) throws SQLException {
-        PrepareDataQuerySettings cfg = executor.withTimeouts(new PrepareDataQuerySettings());
+    DataQuery prepareDataQuery(YdbQuery query) throws SQLException {
         String yql = query.getYqlQuery(null);
-
+        PrepareDataQuerySettings settings = withDefaultTimeout(new PrepareDataQuerySettings());
         try (Session session = executor.createSession(ctx)) {
-            return executor.call("Preparing Query >>\n" + yql, () -> session.prepareDataQuery(yql, cfg));
+            String msg = "Preparing Query >>\n" + yql;
+            return executor.call(msg, () -> session.prepareDataQuery(yql, settings));
         }
     }
 
@@ -365,16 +370,13 @@ public class YdbConnectionImpl implements YdbConnection {
     @Override
     public YdbPreparedStatement prepareStatement(String origSql, int resultSetType, int resultSetConcurrency,
             int resultSetHoldability) throws SQLException {
-        ensureOpened();
         checkStatementParams(resultSetType, resultSetConcurrency, resultSetHoldability);
-        this.clearWarnings();
-
-        return prepareStatementImpl(origSql, resultSetType, PreparedStatementMode.DEFAULT);
+        return prepareStatement(origSql, resultSetType, YdbPrepareMode.AUTO);
     }
 
     @Override
-    public YdbPreparedStatement prepareStatement(String sql, PreparedStatementMode mode) throws SQLException {
-        return prepareStatementImpl(sql, ResultSet.TYPE_SCROLL_INSENSITIVE, mode);
+    public YdbPreparedStatement prepareStatement(String sql, YdbPrepareMode mode) throws SQLException {
+        return prepareStatement(sql, ResultSet.TYPE_SCROLL_INSENSITIVE, mode);
     }
 
     @Override
@@ -386,35 +388,19 @@ public class YdbConnectionImpl implements YdbConnection {
                 ResultSet.HOLD_CURSORS_OVER_COMMIT);
     }
 
-    private YdbPreparedStatement prepareStatementImpl(String sql, int resultSetType, PreparedStatementMode mode)
-            throws SQLException {
+    private YdbPreparedStatement prepareStatement(String sql, int resultSetType, YdbPrepareMode mode) throws SQLException {
         ensureOpened();
         executor.clearWarnings();
 
         YdbOperationProperties props = ctx.getOperationProperties();
-        YdbQuery query = YdbQuery.from(props, sql).build();
+        YdbQuery query = YdbQuery.from(props, sql);
 
-        if (mode == PreparedStatementMode.IN_MEMORY
-                || (mode == PreparedStatementMode.DEFAULT && !props.isAlwaysPrepareDataQuery())
-                || query.hasFreeParameters()) {
-            return new YdbPreparedStatementImpl(this, query, resultSetType);
+        if (query.type() != QueryType.DATA_QUERY && query.type() != QueryType.SCAN_QUERY) {
+            throw new SQLException(YdbConst.UNSUPPORTED_QUERY_TYPE_IN_PS + query.type());
         }
 
-        DataQuery prepared = prepareDataQuery(query);
-
-        boolean requireBatch = mode == PreparedStatementMode.DATA_QUERY_BATCH;
-        if (props.isAutoPreparedBatches() || requireBatch) {
-            Optional<YdbPreparedStatementWithDataQueryBatchedImpl.StructBatchConfiguration> batchCfgOpt =
-                    YdbPreparedStatementWithDataQueryBatchedImpl.asColumns(prepared.types());
-            if (batchCfgOpt.isPresent()) {
-                return new YdbPreparedStatementWithDataQueryBatchedImpl(this, resultSetType, query, prepared,
-                        batchCfgOpt.get());
-            } else if (requireBatch) {
-                throw new YdbExecutionException(YdbConst.STATEMENT_IS_NOT_A_BATCH + sql);
-            }
-        }
-        return new YdbPreparedStatementWithDataQueryImpl(this, resultSetType, query, prepared);
-
+        YdbJdbcParams params = YdbJdbcParams.create(this, query, mode);
+        return new YdbPreparedStatementImpl(this, query, params, resultSetType);
     }
 
     @Override

@@ -1,12 +1,17 @@
-package tech.ydb.jdbc.common;
+package tech.ydb.jdbc.context;
 
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
+import tech.ydb.core.StatusCode;
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.common.JdbcLexer;
+import tech.ydb.jdbc.common.QueryType;
+import tech.ydb.jdbc.exception.YdbNonRetryableException;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Value;
@@ -19,19 +24,17 @@ public class YdbQuery {
     private final String originSQL;
     private final String originYQL;
     private final QueryType type;
-    private final boolean keepInCache;
     private final boolean enforceV1;
     private final List<String> extraParams;
 
-    private YdbQuery(Builder builder) {
-        this.originSQL = builder.sql;
-        this.type = decodeQueryType(originSQL, builder.props.isDetectSqlOperations());
+    private YdbQuery(YdbOperationProperties props, String originSQL) {
+        this.originSQL = originSQL;
+        this.type = decodeQueryType(originSQL, props.isDetectSqlOperations());
 
-        this.enforceV1 = builder.props.isEnforceSqlV1();
-        this.keepInCache = builder.keepInCache;
+        this.enforceV1 = props.isEnforceSqlV1();
 
         String sql = updateAlternativePrefix(originSQL);
-        if (builder.props.isDisableJdbcParametersSupport()) {
+        if (props.isJdbcParametersSupportDisabled()) {
             this.originYQL = sql;
             this.extraParams = null;
         } else {
@@ -45,22 +48,26 @@ public class YdbQuery {
         return originSQL;
     }
 
-    public boolean hasFreeParameters() {
+    public boolean hasIndexesParameters() {
         return extraParams != null && !extraParams.isEmpty();
     }
 
-    public String getParameterName(int parameterIndex) {
-        if (!hasFreeParameters()) {
-            return YdbConst.INDEXED_PARAMETER_PREFIX + parameterIndex;
-        }
-
-        if (parameterIndex <= 0 || parameterIndex > extraParams.size()) {
-            throw new IllegalArgumentException("Wrong argument index " + parameterIndex);
-        }
-        return extraParams.get(parameterIndex - 1);
+    public List<String> getIndexesParameters() {
+        return extraParams;
     }
 
-    public String getYqlQuery(Params params) {
+//    public String getIndexParameterName(int parameterIndex) {
+//        if (!hasIndexParameters()) {
+//            return YdbConst.INDEXED_PARAMETER_PREFIX + parameterIndex;
+//        }
+//
+//        if (parameterIndex < 0 || parameterIndex >= extraParams.size()) {
+//            throw new IllegalArgumentException("Wrong argument index " + parameterIndex);
+//        }
+//        return extraParams.get(parameterIndex);
+//    }
+
+    public String getYqlQuery(Params params) throws SQLException {
         StringBuilder yql = new StringBuilder();
 
         if (enforceV1) {
@@ -76,7 +83,10 @@ public class YdbQuery {
                 for (int idx = 0; idx < extraParams.size(); idx += 1) {
                     String prm = extraParams.get(idx);
                     if (!values.containsKey(prm)) {
-                        throw new IllegalArgumentException("Empty JDBC argument " + idx);
+                        throw new YdbNonRetryableException(
+                                YdbConst.MISSING_VALUE_FOR_PARAMETER + prm,
+                                StatusCode.BAD_REQUEST
+                        );
                     }
 
                     String prmType = values.get(prm).getType().toString();
@@ -94,10 +104,6 @@ public class YdbQuery {
 
         yql.append(originYQL);
         return yql.toString();
-    }
-
-    public boolean keepInCache() {
-        return keepInCache;
     }
 
     public QueryType type() {
@@ -131,7 +137,7 @@ public class YdbQuery {
         return QueryType.DATA_QUERY;
     }
 
-    private static class ArgNameGenerator  implements Supplier<String> {
+    private static class ArgNameGenerator implements Supplier<String> {
         private final static String JDBC_ARG_PREFIX = "$jp";
 
         private final String query;
@@ -156,27 +162,7 @@ public class YdbQuery {
         }
     }
 
-    public static Builder from(YdbOperationProperties props, String sql) {
-        return new Builder(props, sql);
-    }
-
-    public static class Builder {
-        private final YdbOperationProperties props;
-        private final String sql;
-        private boolean keepInCache = true;
-
-        public Builder(YdbOperationProperties props, String sql) {
-            this.props = props;
-            this.sql = sql;
-        }
-
-        public Builder disableCache() {
-            this.keepInCache = false;
-            return this;
-        }
-
-        public YdbQuery build() {
-            return new YdbQuery(this);
-        }
+    public static YdbQuery from(YdbOperationProperties props, String sql) {
+        return new YdbQuery(props, sql);
     }
 }

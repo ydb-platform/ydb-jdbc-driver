@@ -55,7 +55,7 @@ public final class YdbConst {
     public static final String OBJECT_TYPED_UNSUPPORTED = "Object with type conversion is not supported yet";
     public static final String QUERY_EXPECT_RESULT_SET = "Query must return ResultSet";
     public static final String QUERY_EXPECT_UPDATE = "Query must not return ResultSet";
-    public static final String UNABLE_TO_SET_NULL_VALUE = "Unable to set NULL value, param is mandatory: ";
+    public static final String UNABLE_TO_SET_NULL_OBJECT = "Unable to set null object, type is required";
     public static final String DIRECTION_UNSUPPORTED = "Direction is not supported: ";
     public static final String RESULT_SET_MODE_UNSUPPORTED = "ResultSet mode is not supported: ";
     public static final String RESULT_SET_UNAVAILABLE = "ResultSet is not available at index: ";
@@ -65,8 +65,7 @@ public final class YdbConst {
     public static final String COLUMN_NUMBER_NOT_FOUND = "Column is out of range: ";
     public static final String PARAMETER_NUMBER_NOT_FOUND = "Parameter is out of range: ";
     public static final String PARAMETER_NOT_FOUND = "Parameter not found: ";
-    public static final String PARAMETER_TYPE_UNKNOWN = "Unable to convert sqlType %s (name %s) to " +
-            "YDB type for parameter: %s";
+    public static final String PARAMETER_TYPE_UNKNOWN = "Unable to convert sqlType %s to YDB type for parameter: %s";
     public static final String INVALID_ROW = "Current row index is out of bounds: ";
     public static final String BATCH_UNSUPPORTED = "Batches are not supported in simple prepared statements";
     public static final String BATCH_INVALID = "Batches are not supported for query type: ";
@@ -94,7 +93,8 @@ public final class YdbConst {
     public static final String STATEMENT_IS_NOT_A_BATCH = "Statement cannot be executed as batch statement: ";
     public static final String TRY_EXECUTE_ON_BATCH_STATEMENT = "Cannot call #execute method after #addBatch, " +
             "must use #executeBatch";
-    public static final String INDEXED_PARAMETERS_UNSUPPORTED = "Indexed parameters are not supported here";
+    public static final String INDEXES_PARAMETERS_UNSUPPORTED =
+            "Indexed parameters are not supported in prepared query: ";
 
     // Cast errors
 

@@ -1,6 +1,6 @@
 package tech.ydb.jdbc;
 
-import tech.ydb.jdbc.impl.JdbcDriverVersion;
+import tech.ydb.jdbc.common.JdbcDriverVersion;
 
 public final class YdbDriverInfo {
     // Driver info

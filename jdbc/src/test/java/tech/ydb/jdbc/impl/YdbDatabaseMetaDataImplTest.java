@@ -1,5 +1,8 @@
 package tech.ydb.jdbc.impl;
 
+import tech.ydb.jdbc.common.JdbcDriverVersion;
+import tech.ydb.jdbc.common.YdbFunctions;
+
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
@@ -24,8 +27,8 @@ import tech.ydb.jdbc.YdbDriverInfo;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
+import tech.ydb.jdbc.impl.helper.SqlQueries;
 import tech.ydb.jdbc.impl.helper.TableAssert;
-import tech.ydb.jdbc.impl.helper.TestResources;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
 public class YdbDatabaseMetaDataImplTest {
@@ -40,6 +43,7 @@ public class YdbDatabaseMetaDataImplTest {
 
     private static final String ALL_TYPES_TABLE = "all_types";
     private static final String INDEXES_TABLE = "table_keys";
+    private static final SqlQueries ALL_TYPES = new SqlQueries(ALL_TYPES_TABLE);
 
     private DatabaseMetaData metaData;
 
@@ -47,7 +51,7 @@ public class YdbDatabaseMetaDataImplTest {
     public static void createTables() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement()) {
             // create simple tables
-            statement.execute("--jdbc:SCHEME\n"
+            statement.execute(ALL_TYPES.createTableSQL()
                     + "create table t1 (id Int32, value Int32, primary key (id));\n"
                     + "create table `dir1/t1` (id Int32, value Int32, primary key (id));\n"
                     + "create table `dir1/t2` (id Int32, value Int32, primary key (id));\n"
@@ -57,8 +61,7 @@ public class YdbDatabaseMetaDataImplTest {
                             + "key1 Int32, key2 Text, value1 Int32, value2 Text, value3 Int32, "
                             + "primary key(key1, key2), "
                             + "index idx_2 global on (value1, value2),"
-                            + "index idx_1 global on (value3));\n"
-                    + TestResources.createTableSql(ALL_TYPES_TABLE)
+                            + "index idx_1 global on (value3))\n;"
             );
         }
     }
@@ -67,14 +70,13 @@ public class YdbDatabaseMetaDataImplTest {
     public static void dropTables() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement();) {
             // drop simple tables
-            statement.execute("--jdbc:SCHEME\n"
+            statement.execute(ALL_TYPES.dropTableSQL()
                     + "drop table t1;\n"
                     + "drop table `dir1/t1`;\n"
                     + "drop table `dir1/t2`;\n"
                     + "drop table `dir2/t1`;\n"
                     + "drop table `dir2/dir1/t1`;\n"
                     + "drop table " + INDEXES_TABLE + ";\n"
-                    + "drop table " + ALL_TYPES_TABLE + ";\n"
             );
         }
     }
@@ -543,44 +545,56 @@ public class YdbDatabaseMetaDataImplTest {
                 .assertMetaColumns();
 
         rs.nextRow(columnName.eq("key"), dataType.eq(Types.INTEGER), typeName.eq("Int32"),
-                columnSize.eq(4), ordinal.eq((short)1)).assertAll();
+                columnSize.eq(4), ordinal.eq(1)).assertAll();
 
         rs.nextRow(columnName.eq("c_Bool"), dataType.eq(Types.BOOLEAN), typeName.eq("Bool"),
-                columnSize.eq(1), ordinal.eq((short)2)).assertAll();
+                columnSize.eq(1), ordinal.eq(2)).assertAll();
+
+        rs.nextRow(columnName.eq("c_Int8"), dataType.eq(Types.SMALLINT), typeName.eq("Int8"),
+                columnSize.eq(1), ordinal.eq(3)).assertAll();
+        rs.nextRow(columnName.eq("c_Int16"), dataType.eq(Types.SMALLINT), typeName.eq("Int16"),
+                columnSize.eq(2), ordinal.eq(4)).assertAll();
         rs.nextRow(columnName.eq("c_Int32"), dataType.eq(Types.INTEGER), typeName.eq("Int32"),
-                columnSize.eq(4), ordinal.eq((short)3)).assertAll();
+                columnSize.eq(4), ordinal.eq(5)).assertAll();
         rs.nextRow(columnName.eq("c_Int64"), dataType.eq(Types.BIGINT), typeName.eq("Int64"),
-                columnSize.eq(8), ordinal.eq((short)4)).assertAll();
+                columnSize.eq(8), ordinal.eq(6)).assertAll();
+
         rs.nextRow(columnName.eq("c_Uint8"), dataType.eq(Types.INTEGER), typeName.eq("Uint8"),
-                columnSize.eq(1), ordinal.eq((short)5)).assertAll();
+                columnSize.eq(1), ordinal.eq(7)).assertAll();
+        rs.nextRow(columnName.eq("c_Uint16"), dataType.eq(Types.INTEGER), typeName.eq("Uint16"),
+                columnSize.eq(2), ordinal.eq(8)).assertAll();
         rs.nextRow(columnName.eq("c_Uint32"), dataType.eq(Types.BIGINT), typeName.eq("Uint32"),
-                columnSize.eq(4), ordinal.eq((short)6)).assertAll();
+                columnSize.eq(4), ordinal.eq(9)).assertAll();
         rs.nextRow(columnName.eq("c_Uint64"), dataType.eq(Types.BIGINT), typeName.eq("Uint64"),
-                columnSize.eq(8), ordinal.eq((short)7)).assertAll();
+                columnSize.eq(8), ordinal.eq(10)).assertAll();
+
         rs.nextRow(columnName.eq("c_Float"), dataType.eq(Types.FLOAT), typeName.eq("Float"),
-                columnSize.eq(4), ordinal.eq((short)8)).assertAll();
+                columnSize.eq(4), ordinal.eq(11)).assertAll();
         rs.nextRow(columnName.eq("c_Double"), dataType.eq(Types.DOUBLE), typeName.eq("Double"),
-                columnSize.eq(8), ordinal.eq((short)9)).assertAll();
+                columnSize.eq(8), ordinal.eq(12)).assertAll();
+
         rs.nextRow(columnName.eq("c_Bytes"), dataType.eq(Types.BINARY), typeName.eq("Bytes"),
-                columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq((short)10)).assertAll();
+                columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq(13)).assertAll();
         rs.nextRow(columnName.eq("c_Text"), dataType.eq(Types.VARCHAR), typeName.eq("Text"),
-                columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq((short)11)).assertAll();
+                columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq(14)).assertAll();
         rs.nextRow(columnName.eq("c_Json"), dataType.eq(Types.VARCHAR), typeName.eq("Json"),
-                columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq((short)12)).assertAll();
+                columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq(15)).assertAll();
         rs.nextRow(columnName.eq("c_JsonDocument"), dataType.eq(Types.VARCHAR), typeName.eq("JsonDocument"),
-                columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq((short)13)).assertAll();
+                columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq(16)).assertAll();
         rs.nextRow(columnName.eq("c_Yson"), dataType.eq(Types.BINARY), typeName.eq("Yson"),
-                columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq((short)14)).assertAll();
+                columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq(17)).assertAll();
+
         rs.nextRow(columnName.eq("c_Date"), dataType.eq(Types.DATE), typeName.eq("Date"),
-                columnSize.eq(10), ordinal.eq((short)15)).assertAll();
+                columnSize.eq(10), ordinal.eq(18)).assertAll();
         rs.nextRow(columnName.eq("c_Datetime"), dataType.eq(Types.TIME), typeName.eq("Datetime"),
-                columnSize.eq(19), ordinal.eq((short)16)).assertAll();
+                columnSize.eq(19), ordinal.eq(19)).assertAll();
         rs.nextRow(columnName.eq("c_Timestamp"), dataType.eq(Types.TIMESTAMP), typeName.eq("Timestamp"),
-                columnSize.eq(26), ordinal.eq((short)17)).assertAll();
+                columnSize.eq(26), ordinal.eq(20)).assertAll();
         rs.nextRow(columnName.eq("c_Interval"), dataType.eq(Types.BIGINT), typeName.eq("Interval"),
-                columnSize.eq(8), ordinal.eq((short)18)).assertAll();
+                columnSize.eq(8), ordinal.eq(21)).assertAll();
+
         rs.nextRow(columnName.eq("c_Decimal"), dataType.eq(Types.DECIMAL), typeName.eq("Decimal(22, 9)"),
-                columnSize.eq(16), ordinal.eq((short)19), decimalDigits.eq((short)22)).assertAll();
+                columnSize.eq(16), ordinal.eq(22), decimalDigits.eq(22)).assertAll();
 
         rs.assertNoRows();
 
@@ -588,7 +602,7 @@ public class YdbDatabaseMetaDataImplTest {
         rs = columns.check(metaData.getColumns(null, null, ALL_TYPES_TABLE, "c_JsonDocument"))
             .assertMetaColumns();
         rs.nextRow(columnName.eq("c_JsonDocument"), dataType.eq(Types.VARCHAR), typeName.eq("JsonDocument"),
-                columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq((short)13)).assertAll();
+                columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq(16)).assertAll();
         rs.assertNoRows();
     }
 
@@ -612,14 +626,14 @@ public class YdbDatabaseMetaDataImplTest {
         // ALL_TYPES_TABLE has simple primary key
         primaryKeys.check(metaData.getPrimaryKeys(null, null, ALL_TYPES_TABLE))
                 .assertMetaColumns()
-                .nextRow(table.eq(ALL_TYPES_TABLE), name.eq("key"), keySeq.eq((short)1)).assertAll()
+                .nextRow(table.eq(ALL_TYPES_TABLE), name.eq("key"), keySeq.eq(1)).assertAll()
                 .assertNoRows();
 
         // INDEXES_TABLE has composite primary key
         primaryKeys.check(metaData.getPrimaryKeys(null, null, INDEXES_TABLE))
                 .assertMetaColumns()
-                .nextRow(table.eq(INDEXES_TABLE), name.eq("key1"), keySeq.eq((short)1)).assertAll()
-                .nextRow(table.eq(INDEXES_TABLE), name.eq("key2"), keySeq.eq((short)2)).assertAll()
+                .nextRow(table.eq(INDEXES_TABLE), name.eq("key1"), keySeq.eq(1)).assertAll()
+                .nextRow(table.eq(INDEXES_TABLE), name.eq("key2"), keySeq.eq(2)).assertAll()
                 .assertNoRows();
     }
 
@@ -653,11 +667,11 @@ public class YdbDatabaseMetaDataImplTest {
         indexes.check(metaData.getIndexInfo(null, null, INDEXES_TABLE, false, false))
                 .assertMetaColumns()
                 .nextRow(tableName.eq(INDEXES_TABLE), indexName.eq("idx_1"), columnName.eq("value3"),
-                        type.eq(DatabaseMetaData.tableIndexHashed), ordinal.eq((short)1)).assertAll()
+                        type.eq(DatabaseMetaData.tableIndexHashed), ordinal.eq(1)).assertAll()
                 .nextRow(tableName.eq(INDEXES_TABLE), indexName.eq("idx_2"), columnName.eq("value1"),
-                        type.eq(DatabaseMetaData.tableIndexHashed), ordinal.eq((short)1)).assertAll()
+                        type.eq(DatabaseMetaData.tableIndexHashed), ordinal.eq(1)).assertAll()
                 .nextRow(tableName.eq(INDEXES_TABLE), indexName.eq("idx_2"), columnName.eq("value2"),
-                        type.eq(DatabaseMetaData.tableIndexHashed), ordinal.eq((short)2)).assertAll()
+                        type.eq(DatabaseMetaData.tableIndexHashed), ordinal.eq(2)).assertAll()
                 .assertNoRows();
 
         indexes.check(metaData.getIndexInfo(null, null, ALL_TYPES_TABLE, false, false))
@@ -691,23 +705,23 @@ public class YdbDatabaseMetaDataImplTest {
                 .getBestRowIdentifier(null, null, ALL_TYPES_TABLE, DatabaseMetaData.bestRowSession, true))
                 .assertMetaColumns()
                 .nextRow(name.eq("key"), dataType.eq(Types.INTEGER), typeName.eq("Int32"),
-                        scope.eq((short)DatabaseMetaData.bestRowSession)).assertAll()
+                        scope.eq(DatabaseMetaData.bestRowSession)).assertAll()
                 .assertNoRows();
 
         rowIdentifiers.check(metaData
                 .getBestRowIdentifier(null, null, ALL_TYPES_TABLE, DatabaseMetaData.bestRowTransaction, true))
                 .assertMetaColumns()
                 .nextRow(name.eq("key"), dataType.eq(Types.INTEGER), typeName.eq("Int32"),
-                        scope.eq((short)DatabaseMetaData.bestRowTransaction)).assertAll()
+                        scope.eq(DatabaseMetaData.bestRowTransaction)).assertAll()
                 .assertNoRows();
 
         rowIdentifiers.check(metaData
                 .getBestRowIdentifier(null, null, INDEXES_TABLE, DatabaseMetaData.bestRowTemporary, true))
                 .assertMetaColumns()
                 .nextRow(name.eq("key1"), dataType.eq(Types.INTEGER), typeName.eq("Int32"),
-                        scope.eq((short)DatabaseMetaData.bestRowTemporary)).assertAll()
+                        scope.eq(DatabaseMetaData.bestRowTemporary)).assertAll()
                 .nextRow(name.eq("key2"), dataType.eq(Types.VARCHAR), typeName.eq("Text"),
-                        scope.eq((short)DatabaseMetaData.bestRowTemporary)).assertAll()
+                        scope.eq(DatabaseMetaData.bestRowTemporary)).assertAll()
                 .assertNoRows();
     }
 

@@ -17,12 +17,13 @@ public class YdbOperationProperties {
     private final boolean autoCommit;
     private final int transactionLevel;
     private final int maxRows;
-    private final boolean autoPreparedBatches;
     private final boolean enforceSqlV1;
     private final boolean enforceVariablePrefix;
     private final boolean cacheConnectionsInDriver;
     private final boolean detectSqlOperations;
-    private final boolean alwaysPrepareDataQuery;
+
+    private final boolean disablePrepareDataQuery;
+    private final boolean disableAutoPreparedBatches;
     private final boolean disableJdbcParametersSupport;
 
     public YdbOperationProperties(Map<YdbOperationProperty<?>, ParsedProperty> params) {
@@ -37,13 +38,17 @@ public class YdbOperationProperties {
         this.autoCommit = params.get(YdbOperationProperty.AUTOCOMMIT).getParsedValue();
         this.transactionLevel = params.get(YdbOperationProperty.TRANSACTION_LEVEL).getParsedValue();
         this.maxRows = MAX_ROWS;
-        this.autoPreparedBatches = params.get(YdbOperationProperty.AUTO_PREPARED_BATCHES).getParsedValue();
         this.enforceSqlV1 = params.get(YdbOperationProperty.ENFORCE_SQL_V1).getParsedValue();
         this.enforceVariablePrefix = params.get(YdbOperationProperty.ENFORCE_VARIABLE_PREFIX).getParsedValue();
         this.cacheConnectionsInDriver = params.get(YdbOperationProperty.CACHE_CONNECTIONS_IN_DRIVER).getParsedValue();
         this.detectSqlOperations = params.get(YdbOperationProperty.DETECT_SQL_OPERATIONS).getParsedValue();
-        this.alwaysPrepareDataQuery = params.get(YdbOperationProperty.ALWAYS_PREPARE_DATAQUERY).getParsedValue();
-        this.disableJdbcParametersSupport = params.get(YdbOperationProperty.DISABLE_JDBC_PARAMETERS).getParsedValue();
+
+        this.disablePrepareDataQuery = params.get(YdbOperationProperty.DISABLE_PREPARE_DATAQUERY)
+                .getParsedValue();
+        this.disableAutoPreparedBatches = params.get(YdbOperationProperty.DISABLE_AUTO_PREPARED_BATCHES)
+                .getParsedValue();
+        this.disableJdbcParametersSupport = params.get(YdbOperationProperty.DISABLE_JDBC_PARAMETERS)
+                .getParsedValue();
     }
 
     public Map<YdbOperationProperty<?>, ParsedProperty> getParams() {
@@ -86,10 +91,6 @@ public class YdbOperationProperties {
         return maxRows;
     }
 
-    public boolean isAutoPreparedBatches() {
-        return autoPreparedBatches;
-    }
-
     public boolean isEnforceSqlV1() {
         return enforceSqlV1;
     }
@@ -106,11 +107,15 @@ public class YdbOperationProperties {
         return detectSqlOperations;
     }
 
-    public boolean isAlwaysPrepareDataQuery() {
-        return alwaysPrepareDataQuery;
+    public boolean isPrepareDataQueryDisabled() {
+        return disablePrepareDataQuery;
     }
 
-    public boolean isDisableJdbcParametersSupport() {
+    public boolean isAutoPreparedBatchesDisabled() {
+        return disableAutoPreparedBatches;
+    }
+
+    public boolean isJdbcParametersSupportDisabled() {
         return disableJdbcParametersSupport;
     }
 }

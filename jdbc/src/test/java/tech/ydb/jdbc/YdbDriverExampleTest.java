@@ -5,6 +5,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -24,11 +25,10 @@ public class YdbDriverExampleTest {
         StringBuilder jdbc = new StringBuilder("jdbc:ydb:")
                 .append(ydb.useTls() ? "grpcs://" : "grpc://")
                 .append(ydb.endpoint())
-                .append(ydb.database())
-                .append("?");
+                .append(ydb.database());
 
         if (ydb.authToken() != null) {
-            jdbc.append("token=").append(ydb.authToken()).append("&");
+            jdbc.append("?").append("token=").append(ydb.authToken());
         }
 
         return jdbc.toString();
@@ -36,8 +36,7 @@ public class YdbDriverExampleTest {
 
     @Test
     public void testYdb() throws SQLException {
-        String url = jdbcURL(); // "jdbc:ydb:localhost:2135/local"
-        try (Connection connection = DriverManager.getConnection(url)) {
+        try (Connection connection = DriverManager.getConnection(jdbcURL())) {
             try {
                 connection.createStatement()
                         .execute("--jdbc:SCHEME\n" +
@@ -61,7 +60,7 @@ public class YdbDriverExampleTest {
                 ps.executeUpdate();
 
                 ps.setInt(1, 3);
-                ps.setNull(2, -1);
+                ps.setNull(2, Types.VARCHAR);
                 ps.executeUpdate();
             }
 
@@ -79,7 +78,7 @@ public class YdbDriverExampleTest {
                 ps.executeUpdate();
 
                 ps.setInt(1, 6);
-                ps.setNull(2, -1);
+                ps.setNull(2, Types.VARCHAR);
                 ps.executeUpdate();
             }
 
@@ -90,18 +89,22 @@ public class YdbDriverExampleTest {
                 Assertions.assertEquals(6, rs.getLong("cnt"));
             }
 
-            try (YdbPreparedStatement psBatch = connection
+            // Named variables can be accessed by alphabetic order
+            try (PreparedStatement psBatch = connection
                     .prepareStatement("" +
-                            "declare $values as List<Struct<id:Int32,value:Text>>;\n" +
-                            "upsert into table_sample select * from as_table($values)")
-                    .unwrap(YdbPreparedStatement.class)) {
+                            "declare $values as List<Struct<id:Int32, value:Optional<Text>>>;\n" +
+                            "upsert into table_sample select * from as_table($values)")) {
 
-                psBatch.setInt("id", 7);
-                psBatch.setString("value", "value-5");
+                psBatch.setInt(1, 7); // id
+                psBatch.setString(2, "value-7"); // value
                 psBatch.addBatch();
 
-                psBatch.setInt("id", 8);
-                psBatch.setString("value", "value-6");
+                psBatch.setInt(1, 8); // id
+                psBatch.setString(2, "value-8"); // value
+                psBatch.addBatch();
+
+                psBatch.setInt(1, 9);
+                psBatch.setNull(2, 0);
                 psBatch.addBatch();
 
                 psBatch.executeBatch();
@@ -109,17 +112,15 @@ public class YdbDriverExampleTest {
 
             try (PreparedStatement psBatch = connection
                     .prepareStatement("" +
-                            "declare $values as List<Struct<p1:Int32,p2:Text>>;\n" +
-                            "$mapper = ($row) -> (AsStruct($row.p1 as id, $row.p2 as value));\n" +
-                            "upsert into table_sample select * from as_table(ListMap($values, $mapper));")
-                    ) {
-
-                psBatch.setInt(1, 9);
-                psBatch.setString(2, "value-7");
-                psBatch.addBatch();
+                            "declare $values as List<Struct<value:Text, id:Int32>>;\n" +
+                            "upsert into table_sample select * from as_table($values)")) {
 
                 psBatch.setInt(1, 10);
-                psBatch.setString(2, "value-8");
+                psBatch.setString(2, "value-10");
+                psBatch.addBatch();
+
+                psBatch.setInt(1, 11);
+                psBatch.setString(2, "value-11");
                 psBatch.addBatch();
 
                 psBatch.executeBatch();
@@ -129,15 +130,14 @@ public class YdbDriverExampleTest {
                     .prepareStatement("select count(1) as cnt from table_sample")) {
                 ResultSet rs = select.executeQuery();
                 rs.next();
-                Assertions.assertEquals(10, rs.getLong("cnt"));
+                Assertions.assertEquals(11, rs.getLong("cnt"));
             }
         }
     }
 
     @Test
     public void testYdbNotNull() throws SQLException {
-        String url = jdbcURL(); // "jdbc:ydb:localhost:2135/local"
-        try (Connection connection = DriverManager.getConnection(url)) {
+        try (Connection connection = DriverManager.getConnection(jdbcURL())) {
             try {
                 connection.createStatement()
                         .execute("--jdbc:SCHEME\n" +
@@ -202,7 +202,7 @@ public class YdbDriverExampleTest {
             try (PreparedStatement psBatch = connection
                     .prepareStatement("" +
                             "declare $values as List<Struct<p1:Int32,p2:Text>>;\n" +
-                            "$mapper = ($row) -> (AsStruct($row.p1 as id, $row.p2 as value));\n" +
+                            "$mapper = ($row) -> (AsStruct( $row.p1 as id, $row.p2 as value));\n" +
                             "upsert into table_sample select * from as_table(ListMap($values, $mapper));")
                     ) {
 

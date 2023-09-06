@@ -19,20 +19,20 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbParameterMetaData;
+import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.common.QueryType;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
-import tech.ydb.jdbc.impl.helper.TestResources;
+import tech.ydb.jdbc.impl.helper.SqlQueries;
 import tech.ydb.jdbc.impl.helper.TextSelectAssert;
-import tech.ydb.jdbc.statement.YdbPreparedStatementImpl;
-import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryBatchedImpl;
-import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryImpl;
 import tech.ydb.table.values.DecimalValue;
 import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.test.junit5.YdbHelperExtension;
@@ -47,16 +47,13 @@ public class YdbPreparedStatementImplTest {
     @RegisterExtension
     private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb);
 
-    private static final String TEST_TABLE = "ydb_prepared_statement_test";
+    private static final String TEST_TABLE_NAME = "ydb_prepared_statement_test";
+    private static final SqlQueries TEST_TABLE = new SqlQueries(TEST_TABLE_NAME);
 
     private static final String UPSERT_SQL = ""
             + "declare $key as Int32;\n"
             + "declare $#column as #type;\n"
             + "upsert into #tableName (key, #column) values ($key, $#column)";
-
-    private static final String BATCH_UPSERT_SQL = ""
-            + "declare $values as List<Struct<key:Int32, #column:#type>>; \n"
-            + "upsert into #tableName select * from as_table($values)";
 
     private static final String SIMPLE_SELECT_SQL = "select key, #column from #tableName";
     private static final String SELECT_BY_KEY_SQL = ""
@@ -67,15 +64,14 @@ public class YdbPreparedStatementImplTest {
     public static void initTable() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement();) {
             // create test table
-            statement.execute(QueryType.SCHEME_QUERY.getPrefix() + "\n" + TestResources.createTableSql(TEST_TABLE));
+            statement.execute(TEST_TABLE.createTableSQL());
         }
     }
 
     @AfterAll
     public static void dropTable() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement();) {
-            // create test table
-            statement.execute(QueryType.SCHEME_QUERY.getPrefix() + "\n drop table " + TEST_TABLE);
+            statement.execute(TEST_TABLE.dropTableSQL());
         }
     }
 
@@ -86,7 +82,7 @@ public class YdbPreparedStatementImplTest {
         }
 
         try (Statement statement = jdbc.connection().createStatement()) {
-            statement.execute("delete from " + TEST_TABLE);
+            statement.execute(TEST_TABLE.deleteAllSQL());
         }
 
         jdbc.connection().close();
@@ -96,141 +92,91 @@ public class YdbPreparedStatementImplTest {
         return UPSERT_SQL
                 .replaceAll("#column", column)
                 .replaceAll("#type", type)
-                .replaceAll("#tableName", TEST_TABLE);
+                .replaceAll("#tableName", TEST_TABLE_NAME);
     }
 
-    private String batchUpsertSql(String column, String type) {
-        return BATCH_UPSERT_SQL
-                .replaceAll("#column", column)
-                .replaceAll("#type", type)
-                .replaceAll("#tableName", TEST_TABLE);
-    }
-
-    private YdbPreparedStatement prepareUpsertInMemory(String column, String type) throws SQLException {
-        return jdbc.connection().unwrap(YdbConnection.class)
-                .prepareStatement(upsertSql(column, type), YdbConnection.PreparedStatementMode.IN_MEMORY);
-    }
-
-    private YdbPreparedStatement prepareBatchUpsertInMemory(String column, String type) throws SQLException {
-        return jdbc.connection().unwrap(YdbConnection.class)
-                .prepareStatement(batchUpsertSql(column, type), YdbConnection.PreparedStatementMode.IN_MEMORY);
+    private YdbPreparedStatement prepareUpsert(YdbPrepareMode mode,String column, String type)
+            throws SQLException {
+        return jdbc.connection().unwrap(YdbConnection.class).prepareStatement(upsertSql(column, type), mode);
     }
 
     private PreparedStatement prepareSimpleSelect(String column) throws SQLException {
         String sql = SIMPLE_SELECT_SQL
                 .replaceAll("#column", column)
-                .replaceAll("#tableName", TEST_TABLE);
+                .replaceAll("#tableName", TEST_TABLE_NAME);
         return jdbc.connection().prepareStatement(sql);
     }
 
     private YdbPreparedStatement prepareSelectByKey(String column) throws SQLException {
         String sql = SELECT_BY_KEY_SQL
                 .replaceAll("#column", column)
-                .replaceAll("#tableName", TEST_TABLE);
+                .replaceAll("#tableName", TEST_TABLE_NAME);
         return jdbc.connection().prepareStatement(sql).unwrap(YdbPreparedStatement.class);
     }
 
     private PreparedStatement prepareScanSelect(String column) throws SQLException {
         String sql = SIMPLE_SELECT_SQL
                 .replaceAll("#column", column)
-                .replaceAll("#tableName", TEST_TABLE);
+                .replaceAll("#tableName", TEST_TABLE_NAME);
         return jdbc.connection().prepareStatement(QueryType.SCAN_QUERY.getPrefix() + "\n" + sql);
     }
 
-    private YdbPreparedStatement prepareScanSelectByKey(String column) throws SQLException {
+    private String scanSelectByKey(String column) throws SQLException {
         String sql = SELECT_BY_KEY_SQL
                 .replaceAll("#column", column)
-                .replaceAll("#tableName", TEST_TABLE);
-        return jdbc.connection().prepareStatement(QueryType.SCAN_QUERY.getPrefix() + "\n" + sql)
-                .unwrap(YdbPreparedStatement.class);
-    }
-
-    private YdbPreparedStatement prepareUpsertValues() throws SQLException {
-        return jdbc.connection().prepareStatement(TestResources.prerapedUpsertSql(TEST_TABLE))
-                .unwrap(YdbPreparedStatement.class);
+                .replaceAll("#tableName", TEST_TABLE_NAME);
+        return QueryType.SCAN_QUERY.getPrefix() + "\n" + sql;
     }
 
     private YdbPreparedStatement prepareSelectAll() throws SQLException {
-        return jdbc.connection().prepareStatement(TestResources.selectAllValuesSql(TEST_TABLE))
+        return jdbc.connection().prepareStatement(TEST_TABLE.selectSQL())
                 .unwrap(YdbPreparedStatement.class);
     }
 
-    @Test
-    public void testPrepareStatementIsMemory() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Optional<Text>")) {
-            Assertions.assertTrue(statement.isWrapperFor(YdbPreparedStatementImpl.class));
-            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementWithDataQueryImpl.class));
-            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementWithDataQueryBatchedImpl.class));
-
-            Assertions.assertNotNull(statement.unwrap(YdbPreparedStatementImpl.class));
-        }
-    }
-
-    @Test
-    public void executeWrongParameters() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text")) { // Must be Optional<Text>
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(SqlQueries.YqlQuery.class)
+    public void unknownColumns(SqlQueries.YqlQuery mode) throws SQLException {
+        String yql = TEST_TABLE.upsertOne(mode, "c_Text", "Optional<Text>");
+        try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(yql)) {
             statement.setInt("key", 1);
-            ExceptionAssert.ydbNonRetryable("Missing value for parameter", statement::execute);
-        }
 
-        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text")) { // Must be Optional<Text>
-            statement.setInt("key", 1);
-            statement.setObject("c_Text", PrimitiveType.Text.makeOptional().emptyValue());
-            ExceptionAssert.ydbNonRetryable("Parameter $c_Text type mismatch", statement::execute);
-        }
-    }
-
-    @Test
-    public void unknownColumns() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Optional<Text>")) {
-            statement.setInt("key", 1);
-            statement.setObject("column0", "value");
+            ExceptionAssert.sqlException("Parameter not found: column0", () -> statement.setObject("column0", "value"));
             statement.execute();
         }
-
-        jdbc.connection().commit();
-
-        try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
-            TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
-                    .nextRowIsEmpty()
-                    .noNextRows();
-        }
     }
 
-    @Test
-    public void executeWithoutBatch() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text")) {
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(SqlQueries.YqlQuery.class)
+    public void executeWithoutBatch(SqlQueries.YqlQuery mode) throws SQLException {
+        String yql = TEST_TABLE.upsertOne(mode, "c_Text", "Text");
+        try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(yql)) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
             statement.addBatch();
 
             statement.setInt("key", 2);
             statement.setString("c_Text", "value-2");
-
-            ExceptionAssert.ydbExecution("Cannot call #execute method after #addBatch, must use #executeBatch",
-                    () -> statement.execute());
-
-            // clear will be called automatically
-            statement.setInt("key", 1);
-            statement.setString("c_Text", "value-1");
             statement.execute();
 
-            statement.setInt("key", 2);
-            statement.setString("c_Text", "value-2");
+            // clear will be called automatically
+            statement.setInt("key", 3);
+            statement.setString("c_Text", "value-3");
             statement.execute();
         }
 
         try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
             TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
-                    .nextRow(1, "value-1")
                     .nextRow(2, "value-2")
+                    .nextRow(3, "value-3")
                     .noNextRows();
         }
     };
 
-    @Test
-    public void addBatchClearParameters() throws SQLException {
-        try (YdbPreparedStatement statement = prepareBatchUpsertInMemory("c_Text", "Text")) {
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(SqlQueries.YqlQuery.class)
+    public void addBatchClearParameters(SqlQueries.YqlQuery mode) throws SQLException {
+        String yql = TEST_TABLE.upsertOne(mode, "c_Text", "Text");
+        try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(yql)) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
             statement.addBatch();
@@ -254,9 +200,11 @@ public class YdbPreparedStatementImplTest {
         }
     }
 
-    @Test
-    public void addBatch() throws SQLException {
-        try (YdbPreparedStatement statement = prepareBatchUpsertInMemory("c_Text", "Text")) {
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(SqlQueries.YqlQuery.class)
+    public void addBatch(SqlQueries.YqlQuery mode) throws SQLException {
+        String yql = TEST_TABLE.upsertOne(mode, "c_Text", "Text");
+        try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(yql)) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
             statement.addBatch();
@@ -284,9 +232,11 @@ public class YdbPreparedStatementImplTest {
         }
     }
 
-    @Test
-    public void addAndClearBatch() throws SQLException {
-        try (YdbPreparedStatement statement = prepareBatchUpsertInMemory("c_Text", "Text")) {
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(SqlQueries.YqlQuery.class)
+    public void addAndClearBatch(SqlQueries.YqlQuery mode) throws SQLException {
+        String yql = TEST_TABLE.upsertOne(mode, "c_Text", "Text");
+        try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(yql)) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
             statement.addBatch();
@@ -311,9 +261,11 @@ public class YdbPreparedStatementImplTest {
         }
     }
 
-    @Test
-    public void executeEmptyBatch() throws SQLException {
-        try (YdbPreparedStatement statement = prepareBatchUpsertInMemory("c_Text", "Optional<Text>")) {
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(SqlQueries.YqlQuery.class)
+    public void executeEmptyBatch(SqlQueries.YqlQuery mode) throws SQLException {
+        String yql = TEST_TABLE.upsertOne(mode, "c_Text", "Text");
+        try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(yql)) {
             ExceptionAssert.ydbNonRetryable("Missing value for parameter", () -> statement.execute());
             ExceptionAssert.ydbNonRetryable("Missing value for parameter", () -> statement.executeUpdate());
             statement.executeBatch();
@@ -333,7 +285,8 @@ public class YdbPreparedStatementImplTest {
             values[idx - 1] = "Row#" + idx;
         }
 
-        try (YdbPreparedStatement statement = prepareBatchUpsertInMemory("c_Text", "Text")) {
+        String yql = TEST_TABLE.upsertOne(SqlQueries.YqlQuery.BATCHED, "c_Text", "Text");
+        try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(yql)) {
             for (int idx = 1; idx <= valuesCount; idx += 1) {
                 statement.setInt("key", idx);
                 statement.setString("c_Text", values[idx - 1]);
@@ -366,9 +319,11 @@ public class YdbPreparedStatementImplTest {
         }
     }
 
-    @Test
-    public void executeDataQuery() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text")) {
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(SqlQueries.YqlQuery.class)
+    public void executeDataQuery(SqlQueries.YqlQuery mode) throws SQLException {
+        String yql = TEST_TABLE.upsertOne(mode, "c_Text", "Text");
+        try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(yql)) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
             statement.execute();
@@ -387,9 +342,9 @@ public class YdbPreparedStatementImplTest {
                     .noNextRows();
         }
 
-        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text")) {
+        try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(yql)) {
             statement.setInt("key", 1);
-            statement.setString("c_Text", "value-1");
+            statement.setString("c_Text", "value-11");
             statement.execute();
 
             statement.setInt("key", 2);
@@ -399,17 +354,20 @@ public class YdbPreparedStatementImplTest {
 
         try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
             TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
-                    .nextRow(1, "value-1")
+                    .nextRow(1, "value-11")
                     .nextRow(2, "value-2")
                     .noNextRows();
         }
     }
 
-    @Test
-    public void executeQueryInTx() throws SQLException {
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(SqlQueries.YqlQuery.class)
+    public void executeQueryInTx(SqlQueries.YqlQuery mode) throws SQLException {
+        String yql = TEST_TABLE.upsertOne(mode, "c_Text", "Text");
         jdbc.connection().setAutoCommit(false);
+        YdbConnection conn = jdbc.connection().unwrap(YdbConnection.class);
         try {
-            try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text")) {
+            try (YdbPreparedStatement statement = conn.prepareStatement(yql)) {
                 statement.setInt("key", 1);
                 statement.setString("c_Text", "value-1");
                 statement.execute();
@@ -417,27 +375,29 @@ public class YdbPreparedStatementImplTest {
 
             // without jdbc.connection().commit() driver continues to use single transaction;
 
-            ExceptionAssert.ydbNonRetryable("Data modifications previously made to table", () -> {
-                try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
-                    select.executeQuery();
-                }
-            });
+            try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
+                select.executeQuery();
+            }
         } finally {
             jdbc.connection().setAutoCommit(true);
         }
     }
 
-    @Test
-    public void executeScanQueryInTx() throws SQLException {
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(SqlQueries.YqlQuery.class)
+    public void executeScanQueryInTx(SqlQueries.YqlQuery mode) throws SQLException {
         jdbc.connection().setAutoCommit(false);
+        YdbConnection conn = jdbc.connection().unwrap(YdbConnection.class);
+        String upsertYql = TEST_TABLE.upsertOne(mode, "c_Text", "Text");
+        String scanSelectYql = scanSelectByKey("c_Text");
         try {
-            try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text")) {
+            try (YdbPreparedStatement statement = conn.prepareStatement(upsertYql)) {
                 statement.setInt("key", 1);
                 statement.setString("c_Text", "value-1");
                 statement.execute();
             }
 
-            try (YdbPreparedStatement select = prepareScanSelectByKey("c_Text")) {
+            try (YdbPreparedStatement select = conn.prepareStatement(scanSelectYql)) {
                 select.setInt("key", 1);
                 TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
                         .noNextRows();
@@ -459,7 +419,7 @@ public class YdbPreparedStatementImplTest {
         String sql = QueryType.SCAN_QUERY.getPrefix() + "\n" + upsertSql("c_Text", "Optional<Text>");
 
         try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class)
-                .prepareStatement(sql, YdbConnection.PreparedStatementMode.IN_MEMORY)
+                .prepareStatement(sql, YdbPrepareMode.IN_MEMORY)
                 .unwrap(YdbPreparedStatement.class)) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
@@ -482,9 +442,11 @@ public class YdbPreparedStatementImplTest {
         }
     }
 
-    @Test
-    public void executeExplainQueryExplicitly() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Optional<Text>")) {
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(value = SqlQueries.YqlQuery.class)
+    public void executeExplainQueryExplicitly(SqlQueries.YqlQuery mode) throws SQLException {
+        String yql = TEST_TABLE.upsertOne(mode, "c_Text", "Optional<Text>");
+        try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(yql)) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
 
@@ -520,60 +482,20 @@ public class YdbPreparedStatementImplTest {
         }
     }
 
-    @Test
-    public void executeUpdate() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsertInMemory("c_Text", "Text")) {
-
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-
-                    () -> statement.executeSchemeQuery("select 1 + 2"));
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-                    () -> statement.executeScanQuery("select 1 + 2"));
-
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-                    () -> statement.executeExplainQuery("select 1 + 2"));
-
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-                    () -> statement.executeQuery("select 1 + 2"));
-
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-                    () -> statement.execute("select 1 + 2"));
-
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-                    () -> statement.execute("select 1 + 2", Statement.NO_GENERATED_KEYS));
-
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-                    () -> statement.execute("select 1 + 2", new int[0]));
-
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-                    () -> statement.execute("select 1 + 2", new String[0]));
-
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-                    () -> statement.executeUpdate("select 1 + 2"));
-
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-                    () -> statement.executeUpdate("select 1 + 2", Statement.NO_GENERATED_KEYS));
-
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-                    () -> statement.executeUpdate("select 1 + 2", new int[0]));
-
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-                    () -> statement.executeUpdate("select 1 + 2", new String[0]));
-
-            ExceptionAssert.sqlException("PreparedStatement cannot execute custom SQL",
-                    () -> statement.addBatch("select 1 + 2"));
-        }
-    }
-
-    @Test
-    public void testSetNull() throws SQLException {
-        try (YdbPreparedStatement ps = prepareUpsertValues()) {
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(value = SqlQueries.YqlQuery.class)
+    public void testSetNull(SqlQueries.YqlQuery mode) throws SQLException {
+        String yql = TEST_TABLE.namedUpsertAll(mode);
+        try (YdbPreparedStatement ps = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(yql)) {
             ps.setInt("key", 1);
             YdbTypes types = ps.getConnection().getYdbTypes();
             ps.setNull("c_Bool", types.wrapYdbJdbcType(PrimitiveType.Bool));
+            ps.setNull("c_Int8", types.wrapYdbJdbcType(PrimitiveType.Int8));
+            ps.setNull("c_Int16", types.wrapYdbJdbcType(PrimitiveType.Int16));
             ps.setNull("c_Int32", types.wrapYdbJdbcType(PrimitiveType.Int32));
             ps.setNull("c_Int64", types.wrapYdbJdbcType(PrimitiveType.Int64));
             ps.setNull("c_Uint8", types.wrapYdbJdbcType(PrimitiveType.Uint8));
+            ps.setNull("c_Uint16", types.wrapYdbJdbcType(PrimitiveType.Uint16));
             ps.setNull("c_Uint32", types.wrapYdbJdbcType(PrimitiveType.Uint32));
             ps.setNull("c_Uint64", types.wrapYdbJdbcType(PrimitiveType.Uint64));
             ps.setNull("c_Float", types.wrapYdbJdbcType(PrimitiveType.Float));
@@ -592,12 +514,15 @@ public class YdbPreparedStatementImplTest {
             ps.executeUpdate();
         }
 
-        try (YdbPreparedStatement ps = prepareUpsertValues()) {
+        try (YdbPreparedStatement ps = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(yql)) {
             ps.setInt("key", 2);
             ps.setNull("c_Bool", -1, "Bool");
+            ps.setNull("c_Int8", -1, "Int8");
+            ps.setNull("c_Int16", -1, "Int16");
             ps.setNull("c_Int32", -1, "Int32");
             ps.setNull("c_Int64", -1, "Int64");
             ps.setNull("c_Uint8", -1, "Uint8");
+            ps.setNull("c_Uint16", -1, "Uint16");
             ps.setNull("c_Uint32", -1, "Uint32");
             ps.setNull("c_Uint64", -1, "Uint64");
             ps.setNull("c_Float", -1, "Float");
@@ -616,12 +541,15 @@ public class YdbPreparedStatementImplTest {
             ps.executeUpdate();
         }
 
-        try (YdbPreparedStatement ps = prepareUpsertValues()) {
+        try (YdbPreparedStatement ps = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(yql)) {
             ps.setInt("key", 3);
             ps.setNull("c_Bool", -1);
+            ps.setNull("c_Int8", -1);
+            ps.setNull("c_Int16", -1);
             ps.setNull("c_Int32", -1);
             ps.setNull("c_Int64", -1);
             ps.setNull("c_Uint8", -1);
+            ps.setNull("c_Uint16", -1);
             ps.setNull("c_Uint32", -1);
             ps.setNull("c_Uint64", -1);
             ps.setNull("c_Float", -1);
@@ -647,8 +575,8 @@ public class YdbPreparedStatementImplTest {
                 Assertions.assertTrue(rs.next());
 
                 ResultSetMetaData metaData = rs.getMetaData();
-                Assertions.assertEquals(19, metaData.getColumnCount());
-                Assertions.assertEquals(key, rs.getInt(1)); // key
+                Assertions.assertEquals(22, metaData.getColumnCount());
+                Assertions.assertEquals(key, rs.getInt("key")); // key
 
                 for (int i = 2; i <= metaData.getColumnCount(); i++) {
                     Assertions.assertNull(rs.getObject(i)); // everything else
@@ -659,23 +587,22 @@ public class YdbPreparedStatementImplTest {
         }
     }
 
-    @Test
-    public void testParametersMeta() throws SQLException {
-        try (YdbPreparedStatement ps = prepareUpsertValues()) {
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(value = SqlQueries.YqlQuery.class)
+    public void testParametersMeta(SqlQueries.YqlQuery mode) throws SQLException {
+        String yql = TEST_TABLE.namedUpsertAll(mode);
+        try (YdbPreparedStatement ps = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(yql)) {
             final ParameterMetaData meta = ps.getParameterMetaData();
             final YdbParameterMetaData ydbMeta = meta.unwrap(YdbParameterMetaData.class);
 
-            ExceptionAssert.sqlException("Parameter not found: some-param",
-                    () -> ydbMeta.getParameterIndex("some-param")
-            );
             ExceptionAssert.sqlException("Parameter is out of range: 335",
                     () -> meta.getParameterType(335)
             );
 
-            Assertions.assertEquals(19, meta.getParameterCount());
+            Assertions.assertEquals(22, meta.getParameterCount());
             for (int param = 1; param <= meta.getParameterCount(); param++) {
                 String name = ydbMeta.getParameterName(param);
-                Assertions.assertEquals(param, ydbMeta.getParameterIndex(name), "Names and indexes are matched");
+                boolean isKey = "key".equals(name);
 
                 Assertions.assertFalse(meta.isSigned(param), "All params are not isSigned");
                 Assertions.assertEquals(0, meta.getPrecision(param), "No precision available");
@@ -686,14 +613,15 @@ public class YdbPreparedStatementImplTest {
                 int type = meta.getParameterType(param);
                 Assertions.assertTrue(type != 0, "All params have sql type, including " + name);
 
-                if (name.equals("$key")) {
-                    continue;
+                if (isKey) {
+                    Assertions.assertEquals(ParameterMetaData.parameterNoNulls, meta.isNullable(param),
+                            "Primary key defined as not nullable");
+                } else {
+                    Assertions.assertEquals(ParameterMetaData.parameterNullable, meta.isNullable(param),
+                            "All parameters expect primary key defined as nullable, including " + name);
                 }
 
-                Assertions.assertEquals(ParameterMetaData.parameterNullable, meta.isNullable(param),
-                        "All parameters expect primary key defined as nullable, including " + name);
-
-                String expectType = name.substring("$c_".length()).toLowerCase();
+                String expectType = isKey ? "int32" : name.substring("c_".length()).toLowerCase();
                 if (expectType.equals("decimal")) {
                     expectType += "(22, 9)";
                 }
@@ -705,47 +633,54 @@ public class YdbPreparedStatementImplTest {
 
                 String expectClassName;
                 switch (name) {
-                    case "$key":
-                    case "$c_Int32":
-                    case "$c_Uint8":
-                        expectClassName = Integer.class.getName();
-                        break;
-                    case "$c_Bool":
+                    case "c_Bool":
                         expectClassName = Boolean.class.getName();
                         break;
-                    case "$c_Int64":
-                    case "$c_Uint64":
-                    case "$c_Uint32":
+                    case "c_Int8":
+                        expectClassName = Byte.class.getName();
+                        break;
+                    case "c_Int16":
+                        expectClassName = Short.class.getName();
+                        break;
+                    case "key":
+                    case "c_Int32":
+                    case "c_Uint8":
+                    case "c_Uint16":
+                        expectClassName = Integer.class.getName();
+                        break;
+                    case "c_Int64":
+                    case "c_Uint64":
+                    case "c_Uint32":
                         expectClassName = Long.class.getName();
                         break;
-                    case "$c_Float":
+                    case "c_Float":
                         expectClassName = Float.class.getName();
                         break;
-                    case "$c_Double":
+                    case "c_Double":
                         expectClassName = Double.class.getName();
                         break;
-                    case "$c_Text":
-                    case "$c_Json":
-                    case "$c_JsonDocument":
+                    case "c_Text":
+                    case "c_Json":
+                    case "c_JsonDocument":
                         expectClassName = String.class.getName();
                         break;
-                    case "$c_Bytes":
-                    case "$c_Yson":
+                    case "c_Bytes":
+                    case "c_Yson":
                         expectClassName = byte[].class.getName();
                         break;
-                    case "$c_Date":
+                    case "c_Date":
                         expectClassName = LocalDate.class.getName();
                         break;
-                    case "$c_Datetime":
+                    case "c_Datetime":
                         expectClassName = LocalDateTime.class.getName();
                         break;
-                    case "$c_Timestamp":
+                    case "c_Timestamp":
                         expectClassName = Instant.class.getName();
                         break;
-                    case "$c_Interval":
+                    case "c_Interval":
                         expectClassName = Duration.class.getName();
                         break;
-                    case "$c_Decimal":
+                    case "c_Decimal":
                         expectClassName = DecimalValue.class.getName();
                         break;
                     default:
@@ -757,10 +692,7 @@ public class YdbPreparedStatementImplTest {
         }
     }
 
-
-        /*
-
-
+/*
     @Test
     void setBoolean() throws SQLException {
         checkInsert("c_Bool", "Bool",
@@ -800,6 +732,7 @@ public class YdbPreparedStatementImplTest {
                 )
         );
     }
+
 
     @ParameterizedTest
     @ValueSource(strings = {"Uint8"})

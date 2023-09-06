@@ -26,11 +26,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbDatabaseMetaData;
-import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
+import tech.ydb.jdbc.impl.helper.SqlQueries;
 import tech.ydb.jdbc.impl.helper.TableAssert;
-import tech.ydb.jdbc.impl.helper.TestResources;
 import tech.ydb.table.values.ListType;
 import tech.ydb.table.values.ListValue;
 import tech.ydb.table.values.PrimitiveType;
@@ -44,13 +43,16 @@ public class YdbConnectionImplTest {
     @RegisterExtension
     private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb);
 
-    private static final String TEST_TABLE = "ydb_connection_test";
+    private static final SqlQueries QUERIES = new SqlQueries("ydb_connection_test");
+    private static final String SELECT_2_2 = "select 2 + 2";
+    private static final String SIMPLE_UPSERT = QUERIES
+            .withTableName("upsert into #tableName (key, c_Text) values (1, '2')");
 
     @BeforeAll
     public static void createTable() throws SQLException {
-        try (Statement statement = jdbc.connection().createStatement();) {
+        try (Statement statement = jdbc.connection().createStatement()) {
             // create simple tables
-            statement.execute("--jdbc:SCHEME\n" + TestResources.createTableSql(TEST_TABLE));
+            statement.execute(QUERIES.createTableSQL());
         }
     }
 
@@ -58,7 +60,7 @@ public class YdbConnectionImplTest {
     public static void dropTable() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement();) {
             // create test table
-            statement.execute("--jdbc:SCHEME\n drop table " + TEST_TABLE);
+            statement.execute(QUERIES.dropTableSQL());
         }
     }
 
@@ -74,7 +76,7 @@ public class YdbConnectionImplTest {
         }
 
         try (Statement statement = jdbc.connection().createStatement()) {
-            try (ResultSet result = statement.executeQuery("select * from " + TEST_TABLE)) {
+            try (ResultSet result = statement.executeQuery(QUERIES.selectAllSQL())) {
                 Assertions.assertFalse(result.next(), "Table must be empty after test");
             }
         }
@@ -83,7 +85,7 @@ public class YdbConnectionImplTest {
 
     private void cleanTable() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement()) {
-            statement.execute("delete from " + TEST_TABLE);
+            statement.execute(QUERIES.deleteAllSQL());
         }
     }
 
@@ -168,34 +170,34 @@ public class YdbConnectionImplTest {
     @Test
     public void prepareStatementInvalid() throws SQLException {
         ExceptionAssert.sqlFeatureNotSupported("Auto-generated keys are not supported",
-                () -> jdbc.connection().prepareStatement("select 2 + 2", new int[] {})
+                () -> jdbc.connection().prepareStatement(SELECT_2_2, new int[] {})
         );
 
         ExceptionAssert.sqlFeatureNotSupported("Auto-generated keys are not supported",
-                () -> jdbc.connection().prepareStatement("select 2 + 2", new String[] {})
+                () -> jdbc.connection().prepareStatement(SELECT_2_2, new String[] {})
         );
 
         ExceptionAssert.sqlFeatureNotSupported("Auto-generated keys are not supported",
-                () -> jdbc.connection().prepareStatement("select 2 + 2", Statement.RETURN_GENERATED_KEYS)
+                () -> jdbc.connection().prepareStatement(SELECT_2_2, Statement.RETURN_GENERATED_KEYS)
         );
 
         ExceptionAssert.sqlFeatureNotSupported(
                 "resultSetType must be ResultSet.TYPE_FORWARD_ONLY or ResultSet.TYPE_SCROLL_INSENSITIVE",
-                () -> jdbc.connection().prepareStatement("select 2 + 2",
+                () -> jdbc.connection().prepareStatement(SELECT_2_2,
                         ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY, ResultSet.HOLD_CURSORS_OVER_COMMIT
                 )
         );
 
         ExceptionAssert.sqlFeatureNotSupported(
                 "resultSetConcurrency must be ResultSet.CONCUR_READ_ONLY",
-                () -> jdbc.connection().prepareStatement("select 2 + 2",
+                () -> jdbc.connection().prepareStatement(SELECT_2_2,
                         ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_UPDATABLE, ResultSet.HOLD_CURSORS_OVER_COMMIT
                 )
         );
 
         ExceptionAssert.sqlFeatureNotSupported(
                 "resultSetHoldability must be ResultSet.HOLD_CURSORS_OVER_COMMIT",
-                () -> jdbc.connection().prepareStatement("select 2 + 2",
+                () -> jdbc.connection().prepareStatement(SELECT_2_2,
                         ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY, ResultSet.CLOSE_CURSORS_AT_COMMIT
                 )
         );
@@ -204,16 +206,16 @@ public class YdbConnectionImplTest {
     @Test
     public void prepareCallNotSupported() {
         ExceptionAssert.sqlFeatureNotSupported("Prepared calls are not supported",
-                () -> jdbc.connection().prepareCall("select 2 + 2")
+                () -> jdbc.connection().prepareCall(SELECT_2_2)
         );
 
         ExceptionAssert.sqlFeatureNotSupported("Prepared calls are not supported",
-                () -> jdbc.connection().prepareCall("select 2 + 2",
+                () -> jdbc.connection().prepareCall(SELECT_2_2,
                         ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)
         );
 
         ExceptionAssert.sqlFeatureNotSupported("Prepared calls are not supported",
-                () -> jdbc.connection().prepareCall("select 2 + 2",
+                () -> jdbc.connection().prepareCall(SELECT_2_2,
                         ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY, ResultSet.HOLD_CURSORS_OVER_COMMIT)
         );
     }
@@ -245,13 +247,13 @@ public class YdbConnectionImplTest {
     public void invalidSQLCancelTransaction() throws SQLException {
         jdbc.connection().setAutoCommit(false);
         try (Statement statement = jdbc.connection().createStatement()) {
-            statement.execute("select 2 + 2");
+            statement.execute(SELECT_2_2);
             String txId = currentTxId();
             Assertions.assertNotNull(txId);
 
             ExceptionAssert.ydbNonRetryable("Column reference 'x' (S_ERROR)", () -> statement.execute("select 2 + x"));
 
-            statement.execute("select 2 + 2");
+            statement.execute(SELECT_2_2);
             Assertions.assertNotNull(currentTxId());
             Assertions.assertNotEquals(txId, currentTxId());
         } finally {
@@ -263,7 +265,7 @@ public class YdbConnectionImplTest {
     public void autoCommit() throws SQLException {
         jdbc.connection().setAutoCommit(false);
         try (Statement statement = jdbc.connection().createStatement()) {
-            statement.execute("select 2 + 2");
+            statement.execute(SELECT_2_2);
             String txId = currentTxId();
             Assertions.assertNotNull(txId);
 
@@ -277,10 +279,10 @@ public class YdbConnectionImplTest {
             Assertions.assertTrue(jdbc.connection().getAutoCommit());
             Assertions.assertNull(currentTxId());
 
-            statement.execute("select 2 + 2");
+            statement.execute(SELECT_2_2);
             Assertions.assertNull(currentTxId());
 
-            statement.execute("select 2 + 2");
+            statement.execute(SELECT_2_2);
             Assertions.assertNull(currentTxId());
 
             jdbc.connection().setAutoCommit(false);
@@ -295,20 +297,20 @@ public class YdbConnectionImplTest {
     public void commit() throws SQLException {
         jdbc.connection().setAutoCommit(false);
         try (Statement statement = jdbc.connection().createStatement()) {
-            Assertions.assertTrue(statement.execute("select 2 + 2"));
+            Assertions.assertTrue(statement.execute(SELECT_2_2));
             String txId = currentTxId();
             Assertions.assertNotNull(txId);
 
-            Assertions.assertTrue(statement.execute("select 2 + 2"));
+            Assertions.assertTrue(statement.execute(SELECT_2_2));
             Assertions.assertEquals(txId, currentTxId());
 
-            Assertions.assertTrue(statement.execute("select * from " + TEST_TABLE));
+            Assertions.assertTrue(statement.execute(QUERIES.selectAllSQL()));
             Assertions.assertEquals(txId, currentTxId());
 
-            Assertions.assertFalse(statement.execute("upsert into " + TEST_TABLE + "(key, c_Text) values (1, '2')"));
+            Assertions.assertFalse(statement.execute(SIMPLE_UPSERT));
             Assertions.assertEquals(txId, currentTxId());
 
-            Assertions.assertTrue(statement.execute("select 2 + 2"));
+            Assertions.assertTrue(statement.execute(SELECT_2_2));
             Assertions.assertEquals(txId, currentTxId());
 
             jdbc.connection().commit();
@@ -317,7 +319,7 @@ public class YdbConnectionImplTest {
             jdbc.connection().commit(); // does nothing
             Assertions.assertNull(currentTxId());
 
-            try (ResultSet result = statement.executeQuery("select * from " + TEST_TABLE)) {
+            try (ResultSet result = statement.executeQuery(QUERIES.selectAllSQL())) {
                 Assertions.assertTrue(result.next());
             }
         } finally {
@@ -330,20 +332,20 @@ public class YdbConnectionImplTest {
     public void rollback() throws SQLException {
         jdbc.connection().setAutoCommit(false);
         try (Statement statement = jdbc.connection().createStatement()) {
-            Assertions.assertTrue(statement.execute("select 2 + 2"));
+            Assertions.assertTrue(statement.execute(SELECT_2_2));
             String txId = currentTxId();
             Assertions.assertNotNull(txId);
 
-            Assertions.assertTrue(statement.execute("select 2 + 2"));
+            Assertions.assertTrue(statement.execute(SELECT_2_2));
             Assertions.assertEquals(txId, currentTxId());
 
-            Assertions.assertTrue(statement.execute("select * from " + TEST_TABLE));
+            Assertions.assertTrue(statement.execute(QUERIES.selectAllSQL()));
             Assertions.assertEquals(txId, currentTxId());
 
-            Assertions.assertFalse(statement.execute("upsert into " + TEST_TABLE + "(key, c_Text) values (1, '2')"));
+            Assertions.assertFalse(statement.execute(SIMPLE_UPSERT));
             Assertions.assertEquals(txId, currentTxId());
 
-            Assertions.assertTrue(statement.execute("select 2 + 2"));
+            Assertions.assertTrue(statement.execute(SELECT_2_2));
             Assertions.assertEquals(txId, currentTxId());
 
             jdbc.connection().rollback();
@@ -352,7 +354,7 @@ public class YdbConnectionImplTest {
             jdbc.connection().rollback(); // does nothing
             Assertions.assertNull(currentTxId());
 
-            try (ResultSet result = statement.executeQuery("select * from " + TEST_TABLE)) {
+            try (ResultSet result = statement.executeQuery(QUERIES.selectAllSQL())) {
                 Assertions.assertFalse(result.next());
             }
         } finally {
@@ -364,17 +366,18 @@ public class YdbConnectionImplTest {
     public void commitInvalidTx() throws SQLException {
         jdbc.connection().setAutoCommit(false);
         try (Statement statement = jdbc.connection().createStatement()) {
-            statement.execute("upsert into " + TEST_TABLE + "(key, c_Text) values (1, '2')");
-            statement.execute("upsert into " + TEST_TABLE + "(key, c_Text) values (1, '2')");
+            statement.execute(SIMPLE_UPSERT);
+            statement.execute(SIMPLE_UPSERT);
 
-            ExceptionAssert.ydbNonRetryable("Data modifications previously made to table",
-                    () -> statement.executeQuery("select * from " + TEST_TABLE));
+            ExceptionAssert.ydbNonRetryable("Member not found: key2. Did you mean key?",
+                    () -> statement.executeQuery(QUERIES.wrongSelectSQL()));
 
             Assertions.assertNull(currentTxId());
 
             jdbc.connection().commit(); // Nothing to commit, transaction was rolled back already
             Assertions.assertNull(currentTxId());
         } finally {
+            cleanTable();
             jdbc.connection().setAutoCommit(true);
         }
     }
@@ -383,18 +386,19 @@ public class YdbConnectionImplTest {
     public void rollbackInvalidTx() throws SQLException {
         jdbc.connection().setAutoCommit(false);
         try (Statement statement = jdbc.connection().createStatement()) {
-            ResultSet result = statement.executeQuery("select * from " + TEST_TABLE);
+            ResultSet result = statement.executeQuery(QUERIES.selectAllSQL());
             Assertions.assertFalse(result.next());
 
-            statement.execute("insert into " + TEST_TABLE + "(key, c_Text) values (1, '2')");
+            statement.execute(SIMPLE_UPSERT);
 
-            ExceptionAssert.ydbNonRetryable("Data modifications previously made to table",
-                    () -> statement.executeQuery("select * from " + TEST_TABLE));
+            ExceptionAssert.ydbNonRetryable("Member not found: key2. Did you mean key?",
+                    () -> statement.executeQuery(QUERIES.wrongSelectSQL()));
 
             Assertions.assertNull(currentTxId());
             jdbc.connection().rollback();
             Assertions.assertNull(currentTxId());
         } finally {
+            cleanTable();
             jdbc.connection().setAutoCommit(true);
         }
     }
@@ -454,7 +458,7 @@ public class YdbConnectionImplTest {
         Assertions.assertEquals(level, jdbc.connection().getTransactionIsolation());
 
         try (Statement statement = jdbc.connection().createStatement()) {
-            TableAssert.assertSelectInt(4, statement.executeQuery("select 2 + 2"));
+            TableAssert.assertSelectInt(4, statement.executeQuery(SELECT_2_2));
         }
     }
 
@@ -530,19 +534,21 @@ public class YdbConnectionImplTest {
 
     @Test
     public void testDDLInsideTransaction() throws SQLException {
-        String tempTable = "temp_" + TEST_TABLE;
+        String createTempTable = QUERIES.withTableName("--jdbc:SCHEME\n"
+                + "create table temp_#tableName(id Int32, value Int32, primary key(id))");
+        String dropTempTable = QUERIES.withTableName("--jdbc:SCHEME\ndrop table temp_#tableName");
+
         try (Statement statement = jdbc.connection().createStatement()) {
-            statement.execute("upsert into " + TEST_TABLE + "(key, c_Text) values (1, '2')");
+            statement.execute(SIMPLE_UPSERT);
 
             // call autocommit
-            statement.execute("--jdbc:SCHEME\n"
-                    + "create table " + tempTable + "(id Int32, value Int32, primary key(id))");
+            statement.execute(createTempTable);
 
-            statement.executeQuery("select * from " + TEST_TABLE);
-            statement.execute("delete from " + TEST_TABLE);
+            statement.executeQuery(QUERIES.selectAllSQL());
+            statement.execute(QUERIES.deleteAllSQL());
 
             // call autocommit
-            statement.execute("--jdbc:SCHEME\ndrop table " + tempTable);
+            statement.execute(dropTempTable);
         }
     }
 
@@ -562,7 +568,7 @@ public class YdbConnectionImplTest {
             ListValue value = ListType.of(PrimitiveType.Int32).newValue(
                     Arrays.asList(PrimitiveValue.newInt32(1), PrimitiveValue.newInt32(2)));
             try (PreparedStatement ps = jdbc.connection().prepareStatement(query)) {
-                ps.unwrap(YdbPreparedStatement.class).setObject("list", value);
+                ps.setObject(1, value);
 
                 ResultSet rs = ps.executeQuery();
                 Assertions.assertFalse(rs.next());
@@ -596,18 +602,18 @@ public class YdbConnectionImplTest {
     @Test
     public void testAnsiLexerForIdea() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement()) {
-            statement.execute("upsert into " + TEST_TABLE + "(key, c_Text) values (1, '2')");
+            statement.execute(SIMPLE_UPSERT);
             jdbc.connection().commit();
 
             // TODO: Must be "unit_1" t, see YQL-12618
             try (ResultSet rs = statement.executeQuery("--!ansi_lexer\n" +
-                    "select t.c_Text from \"" + TEST_TABLE + "\" as t where t.key = 1")) {
+                    QUERIES.withTableName("select t.c_Text from #tableName as t where t.key = 1"))) {
                 Assertions.assertTrue(rs.next());
                 Assertions.assertEquals("2", rs.getString("c_Text"));
             }
 
             try (ResultSet rs = statement.executeQuery("--!ansi_lexer\n" +
-                    "select t.c_Text from " + TEST_TABLE + " t where t.key = 1")) {
+                    QUERIES.withTableName("select t.c_Text from #tableName t where t.key = 1"))) {
                 Assertions.assertTrue(rs.next());
                 Assertions.assertEquals("2", rs.getString("c_Text"));
             }
@@ -619,9 +625,6 @@ public class YdbConnectionImplTest {
     @DisplayName("Check unsupported by storage type {arguments}")
     @ParameterizedTest()
     @ValueSource(strings = {
-//        "Int8",
-//        "Int16",
-//        "Uint16",
         "Uuid",
         "TzDate",
         "TzDatetime",

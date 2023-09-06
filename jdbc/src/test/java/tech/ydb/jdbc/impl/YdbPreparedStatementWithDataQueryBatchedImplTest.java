@@ -12,15 +12,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import tech.ydb.jdbc.YdbConnection;
+import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.common.QueryType;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
-import tech.ydb.jdbc.impl.helper.TestResources;
+import tech.ydb.jdbc.impl.helper.SqlQueries;
 import tech.ydb.jdbc.impl.helper.TextSelectAssert;
-import tech.ydb.jdbc.statement.YdbPreparedStatementImpl;
-import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryBatchedImpl;
-import tech.ydb.jdbc.statement.YdbPreparedStatementWithDataQueryImpl;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
 public class YdbPreparedStatementWithDataQueryBatchedImplTest {
@@ -30,7 +28,8 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
     @RegisterExtension
     private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb);
 
-    private static final String TEST_TABLE = "ydb_prepared_statement_with_batch_test";
+    private static final String TEST_TABLE_NAME = "ydb_prepared_statement_with_batch_test";
+    private static final SqlQueries TEST_TABLE = new SqlQueries(TEST_TABLE_NAME);
 
     private static final String UPSERT_SQL = ""
             + "declare $key as Optional<Int32>;\n"
@@ -51,7 +50,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
     public static void initTable() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement();) {
             // create test table
-            statement.execute(QueryType.SCHEME_QUERY.getPrefix() + "\n" + TestResources.createTableSql(TEST_TABLE));
+            statement.execute(TEST_TABLE.createTableSQL());
         }
         jdbc.connection().commit();
     }
@@ -60,7 +59,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
     public static void dropTable() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement();) {
             // create test table
-            statement.execute(QueryType.SCHEME_QUERY.getPrefix() + "\n drop table " + TEST_TABLE);
+            statement.execute(TEST_TABLE.dropTableSQL());
         }
         jdbc.connection().commit();
     }
@@ -72,7 +71,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
         }
 
         try (Statement statement = jdbc.connection().createStatement()) {
-            statement.execute("delete from " + TEST_TABLE);
+            statement.execute(TEST_TABLE.deleteAllSQL());
         }
 
         jdbc.connection().commit(); // MUST be auto rollbacked
@@ -83,68 +82,40 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
         return UPSERT_SQL
                 .replaceAll("#column", column)
                 .replaceAll("#type", type)
-                .replaceAll("#tableName", TEST_TABLE);
+                .replaceAll("#tableName", TEST_TABLE_NAME);
     }
 
     private String batchUpsertSql(String column, String type) {
         return BATCH_UPSERT_SQL
                 .replaceAll("#column", column)
                 .replaceAll("#type", type)
-                .replaceAll("#tableName", TEST_TABLE);
+                .replaceAll("#tableName", TEST_TABLE_NAME);
     }
 
     private String invalidBatchUpsertSql(String column, String type) {
         return INVALID_BATCH_UPSERT_SQL
                 .replaceAll("#column", column)
                 .replaceAll("#type", type)
-                .replaceAll("#tableName", TEST_TABLE);
+                .replaceAll("#tableName", TEST_TABLE_NAME);
     }
 
     private YdbPreparedStatement prepareBatchUpsert(String column, String type) throws SQLException {
         return jdbc.connection().unwrap(YdbConnection.class)
-                .prepareStatement(batchUpsertSql(column, type), YdbConnection.PreparedStatementMode.DATA_QUERY_BATCH);
+                .prepareStatement(batchUpsertSql(column, type), YdbPrepareMode.DATA_QUERY_BATCH);
     }
 
     private PreparedStatement prepareSimpleSelect(String column) throws SQLException {
         String sql = SIMPLE_SELECT_SQL
                 .replaceAll("#column", column)
-                .replaceAll("#tableName", TEST_TABLE);
+                .replaceAll("#tableName", TEST_TABLE_NAME);
         return jdbc.connection().prepareStatement(sql);
     }
 
     private PreparedStatement prepareScanSelect(String column) throws SQLException {
         String sql = SIMPLE_SELECT_SQL
                 .replaceAll("#column", column)
-                .replaceAll("#tableName", TEST_TABLE);
+                .replaceAll("#tableName", TEST_TABLE_NAME);
         return jdbc.connection().prepareStatement(QueryType.SCAN_QUERY.getPrefix() + "\n" + sql);
-    }
-
-    @Test
-    public void batchStatementTest() throws SQLException {
-        try (YdbPreparedStatement statement = prepareBatchUpsert("c_Text", "Optional<Text>")) {
-            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementImpl.class));
-            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementWithDataQueryImpl.class));
-            Assertions.assertTrue(statement.isWrapperFor(YdbPreparedStatementWithDataQueryBatchedImpl.class));
-
-            Assertions.assertNotNull(statement.unwrap(YdbPreparedStatementWithDataQueryBatchedImpl.class));
-        }
-
-        // Batch mode autodetect
-        try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class)
-                .prepareStatement(batchUpsertSql("c_Text", "Text"))) {
-            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementImpl.class));
-            Assertions.assertFalse(statement.isWrapperFor(YdbPreparedStatementWithDataQueryImpl.class));
-            Assertions.assertTrue(statement.isWrapperFor(YdbPreparedStatementWithDataQueryBatchedImpl.class));
-
-            Assertions.assertNotNull(statement.unwrap(YdbPreparedStatementWithDataQueryBatchedImpl.class));
-        }
-
-        // Wrong query for batch statement
-        String sql = upsertSql("c_Text", "Text");
-        ExceptionAssert.ydbExecution("Statement cannot be executed as batch statement: " + sql,
-                () -> jdbc.connection().unwrap(YdbConnection.class).prepareStatement(
-                        sql, YdbConnection.PreparedStatementMode.DATA_QUERY_BATCH)
-        );
     }
 
     @Test
@@ -152,27 +123,13 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
         ExceptionAssert.ydbNonRetryable("Duplicated member: key", () -> {
             jdbc.connection().unwrap(YdbConnection.class).prepareStatement(
                     invalidBatchUpsertSql("c_Text", "Text"),
-                    YdbConnection.PreparedStatementMode.DATA_QUERY_BATCH);
+                    YdbPrepareMode.DATA_QUERY_BATCH);
         });
     }
 
     @Test
     public void executeEmpty() throws SQLException {
         try (YdbPreparedStatement statement = prepareBatchUpsert("c_Text", "Optional<Text>")) {
-            statement.execute();
-            jdbc.connection().commit();
-
-            try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
-                TextSelectAssert.of(select.executeQuery(), "c_Text", "Text").noNextRows();
-            }
-
-            statement.executeUpdate();
-            jdbc.connection().commit();
-
-            try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
-                TextSelectAssert.of(select.executeQuery(), "c_Text", "Text").noNextRows();
-            }
-
             statement.executeBatch();
             jdbc.connection().commit();
 
@@ -185,6 +142,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
     @Test
     public void executeEmptyNoResultSet() throws SQLException {
         try (YdbPreparedStatement statement = prepareBatchUpsert("c_Text", "Optional<Text>")) {
+            statement.setInt("key", 1); // key is requiered value
             ExceptionAssert.sqlException("Query must return ResultSet", statement::executeQuery);
         }
         jdbc.connection().commit();
@@ -200,14 +158,13 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
             statement.setInt("key", 2);
             statement.setString("c_Text", "value-2");
 
-            statement.execute(); // Just added silently
+            statement.execute(); // Just added only last params
         }
 
         jdbc.connection().commit();
 
         try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
             TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
-                    .nextRow(1, "value-1")
                     .nextRow(2, "value-2")
                     .noNextRows();
         }

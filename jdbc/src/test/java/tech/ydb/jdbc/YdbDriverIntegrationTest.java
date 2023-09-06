@@ -9,8 +9,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import tech.ydb.jdbc.connection.YdbConnectionImpl;
-import tech.ydb.jdbc.connection.YdbContext;
+import tech.ydb.jdbc.impl.YdbConnectionImpl;
+import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.impl.helper.JdbcUrlHelper;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
