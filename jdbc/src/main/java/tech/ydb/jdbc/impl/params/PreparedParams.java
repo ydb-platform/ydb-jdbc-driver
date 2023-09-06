@@ -129,7 +129,7 @@ public class PreparedParams implements YdbJdbcParams {
         if (index <= 0 || index > paramNames.length) {
             throw new SQLException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + index);
         }
-        return paramNames[index - 1];
+        return paramNames[index - 1].substring(YdbConst.VARIABLE_PARAMETER_PREFIX.length());
     }
 
     @Override

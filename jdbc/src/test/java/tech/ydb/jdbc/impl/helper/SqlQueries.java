@@ -28,7 +28,10 @@ public class SqlQueries {
 
     private static final String SELECT = YdbLookup.stringFileReference("classpath:sql/select.sql");
 
-    private static final String NAMED_UPSERT = YdbLookup.stringFileReference("classpath:sql/upsert/named.sql");
+    private static final String SIMPLE_UPSERT_ALL = YdbLookup.stringFileReference("classpath:sql/upsert/simple.sql");
+    private static final String NAMED_UPSERT_ALL = YdbLookup.stringFileReference("classpath:sql/upsert/named.sql");
+    private static final String BATCHED_UPSERT_ALL = YdbLookup.stringFileReference("classpath:sql/upsert/batched.sql");
+    private static final String INDEXED_UPSERT_ALL = YdbLookup.stringFileReference("classpath:sql/upsert/types.sql");
 
     private static final String SELECT_ALL = "select * from #tableName";
     private static final String DELETE_ALL = "delete from #tableName";
@@ -103,6 +106,25 @@ public class SqlQueries {
         return withTableName(DELETE_ALL);
     }
 
+    public String namedUpsertAll(YqlQuery mode) {
+        switch (mode) {
+            case BATCHED:
+                return withTableName(BATCHED_UPSERT_ALL, tableName);
+            case SIMPLE:
+            default:
+                return withTableName(NAMED_UPSERT_ALL, tableName);
+
+        }
+    }
+
+    public String simpleUpsertAllSQL() {
+        return withTableName(SIMPLE_UPSERT_ALL, tableName);
+    }
+
+    public String indexesUpsertAllSQL() {
+        return withTableName(INDEXED_UPSERT_ALL, tableName);
+    }
+
     /**
      * @param column name of column
      * @return select key, #column from #tableName */
@@ -136,9 +158,5 @@ public class SqlQueries {
 
     public static String upsertAllValuesSql(String tableName) {
         return withTableName(INIT_TABLE, tableName);
-    }
-
-    public static String namedUpsertSQL(String tableName) {
-        return withTableName(NAMED_UPSERT, tableName);
     }
 }

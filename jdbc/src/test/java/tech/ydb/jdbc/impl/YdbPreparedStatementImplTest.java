@@ -128,11 +128,6 @@ public class YdbPreparedStatementImplTest {
         return QueryType.SCAN_QUERY.getPrefix() + "\n" + sql;
     }
 
-    private YdbPreparedStatement prepareUpsertValues() throws SQLException {
-        return jdbc.connection().prepareStatement(SqlQueries.namedUpsertSQL(TEST_TABLE_NAME))
-                .unwrap(YdbPreparedStatement.class);
-    }
-
     private YdbPreparedStatement prepareSelectAll() throws SQLException {
         return jdbc.connection().prepareStatement(TEST_TABLE.selectSQL())
                 .unwrap(YdbPreparedStatement.class);
@@ -487,9 +482,11 @@ public class YdbPreparedStatementImplTest {
         }
     }
 
-    @Test
-    public void testSetNull() throws SQLException {
-        try (YdbPreparedStatement ps = prepareUpsertValues()) {
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(value = SqlQueries.YqlQuery.class)
+    public void testSetNull(SqlQueries.YqlQuery mode) throws SQLException {
+        String yql = TEST_TABLE.namedUpsertAll(mode);
+        try (YdbPreparedStatement ps = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(yql)) {
             ps.setInt("key", 1);
             YdbTypes types = ps.getConnection().getYdbTypes();
             ps.setNull("c_Bool", types.wrapYdbJdbcType(PrimitiveType.Bool));
@@ -517,7 +514,7 @@ public class YdbPreparedStatementImplTest {
             ps.executeUpdate();
         }
 
-        try (YdbPreparedStatement ps = prepareUpsertValues()) {
+        try (YdbPreparedStatement ps = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(yql)) {
             ps.setInt("key", 2);
             ps.setNull("c_Bool", -1, "Bool");
             ps.setNull("c_Int8", -1, "Int8");
@@ -544,7 +541,7 @@ public class YdbPreparedStatementImplTest {
             ps.executeUpdate();
         }
 
-        try (YdbPreparedStatement ps = prepareUpsertValues()) {
+        try (YdbPreparedStatement ps = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(yql)) {
             ps.setInt("key", 3);
             ps.setNull("c_Bool", -1);
             ps.setNull("c_Int8", -1);
@@ -590,9 +587,11 @@ public class YdbPreparedStatementImplTest {
         }
     }
 
-    @Test
-    public void testParametersMeta() throws SQLException {
-        try (YdbPreparedStatement ps = prepareUpsertValues()) {
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(value = SqlQueries.YqlQuery.class)
+    public void testParametersMeta(SqlQueries.YqlQuery mode) throws SQLException {
+        String yql = TEST_TABLE.namedUpsertAll(mode);
+        try (YdbPreparedStatement ps = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(yql)) {
             final ParameterMetaData meta = ps.getParameterMetaData();
             final YdbParameterMetaData ydbMeta = meta.unwrap(YdbParameterMetaData.class);
 
@@ -603,6 +602,7 @@ public class YdbPreparedStatementImplTest {
             Assertions.assertEquals(22, meta.getParameterCount());
             for (int param = 1; param <= meta.getParameterCount(); param++) {
                 String name = ydbMeta.getParameterName(param);
+                boolean isKey = "key".equals(name);
 
                 Assertions.assertFalse(meta.isSigned(param), "All params are not isSigned");
                 Assertions.assertEquals(0, meta.getPrecision(param), "No precision available");
@@ -613,14 +613,15 @@ public class YdbPreparedStatementImplTest {
                 int type = meta.getParameterType(param);
                 Assertions.assertTrue(type != 0, "All params have sql type, including " + name);
 
-                if (name.equals("$key")) {
-                    continue;
+                if (isKey) {
+                    Assertions.assertEquals(ParameterMetaData.parameterNoNulls, meta.isNullable(param),
+                            "Primary key defined as not nullable");
+                } else {
+                    Assertions.assertEquals(ParameterMetaData.parameterNullable, meta.isNullable(param),
+                            "All parameters expect primary key defined as nullable, including " + name);
                 }
 
-                Assertions.assertEquals(ParameterMetaData.parameterNullable, meta.isNullable(param),
-                        "All parameters expect primary key defined as nullable, including " + name);
-
-                String expectType = name.substring("$c_".length()).toLowerCase();
+                String expectType = isKey ? "int32" : name.substring("c_".length()).toLowerCase();
                 if (expectType.equals("decimal")) {
                     expectType += "(22, 9)";
                 }
@@ -632,54 +633,54 @@ public class YdbPreparedStatementImplTest {
 
                 String expectClassName;
                 switch (name) {
-                    case "$key":
-                    case "$c_Bool":
+                    case "c_Bool":
                         expectClassName = Boolean.class.getName();
                         break;
-                    case "$c_Int8":
+                    case "c_Int8":
                         expectClassName = Byte.class.getName();
                         break;
-                    case "$c_Int16":
+                    case "c_Int16":
                         expectClassName = Short.class.getName();
                         break;
-                    case "$c_Int32":
-                    case "$c_Uint8":
-                    case "$c_Uint16":
+                    case "key":
+                    case "c_Int32":
+                    case "c_Uint8":
+                    case "c_Uint16":
                         expectClassName = Integer.class.getName();
                         break;
-                    case "$c_Int64":
-                    case "$c_Uint64":
-                    case "$c_Uint32":
+                    case "c_Int64":
+                    case "c_Uint64":
+                    case "c_Uint32":
                         expectClassName = Long.class.getName();
                         break;
-                    case "$c_Float":
+                    case "c_Float":
                         expectClassName = Float.class.getName();
                         break;
-                    case "$c_Double":
+                    case "c_Double":
                         expectClassName = Double.class.getName();
                         break;
-                    case "$c_Text":
-                    case "$c_Json":
-                    case "$c_JsonDocument":
+                    case "c_Text":
+                    case "c_Json":
+                    case "c_JsonDocument":
                         expectClassName = String.class.getName();
                         break;
-                    case "$c_Bytes":
-                    case "$c_Yson":
+                    case "c_Bytes":
+                    case "c_Yson":
                         expectClassName = byte[].class.getName();
                         break;
-                    case "$c_Date":
+                    case "c_Date":
                         expectClassName = LocalDate.class.getName();
                         break;
-                    case "$c_Datetime":
+                    case "c_Datetime":
                         expectClassName = LocalDateTime.class.getName();
                         break;
-                    case "$c_Timestamp":
+                    case "c_Timestamp":
                         expectClassName = Instant.class.getName();
                         break;
-                    case "$c_Interval":
+                    case "c_Interval":
                         expectClassName = Duration.class.getName();
                         break;
-                    case "$c_Decimal":
+                    case "c_Decimal":
                         expectClassName = DecimalValue.class.getName();
                         break;
                     default:
