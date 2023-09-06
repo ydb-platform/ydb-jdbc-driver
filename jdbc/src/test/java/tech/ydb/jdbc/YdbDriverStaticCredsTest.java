@@ -93,14 +93,23 @@ public class YdbDriverStaticCredsTest {
     @Test
     public void connectWrong() throws SQLException {
         wrongConnection(connectByProperties("user1", "a"));
+        wrongConnection(connectByAuthority("user1", "a"));
 
         wrongConnection(connectByProperties("user2", ""));
         wrongConnection(connectByProperties("user2", null));
         wrongConnection(connectByProperties("user2", "pass"));
 
+        wrongConnection(connectByAuthority("user2", ""));
+        wrongConnection(connectByAuthority("user2", null));
+        wrongConnection(connectByAuthority("user2", "pass"));
+
         wrongConnection(connectByProperties("user3", ""));
         wrongConnection(connectByProperties("user3", null));
         wrongConnection(connectByProperties("user3", "pw:ss;"));
+
+        wrongConnection(connectByAuthority("user3", ""));
+        wrongConnection(connectByAuthority("user3", null));
+        wrongConnection(connectByAuthority("user3", "pw:ss;"));
     }
 
     interface ConnectionSupplier {

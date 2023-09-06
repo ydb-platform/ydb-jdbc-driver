@@ -21,6 +21,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.Locale;
 
 import javax.sql.rowset.serial.SerialBlob;
@@ -180,12 +181,16 @@ public class YdbResultSetImplTest {
 
         Assertions.assertEquals(22, metadata.getColumnCount());
 
+        Iterator<String> names = metadata.unwrap(YdbResultSetMetaData.class).getColumnNames().iterator();
         for (int index = 0; index < metadata.getColumnCount(); index++) {
             int column = index + 1;
             String name = metadata.getColumnName(column);
             Assertions.assertNotNull(name);
             Assertions.assertEquals(name, metadata.getColumnLabel(column));
             Assertions.assertEquals(column, ydbMetadata.getColumnIndex(name));
+
+            Assertions.assertTrue(names.hasNext());
+            Assertions.assertEquals(name, names.next());
 
             Assertions.assertFalse(metadata.isAutoIncrement(column), "All columns are not isAutoIncrement");
             Assertions.assertTrue(metadata.isCaseSensitive(column), "All columns are isCaseSensitive");
