@@ -33,12 +33,11 @@ import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTypes;
-import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbExecutor;
-import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.context.YdbTxState;
-import tech.ydb.jdbc.settings.YdbOperationProperties;
+import tech.ydb.jdbc.query.QueryType;
+import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.Session;
 import tech.ydb.table.query.DataQuery;
 import tech.ydb.table.query.DataQueryResult;
@@ -97,7 +96,7 @@ public class YdbConnectionImpl implements YdbConnection {
     @Override
     public String nativeSQL(String sql) {
         try {
-            return YdbQuery.from(ctx.getOperationProperties(), sql).getYqlQuery(null);
+            return YdbQuery.from(ctx.getQueryOptions(), sql).getYqlQuery(null);
         } catch (SQLException ex) {
             return ex.getMessage();
         }
@@ -392,8 +391,7 @@ public class YdbConnectionImpl implements YdbConnection {
         ensureOpened();
         executor.clearWarnings();
 
-        YdbOperationProperties props = ctx.getOperationProperties();
-        YdbQuery query = YdbQuery.from(props, sql);
+        YdbQuery query = YdbQuery.from(ctx.getQueryOptions(), sql);
 
         if (query.type() != QueryType.DATA_QUERY && query.type() != QueryType.SCAN_QUERY) {
             throw new SQLException(YdbConst.UNSUPPORTED_QUERY_TYPE_IN_PS + query.type());

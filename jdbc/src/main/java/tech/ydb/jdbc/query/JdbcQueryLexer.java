@@ -4,14 +4,15 @@ package tech.ydb.jdbc.query;
  *
  * @author Aleksandr Gorshenin
  */
-public class JdbcLexer {
+public class JdbcQueryLexer {
     /**
      * Parses JDBC query to replace all ? to YQL params.
      *
      * @param query jdbc query to parse
      * @param builder Ydb query builder
+     * @param options Options of parsing
      */
-    public static void buildQuery(String query, YdbQueryBuilder builder, boolean detectType) {
+    public static void buildQuery(String query, YdbQueryBuilder builder, YdbQueryOptions options) {
         int fragmentStart = 0;
 
         boolean nextExpression = true;
@@ -52,8 +53,12 @@ public class JdbcLexer {
                     break;
 
                 default:
-                    if (detectType && nextExpression && Character.isJavaIdentifierStart(ch)) {
+                    if (nextExpression && Character.isJavaIdentifierStart(ch)) {
                         nextExpression = false;
+
+                        if (!options.isDetectQueryType()) {
+                            break;
+                        }
 
                         // Detect scheme expression
                         if (parseAlterKeyword(chars, i)

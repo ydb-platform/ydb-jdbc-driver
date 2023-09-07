@@ -8,7 +8,6 @@ import java.util.Map;
 import tech.ydb.core.StatusCode;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.exception.YdbNonRetryableException;
-import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Value;
 
@@ -17,19 +16,18 @@ import tech.ydb.table.values.Value;
  * @author Aleksandr Gorshenin
  */
 public class YdbQuery {
+    private final YdbQueryOptions opts;
     private final String originSQL;
-    private final String originYQL;
+    private final String yqlQuery;
     private final QueryType type;
-    private final boolean enforceV1;
-    private final List<String> extraParams;
+    private final List<String> indexesArgsNames;
 
-    private YdbQuery(YdbOperationProperties props, YdbQueryBuilder builder) {
+    private YdbQuery(YdbQueryOptions opts, YdbQueryBuilder builder) {
+        this.opts = opts;
         this.originSQL = builder.getOriginSQL();
-        this.originYQL = builder.buildYQL();
-        this.extraParams = builder.getIndexedArgs();
+        this.yqlQuery = builder.buildYQL();
+        this.indexesArgsNames = builder.getIndexedArgs();
         this.type = builder.getQueryType();
-
-        this.enforceV1 = props.isEnforceSqlV1();
     }
 
     public String originSQL() {
@@ -37,28 +35,28 @@ public class YdbQuery {
     }
 
     public boolean hasIndexesParameters() {
-        return extraParams != null && !extraParams.isEmpty();
+        return indexesArgsNames != null && !indexesArgsNames.isEmpty();
     }
 
     public List<String> getIndexesParameters() {
-        return extraParams;
+        return indexesArgsNames;
     }
 
     public String getYqlQuery(Params params) throws SQLException {
         StringBuilder yql = new StringBuilder();
 
-        if (enforceV1) {
-            if (!originYQL.contains(YdbConst.PREFIX_SYNTAX_V1)) {
+        if (opts.isEnforceSyntaxV1()) {
+            if (!yqlQuery.startsWith(YdbConst.PREFIX_SYNTAX_V1)) {
                 yql.append(YdbConst.PREFIX_SYNTAX_V1);
                 yql.append("\n");
             }
         }
 
-        if (extraParams != null) {
+        if (indexesArgsNames != null) {
             if (params != null) {
                 Map<String, Value<?>> values = params.values();
-                for (int idx = 0; idx < extraParams.size(); idx += 1) {
-                    String prm = extraParams.get(idx);
+                for (int idx = 0; idx < indexesArgsNames.size(); idx += 1) {
+                    String prm = indexesArgsNames.get(idx);
                     if (!values.containsKey(prm)) {
                         throw new YdbNonRetryableException(
                                 YdbConst.MISSING_VALUE_FOR_PARAMETER + prm,
@@ -66,20 +64,24 @@ public class YdbQuery {
                         );
                     }
 
-                    String prmType = values.get(prm).getType().toString();
-                    yql.append("DECLARE ")
-                            .append(prm)
-                            .append(" AS ")
-                            .append(prmType)
-                            .append(";\n");
+                    if (opts.isDeclareJdbcParameters()) {
+                        String prmType = values.get(prm).getType().toString();
+                        yql.append("DECLARE ")
+                                .append(prm)
+                                .append(" AS ")
+                                .append(prmType)
+                                .append(";\n");
+                    }
+
 
                 }
-            } else if (!extraParams.isEmpty()) {
-                yql.append("-- DECLARE ").append(extraParams.size()).append(" PARAMETERS").append("\n");
+            } else if (!indexesArgsNames.isEmpty() && opts.isDeclareJdbcParameters()) {
+                // Comment in place where must be declare section
+                yql.append("-- DECLARE ").append(indexesArgsNames.size()).append(" PARAMETERS").append("\n");
             }
         }
 
-        yql.append(originYQL);
+        yql.append(yqlQuery);
         return yql.toString();
     }
 
@@ -87,15 +89,9 @@ public class YdbQuery {
         return type;
     }
 
-    public static YdbQuery from(YdbOperationProperties props, String sql) {
+    public static YdbQuery from(YdbQueryOptions opts, String sql) {
         YdbQueryBuilder builder = new YdbQueryBuilder(sql);
-
-        if (!props.isJdbcParametersSupportDisabled()) {
-            JdbcLexer.buildQuery(sql, builder, props.isDetectSqlOperations());
-        } else {
-            builder.append(sql);
-        }
-
-        return new YdbQuery(props, builder);
+        JdbcQueryLexer.buildQuery(sql, builder, opts);
+        return new YdbQuery(opts, builder);
     }
 }

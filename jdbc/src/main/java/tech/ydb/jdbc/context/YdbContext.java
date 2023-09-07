@@ -7,6 +7,7 @@ import java.util.logging.Logger;
 
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.jdbc.exception.YdbConfigurationException;
+import tech.ydb.jdbc.query.YdbQueryOptions;
 import tech.ydb.jdbc.settings.YdbClientProperties;
 import tech.ydb.jdbc.settings.YdbConnectionProperties;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
@@ -27,11 +28,14 @@ public class YdbContext implements AutoCloseable {
     private final TableClient tableClient;
     private final SchemeClient schemeClient;
 
+    private final YdbQueryOptions queryOptions;
+
     private YdbContext(YdbConfig config, GrpcTransport grpcTransport, TableClient tableClient) {
         this.config = config;
         this.grpcTransport = Objects.requireNonNull(grpcTransport);
         this.tableClient = Objects.requireNonNull(tableClient);
         this.schemeClient = SchemeClient.newClient(grpcTransport).build();
+        this.queryOptions = new YdbQueryOptions(config.getOperationProperties());
     }
 
     public String getDatabase() {
@@ -48,6 +52,10 @@ public class YdbContext implements AutoCloseable {
 
     public String getUrl() {
         return config.getUrl();
+    }
+
+    public YdbQueryOptions getQueryOptions() {
+        return queryOptions;
     }
 
     public YdbOperationProperties getOperationProperties() {
