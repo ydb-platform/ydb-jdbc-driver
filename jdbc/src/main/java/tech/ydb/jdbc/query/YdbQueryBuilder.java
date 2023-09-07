@@ -3,6 +3,10 @@ package tech.ydb.jdbc.query;
 import java.util.ArrayList;
 import java.util.List;
 
+import tech.ydb.core.StatusCode;
+import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.exception.YdbNonRetryableException;
+
 /**
  *
  * @author Aleksandr Gorshenin
@@ -33,7 +37,11 @@ public class YdbQueryBuilder {
         }
     }
 
-    public void setQueryType(QueryType type) {
+    public void setQueryType(QueryType type) throws YdbNonRetryableException {
+        if (currentType != null && currentType != type) {
+            String msg = YdbConst.MULTI_TYPES_IN_ONE_QUERY + currentType + ", " + type;
+            throw new YdbNonRetryableException(msg, StatusCode.BAD_REQUEST);
+        }
         this.currentType = type;
     }
 

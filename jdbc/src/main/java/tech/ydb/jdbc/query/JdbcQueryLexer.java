@@ -1,18 +1,22 @@
 package tech.ydb.jdbc.query;
 
+import tech.ydb.jdbc.exception.YdbNonRetryableException;
+
 /**
  *
  * @author Aleksandr Gorshenin
  */
 public class JdbcQueryLexer {
     /**
-     * Parses JDBC query to replace all ? to YQL params.
+     * Parses JDBC query to replace all ? to YQL parameters.
      *
      * @param query jdbc query to parse
      * @param builder Ydb query builder
      * @param options Options of parsing
+     * @throws tech.ydb.jdbc.exception.YdbNonRetryableException if query contains errors
      */
-    public static void buildQuery(String query, YdbQueryBuilder builder, YdbQueryOptions options) {
+    public static void buildQuery(String query, YdbQueryBuilder builder, YdbQueryOptions options)
+            throws YdbNonRetryableException {
         int fragmentStart = 0;
 
         boolean nextExpression = true;

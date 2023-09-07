@@ -69,7 +69,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
         return connection;
     }
 
-    public YdbQuery createYdbQuery(String sql) {
+    public YdbQuery createYdbQuery(String sql) throws SQLException {
         return YdbQuery.from(queryOptions, sql);
     }
 

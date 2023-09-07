@@ -89,12 +89,8 @@ public final class YdbConst {
     public static final String CANNOT_LOAD_DATA_FROM_IS = "Unable to load data from input stream: ";
     public static final String CANNOT_LOAD_DATA_FROM_READER = "Unable to load data from reader: ";
     public static final String UNSUPPORTED_QUERY_TYPE_IN_PS = "Query type in prepared statement not supported: ";
-    public static final String UNKNOWN_PARAMETER_IN_BATCH = "New parameter when batch already added: ";
     public static final String STATEMENT_IS_NOT_A_BATCH = "Statement cannot be executed as batch statement: ";
-    public static final String TRY_EXECUTE_ON_BATCH_STATEMENT = "Cannot call #execute method after #addBatch, " +
-            "must use #executeBatch";
-    public static final String INDEXES_PARAMETERS_UNSUPPORTED =
-            "Indexed parameters are not supported in prepared query: ";
+    public static final String MULTI_TYPES_IN_ONE_QUERY = "Query cannot contain expressions with different types: ";
 
     // Cast errors
 
