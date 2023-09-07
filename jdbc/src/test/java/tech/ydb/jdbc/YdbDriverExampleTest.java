@@ -39,14 +39,12 @@ public class YdbDriverExampleTest {
         try (Connection connection = DriverManager.getConnection(jdbcURL())) {
             try {
                 connection.createStatement()
-                        .execute("--jdbc:SCHEME\n" +
-                                "drop table table_sample");
+                        .execute("drop table table_sample");
             } catch (SQLException e) {
                 //
             }
             connection.createStatement()
-                    .execute("--jdbc:SCHEME\n" +
-                            "create table table_sample(id Int32, value Text, primary key (id))");
+                    .execute("create table table_sample(id Int32, value Text, primary key (id))");
 
             try (PreparedStatement ps = connection.prepareStatement("" +
                             "upsert into table_sample (id, value) values (?, ?)")) {
@@ -140,14 +138,12 @@ public class YdbDriverExampleTest {
         try (Connection connection = DriverManager.getConnection(jdbcURL())) {
             try {
                 connection.createStatement()
-                        .execute("--jdbc:SCHEME\n" +
-                                "drop table table_sample");
+                        .execute("drop table table_sample");
             } catch (SQLException e) {
                 //
             }
             connection.createStatement()
-                    .execute("--jdbc:SCHEME\n" +
-                            "create table table_sample(id Int32 not null, value Text, primary key (id))");
+                    .execute("create table table_sample(id Int32 not null, value Text, primary key (id))");
 
             try (PreparedStatement ps = connection.prepareStatement("" +
                             "upsert into table_sample (id, value) values (?, ?)")) {

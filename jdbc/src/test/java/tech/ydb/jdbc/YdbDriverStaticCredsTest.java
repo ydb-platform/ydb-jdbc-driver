@@ -11,7 +11,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import tech.ydb.jdbc.common.QueryType;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcUrlHelper;
 import tech.ydb.test.junit5.YdbHelperExtension;
@@ -30,7 +29,7 @@ public class YdbDriverStaticCredsTest {
     public static void createUsers() throws SQLException {
         try (Connection connection = DriverManager.getConnection(jdbcURL.build())) {
             try (Statement statement = connection.createStatement()) {
-                statement.execute(QueryType.SCHEME_QUERY.getPrefix() + "\n"
+                statement.execute(""
                         + "CREATE USER user1 PASSWORD NULL;\n"
                         + "CREATE USER user2 PASSWORD 'pwss';\n"
                         + "CREATE USER user3 PASSWORD 'pw :ss;'\n;"
@@ -43,9 +42,7 @@ public class YdbDriverStaticCredsTest {
     public static void dropUsers() throws SQLException {
         try (Connection connection = DriverManager.getConnection(jdbcURL.build())) {
             try (Statement statement = connection.createStatement()) {
-                statement.execute(QueryType.SCHEME_QUERY.getPrefix() + "\n"
-                        + "DROP USER IF EXISTS user1, user2, user3;\n"
-                );
+                statement.execute("DROP USER IF EXISTS user1, user2, user3;");
             }
         }
     }

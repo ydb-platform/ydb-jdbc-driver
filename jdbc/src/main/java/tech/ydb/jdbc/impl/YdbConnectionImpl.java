@@ -33,7 +33,7 @@ import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTypes;
-import tech.ydb.jdbc.common.QueryType;
+import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbExecutor;
 import tech.ydb.jdbc.query.YdbQuery;

@@ -12,7 +12,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbPreparedStatement;
-import tech.ydb.jdbc.common.QueryType;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.SqlQueries;
@@ -101,7 +100,7 @@ public class YdbPreparedStatementWithDataQueryImplTest {
         String sql = SELECT_BY_KEY_SQL
                 .replaceAll("#column", column)
                 .replaceAll("#tableName", TEST_TABLE_NAME);
-        return jdbc.connection().prepareStatement(QueryType.SCAN_QUERY.getPrefix() + "\n" + sql)
+        return jdbc.connection().prepareStatement("scan\t" + sql)
                 .unwrap(YdbPreparedStatement.class);
     }
 
@@ -218,7 +217,7 @@ public class YdbPreparedStatementWithDataQueryImplTest {
 
     @Test
     public void executeScanQueryAsUpdate() throws SQLException {
-        String sql = QueryType.SCAN_QUERY.getPrefix() + "\n" + upsertSql("c_Text", "Optional<Text>");
+        String sql = "SCAN " + upsertSql("c_Text", "Optional<Text>");
 
         try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class)
                 .prepareStatement(sql)
@@ -227,20 +226,6 @@ public class YdbPreparedStatementWithDataQueryImplTest {
             statement.setString("c_Text", "value-1");
 
             ExceptionAssert.ydbConditionallyRetryable("Scan query should have a single result set", statement::execute);
-        }
-    }
-
-    @Test
-    public void executeUnsupportedModes() throws SQLException {
-        for (QueryType type: QueryType.values()) {
-            if (type == QueryType.DATA_QUERY || type == QueryType.SCAN_QUERY) { // --- supported
-                continue;
-            }
-
-            ExceptionAssert.sqlException("Query type in prepared statement not supported: " + type, () -> {
-                String sql = type.getPrefix() + "\n" + upsertSql("c_Text", "Optional<Text>");
-                jdbc.connection().prepareStatement(sql);
-            });
         }
     }
 }
