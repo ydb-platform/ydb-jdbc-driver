@@ -144,6 +144,7 @@ public final class YdbConst {
     // All indexed parameters will have this 'p' as a prefix, setInteger(1, "test") -> setInteger("p1", "test")
     public static final String INDEXED_PARAMETER_PREFIX = "p";
     public static final String VARIABLE_PARAMETER_PREFIX = "$";
+    public static final String AUTO_GENERATED_PARAMETER_PREFIX = VARIABLE_PARAMETER_PREFIX + "jp";
     public static final String DEFAULT_BATCH_PARAMETER = "$values";
     public static final String OPTIONAL_TYPE_SUFFIX = "?";
 

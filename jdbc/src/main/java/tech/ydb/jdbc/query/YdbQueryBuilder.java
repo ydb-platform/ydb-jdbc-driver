@@ -12,8 +12,6 @@ import tech.ydb.jdbc.exception.YdbNonRetryableException;
  * @author Aleksandr Gorshenin
  */
 public class YdbQueryBuilder {
-    private final static String JDBC_ARG_PREFIX = "$jp";
-
     private final String origin;
     private final StringBuilder query;
     private final List<String> args = new ArrayList<>();
@@ -29,7 +27,7 @@ public class YdbQueryBuilder {
     public String createNextArgName() {
         while (true) {
             argsCounter += 1;
-            String next = JDBC_ARG_PREFIX + argsCounter;
+            String next = YdbConst.AUTO_GENERATED_PARAMETER_PREFIX + argsCounter;
             if (!origin.contains(next)) {
                 args.add(next);
                 return next;

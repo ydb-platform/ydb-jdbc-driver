@@ -13,12 +13,13 @@ public class JdbcQueryLexer {
      *
      * @param builder Ydb query builder
      * @param options Options of parsing
-     * @throws tech.ydb.jdbc.exception.YdbNonRetryableException if query contains errors
+     * @throws java.sql.SQLException if query contains mix of query types
      */
     public static void buildQuery(YdbQueryBuilder builder, YdbQueryOptions options) throws SQLException {
         int fragmentStart = 0;
 
         boolean nextExpression = true;
+        boolean detectJdbcArgs = false;
 
         char[] chars = builder.getOriginSQL().toCharArray();
 
@@ -42,19 +43,21 @@ public class JdbcQueryLexer {
                     break;
                 case ';': // next chars will be new expression
                     nextExpression = true;
+                    detectJdbcArgs = false;
                     break;
                 case '?':
-                    builder.append(chars, fragmentStart, i - fragmentStart);
-                    if (i + 1 < chars.length && chars[i + 1] == '?') /* replace ?? with ? */ {
-                        builder.append('?');
-                        i++; // make sure the coming ? is not treated as a bind
-                    } else {
-                        String binded = builder.createNextArgName();
-                        builder.append(binded);
+                    if (detectJdbcArgs) {
+                        builder.append(chars, fragmentStart, i - fragmentStart);
+                        if (i + 1 < chars.length && chars[i + 1] == '?') /* replace ?? with ? */ {
+                            builder.append('?');
+                            i++; // make sure the coming ? is not treated as a bind
+                        } else {
+                            String binded = builder.createNextArgName();
+                            builder.append(binded);
+                        }
+                        fragmentStart = i + 1;
                     }
-                    fragmentStart = i + 1;
                     break;
-
                 default:
                     if (nextExpression && Character.isJavaIdentifierStart(ch)) {
                         nextExpression = false;
@@ -71,6 +74,7 @@ public class JdbcQueryLexer {
                                 || parseReplaceKeyword(chars, i)
                                 ) {
                             builder.setQueryType(QueryType.DATA_QUERY);
+                            detectJdbcArgs = options.isDetectJdbcParameters();
                             break;
                         }
 
@@ -85,16 +89,22 @@ public class JdbcQueryLexer {
                         // Detect scan expression - starts with SCAN
                         if (parseScanKeyword(chars, i)) {
                             builder.setQueryType(QueryType.SCAN_QUERY);
+                            detectJdbcArgs = options.isDetectJdbcParameters();
+
+                            // Skip SCAN prefix
                             builder.append(chars, fragmentStart, i - fragmentStart);
-                            fragmentStart = i + 5; // Skip SCAN prefix
+                            fragmentStart = i + 5;
                             break;
                         }
 
                         // Detect explain expression - starts with EXPLAIN
                         if (parseExplainKeyword(chars, i)) {
                             builder.setQueryType(QueryType.EXPLAIN_QUERY);
+                            detectJdbcArgs = options.isDetectJdbcParameters();
+
+                            // Skip EXPLAIN prefix
                             builder.append(chars, fragmentStart, i - fragmentStart);
-                            fragmentStart = i + 8; // Skip EXPLAIN prefix
+                            fragmentStart = i + 8;
                             break;
                         }
                     }
