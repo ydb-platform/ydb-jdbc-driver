@@ -58,6 +58,9 @@ public class YdbPreparedStatementImplTest {
     private static final String SELECT_BY_KEY_SQL = ""
             + "declare $key as Optional<Int32>;\n"
             + "select key, #column from #tableName where key=$key";
+    private static final String SCAN_SELECT_BY_KEY_SQL = ""
+            + "declare $key as Optional<Int32>;\n"
+            + "scan select key, #column from #tableName where key=$key";
 
     @BeforeAll
     public static void initTable() throws SQLException {
@@ -121,10 +124,10 @@ public class YdbPreparedStatementImplTest {
     }
 
     private String scanSelectByKey(String column) throws SQLException {
-        String sql = SELECT_BY_KEY_SQL
+        String sql = SCAN_SELECT_BY_KEY_SQL
                 .replaceAll("#column", column)
                 .replaceAll("#tableName", TEST_TABLE_NAME);
-        return "SCAN " + sql;
+        return sql;
     }
 
     private YdbPreparedStatement prepareSelectAll() throws SQLException {
@@ -415,7 +418,7 @@ public class YdbPreparedStatementImplTest {
 
     @Test
     public void executeScanQueryAsUpdate() throws SQLException {
-        String sql = "SCAN " + upsertSql("c_Text", "Optional<Text>");
+        String sql = upsertSql("c_Text", "Optional<Text>");
 
         try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class)
                 .prepareStatement(sql, YdbPrepareMode.IN_MEMORY)
@@ -423,7 +426,8 @@ public class YdbPreparedStatementImplTest {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
 
-            ExceptionAssert.ydbConditionallyRetryable("Scan query should have a single result set", statement::execute);
+            ExceptionAssert.ydbConditionallyRetryable("Scan query should have a single result set",
+                    statement::executeScanQuery);
         }
     }
 

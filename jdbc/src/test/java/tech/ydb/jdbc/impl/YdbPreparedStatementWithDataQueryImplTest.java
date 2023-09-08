@@ -34,11 +34,19 @@ public class YdbPreparedStatementWithDataQueryImplTest {
             + "declare $#column as #type;\n"
             + "upsert into #tableName (key, #column) values ($key, $#column)";
 
+    private static final String SCAN_UPSERT_SQL = ""
+            + "declare $key as Optional<Int32>;\n"
+            + "declare $#column as #type;\n"
+            + "scan upsert into #tableName (key, #column) values ($key, $#column)";
+
     private static final String SIMPLE_SELECT_SQL = "select key, #column from #tableName";
     private static final String SELECT_BY_KEY_SQL = ""
             + "declare $key as Optional<Int32>;\n"
             + "select key, #column from #tableName where key=$key";
 
+    private static final String SCAN_SELECT_BY_KEY_SQL = ""
+            + "declare $key as Optional<Int32>;\n"
+            + "scan\tselect key, #column from #tableName where key=$key";
     @BeforeAll
     public static void initTable() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement();) {
@@ -77,6 +85,13 @@ public class YdbPreparedStatementWithDataQueryImplTest {
                 .replaceAll("#tableName", TEST_TABLE_NAME);
     }
 
+    private String scanUpsertSql(String column, String type) {
+        return SCAN_UPSERT_SQL
+                .replaceAll("#column", column)
+                .replaceAll("#type", type)
+                .replaceAll("#tableName", TEST_TABLE_NAME);
+    }
+
     private YdbPreparedStatement prepareUpsert(String column, String type) throws SQLException {
         return jdbc.connection().unwrap(YdbConnection.class)
                 .prepareStatement(upsertSql(column, type));
@@ -97,10 +112,10 @@ public class YdbPreparedStatementWithDataQueryImplTest {
     }
 
     private YdbPreparedStatement prepareScanSelectByKey(String column) throws SQLException {
-        String sql = SELECT_BY_KEY_SQL
+        String sql = SCAN_SELECT_BY_KEY_SQL
                 .replaceAll("#column", column)
                 .replaceAll("#tableName", TEST_TABLE_NAME);
-        return jdbc.connection().prepareStatement("scan\t" + sql)
+        return jdbc.connection().prepareStatement(sql)
                 .unwrap(YdbPreparedStatement.class);
     }
 
@@ -217,7 +232,7 @@ public class YdbPreparedStatementWithDataQueryImplTest {
 
     @Test
     public void executeScanQueryAsUpdate() throws SQLException {
-        String sql = "SCAN " + upsertSql("c_Text", "Optional<Text>");
+        String sql = scanUpsertSql("c_Text", "Optional<Text>");
 
         try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class)
                 .prepareStatement(sql)
