@@ -277,7 +277,7 @@ public class YdbStatementImplTest {
 
     @Test
     public void executeDataQuery() throws SQLException {
-        try (ResultSet rs = statement.executeQuery("--jdbc:DATA\nselect 2 + 2")) {
+        try (ResultSet rs = statement.executeQuery("select 2 + 2")) {
             Assertions.assertFalse(rs.isClosed());
             TableAssert.assertSelectInt(4, rs);
         }
@@ -297,7 +297,7 @@ public class YdbStatementImplTest {
 
     @Test
     public void executeScanQuery() throws SQLException {
-        try (ResultSet rs = statement.executeQuery("--jdbc:SCAN\n" + "select 2 + 2")) {
+        try (ResultSet rs = statement.executeQuery("scan select 2 + 2")) {
             Assertions.assertFalse(rs.isClosed());
             TableAssert.assertSelectInt(4, rs);
         }
@@ -305,7 +305,7 @@ public class YdbStatementImplTest {
 
     @Test
     public void executeScanQueryOnSystemTable() throws SQLException {
-        try (ResultSet rs = statement.executeQuery("--jdbc:SCAN\n" + "select * from `.sys/partition_stats`")) {
+        try (ResultSet rs = statement.executeQuery("scan select * from `.sys/partition_stats`")) {
             Assertions.assertFalse(rs.isClosed());
         }
     }
