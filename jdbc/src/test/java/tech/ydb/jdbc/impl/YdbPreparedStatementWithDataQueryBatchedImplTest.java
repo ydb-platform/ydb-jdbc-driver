@@ -14,7 +14,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.YdbPreparedStatement;
-import tech.ydb.jdbc.common.QueryType;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.SqlQueries;
@@ -115,7 +114,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
         String sql = SIMPLE_SELECT_SQL
                 .replaceAll("#column", column)
                 .replaceAll("#tableName", TEST_TABLE_NAME);
-        return jdbc.connection().prepareStatement(QueryType.SCAN_QUERY.getPrefix() + "\n" + sql);
+        return jdbc.connection().prepareStatement("SCAN\n" + sql);
     }
 
     @Test

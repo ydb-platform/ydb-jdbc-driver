@@ -267,17 +267,17 @@ public class YdbStatementImplTest {
     @Test
     public void executeSchemeQueryExplicitly() throws SQLException {
         // create test table
-        statement.execute("--jdbc:SCHEME\n create table scheme_query_test(id Int32, primary key(id))");
+        statement.execute("create table scheme_query_test(id Int32, primary key(id))");
 
-        String dropSql = "drop table scheme_query_test";
-        ExceptionAssert.ydbNonRetryable("Operation 'DropTable' can't be performed in data query",
-                () -> statement.execute(dropSql));
+        String dropSql = "scan drop table scheme_query_test";
+        ExceptionAssert.ydbNonRetryable("Operation is not supported in current execution mode, check query type. ",
+                () -> statement.unwrap(YdbStatement.class).executeQuery(dropSql));
         statement.unwrap(YdbStatement.class).executeSchemeQuery(dropSql);
     }
 
     @Test
     public void executeDataQuery() throws SQLException {
-        try (ResultSet rs = statement.executeQuery("--jdbc:DATA\nselect 2 + 2")) {
+        try (ResultSet rs = statement.executeQuery("select 2 + 2")) {
             Assertions.assertFalse(rs.isClosed());
             TableAssert.assertSelectInt(4, rs);
         }
@@ -297,7 +297,7 @@ public class YdbStatementImplTest {
 
     @Test
     public void executeScanQuery() throws SQLException {
-        try (ResultSet rs = statement.executeQuery("--jdbc:SCAN\n" + "select 2 + 2")) {
+        try (ResultSet rs = statement.executeQuery("scan select 2 + 2")) {
             Assertions.assertFalse(rs.isClosed());
             TableAssert.assertSelectInt(4, rs);
         }
@@ -305,7 +305,7 @@ public class YdbStatementImplTest {
 
     @Test
     public void executeScanQueryOnSystemTable() throws SQLException {
-        try (ResultSet rs = statement.executeQuery("--jdbc:SCAN\n" + "select * from `.sys/partition_stats`")) {
+        try (ResultSet rs = statement.executeQuery("scan select * from `.sys/partition_stats`")) {
             Assertions.assertFalse(rs.isClosed());
         }
     }
@@ -313,7 +313,7 @@ public class YdbStatementImplTest {
     @Test
     public void executeScanQueryMultiResult() {
         ExceptionAssert.ydbConditionallyRetryable("Scan query should have a single result set",
-                () -> statement.executeUpdate("--jdbc:SCAN\n" + "select 2 + 2;select 2 + 3")
+                () -> statement.executeUpdate("scan select 2 + 2;scan select 2 + 3")
         );
     }
 
@@ -321,12 +321,12 @@ public class YdbStatementImplTest {
     public void executeScanQueryInTx() throws SQLException {
         statement.executeUpdate(TEST_UPSERT1_SQL);
 
-        try (ResultSet rs = statement.executeQuery("--jdbc:SCAN\n" + TEST_TABLE.selectSQL())) {
+        try (ResultSet rs = statement.executeQuery("scan " + TEST_TABLE.selectSQL())) {
             Assertions.assertFalse(rs.next());
         }
 
         jdbc.connection().commit();
-        try (ResultSet rs = statement.executeQuery("--jdbc:SCAN\n" + TEST_TABLE.selectSQL())) {
+        try (ResultSet rs = statement.executeQuery("scan   " + TEST_TABLE.selectSQL())) {
             Assertions.assertTrue(rs.next());
             Assertions.assertEquals(1, rs.getInt("key"));
         }
@@ -335,12 +335,12 @@ public class YdbStatementImplTest {
     @Test
     public void executeScanQueryExplicitlyInTx() throws SQLException {
         statement.executeUpdate(TEST_UPSERT1_SQL);
-        try (ResultSet rs = statement.executeQuery("--jdbc:SCAN\n" + TEST_TABLE.selectSQL())) {
+        try (ResultSet rs = statement.executeQuery("scan\n" + TEST_TABLE.selectSQL())) {
             Assertions.assertFalse(rs.next());
         }
 
         jdbc.connection().commit();
-        try (ResultSet rs = statement.executeQuery("--jdbc:SCAN\n" + TEST_TABLE.selectSQL())) {
+        try (ResultSet rs = statement.executeQuery("ScAn\t" + TEST_TABLE.selectSQL())) {
             Assertions.assertTrue(rs.next());
             Assertions.assertEquals(1, rs.getInt("key"));
         }
@@ -355,7 +355,7 @@ public class YdbStatementImplTest {
     public void executeScanQueryAsUpdate() {
         // Looks weird
         ExceptionAssert.ydbConditionallyRetryable("Scan query should have a single result set",
-                () -> statement.executeUpdate("--jdbc:SCAN\n" + TEST_UPSERT1_SQL)
+                () -> statement.executeUpdate("SCAN\n" + TEST_UPSERT1_SQL)
         );
     }
 
@@ -364,7 +364,7 @@ public class YdbStatementImplTest {
         String ast = "AST";
         String plan = "PLAN";
 
-        try (ResultSet rs = statement.executeQuery("--jdbc:EXPLAIN\n" + "select 2 + 2")) {
+        try (ResultSet rs = statement.executeQuery("EXPLAIN\n" + "select 2 + 2")) {
             Assertions.assertFalse(rs.isClosed());
 
             Assertions.assertTrue(rs.next());
@@ -375,7 +375,7 @@ public class YdbStatementImplTest {
             Assertions.assertFalse(rs.next());
         }
 
-        try (ResultSet rs = statement.executeQuery("--jdbc:EXPLAIN\n" + TEST_UPSERT1_SQL)) {
+        try (ResultSet rs = statement.executeQuery("Explain " + TEST_UPSERT1_SQL)) {
             Assertions.assertTrue(rs.next());
             logger.info("AST: {}", rs.getString(ast));
             logger.info("PLAN: {}", rs.getString(plan));

@@ -10,6 +10,7 @@ import java.util.logging.Logger;
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
 import tech.ydb.jdbc.exception.YdbConfigurationException;
+import tech.ydb.jdbc.query.YdbQueryOptions;
 import tech.ydb.jdbc.settings.ParsedProperty;
 import tech.ydb.jdbc.settings.YdbClientProperties;
 import tech.ydb.jdbc.settings.YdbClientProperty;
@@ -39,8 +40,9 @@ public class YdbContext implements AutoCloseable {
     private final GrpcTransport grpcTransport;
     private final PooledTableClient tableClient;
     private final SchemeClient schemeClient;
-    private final boolean autoResizeSessionPool;
+    private final YdbQueryOptions queryOptions;
 
+    private final boolean autoResizeSessionPool;
     private final AtomicInteger connectionsCount = new AtomicInteger();
 
     private YdbContext(YdbConfig config, GrpcTransport transport, PooledTableClient tableClient, boolean autoResize) {
@@ -48,6 +50,7 @@ public class YdbContext implements AutoCloseable {
         this.grpcTransport = Objects.requireNonNull(transport);
         this.tableClient = Objects.requireNonNull(tableClient);
         this.schemeClient = SchemeClient.newClient(transport).build();
+        this.queryOptions = new YdbQueryOptions(config.getOperationProperties());
         this.autoResizeSessionPool = autoResize;
     }
 
@@ -65,6 +68,10 @@ public class YdbContext implements AutoCloseable {
 
     public String getUrl() {
         return config.getUrl();
+    }
+
+    public YdbQueryOptions getQueryOptions() {
+        return queryOptions;
     }
 
     public int getConnectionsCount() {

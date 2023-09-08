@@ -6,7 +6,6 @@ import java.util.Collection;
 
 import javax.annotation.Nullable;
 
-import tech.ydb.jdbc.common.QueryType;
 
 public class YdbOperationProperty<T> extends AbstractYdbProperty<T, Void> {
     private static final PropertiesCollector<YdbOperationProperty<?>> PROPERTIES = new PropertiesCollector<>();
@@ -102,8 +101,7 @@ public class YdbOperationProperty<T> extends AbstractYdbProperty<T, Void> {
 
     public static final YdbOperationProperty<Boolean> DETECT_SQL_OPERATIONS =
             new YdbOperationProperty<>("detectSqlOperations",
-                    "Detect and execute SQL operation based on available prefixes in body: " +
-                            QueryType.prefixes(),
+                    "Detect and execute SQL operation based on SQL keywords",
                     "true",
                     Boolean.class,
                     PropertyConverter.booleanValue());

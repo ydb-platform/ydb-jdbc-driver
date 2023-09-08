@@ -28,7 +28,6 @@ import tech.ydb.jdbc.YdbParameterMetaData;
 import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.YdbTypes;
-import tech.ydb.jdbc.common.QueryType;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.SqlQueries;
@@ -59,6 +58,9 @@ public class YdbPreparedStatementImplTest {
     private static final String SELECT_BY_KEY_SQL = ""
             + "declare $key as Optional<Int32>;\n"
             + "select key, #column from #tableName where key=$key";
+    private static final String SCAN_SELECT_BY_KEY_SQL = ""
+            + "declare $key as Optional<Int32>;\n"
+            + "scan select key, #column from #tableName where key=$key";
 
     @BeforeAll
     public static void initTable() throws SQLException {
@@ -118,14 +120,14 @@ public class YdbPreparedStatementImplTest {
         String sql = SIMPLE_SELECT_SQL
                 .replaceAll("#column", column)
                 .replaceAll("#tableName", TEST_TABLE_NAME);
-        return jdbc.connection().prepareStatement(QueryType.SCAN_QUERY.getPrefix() + "\n" + sql);
+        return jdbc.connection().prepareStatement("SCAN " + sql);
     }
 
     private String scanSelectByKey(String column) throws SQLException {
-        String sql = SELECT_BY_KEY_SQL
+        String sql = SCAN_SELECT_BY_KEY_SQL
                 .replaceAll("#column", column)
                 .replaceAll("#tableName", TEST_TABLE_NAME);
-        return QueryType.SCAN_QUERY.getPrefix() + "\n" + sql;
+        return sql;
     }
 
     private YdbPreparedStatement prepareSelectAll() throws SQLException {
@@ -416,7 +418,7 @@ public class YdbPreparedStatementImplTest {
 
     @Test
     public void executeScanQueryAsUpdate() throws SQLException {
-        String sql = QueryType.SCAN_QUERY.getPrefix() + "\n" + upsertSql("c_Text", "Optional<Text>");
+        String sql = upsertSql("c_Text", "Optional<Text>");
 
         try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class)
                 .prepareStatement(sql, YdbPrepareMode.IN_MEMORY)
@@ -424,22 +426,22 @@ public class YdbPreparedStatementImplTest {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
 
-            ExceptionAssert.ydbConditionallyRetryable("Scan query should have a single result set", statement::execute);
+            ExceptionAssert.ydbConditionallyRetryable("Scan query should have a single result set",
+                    statement::executeScanQuery);
         }
     }
 
     @Test
     public void executeUnsupportedModes() throws SQLException {
-        for (QueryType type: QueryType.values()) {
-            if (type == QueryType.DATA_QUERY || type == QueryType.SCAN_QUERY) { // --- supported
-                continue;
-            }
+        ExceptionAssert.sqlException("Query type in prepared statement not supported: SCHEME_QUERY", () -> {
+            String sql = "DROP TABLE test_table;";
+            jdbc.connection().prepareStatement(sql);
+        });
 
-            ExceptionAssert.sqlException("Query type in prepared statement not supported: " + type, () -> {
-                String sql = type.getPrefix() + "\n" + upsertSql("c_Text", "Optional<Text>");
-                jdbc.connection().prepareStatement(sql);
-            });
-        }
+        ExceptionAssert.sqlException("Query type in prepared statement not supported: EXPLAIN_QUERY", () -> {
+            String sql = "EXPLAIN " + prepareSelectAll();
+            jdbc.connection().prepareStatement(sql);
+        });
     }
 
     @ParameterizedTest(name = "with {0}")

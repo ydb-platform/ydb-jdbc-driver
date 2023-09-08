@@ -1,4 +1,3 @@
---jdbc:SCHEME
 create table #tableName
 (
     -- KEY

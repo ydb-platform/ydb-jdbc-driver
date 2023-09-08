@@ -12,7 +12,7 @@ import java.util.logging.Logger;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
-import tech.ydb.jdbc.context.YdbQuery;
+import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.Params;
 
 public class YdbStatementImpl extends BaseYdbStatement {
@@ -29,7 +29,7 @@ public class YdbStatementImpl extends BaseYdbStatement {
         cleanState();
         clearBatch();
 
-        YdbQuery query = parseYdbQuery(sql);
+        YdbQuery query = createYdbQuery(sql);
         executeSchemeQuery(query);
     }
 
@@ -38,7 +38,7 @@ public class YdbStatementImpl extends BaseYdbStatement {
         cleanState();
         clearBatch();
 
-        YdbQuery query = parseYdbQuery(sql);
+        YdbQuery query = createYdbQuery(sql);
         ResultState results = executeScanQuery(query, Params.empty());
         if (!updateState(results)) {
             throw new SQLException(YdbConst.QUERY_EXPECT_RESULT_SET);
@@ -51,7 +51,7 @@ public class YdbStatementImpl extends BaseYdbStatement {
         cleanState();
         clearBatch();
 
-        YdbQuery query = parseYdbQuery(sql);
+        YdbQuery query = createYdbQuery(sql);
         ResultState newState = executeExplainQuery(query);
         if (!updateState(newState)) {
             throw new SQLException(YdbConst.QUERY_EXPECT_RESULT_SET);
@@ -79,7 +79,7 @@ public class YdbStatementImpl extends BaseYdbStatement {
     public boolean execute(String sql) throws SQLException {
         cleanState();
 
-        YdbQuery query = parseYdbQuery(sql);
+        YdbQuery query = createYdbQuery(sql);
         ResultState newState = EMPTY_STATE;
         switch (query.type()) {
             case SCHEME_QUERY:

@@ -19,8 +19,9 @@ import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.context.YdbExecutor;
-import tech.ydb.jdbc.context.YdbQuery;
 import tech.ydb.jdbc.exception.YdbResultTruncatedException;
+import tech.ydb.jdbc.query.YdbQuery;
+import tech.ydb.jdbc.query.YdbQueryOptions;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.ExplainDataQueryResult;
@@ -40,8 +41,10 @@ public abstract class BaseYdbStatement implements YdbStatement {
 
     private final YdbConnection connection;
     private final YdbExecutor executor;
-    private final YdbOperationProperties properties;
+    private final YdbQueryOptions queryOptions;
     private final int resultSetType;
+    private final int maxRows;
+    private final boolean failOnTruncatedResult;
 
     private ResultState state = EMPTY_STATE;
     private int queryTimeout;
@@ -51,10 +54,14 @@ public abstract class BaseYdbStatement implements YdbStatement {
     public BaseYdbStatement(Logger logger, YdbConnection connection, int resultSetType, boolean isPoolable) {
         this.connection = Objects.requireNonNull(connection);
         this.executor = new YdbExecutor(logger);
-        this.properties = connection.getCtx().getOperationProperties();
         this.resultSetType = resultSetType;
-        this.queryTimeout = (int) connection.getCtx().getOperationProperties().getQueryTimeout().getSeconds();
+        this.queryOptions = connection.getCtx().getQueryOptions();
         this.isPoolable = isPoolable;
+
+        YdbOperationProperties props = connection.getCtx().getOperationProperties();
+        this.queryTimeout = (int) props.getQueryTimeout().getSeconds();
+        this.maxRows = props.getMaxRows();
+        this.failOnTruncatedResult = props.isFailOnTruncatedResult();
     }
 
     @Override
@@ -62,8 +69,8 @@ public abstract class BaseYdbStatement implements YdbStatement {
         return connection;
     }
 
-    protected YdbQuery parseYdbQuery(String sql) {
-        return YdbQuery.from(properties, sql);
+    public YdbQuery createYdbQuery(String sql) throws SQLException {
+        return YdbQuery.from(queryOptions, sql);
     }
 
     @Override
@@ -114,7 +121,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
 
     @Override
     public int getMaxRows() {
-        return properties.getMaxRows();
+        return maxRows;
     }
 
     @Override
@@ -198,7 +205,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
         List<YdbResultSet> list = new ArrayList<>();
         for (int idx = 0; idx < result.getResultSetCount(); idx += 1) {
             ResultSetReader rs = result.getResultSet(idx);
-            if (properties.isFailOnTruncatedResult() && rs.isTruncated()) {
+            if (failOnTruncatedResult && rs.isTruncated()) {
                 String msg = String.format(YdbConst.RESULT_IS_TRUNCATED, idx, rs.getRowCount());
                 throw new YdbResultTruncatedException(msg);
             }

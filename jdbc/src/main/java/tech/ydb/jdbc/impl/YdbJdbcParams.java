@@ -9,7 +9,7 @@ import javax.annotation.Nullable;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.common.TypeDescription;
-import tech.ydb.jdbc.context.YdbQuery;
+import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.jdbc.impl.params.BatchedParams;
 import tech.ydb.jdbc.impl.params.InMemoryParams;

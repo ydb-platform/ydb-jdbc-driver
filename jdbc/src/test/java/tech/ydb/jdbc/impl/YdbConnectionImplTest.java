@@ -534,9 +534,10 @@ public class YdbConnectionImplTest {
 
     @Test
     public void testDDLInsideTransaction() throws SQLException {
-        String createTempTable = QUERIES.withTableName("--jdbc:SCHEME\n"
-                + "create table temp_#tableName(id Int32, value Int32, primary key(id))");
-        String dropTempTable = QUERIES.withTableName("--jdbc:SCHEME\ndrop table temp_#tableName");
+        String createTempTable = QUERIES.withTableName(
+                "create table temp_#tableName(id Int32, value Int32, primary key(id))"
+        );
+        String dropTempTable = QUERIES.withTableName("drop table temp_#tableName");
 
         try (Statement statement = jdbc.connection().createStatement()) {
             statement.execute(SIMPLE_UPSERT);
@@ -555,7 +556,7 @@ public class YdbConnectionImplTest {
     @Test
     public void testWarningInIndexUsage() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement()) {
-            statement.execute("--jdbc:SCHEME\n" +
+            statement.execute("" +
                     "create table unit_0_indexed (" +
                     "id Int32, value Int32, " +
                     "primary key (id), " +
@@ -632,8 +633,7 @@ public class YdbConnectionImplTest {
     })
     public void testUnsupportedByStorageTableTypes(String type) throws SQLException {
         String tableName = "unsupported_" + type;
-        String sql = "--jdbc:SCHEME\n"
-                + "create table " + tableName + " (key Int32, payload " + type + ", primary key(key))";
+        String sql = "create table " + tableName + " (key Int32, payload " + type + ", primary key(key))";
 
         try (Statement statement = jdbc.connection().createStatement()) {
             ExceptionAssert.ydbNonRetryable("is not supported by storage", () -> statement.execute(sql));
@@ -649,8 +649,7 @@ public class YdbConnectionImplTest {
     })
     public void testUnsupportedComplexTypes(String type) throws SQLException {
         String tableName = "unsupported_" + type.replaceAll("[^a-zA-Z0-9]", "");
-        String sql = "--jdbc:SCHEME\n"
-                + "create table " + tableName + " (key Int32, payload " + type + ", primary key(key))";
+        String sql = "create table " + tableName + " (key Int32, payload " + type + ", primary key(key))";
 
         try (Statement statement = jdbc.connection().createStatement()) {
             ExceptionAssert.ydbNonRetryable("Invalid type for column: payload.",
