@@ -6,8 +6,7 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 import tech.ydb.core.auth.StaticCredentials;
-import tech.ydb.core.grpc.GrpcTransport;
-import tech.ydb.core.grpc.GrpcTransportBuilder;
+
 
 public class YdbConnectionProperties {
     private final String safeURL;
@@ -42,18 +41,11 @@ public class YdbConnectionProperties {
         return params;
     }
 
-    public GrpcTransport toGrpcTransport() {
-        GrpcTransportBuilder builder = GrpcTransport.forConnectionString(connectionString);
-        for (Map.Entry<YdbConnectionProperty<?>, ParsedProperty> entry : params.entrySet()) {
-            if (entry.getValue() != null) {
-                entry.getKey().getSetter().accept(builder, entry.getValue().getParsedValue());
-            }
-        }
+    public boolean hasStaticCredentials() {
+        return username != null && !username.isEmpty();
+    }
 
-        if (username != null && !username.isEmpty()) {
-            builder = builder.withAuthProvider(new StaticCredentials(username, password));
-        }
-
-        return builder.build();
+    public StaticCredentials getStaticCredentials() {
+        return new StaticCredentials(username, password);
     }
 }
