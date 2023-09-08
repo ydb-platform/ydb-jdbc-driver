@@ -73,6 +73,8 @@ public class YdbConnectionImpl implements YdbConnection {
         int txLevel = ctx.getOperationProperties().getTransactionLevel();
         boolean txAutoCommit = ctx.getOperationProperties().isAutoCommit();
         this.state = YdbTxState.create(txLevel, txAutoCommit);
+
+        this.ctx.register();
     }
 
     <T extends RequestSettings<?>> T withDefaultTimeout(T settings) {
@@ -185,6 +187,7 @@ public class YdbConnectionImpl implements YdbConnection {
         commit(); // like Oracle
         executor.clearWarnings();
         state = null;
+        ctx.deregister();
     }
 
     @Override
