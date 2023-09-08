@@ -1,5 +1,7 @@
 package tech.ydb.jdbc.query;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 
 /**
@@ -17,6 +19,14 @@ public class YdbQueryOptions {
         this.isDetectJdbcParameters = !props.isJdbcParametersSupportDisabled();
         this.isDeclareJdbcParameters = true;
         this.isEnforceSyntaxV1 = props.isEnforceSqlV1();
+    }
+
+    @VisibleForTesting
+    YdbQueryOptions(boolean queryType, boolean jdbcParams, boolean declare, boolean syntaxV1) {
+        this.isDetectQueryType = queryType;
+        this.isDetectJdbcParameters = jdbcParams;
+        this.isDeclareJdbcParameters = declare;
+        this.isEnforceSyntaxV1 = syntaxV1;
     }
 
     public boolean isEnforceSyntaxV1() {

@@ -91,7 +91,7 @@ public class YdbQuery {
 
     public static YdbQuery from(YdbQueryOptions opts, String sql) throws SQLException {
         YdbQueryBuilder builder = new YdbQueryBuilder(sql);
-        JdbcQueryLexer.buildQuery(sql, builder, opts);
+        JdbcQueryLexer.buildQuery(builder, opts);
         return new YdbQuery(opts, builder);
     }
 }

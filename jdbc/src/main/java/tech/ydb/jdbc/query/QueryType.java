@@ -1,33 +1,13 @@
 package tech.ydb.jdbc.query;
 
-import java.util.Collection;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
 public enum QueryType {
     // DDL
-    SCHEME_QUERY("--jdbc:SCHEME"),
+    SCHEME_QUERY,
 
     // DML
-    DATA_QUERY("--jdbc:DATA"),
-    SCAN_QUERY("--jdbc:SCAN"),
+    DATA_QUERY,
+    SCAN_QUERY,
 
     // EXPLAIN
-    EXPLAIN_QUERY("--jdbc:EXPLAIN");
-
-    private final String prefix;
-
-    QueryType(String prefix) {
-        this.prefix = prefix;
-    }
-
-    public String getPrefix() {
-        return prefix;
-    }
-
-    public static Collection<String> prefixes() {
-        return Stream.of(QueryType.values())
-                .map(QueryType::getPrefix)
-                .collect(Collectors.toList());
-    }
+    EXPLAIN_QUERY;
 }

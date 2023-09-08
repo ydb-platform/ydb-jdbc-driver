@@ -1,6 +1,7 @@
 package tech.ydb.jdbc.query;
 
-import tech.ydb.jdbc.exception.YdbNonRetryableException;
+import java.sql.SQLException;
+
 
 /**
  *
@@ -10,18 +11,16 @@ public class JdbcQueryLexer {
     /**
      * Parses JDBC query to replace all ? to YQL parameters.
      *
-     * @param query jdbc query to parse
      * @param builder Ydb query builder
      * @param options Options of parsing
      * @throws tech.ydb.jdbc.exception.YdbNonRetryableException if query contains errors
      */
-    public static void buildQuery(String query, YdbQueryBuilder builder, YdbQueryOptions options)
-            throws YdbNonRetryableException {
+    public static void buildQuery(YdbQueryBuilder builder, YdbQueryOptions options) throws SQLException {
         int fragmentStart = 0;
 
         boolean nextExpression = true;
 
-        char[] chars = query.toCharArray();
+        char[] chars = builder.getOriginSQL().toCharArray();
 
         for (int i = 0; i < chars.length; ++i) {
             char ch = chars[i];
@@ -64,7 +63,18 @@ public class JdbcQueryLexer {
                             break;
                         }
 
-                        // Detect scheme expression
+                        // Detect data query expression - starts with SELECT, INSERT, UPSERT, DELETE, REPLACE
+                        if (parseSelectKeyword(chars, i)
+                                || parseInsertKeyword(chars, i)
+                                || parseUpsertKeyword(chars, i)
+                                || parseDeleteKeyword(chars, i)
+                                || parseReplaceKeyword(chars, i)
+                                ) {
+                            builder.setQueryType(QueryType.DATA_QUERY);
+                            break;
+                        }
+
+                        // Detect scheme expression - starts with ALTER, DROP, CREATE
                         if (parseAlterKeyword(chars, i)
                                 || parseCreateKeyword(chars, i)
                                 || parseDropKeyword(chars, i)) {
@@ -72,7 +82,7 @@ public class JdbcQueryLexer {
                             break;
                         }
 
-                        // Detect scan expression
+                        // Detect scan expression - starts with SCAN
                         if (parseScanKeyword(chars, i)) {
                             builder.setQueryType(QueryType.SCAN_QUERY);
                             builder.append(chars, fragmentStart, i - fragmentStart);
@@ -80,7 +90,7 @@ public class JdbcQueryLexer {
                             break;
                         }
 
-                        // Detect explain expression
+                        // Detect explain expression - starts with EXPLAIN
                         if (parseExplainKeyword(chars, i)) {
                             builder.setQueryType(QueryType.EXPLAIN_QUERY);
                             builder.append(chars, fragmentStart, i - fragmentStart);
@@ -182,7 +192,7 @@ public class JdbcQueryLexer {
                 && isSpace(query[offset + 5]);
     }
 
-    public static boolean parseCreateKeyword(char[] query, int offset) {
+    private static boolean parseCreateKeyword(char[] query, int offset) {
         if (query.length < (offset + 7)) {
             return false;
         }
@@ -196,7 +206,7 @@ public class JdbcQueryLexer {
                 && isSpace(query[offset + 6]);
     }
 
-    public static boolean parseDropKeyword(char[] query, int offset) {
+    private static boolean parseDropKeyword(char[] query, int offset) {
         if (query.length < (offset + 5)) {
             return false;
         }
@@ -208,7 +218,7 @@ public class JdbcQueryLexer {
                 && isSpace(query[offset + 4]);
     }
 
-    public static boolean parseScanKeyword(char[] query, int offset) {
+    private static boolean parseScanKeyword(char[] query, int offset) {
         if (query.length < (offset + 5)) {
             return false;
         }
@@ -220,7 +230,7 @@ public class JdbcQueryLexer {
                 && isSpace(query[offset + 4]);
     }
 
-    public static boolean parseExplainKeyword(char[] query, int offset) {
+    private static boolean parseExplainKeyword(char[] query, int offset) {
         if (query.length < (offset + 8)) {
             return false;
         }
@@ -232,6 +242,77 @@ public class JdbcQueryLexer {
                 && (query[offset + 4] | 32) == 'a'
                 && (query[offset + 5] | 32) == 'i'
                 && (query[offset + 6] | 32) == 'n'
+                && isSpace(query[offset + 7]);
+    }
+
+    private static boolean parseSelectKeyword(char[] query, int offset) {
+        if (query.length < (offset + 7)) {
+            return false;
+        }
+
+        return (query[offset] | 32) == 's'
+                && (query[offset + 1] | 32) == 'e'
+                && (query[offset + 2] | 32) == 'l'
+                && (query[offset + 3] | 32) == 'e'
+                && (query[offset + 4] | 32) == 'c'
+                && (query[offset + 5] | 32) == 't'
+                && isSpace(query[offset + 6]);
+    }
+
+    private static boolean parseUpsertKeyword(char[] query, int offset) {
+        if (query.length < (offset + 7)) {
+            return false;
+        }
+
+        return (query[offset] | 32) == 'u'
+                && (query[offset + 1] | 32) == 'p'
+                && (query[offset + 2] | 32) == 's'
+                && (query[offset + 3] | 32) == 'e'
+                && (query[offset + 4] | 32) == 'r'
+                && (query[offset + 5] | 32) == 't'
+                && isSpace(query[offset + 6]);
+    }
+
+    private static boolean parseInsertKeyword(char[] query, int offset) {
+        if (query.length < (offset + 7)) {
+            return false;
+        }
+
+        return (query[offset] | 32) == 'i'
+                && (query[offset + 1] | 32) == 'n'
+                && (query[offset + 2] | 32) == 's'
+                && (query[offset + 3] | 32) == 'e'
+                && (query[offset + 4] | 32) == 'r'
+                && (query[offset + 5] | 32) == 't'
+                && isSpace(query[offset + 6]);
+    }
+
+    private static boolean parseDeleteKeyword(char[] query, int offset) {
+        if (query.length < (offset + 7)) {
+            return false;
+        }
+
+        return (query[offset] | 32) == 'd'
+                && (query[offset + 1] | 32) == 'e'
+                && (query[offset + 2] | 32) == 'l'
+                && (query[offset + 3] | 32) == 'e'
+                && (query[offset + 4] | 32) == 't'
+                && (query[offset + 5] | 32) == 'e'
+                && isSpace(query[offset + 6]);
+    }
+
+    private static boolean parseReplaceKeyword(char[] query, int offset) {
+        if (query.length < (offset + 8)) {
+            return false;
+        }
+
+        return (query[offset] | 32) == 'r'
+                && (query[offset + 1] | 32) == 'e'
+                && (query[offset + 2] | 32) == 'p'
+                && (query[offset + 3] | 32) == 'l'
+                && (query[offset + 4] | 32) == 'a'
+                && (query[offset + 5] | 32) == 'c'
+                && (query[offset + 8] | 32) == 'e'
                 && isSpace(query[offset + 7]);
     }
 }
