@@ -83,6 +83,7 @@ jobs:
   coverage:
     name: Coverage JDBC Driver
     runs-on: ubuntu-latest
+    needs: build
 
     env:
         MAVEN_ARGS: --batch-mode --update-snapshots -Dstyle.color=always

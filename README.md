@@ -1,6 +1,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/ydb-platform/ydb-jdbc-driver/blob/master/LICENSE)
 [![Maven metadata URL](https://img.shields.io/maven-metadata/v?metadataUrl=https%3A%2F%2Frepo1.maven.org%2Fmaven2%2Ftech%2Fydb%2Fjdbc%2Fydb-jdbc-driver%2Fmaven-metadata.xml)](https://mvnrepository.com/artifact/tech.ydb.jdbc/ydb-jdbc-driver)
 [![Build](https://img.shields.io/github/actions/workflow/status/ydb-platform/ydb-jdbc-driver/build.yaml?branch=develop)](https://github.com/ydb-platform/ydb-jdbc-driver/actions/workflows/build.yaml)
+[![Codecov](https://img.shields.io/codecov/c/github/ydb-platform/ydb-jdbc-driver)](https://app.codecov.io/gh/ydb-platform/ydb-jdbc-driver)
 
 ## JDBC Driver for YDB
 ---
