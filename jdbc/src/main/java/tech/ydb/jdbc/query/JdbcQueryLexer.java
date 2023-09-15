@@ -66,8 +66,9 @@ public class JdbcQueryLexer {
                             break;
                         }
 
-                        // Detect data query expression - starts with SELECT, INSERT, UPSERT, DELETE, REPLACE
+                        // Detect data query expression - starts with SELECT, UPDATE, INSERT, UPSERT, DELETE, REPLACE
                         if (parseSelectKeyword(chars, i)
+                                || parseUpdateKeyword(chars, i)
                                 || parseInsertKeyword(chars, i)
                                 || parseUpsertKeyword(chars, i)
                                 || parseDeleteKeyword(chars, i)
@@ -266,6 +267,20 @@ public class JdbcQueryLexer {
                 && (query[offset + 3] | 32) == 'e'
                 && (query[offset + 4] | 32) == 'c'
                 && (query[offset + 5] | 32) == 't'
+                && isSpace(query[offset + 6]);
+    }
+
+    private static boolean parseUpdateKeyword(char[] query, int offset) {
+        if (query.length < (offset + 7)) {
+            return false;
+        }
+
+        return (query[offset] | 32) == 'u'
+                && (query[offset + 1] | 32) == 'p'
+                && (query[offset + 2] | 32) == 'd'
+                && (query[offset + 3] | 32) == 'a'
+                && (query[offset + 4] | 32) == 't'
+                && (query[offset + 5] | 32) == 'e'
                 && isSpace(query[offset + 6]);
     }
 
