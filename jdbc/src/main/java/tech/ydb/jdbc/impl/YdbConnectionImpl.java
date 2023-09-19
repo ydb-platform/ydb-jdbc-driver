@@ -78,8 +78,10 @@ public class YdbConnectionImpl implements YdbConnection {
 
     <T extends RequestSettings<?>> T withDefaultTimeout(T settings) {
         Duration operation = ctx.getOperationProperties().getDeadlineTimeout();
-        settings.setOperationTimeout(operation);
-        settings.setTimeout(operation.plusSeconds(1));
+        if (!operation.isZero() && !operation.isNegative()) {
+            settings.setOperationTimeout(operation);
+            settings.setTimeout(operation.plusSeconds(1));
+        }
         return settings;
     }
 
