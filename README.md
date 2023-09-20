@@ -12,8 +12,30 @@
    * Local or remote Docker (anonymous authentication):<br>`jdbc:ydb:grpc://localhost:2135/local`
    * Self-hosted cluster:<br>`jdbc:ydb:grpcs://<host>:2136/Root/testdb?secureConnectionCertificate=file:~/myca.cer`
    * Connect with token to the cloud instance:<br>`jdbc:ydb:grpcs://<host>:2135/path/to/database?token=file:~/my_token`
-   * Connect with service account to the cloud instance: `jdbc:ydb:grpcs://<host>:2136/path/to/database?saFile=file:~/sa_key.json`
+   * Connect with service account to the cloud instance:<br>`jdbc:ydb:grpcs://<host>:2136/path/to/database?saFile=file:~/sa_key.json`
 3) Execute queries, see example in [YdbDriverExampleTest.java](jdbc/src/test/java/tech/ydb/jdbc/YdbDriverExampleTest.java)
+
+### Usage with Maven
+The recommended way to use the YDB JDBC driver in your project is to consume it from Maven.
+Specify the YDB JDBC driver in the dependencies:
+
+```xml
+<dependencies>
+    <!-- Base version -->
+    <dependency>
+        <groupId>tech.ydb.jdbc</groupId>
+        <artifactId>ydb-jdbc-driver</artifactId>
+        <version>2.0.0</version>
+    </dependency>
+
+    <!-- Shaded version with included dependencies -->
+    <dependency>
+        <groupId>tech.ydb.jdbc</groupId>
+        <artifactId>ydb-jdbc-driver-shaded</artifactId>
+        <version>2.0.0</version>
+    </dependency>
+</dependencies>
+```
 
 ### Authentication modes
 

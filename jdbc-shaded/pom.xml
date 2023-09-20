@@ -9,7 +9,7 @@
         <version>2.0.0-RC4</version>
     </parent>
 
-    <artifactId>ydb-jdbc-driver-full</artifactId>
+    <artifactId>ydb-jdbc-driver-shaded</artifactId>
 
     <name>YDB JDBC Driver Shaded</name>
     <description>JDBC Driver Shaded over YDB Java SDK</description>
