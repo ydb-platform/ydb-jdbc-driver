@@ -1,9 +1,11 @@
 package tech.ydb.jdbc.query;
 
+
 import java.sql.SQLException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
 
 /**
  *
@@ -12,15 +14,11 @@ import org.junit.jupiter.api.Test;
 public class QueryLexerTest {
 
     private QueryType parseQueryType(YdbQueryOptions opts, String sql) throws SQLException {
-        YdbQueryBuilder builder = new YdbQueryBuilder(sql);
-        JdbcQueryLexer.buildQuery(builder, opts);
-        return builder.getQueryType();
+        return YdbQuery.from(opts, sql).type();
     }
 
     private String parseQuery(YdbQueryOptions opts, String sql) throws SQLException {
-        YdbQueryBuilder builder = new YdbQueryBuilder(sql);
-        JdbcQueryLexer.buildQuery(builder, opts);
-        return builder.buildYQL();
+        return YdbQuery.from(opts, sql).getYqlQuery(null);
     }
 
     private void assertMixType(YdbQueryOptions opts, String types, String sql) {
@@ -32,8 +30,20 @@ public class QueryLexerTest {
     }
 
     @Test
+    public void enforceV1Test() throws SQLException {
+        YdbQueryOptions disabled = new YdbQueryOptions(false, true, true, true, true, true);
+        YdbQueryOptions enabled = new YdbQueryOptions(true, true, true, true, true, true);
+
+        Assertions.assertEquals("CREATE TABLE test_table (id int, value text)",
+                parseQuery(disabled, "CREATE TABLE test_table (id int, value text)"));
+
+        Assertions.assertEquals("--!syntax_v1\nCREATE TABLE test_table (id int, value text)",
+                parseQuery(enabled, "CREATE TABLE test_table (id int, value text)"));
+    }
+
+    @Test
     public void queryTypesTest() throws SQLException {
-        YdbQueryOptions opts = new YdbQueryOptions(true, false, false, false);
+        YdbQueryOptions opts = new YdbQueryOptions(false, true, false, false, false, false);
 
         Assertions.assertEquals(QueryType.SCHEME_QUERY, parseQueryType(opts,
                 "CREATE TABLE test_table (id int, value text)"
@@ -62,6 +72,12 @@ public class QueryLexerTest {
                 "DELETE FROM test_table"
         ));
 
+        Assertions.assertEquals(QueryType.DATA_QUERY, parseQueryType(opts,
+                "SELECT id, value FROM test_table;\n" +
+                "UPDATE test_table SET value = ? WHERE id = ?;" +
+                "SELECT id, value FROM test_table WHERE id=CREATE"
+        ));
+
         Assertions.assertEquals(QueryType.SCAN_QUERY, parseQueryType(opts,
                 "SCAN SELECT id, value FROM test_table"
         ));
@@ -73,7 +89,7 @@ public class QueryLexerTest {
 
     @Test
     public void mixQueryExceptionTest() throws SQLException {
-        YdbQueryOptions opts = new YdbQueryOptions(true, false, false, false);
+        YdbQueryOptions opts = new YdbQueryOptions(false, true, false, false, false, false);
 
         assertMixType(opts, "SCHEME_QUERY, DATA_QUERY",
                 "CREATE TABLE test_table (id int, value text);" +

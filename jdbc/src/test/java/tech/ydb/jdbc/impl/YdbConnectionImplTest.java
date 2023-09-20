@@ -223,9 +223,7 @@ public class YdbConnectionImplTest {
     @Test
     public void nativeSQL() throws SQLException {
         String nativeSQL = jdbc.connection().nativeSQL("select ? + ?");
-        Assertions.assertEquals(YdbConst.PREFIX_SYNTAX_V1 +
-                "\n-- DECLARE 2 PARAMETERS" +
-                "\nselect $jp1 + $jp2", nativeSQL);
+        Assertions.assertEquals("-- DECLARE 2 PARAMETERS\nselect $jp1 + $jp2", nativeSQL);
     }
 
     @Test
@@ -317,6 +315,42 @@ public class YdbConnectionImplTest {
             Assertions.assertNull(currentTxId());
 
             jdbc.connection().commit(); // does nothing
+            Assertions.assertNull(currentTxId());
+
+            try (ResultSet result = statement.executeQuery(QUERIES.selectAllSQL())) {
+                Assertions.assertTrue(result.next());
+            }
+        } finally {
+            cleanTable();
+            jdbc.connection().setAutoCommit(true);
+        }
+    }
+
+    @Test
+    public void ddlAutoCommit() throws SQLException {
+        jdbc.connection().setAutoCommit(false);
+        try (Statement statement = jdbc.connection().createStatement()) {
+            Assertions.assertTrue(statement.execute(SELECT_2_2));
+            String txId = currentTxId();
+            Assertions.assertNotNull(txId);
+
+            Assertions.assertTrue(statement.execute(SELECT_2_2));
+            Assertions.assertEquals(txId, currentTxId());
+
+            Assertions.assertTrue(statement.execute(QUERIES.selectAllSQL()));
+            Assertions.assertEquals(txId, currentTxId());
+
+            Assertions.assertFalse(statement.execute(SIMPLE_UPSERT));
+            Assertions.assertEquals(txId, currentTxId());
+
+            Assertions.assertTrue(statement.execute(SELECT_2_2));
+            Assertions.assertEquals(txId, currentTxId());
+
+            // DDL  - equals to commit
+            statement.execute("CREATE TABLE tmp_table (id Int32, primary key (id))");
+            Assertions.assertNull(currentTxId());
+
+            statement.execute("DROP TABLE tmp_table");
             Assertions.assertNull(currentTxId());
 
             try (ResultSet result = statement.executeQuery(QUERIES.selectAllSQL())) {

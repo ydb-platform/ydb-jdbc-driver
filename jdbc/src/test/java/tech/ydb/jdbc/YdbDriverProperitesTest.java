@@ -109,7 +109,7 @@ public class YdbDriverProperitesTest {
     @SuppressWarnings("UnstableApiUsage")
     @Test
     public void getPropertyInfoDefault() throws SQLException {
-        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/pr/testing/ci";
+        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/db";
 
         Properties properties = new Properties();
         DriverPropertyInfo[] propertyInfo = driver.getPropertyInfo(url, properties);
@@ -122,13 +122,13 @@ public class YdbDriverProperitesTest {
         Assertions.assertEquals(expect, actual);
 
         YdbProperties ydbProperties = YdbJdbcTools.from(url, properties);
-        Assertions.assertEquals("grpc://ydb-demo.testhost.org:2135/test/pr/testing/ci",
+        Assertions.assertEquals("grpc://ydb-demo.testhost.org:2135/test/db",
                 ydbProperties.getConnectionProperties().getConnectionString());
     }
 
     @Test
     public void getPropertyInfoAllFromUrl() throws SQLException {
-        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/pr/testing/ci?" +
+        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/db?" +
                 customizedProperties().entrySet().stream()
                         .map(e -> e.getKey() + "=" + e.getValue())
                         .collect(Collectors.joining("&"));
@@ -141,7 +141,10 @@ public class YdbDriverProperitesTest {
         actual.forEach(logger::info);
 
         List<String> expect = convertPropertyInfo(customizedPropertyInfo());
-        Assertions.assertEquals(expect, actual);
+        Assertions.assertEquals(expect.size(), actual.size(), "Wrong size of all properties");
+        for (int idx = 0; idx < expect.size(); idx += 1) {
+            Assertions.assertEquals(expect.get(idx), actual.get(idx), "Wrong parameter " + idx);
+        }
 
         YdbProperties ydbProperties = YdbJdbcTools.from(url, properties);
         checkCustomizedProperties(ydbProperties);
@@ -149,7 +152,7 @@ public class YdbDriverProperitesTest {
 
     @Test
     public void getPropertyInfoFromProperties() throws SQLException {
-        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/pr/testing/ci";
+        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/db";
 
         Properties properties = customizedProperties();
         Properties copy = new Properties();
@@ -162,7 +165,10 @@ public class YdbDriverProperitesTest {
         actual.forEach(logger::info);
 
         List<String> expect = convertPropertyInfo(customizedPropertyInfo());
-        Assertions.assertEquals(expect, actual);
+        Assertions.assertEquals(expect.size(), actual.size(), "Wrong size of all properties");
+        for (int idx = 0; idx < expect.size(); idx += 1) {
+            Assertions.assertEquals(expect.get(idx), actual.get(idx), "Wrong parameter " + idx);
+        }
 
         YdbProperties ydbProperties = YdbJdbcTools.from(url, properties);
         checkCustomizedProperties(ydbProperties);
@@ -186,7 +192,10 @@ public class YdbDriverProperitesTest {
 
         // URL will always overwrite properties
         List<String> expect = convertPropertyInfo(defaultPropertyInfo("sas"));
-        Assertions.assertEquals(expect, actual);
+        Assertions.assertEquals(expect.size(), actual.size(), "Wrong size of default properties");
+        for (int idx = 0; idx < expect.size(); idx += 1) {
+            Assertions.assertEquals(expect.get(idx), actual.get(idx), "Wrong default parameter " + idx);
+        }
 
         YdbProperties ydbProperties = YdbJdbcTools.from(url, properties);
         Assertions.assertEquals("grpc://ydb-demo.testhost.org:2135/testing/ydb",
@@ -200,7 +209,7 @@ public class YdbDriverProperitesTest {
             token += TOKEN_FILE.getAbsolutePath();
         }
 
-        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/pr/testing/ci?token=" + token;
+        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/db?token=" + token;
         Properties properties = new Properties();
         YdbProperties ydbProperties = YdbJdbcTools.from(url, properties);
 
@@ -212,7 +221,7 @@ public class YdbDriverProperitesTest {
     @ParameterizedTest
     @MethodSource("unknownFiles")
     public void getTokenAsInvalid(String token, String expectException) {
-        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/pr/testing/ci?token=" + token;
+        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/db?token=" + token;
         ExceptionAssert.ydbConfiguration(expectException, () -> YdbJdbcTools.from(url, new Properties()));
     }
 
@@ -222,7 +231,7 @@ public class YdbDriverProperitesTest {
         if ("file:".equals(certificate)) {
             certificate += CERTIFICATE_FILE.getAbsolutePath();
         }
-        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/pr/testing/ci" +
+        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/db" +
                 "?secureConnectionCertificate=" + certificate;
         Properties properties = new Properties();
         YdbProperties ydbProperties = YdbJdbcTools.from(url, properties);
@@ -235,7 +244,7 @@ public class YdbDriverProperitesTest {
     @ParameterizedTest
     @MethodSource("unknownFiles")
     public void getCaCertificateAsInvalid(String certificate, String expectException) {
-        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/pr/testing/ci" +
+        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/db" +
                 "?secureConnectionCertificate=" + certificate;
         ExceptionAssert.ydbConfiguration(expectException, () -> YdbJdbcTools.from(url, new Properties()));
     }
@@ -243,7 +252,7 @@ public class YdbDriverProperitesTest {
     @ParameterizedTest
     @MethodSource("invalidDurationParams")
     public void invalidDuration(String param) {
-        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/pr/testing/ci?" + param + "=1bc";
+        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/db?" + param + "=1bc";
         ExceptionAssert.ydbConfiguration("Unable to convert property " + param +
                         ": Unable to parse value [1bc] -> [PT1BC] as Duration: Text cannot be parsed to a Duration",
                 () -> YdbJdbcTools.from(url, new Properties()));
@@ -252,7 +261,7 @@ public class YdbDriverProperitesTest {
     @ParameterizedTest
     @MethodSource("invalidIntegerParams")
     public void invalidInteger(String param) {
-        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/pr/testing/ci?" + param + "=1bc";
+        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/db?" + param + "=1bc";
         ExceptionAssert.ydbConfiguration("Unable to convert property " + param +
                         ": Unable to parse value [1bc] as Integer: For input string: \"1bc\"",
                 () -> YdbJdbcTools.from(url, new Properties()));
@@ -313,14 +322,17 @@ public class YdbDriverProperitesTest {
                 YdbOperationProperty.AUTOCOMMIT.toDriverPropertyInfo("true"),
                 YdbOperationProperty.TRANSACTION_LEVEL.toDriverPropertyInfo("8"),
 
-                YdbOperationProperty.ENFORCE_SQL_V1.toDriverPropertyInfo("true"),
-                YdbOperationProperty.ENFORCE_VARIABLE_PREFIX.toDriverPropertyInfo("true"),
                 YdbOperationProperty.CACHE_CONNECTIONS_IN_DRIVER.toDriverPropertyInfo("true"),
-                YdbOperationProperty.DETECT_SQL_OPERATIONS.toDriverPropertyInfo("true"),
 
+                YdbOperationProperty.ENFORCE_SQL_V1.toDriverPropertyInfo("false"),
+
+                YdbOperationProperty.DISABLE_DETECT_SQL_OPERATIONS.toDriverPropertyInfo("false"),
                 YdbOperationProperty.DISABLE_PREPARE_DATAQUERY.toDriverPropertyInfo("false"),
                 YdbOperationProperty.DISABLE_AUTO_PREPARED_BATCHES.toDriverPropertyInfo("false"),
-                YdbOperationProperty.DISABLE_JDBC_PARAMETERS.toDriverPropertyInfo("false")
+                YdbOperationProperty.DISABLE_JDBC_PARAMETERS.toDriverPropertyInfo("false"),
+                YdbOperationProperty.DISABLE_JDBC_PARAMETERS_DECLARE.toDriverPropertyInfo("false"),
+
+                YdbOperationProperty.JDBC_SUPPORT_LEVEL.toDriverPropertyInfo("" + YdbConst.DEFAULT_JDBC_SUPPORT_LEVEL)
         };
     }
 
@@ -350,14 +362,15 @@ public class YdbDriverProperitesTest {
         properties.setProperty("autoCommit", "true");
         properties.setProperty("transactionLevel", "4");
 
-        properties.setProperty("enforceSqlV1", "false");
-        properties.setProperty("enforceVariablePrefix", "false");
         properties.setProperty("cacheConnectionsInDriver", "false");
-        properties.setProperty("detectSqlOperations", "false");
 
-        properties.setProperty("disableAutoPreparedBatches", "true");
+        properties.setProperty("enforceSqlV1", "true");
         properties.setProperty("disablePrepareDataQuery", "true");
+        properties.setProperty("disableAutoPreparedBatches", "true");
+        properties.setProperty("disableDetectSqlOperations", "true");
         properties.setProperty("disableJdbcParameters", "true");
+        properties.setProperty("disableJdbcParameterDeclare", "true");
+        properties.setProperty("jdbcSupportLevel", "0");
         return properties;
     }
 
@@ -386,19 +399,22 @@ public class YdbDriverProperitesTest {
                 YdbOperationProperty.AUTOCOMMIT.toDriverPropertyInfo("true"),
                 YdbOperationProperty.TRANSACTION_LEVEL.toDriverPropertyInfo("4"),
 
-                YdbOperationProperty.ENFORCE_SQL_V1.toDriverPropertyInfo("false"),
-                YdbOperationProperty.ENFORCE_VARIABLE_PREFIX.toDriverPropertyInfo("false"),
                 YdbOperationProperty.CACHE_CONNECTIONS_IN_DRIVER.toDriverPropertyInfo("false"),
-                YdbOperationProperty.DETECT_SQL_OPERATIONS.toDriverPropertyInfo("false"),
+
+                YdbOperationProperty.ENFORCE_SQL_V1.toDriverPropertyInfo("true"),
+                YdbOperationProperty.DISABLE_DETECT_SQL_OPERATIONS.toDriverPropertyInfo("true"),
                 YdbOperationProperty.DISABLE_PREPARE_DATAQUERY.toDriverPropertyInfo("true"),
                 YdbOperationProperty.DISABLE_AUTO_PREPARED_BATCHES.toDriverPropertyInfo("true"),
-                YdbOperationProperty.DISABLE_JDBC_PARAMETERS.toDriverPropertyInfo("true")
+                YdbOperationProperty.DISABLE_JDBC_PARAMETERS.toDriverPropertyInfo("true"),
+                YdbOperationProperty.DISABLE_JDBC_PARAMETERS_DECLARE.toDriverPropertyInfo("true"),
+
+                YdbOperationProperty.JDBC_SUPPORT_LEVEL.toDriverPropertyInfo("0")
         };
     }
 
     static void checkCustomizedProperties(YdbProperties properties) {
         YdbConnectionProperties conn = properties.getConnectionProperties();
-        Assertions.assertEquals("grpc://ydb-demo.testhost.org:2135/test/pr/testing/ci",
+        Assertions.assertEquals("grpc://ydb-demo.testhost.org:2135/test/db",
                 conn.getConnectionString());
 
         YdbOperationProperties ops = properties.getOperationProperties();
@@ -409,14 +425,8 @@ public class YdbDriverProperitesTest {
         Assertions.assertEquals(Duration.ofSeconds(6), ops.getSessionTimeout());
         Assertions.assertTrue(ops.isAutoCommit());
         Assertions.assertEquals(YdbConst.ONLINE_CONSISTENT_READ_ONLY, ops.getTransactionLevel());
-        Assertions.assertFalse(ops.isEnforceSqlV1());
-        Assertions.assertFalse(ops.isEnforceVariablePrefix());
         Assertions.assertFalse(ops.isCacheConnectionsInDriver());
-        Assertions.assertFalse(ops.isDetectSqlOperations());
-
-        Assertions.assertTrue(ops.isAutoPreparedBatchesDisabled());
-        Assertions.assertTrue(ops.isPrepareDataQueryDisabled());
-        Assertions.assertTrue(ops.isJdbcParametersSupportDisabled());
+        Assertions.assertEquals(0, ops.getJdbcSupportLevel());
     }
 
     static String asString(DriverPropertyInfo info) {
@@ -450,18 +460,18 @@ public class YdbDriverProperitesTest {
                         true, "grpc://ydb-demo.testhost.org:2135"),
                 Arguments.of("jdbc:ydb:ydb-demo.testhost.org",
                         true, "grpc://ydb-demo.testhost.org"),
-                Arguments.of("jdbc:ydb:ydb-demo.testhost.org:2135?database=test/pr/testing/ci",
-                        true, "grpc://ydb-demo.testhost.org:2135/test/pr/testing/ci"),
+                Arguments.of("jdbc:ydb:ydb-demo.testhost.org:2135?database=test/db",
+                        true, "grpc://ydb-demo.testhost.org:2135/test/db"),
                 Arguments.of("jdbc:ydb:grpcs://ydb-demo.testhost.org",
                         true, "grpcs://ydb-demo.testhost.org"),
-                Arguments.of("jdbc:ydb:ydb-demo.testhost.org:2170?database=/test/pr/testing/ci",
-                        true, "grpc://ydb-demo.testhost.org:2170/test/pr/testing/ci"),
-                Arguments.of("jdbc:ydb:ydb-demo.testhost.org:2133/test/pr/testing/ci",
-                        true, "grpc://ydb-demo.testhost.org:2133/test/pr/testing/ci"),
-                Arguments.of("jdbc:ydb:grpcs://ydb-demo.testhost.org?database=test/pr/testing/ci&dc=man",
-                        true, "grpcs://ydb-demo.testhost.org/test/pr/testing/ci"),
-                Arguments.of("jdbc:ydb:ydb-demo.testhost.org:2135/test/pr/testing/ci?dc=man",
-                        true, "grpc://ydb-demo.testhost.org:2135/test/pr/testing/ci"),
+                Arguments.of("jdbc:ydb:ydb-demo.testhost.org:2170?database=/test/db",
+                        true, "grpc://ydb-demo.testhost.org:2170/test/db"),
+                Arguments.of("jdbc:ydb:ydb-demo.testhost.org:2133/test/db",
+                        true, "grpc://ydb-demo.testhost.org:2133/test/db"),
+                Arguments.of("jdbc:ydb:grpcs://ydb-demo.testhost.org?database=test/db&dc=man",
+                        true, "grpcs://ydb-demo.testhost.org/test/db"),
+                Arguments.of("jdbc:ydb:ydb-demo.testhost.org:2135/test/db?dc=man",
+                        true, "grpc://ydb-demo.testhost.org:2135/test/db"),
                 Arguments.of("ydb:",
                         false, null),
                 Arguments.of("jdbc:ydb",
