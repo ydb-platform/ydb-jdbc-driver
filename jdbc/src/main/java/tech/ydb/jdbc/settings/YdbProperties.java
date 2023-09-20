@@ -1,5 +1,6 @@
 package tech.ydb.jdbc.settings;
 
+
 import java.sql.DriverPropertyInfo;
 import java.util.ArrayList;
 import java.util.List;

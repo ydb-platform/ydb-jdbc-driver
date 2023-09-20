@@ -6,6 +6,8 @@ import java.util.Collection;
 
 import javax.annotation.Nullable;
 
+import tech.ydb.jdbc.YdbConst;
+
 
 public class YdbOperationProperty<T> extends AbstractYdbProperty<T, Void> {
     private static final PropertiesCollector<YdbOperationProperty<?>> PROPERTIES = new PropertiesCollector<>();
@@ -78,20 +80,6 @@ public class YdbOperationProperty<T> extends AbstractYdbProperty<T, Void> {
 
     // Some JDBC driver specific options
 
-    public static final YdbOperationProperty<Boolean> ENFORCE_SQL_V1 =
-            new YdbOperationProperty<>("enforceSqlV1",
-                    "Enforce SQL v1 grammar by adding --!syntax_v1 in the beginning of each SQL statement",
-                    "true",
-                    Boolean.class,
-                    PropertyConverter.booleanValue());
-
-    public static final YdbOperationProperty<Boolean> ENFORCE_VARIABLE_PREFIX =
-            new YdbOperationProperty<>("enforceVariablePrefix",
-                    "Enforce variable prefixes, add $ symbol to all named variables when absent",
-                    "true",
-                    Boolean.class,
-                    PropertyConverter.booleanValue());
-
     public static final YdbOperationProperty<Boolean> CACHE_CONNECTIONS_IN_DRIVER =
             new YdbOperationProperty<>("cacheConnectionsInDriver",
                     "Cache YDB connections in YdbDriver, cached by combination or url and properties",
@@ -99,10 +87,18 @@ public class YdbOperationProperty<T> extends AbstractYdbProperty<T, Void> {
                     Boolean.class,
                     PropertyConverter.booleanValue());
 
-    public static final YdbOperationProperty<Boolean> DETECT_SQL_OPERATIONS =
-            new YdbOperationProperty<>("detectSqlOperations",
-                    "Detect and execute SQL operation based on SQL keywords",
-                    "true",
+
+    public static final YdbOperationProperty<Boolean> ENFORCE_SQL_V1 =
+            new YdbOperationProperty<>("enforceSqlV1",
+                    "Enforce SQL v1 grammar by adding --!syntax_v1 in the beginning of each SQL statement",
+                    "false",
+                    Boolean.class,
+                    PropertyConverter.booleanValue());
+
+    public static final YdbOperationProperty<Boolean> DISABLE_DETECT_SQL_OPERATIONS =
+            new YdbOperationProperty<>("disableDetectSqlOperations",
+                    "Disable detecting SQL operation based on SQL keywords",
+                    "false",
                     Boolean.class,
                     PropertyConverter.booleanValue());
 
@@ -127,6 +123,20 @@ public class YdbOperationProperty<T> extends AbstractYdbProperty<T, Void> {
                     "false",
                     Boolean.class,
                     PropertyConverter.booleanValue());
+
+    public static final YdbOperationProperty<Boolean> DISABLE_JDBC_PARAMETERS_DECLARE =
+            new YdbOperationProperty<>("disableJdbcParameterDeclare",
+                    "Disable enforce DECLARE section for JDBC parameters '?'",
+                    "false",
+                    Boolean.class,
+                    PropertyConverter.booleanValue());
+
+    public static final YdbOperationProperty<Integer> JDBC_SUPPORT_LEVEL =
+            new YdbOperationProperty<>("jdbcSupportLevel",
+                    "Disable auto detect JDBC standart parameters '?'",
+                    "" + YdbConst.DEFAULT_JDBC_SUPPORT_LEVEL,
+                    Integer.class,
+                    PropertyConverter.integerValue());
 
     protected YdbOperationProperty(String name,
                                    String description,

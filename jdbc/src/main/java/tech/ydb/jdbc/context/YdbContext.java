@@ -50,7 +50,7 @@ public class YdbContext implements AutoCloseable {
         this.grpcTransport = Objects.requireNonNull(transport);
         this.tableClient = Objects.requireNonNull(tableClient);
         this.schemeClient = SchemeClient.newClient(transport).build();
-        this.queryOptions = new YdbQueryOptions(config.getOperationProperties());
+        this.queryOptions = YdbQueryOptions.createFrom(config.getOperationProperties());
         this.autoResizeSessionPool = autoResize;
     }
 

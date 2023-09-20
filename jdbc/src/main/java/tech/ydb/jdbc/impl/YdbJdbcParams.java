@@ -9,12 +9,12 @@ import javax.annotation.Nullable;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.common.TypeDescription;
-import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.jdbc.impl.params.BatchedParams;
 import tech.ydb.jdbc.impl.params.InMemoryParams;
 import tech.ydb.jdbc.impl.params.PreparedParams;
-import tech.ydb.jdbc.settings.YdbOperationProperties;
+import tech.ydb.jdbc.query.YdbQuery;
+import tech.ydb.jdbc.query.YdbQueryOptions;
 import tech.ydb.table.query.DataQuery;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Type;
@@ -43,18 +43,18 @@ public interface YdbJdbcParams {
     Params getCurrentParams() throws SQLException;
 
     static YdbJdbcParams create(YdbConnectionImpl connection, YdbQuery query, YdbPrepareMode mode) throws SQLException {
-        YdbOperationProperties props = connection.getCtx().getOperationProperties();
+        YdbQueryOptions opts = connection.getCtx().getQueryOptions();
 
         if (query.hasIndexesParameters()
                 || mode == YdbPrepareMode.IN_MEMORY
-                || props.isPrepareDataQueryDisabled()) {
+                || !opts.iPrepareDataQueries()) {
             return new InMemoryParams(query.getIndexesParameters());
         }
 
         DataQuery prepared = connection.prepareDataQuery(query);
 
         boolean requireBatch = mode == YdbPrepareMode.DATA_QUERY_BATCH;
-        if (requireBatch || (mode == YdbPrepareMode.AUTO && !props.isAutoPreparedBatchesDisabled())) {
+        if (requireBatch || (mode == YdbPrepareMode.AUTO && opts.isDetectBatchQueries())) {
             BatchedParams params = BatchedParams.tryCreateBatched(prepared.types());
             if (params != null) {
                 return params;
