@@ -4,31 +4,25 @@
 [![Codecov](https://img.shields.io/codecov/c/github/ydb-platform/ydb-jdbc-driver)](https://app.codecov.io/gh/ydb-platform/ydb-jdbc-driver)
 
 ## JDBC Driver for YDB
----
-This is an experimental version of JDBC driver for YDB. It is in active development and is not intended for use in production environments.
-
-### Building
-All tests are run without Docker by default.
-To enable all tests make sure you have Docker or Docker Machine installed then run `mvn install -DSKIP_DOCKER_TESTS=false`
 
 ### Quickstart
 
 1) Drop in [JDBC driver](https://github.com/ydb-platform/ydb-jdbc-driver/releases) to classpath or pick this file in IDEA
 2) Connect to YDB
-   * Local or remote Docker (anonymous authentication): `jdbc:ydb:grpc://localhost:2135/local`
-   * Self-hosted cluster: `jdbc:ydb:grpcs://<host>:2136/Root/testdb?secureConnectionCertificate=file:~/myca.cer` + username and password configured
-   * Connect with token to the cloud instance: `jdbc:ydb:grpcs://<host>:2135/path/to/database?token=file:~/my_token`
+   * Local or remote Docker (anonymous authentication):<br>`jdbc:ydb:grpc://localhost:2135/local`
+   * Self-hosted cluster:<br>`jdbc:ydb:grpcs://<host>:2136/Root/testdb?secureConnectionCertificate=file:~/myca.cer`
+   * Connect with token to the cloud instance:<br>`jdbc:ydb:grpcs://<host>:2135/path/to/database?token=file:~/my_token`
    * Connect with service account to the cloud instance: `jdbc:ydb:grpcs://<host>:2136/path/to/database?saFile=file:~/sa_key.json`
 3) Execute queries, see example in [YdbDriverExampleTest.java](jdbc/src/test/java/tech/ydb/jdbc/YdbDriverExampleTest.java)
 
 ### Authentication modes
 
 YDB JDBC Driver supports the following [authentication modes](https://ydb.tech/en/docs/reference/ydb-sdk/auth):
-* Anonymous: no authentication, used when username and password are not specified and no other authentication properties configured;
-* Static Credentials: used when username and password are specified;
-* Access Token: used when `token` property is configured, needs YDB authentication token as printed by the `ydb auth get-token` CLI command;
-* Metadata: used when `useMetadata` property is set to `true`, extracts the authentication data from the metadata of a virtual machine, serverless container or a serverless function running in a cloud environment;
-* Service Account Key: used when `saFile` property is configured, extracts the service account key and uses it for authentication.
+* `Anonymous`: no authentication, used when username and password are not specified and no other authentication properties configured;
+* `Static Credentials`: used when username and password are specified;
+* `Access Token`: used when `token` property is configured, needs YDB authentication token as printed by the `ydb auth get-token` CLI command;
+* `Metadata`: used when `useMetadata` property is set to `true`, extracts the authentication data from the metadata of a virtual machine, serverless container or a serverless function running in a cloud environment;
+* `Service Account Key`: used when `saFile` property is configured, extracts the service account key and uses it for authentication.
 
 ### Driver properties reference
 
@@ -44,3 +38,8 @@ File references for `saFile`, `token` or `secureConnectionCertificate` must be p
 * `saFile=file:~/mysaley1.json`
 * `token=file:/opt/secret/token-file`
 * `secureConnectionCertificate=file:/etc/ssl/cacert.cer`
+
+### Building
+By default all tests are run using a local YDB instance in Docker (if host has Docker or Docker Machine installed)
+To disable these tests run `mvn test -DYDB_DISABLE_INTEGRATION_TESTS=true`
+

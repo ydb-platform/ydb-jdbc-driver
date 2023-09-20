@@ -12,15 +12,18 @@ import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
+import org.junit.jupiter.api.extension.ConditionEvaluationResult;
+import org.junit.jupiter.api.extension.ExecutionCondition;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
+import tech.ydb.test.integration.YdbHelperFactory;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
 /**
  *
  * @author Aleksandr Gorshenin
  */
-public class JdbcConnectionExtention implements
+public class JdbcConnectionExtention implements ExecutionCondition,
         BeforeEachCallback, BeforeAllCallback, AfterEachCallback, AfterAllCallback {
 
     private final JdbcUrlHelper jdbcURL;
@@ -61,6 +64,15 @@ public class JdbcConnectionExtention implements
     public Connection connection() {
         Assert.assertFalse("Retrive connection before initialization", stack.isEmpty());
         return stack.peek();
+    }
+
+    @Override
+    public ConditionEvaluationResult evaluateExecutionCondition(ExtensionContext context) {
+        if (!YdbHelperFactory.getInstance().isEnabled()) {
+            return ConditionEvaluationResult.disabled("Ydb helper is disabled " + context.getDisplayName());
+        }
+
+        return ConditionEvaluationResult.enabled("OK");
     }
 
     @Override

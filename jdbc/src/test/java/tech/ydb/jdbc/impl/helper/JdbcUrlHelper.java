@@ -5,6 +5,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
+import tech.ydb.test.integration.YdbHelperFactory;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
 /**
@@ -51,6 +52,10 @@ public class JdbcUrlHelper {
     }
 
     public String build() {
+        if (!YdbHelperFactory.getInstance().isEnabled()) {
+            return "jdbc:ydb:grpc://localhost/local";
+        }
+
         StringBuilder jdbc = new StringBuilder("jdbc:ydb:")
                 .append(ydb.useTls() ? "grpcs://" : "grpc://")
                 .append(authority)

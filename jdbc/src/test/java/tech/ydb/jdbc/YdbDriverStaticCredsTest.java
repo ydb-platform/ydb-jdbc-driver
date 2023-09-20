@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
+import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.JdbcUrlHelper;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
@@ -22,6 +23,9 @@ import tech.ydb.test.junit5.YdbHelperExtension;
 public class YdbDriverStaticCredsTest {
     @RegisterExtension
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
+
+    @RegisterExtension
+    private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb);
 
     private static final JdbcUrlHelper jdbcURL = new JdbcUrlHelper(ydb);
 
