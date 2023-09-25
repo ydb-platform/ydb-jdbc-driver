@@ -23,6 +23,8 @@ public class YdbQueryOptions {
     private final boolean isPrepareDataQueries;
     private final boolean isDetectBatchQueries;
 
+    private final QueryType forcedType;
+
     @VisibleForTesting
     YdbQueryOptions(
             boolean enforceV1,
@@ -30,7 +32,8 @@ public class YdbQueryOptions {
             boolean detectJbdcParams,
             boolean declareJdbcParams,
             boolean prepareDataQuery,
-            boolean detectBatchQuery
+            boolean detectBatchQuery,
+            QueryType forcedType
     ) {
         this.isEnforceSyntaxV1 = enforceV1;
 
@@ -40,6 +43,8 @@ public class YdbQueryOptions {
 
         this.isPrepareDataQueries = prepareDataQuery;
         this.isDetectBatchQueries = detectBatchQuery;
+
+        this.forcedType = forcedType;
     }
 
     public boolean isEnforceSyntaxV1() {
@@ -64,6 +69,10 @@ public class YdbQueryOptions {
 
     public boolean isDetectBatchQueries() {
         return isDetectBatchQueries;
+    }
+
+    public QueryType getForcedQueryType() {
+        return forcedType;
     }
 
     public static YdbQueryOptions createFrom(YdbOperationProperties props) {
@@ -111,13 +120,16 @@ public class YdbQueryOptions {
             declareJdbcParams = declareJdbcParams && detectJbdcParams;
         }
 
+        QueryType forcedQueryType = props.getForcedQueryType();
+
         return new YdbQueryOptions(
                 enforceV1,
                 detectQueryType,
                 detectJbdcParams,
                 declareJdbcParams,
                 prepareDataQuery,
-                detectBatchQuery
+                detectBatchQuery,
+                forcedQueryType
         );
     }
 }

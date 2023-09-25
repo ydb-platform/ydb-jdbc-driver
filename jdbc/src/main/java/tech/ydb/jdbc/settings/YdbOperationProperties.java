@@ -4,6 +4,8 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
 
+import tech.ydb.jdbc.query.QueryType;
+
 public class YdbOperationProperties {
     public static final int MAX_ROWS = 1000; // TODO: how to figure out the max rows of current connection?
 
@@ -21,6 +23,10 @@ public class YdbOperationProperties {
 
     private final int jdbcSupportLevel;
 
+    private final FakeTxMode scanQueryTxMode;
+    private final FakeTxMode schemeQueryTxMode;
+    private final QueryType forcedQueryType;
+
     public YdbOperationProperties(Map<YdbOperationProperty<?>, ParsedProperty> params) {
         this.params = Objects.requireNonNull(params);
 
@@ -36,6 +42,10 @@ public class YdbOperationProperties {
         this.cacheConnectionsInDriver = params.get(YdbOperationProperty.CACHE_CONNECTIONS_IN_DRIVER).getParsedValue();
 
         this.jdbcSupportLevel = params.get(YdbOperationProperty.JDBC_SUPPORT_LEVEL).getParsedValue();
+
+        this.scanQueryTxMode = params.get(YdbOperationProperty.SCAN_QUERY_TX_MODE).getParsedValue();
+        this.schemeQueryTxMode = params.get(YdbOperationProperty.SCHEME_QUERY_TX_MODE).getParsedValue();
+        this.forcedQueryType = params.get(YdbOperationProperty.FORCE_QUERY_MODE).getParsedValue();
     }
 
     public Map<YdbOperationProperty<?>, ParsedProperty> getParams() {
@@ -56,6 +66,18 @@ public class YdbOperationProperties {
 
     public boolean isFailOnTruncatedResult() {
         return failOnTruncatedResult;
+    }
+
+    public FakeTxMode getScanQueryTxMode() {
+        return scanQueryTxMode;
+    }
+
+    public FakeTxMode getSchemeQueryTxMode() {
+        return schemeQueryTxMode;
+    }
+
+    public QueryType getForcedQueryType() {
+        return forcedQueryType;
     }
 
     public Duration getSessionTimeout() {

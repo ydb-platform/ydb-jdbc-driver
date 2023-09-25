@@ -36,8 +36,11 @@ import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbExecutor;
 import tech.ydb.jdbc.context.YdbTxState;
+import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
+import tech.ydb.jdbc.settings.FakeTxMode;
+import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.table.Session;
 import tech.ydb.table.query.DataQuery;
 import tech.ydb.table.query.DataQueryResult;
@@ -61,6 +64,8 @@ public class YdbConnectionImpl implements YdbConnection {
     private final YdbContext ctx;
     private final YdbExecutor executor;
     private final Supplier<YdbDatabaseMetaData> metaDataSupplier;
+    private final FakeTxMode scanQueryTxMode;
+    private final FakeTxMode schemeQueryTxMode;
 
     private volatile YdbTxState state;
 
@@ -69,10 +74,11 @@ public class YdbConnectionImpl implements YdbConnection {
         this.metaDataSupplier = Suppliers.memoize(() -> new YdbDatabaseMetaDataImpl(this))::get;
         this.executor = new YdbExecutor(LOGGER);
 
-        int txLevel = ctx.getOperationProperties().getTransactionLevel();
-        boolean txAutoCommit = ctx.getOperationProperties().isAutoCommit();
-        this.state = YdbTxState.create(txLevel, txAutoCommit);
+        YdbOperationProperties props = ctx.getOperationProperties();
+        this.scanQueryTxMode = props.getScanQueryTxMode();
+        this.schemeQueryTxMode = props.getSchemeQueryTxMode();
 
+        this.state = YdbTxState.create(props.getTransactionLevel(), props.isAutoCommit());
         this.ctx.register();
     }
 
@@ -256,7 +262,17 @@ public class YdbConnectionImpl implements YdbConnection {
         ensureOpened();
 
         if (state.isInsideTransaction()) {
-            commit();
+            switch (schemeQueryTxMode) {
+                case FAKE_TX:
+                    break;
+                case SHADOW_COMMIT:
+                    commit();
+                    break;
+                case ERROR:
+                default:
+                    throw new YdbExecutionException(YdbConst.SCHEME_QUERY_INSIDE_TRANSACTION);
+
+            }
         }
 
         // Scheme query does not affect transactions or result sets
@@ -291,6 +307,20 @@ public class YdbConnectionImpl implements YdbConnection {
     @Override
     public ResultSetReader executeScanQuery(YdbQuery query, YdbExecutor executor, Params params) throws SQLException {
         ensureOpened();
+
+        if (state.isInsideTransaction()) {
+            switch (scanQueryTxMode) {
+                case FAKE_TX:
+                    break;
+                case SHADOW_COMMIT:
+                    commit();
+                    break;
+                case ERROR:
+                default:
+                    throw new YdbExecutionException(YdbConst.SCAN_QUERY_INSIDE_TRANSACTION);
+
+            }
+        }
 
         String yql = query.getYqlQuery(params);
         Collection<ResultSetReader> resultSets = new LinkedBlockingQueue<>();

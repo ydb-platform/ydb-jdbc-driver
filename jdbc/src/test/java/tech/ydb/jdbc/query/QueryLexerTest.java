@@ -23,7 +23,7 @@ public class QueryLexerTest {
 
     private void assertMixType(YdbQueryOptions opts, String types, String sql) {
         SQLException ex = Assertions.assertThrows(SQLException.class, () -> {
-            YdbQueryBuilder builder = new YdbQueryBuilder(sql);
+            YdbQueryBuilder builder = new YdbQueryBuilder(sql, null);
             JdbcQueryLexer.buildQuery(builder, opts);
         }, "Mix type query must throw SQLException");
         Assertions.assertEquals("Query cannot contain expressions with different types: " + types, ex.getMessage());
@@ -31,8 +31,8 @@ public class QueryLexerTest {
 
     @Test
     public void enforceV1Test() throws SQLException {
-        YdbQueryOptions disabled = new YdbQueryOptions(false, true, true, true, true, true);
-        YdbQueryOptions enabled = new YdbQueryOptions(true, true, true, true, true, true);
+        YdbQueryOptions disabled = new YdbQueryOptions(false, true, true, true, true, true, null);
+        YdbQueryOptions enabled = new YdbQueryOptions(true, true, true, true, true, true, null);
 
         Assertions.assertEquals("CREATE TABLE test_table (id int, value text)",
                 parseQuery(disabled, "CREATE TABLE test_table (id int, value text)"));
@@ -43,7 +43,7 @@ public class QueryLexerTest {
 
     @Test
     public void queryTypesTest() throws SQLException {
-        YdbQueryOptions opts = new YdbQueryOptions(false, true, false, false, false, false);
+        YdbQueryOptions opts = new YdbQueryOptions(false, true, false, false, false, false, null);
 
         Assertions.assertEquals(QueryType.SCHEME_QUERY, parseQueryType(opts,
                 "CREATE TABLE test_table (id int, value text)"
@@ -89,7 +89,7 @@ public class QueryLexerTest {
 
     @Test
     public void mixQueryExceptionTest() throws SQLException {
-        YdbQueryOptions opts = new YdbQueryOptions(false, true, false, false, false, false);
+        YdbQueryOptions opts = new YdbQueryOptions(false, true, false, false, false, false, null);
 
         assertMixType(opts, "SCHEME_QUERY, DATA_QUERY",
                 "CREATE TABLE test_table (id int, value text);" +
