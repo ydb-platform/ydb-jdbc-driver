@@ -1323,6 +1323,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
             String tablePath = fullPath.substring(databasePrefix.length());
             switch (entry.getType()) {
                 case TABLE:
+                case COLUMN_TABLE:
                     if (filter.test(tablePath)) {
                         tables.add(tablePath);
                     }

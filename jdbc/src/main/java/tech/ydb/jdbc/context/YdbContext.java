@@ -132,7 +132,7 @@ public class YdbContext implements AutoCloseable {
 
             return new YdbContext(config, grpcTransport, tableClient.build(), autoResize);
         } catch (Exception ex) {
-            throw new YdbConfigurationException("Cannot connect to YDB", ex);
+            throw new YdbConfigurationException("Cannot connect to YDB: " + ex.getMessage(), ex);
         }
     }
 
