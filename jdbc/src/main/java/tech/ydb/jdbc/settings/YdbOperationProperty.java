@@ -7,6 +7,7 @@ import java.util.Collection;
 import javax.annotation.Nullable;
 
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.query.QueryType;
 
 
 public class YdbOperationProperty<T> extends AbstractYdbProperty<T, Void> {
@@ -137,6 +138,30 @@ public class YdbOperationProperty<T> extends AbstractYdbProperty<T, Void> {
                     "" + YdbConst.DEFAULT_JDBC_SUPPORT_LEVEL,
                     Integer.class,
                     PropertyConverter.integerValue());
+
+    public static final YdbOperationProperty<FakeTxMode> SCAN_QUERY_TX_MODE =
+            new YdbOperationProperty<>("scanQueryTxMode",
+                    "Mode of execution scan query inside transaction. "
+                            + "Possible values - ERROR(by default), FAKE_TX and SHADOW_COMMIT",
+                    "ERROR",
+                    FakeTxMode.class,
+                    PropertyConverter.enumValue(FakeTxMode.class));
+
+    public static final YdbOperationProperty<FakeTxMode> SCHEME_QUERY_TX_MODE =
+            new YdbOperationProperty<>("schemeQueryTxMode",
+                    "Mode of execution scheme query inside transaction. "
+                            + "Possible values - ERROR(by default), FAKE_TX and SHADOW_COMMIT",
+                    "ERROR",
+                    FakeTxMode.class,
+                    PropertyConverter.enumValue(FakeTxMode.class));
+
+    public static final YdbOperationProperty<QueryType> FORCE_QUERY_MODE =
+            new YdbOperationProperty<>("forceQueryMode",
+                    "Force usage one of query modes (DATA_QUERY, SCAN_QUERY, SCHEME_QUERY or EXPLAIN_QUERYn) "
+                            + "for all statements",
+                    null,
+                    QueryType.class,
+                    PropertyConverter.enumValue(QueryType.class));
 
     protected YdbOperationProperty(String name,
                                    String description,

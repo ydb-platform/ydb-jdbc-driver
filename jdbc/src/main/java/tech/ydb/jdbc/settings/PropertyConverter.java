@@ -14,6 +14,17 @@ interface PropertyConverter<T> {
         return value -> value;
     }
 
+    static <E extends Enum<E>> PropertyConverter<E> enumValue(Class<E> clazz) {
+        return value -> {
+            for (E v: clazz.getEnumConstants()) {
+                if (value.equalsIgnoreCase(v.name())) {
+                    return v;
+                }
+            }
+            return null;
+        };
+    }
+
     static PropertyConverter<Duration> durationValue() {
         return value -> {
             String targetValue = "PT" + value.replace(" ", "").toUpperCase(Locale.ROOT);

@@ -332,7 +332,11 @@ public class YdbDriverProperitesTest {
                 YdbOperationProperty.DISABLE_JDBC_PARAMETERS.toDriverPropertyInfo("false"),
                 YdbOperationProperty.DISABLE_JDBC_PARAMETERS_DECLARE.toDriverPropertyInfo("false"),
 
-                YdbOperationProperty.JDBC_SUPPORT_LEVEL.toDriverPropertyInfo("" + YdbConst.DEFAULT_JDBC_SUPPORT_LEVEL)
+                YdbOperationProperty.JDBC_SUPPORT_LEVEL.toDriverPropertyInfo("" + YdbConst.DEFAULT_JDBC_SUPPORT_LEVEL),
+
+                YdbOperationProperty.SCAN_QUERY_TX_MODE.toDriverPropertyInfo("ERROR"),
+                YdbOperationProperty.SCHEME_QUERY_TX_MODE.toDriverPropertyInfo("ERROR"),
+                YdbOperationProperty.FORCE_QUERY_MODE.toDriverPropertyInfo(null),
         };
     }
 
@@ -371,6 +375,11 @@ public class YdbDriverProperitesTest {
         properties.setProperty("disableJdbcParameters", "true");
         properties.setProperty("disableJdbcParameterDeclare", "true");
         properties.setProperty("jdbcSupportLevel", "0");
+
+        properties.setProperty("scanQueryTxMode", "FAKE_TX");
+        properties.setProperty("schemeQueryTxMode", "SHADOW_COMMIT");
+
+        properties.setProperty("forceQueryMode", "SCAN_QUERY");
         return properties;
     }
 
@@ -408,7 +417,11 @@ public class YdbDriverProperitesTest {
                 YdbOperationProperty.DISABLE_JDBC_PARAMETERS.toDriverPropertyInfo("true"),
                 YdbOperationProperty.DISABLE_JDBC_PARAMETERS_DECLARE.toDriverPropertyInfo("true"),
 
-                YdbOperationProperty.JDBC_SUPPORT_LEVEL.toDriverPropertyInfo("0")
+                YdbOperationProperty.JDBC_SUPPORT_LEVEL.toDriverPropertyInfo("0"),
+
+                YdbOperationProperty.SCAN_QUERY_TX_MODE.toDriverPropertyInfo("FAKE_TX"),
+                YdbOperationProperty.SCHEME_QUERY_TX_MODE.toDriverPropertyInfo("SHADOW_COMMIT"),
+                YdbOperationProperty.FORCE_QUERY_MODE.toDriverPropertyInfo("SCAN_QUERY"),
         };
     }
 
