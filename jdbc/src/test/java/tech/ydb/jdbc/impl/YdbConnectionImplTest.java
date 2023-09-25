@@ -66,7 +66,7 @@ public class YdbConnectionImplTest {
 
     @BeforeEach
     public void checkTransactionState() throws SQLException {
-        Assertions.assertNull(currentTxId(), "Transaction must be empty before test");
+        Assertions.assertNull(getTxId(jdbc.connection()), "Transaction must be empty before test");
     }
 
     @AfterEach
@@ -89,8 +89,8 @@ public class YdbConnectionImplTest {
         }
     }
 
-    private String currentTxId() throws SQLException {
-        return jdbc.connection().unwrap(YdbConnection.class).getYdbTxId();
+    private String getTxId(Connection connection) throws SQLException {
+        return connection.unwrap(YdbConnection.class).getYdbTxId();
     }
 
     @Test
@@ -246,14 +246,14 @@ public class YdbConnectionImplTest {
         jdbc.connection().setAutoCommit(false);
         try (Statement statement = jdbc.connection().createStatement()) {
             statement.execute(SELECT_2_2);
-            String txId = currentTxId();
+            String txId = getTxId(jdbc.connection());
             Assertions.assertNotNull(txId);
 
             ExceptionAssert.ydbNonRetryable("Column reference 'x' (S_ERROR)", () -> statement.execute("select 2 + x"));
 
             statement.execute(SELECT_2_2);
-            Assertions.assertNotNull(currentTxId());
-            Assertions.assertNotEquals(txId, currentTxId());
+            Assertions.assertNotNull(getTxId(jdbc.connection()));
+            Assertions.assertNotEquals(txId, getTxId(jdbc.connection()));
         } finally {
             jdbc.connection().setAutoCommit(true);
         }
@@ -264,28 +264,28 @@ public class YdbConnectionImplTest {
         jdbc.connection().setAutoCommit(false);
         try (Statement statement = jdbc.connection().createStatement()) {
             statement.execute(SELECT_2_2);
-            String txId = currentTxId();
+            String txId = getTxId(jdbc.connection());
             Assertions.assertNotNull(txId);
 
             Assertions.assertFalse(jdbc.connection().getAutoCommit());
 
             jdbc.connection().setAutoCommit(false);
             Assertions.assertFalse(jdbc.connection().getAutoCommit());
-            Assertions.assertEquals(txId, currentTxId());
+            Assertions.assertEquals(txId, getTxId(jdbc.connection()));
 
             jdbc.connection().setAutoCommit(true);
             Assertions.assertTrue(jdbc.connection().getAutoCommit());
-            Assertions.assertNull(currentTxId());
+            Assertions.assertNull(getTxId(jdbc.connection()));
 
             statement.execute(SELECT_2_2);
-            Assertions.assertNull(currentTxId());
+            Assertions.assertNull(getTxId(jdbc.connection()));
 
             statement.execute(SELECT_2_2);
-            Assertions.assertNull(currentTxId());
+            Assertions.assertNull(getTxId(jdbc.connection()));
 
             jdbc.connection().setAutoCommit(false);
             Assertions.assertFalse(jdbc.connection().getAutoCommit());
-            Assertions.assertNull(currentTxId());
+            Assertions.assertNull(getTxId(jdbc.connection()));
         } finally {
             jdbc.connection().setAutoCommit(true);
         }
@@ -296,26 +296,26 @@ public class YdbConnectionImplTest {
         jdbc.connection().setAutoCommit(false);
         try (Statement statement = jdbc.connection().createStatement()) {
             Assertions.assertTrue(statement.execute(SELECT_2_2));
-            String txId = currentTxId();
+            String txId = getTxId(jdbc.connection());
             Assertions.assertNotNull(txId);
 
             Assertions.assertTrue(statement.execute(SELECT_2_2));
-            Assertions.assertEquals(txId, currentTxId());
+            Assertions.assertEquals(txId, getTxId(jdbc.connection()));
 
             Assertions.assertTrue(statement.execute(QUERIES.selectAllSQL()));
-            Assertions.assertEquals(txId, currentTxId());
+            Assertions.assertEquals(txId, getTxId(jdbc.connection()));
 
             Assertions.assertFalse(statement.execute(SIMPLE_UPSERT));
-            Assertions.assertEquals(txId, currentTxId());
+            Assertions.assertEquals(txId, getTxId(jdbc.connection()));
 
             Assertions.assertTrue(statement.execute(SELECT_2_2));
-            Assertions.assertEquals(txId, currentTxId());
+            Assertions.assertEquals(txId, getTxId(jdbc.connection()));
 
             jdbc.connection().commit();
-            Assertions.assertNull(currentTxId());
+            Assertions.assertNull(getTxId(jdbc.connection()));
 
             jdbc.connection().commit(); // does nothing
-            Assertions.assertNull(currentTxId());
+            Assertions.assertNull(getTxId(jdbc.connection()));
 
             try (ResultSet result = statement.executeQuery(QUERIES.selectAllSQL())) {
                 Assertions.assertTrue(result.next());
@@ -327,31 +327,32 @@ public class YdbConnectionImplTest {
     }
 
     @Test
-    public void ddlAutoCommit() throws SQLException {
+    public void schemeQueryInTx() throws SQLException {
         jdbc.connection().setAutoCommit(false);
         try (Statement statement = jdbc.connection().createStatement()) {
             Assertions.assertTrue(statement.execute(SELECT_2_2));
-            String txId = currentTxId();
+            String txId = getTxId(jdbc.connection());
             Assertions.assertNotNull(txId);
 
             Assertions.assertTrue(statement.execute(SELECT_2_2));
-            Assertions.assertEquals(txId, currentTxId());
+            Assertions.assertEquals(txId, getTxId(jdbc.connection()));
 
             Assertions.assertTrue(statement.execute(QUERIES.selectAllSQL()));
-            Assertions.assertEquals(txId, currentTxId());
+            Assertions.assertEquals(txId, getTxId(jdbc.connection()));
 
             Assertions.assertFalse(statement.execute(SIMPLE_UPSERT));
-            Assertions.assertEquals(txId, currentTxId());
+            Assertions.assertEquals(txId, getTxId(jdbc.connection()));
 
             Assertions.assertTrue(statement.execute(SELECT_2_2));
-            Assertions.assertEquals(txId, currentTxId());
+            Assertions.assertEquals(txId, getTxId(jdbc.connection()));
 
-            // DDL  - equals to commit
-            statement.execute("CREATE TABLE tmp_table (id Int32, primary key (id))");
-            Assertions.assertNull(currentTxId());
+            ExceptionAssert.sqlException(YdbConst.SCHEME_QUERY_INSIDE_TRANSACTION,
+                    () -> statement.execute("CREATE TABLE tmp_table (id Int32, primary key (id))"));
+            Assertions.assertEquals(txId, getTxId(jdbc.connection()));
 
-            statement.execute("DROP TABLE tmp_table");
-            Assertions.assertNull(currentTxId());
+            ExceptionAssert.sqlException(YdbConst.SCHEME_QUERY_INSIDE_TRANSACTION,
+                    () -> statement.execute("DROP TABLE tmp_table"));
+            Assertions.assertEquals(txId, getTxId(jdbc.connection()));
 
             try (ResultSet result = statement.executeQuery(QUERIES.selectAllSQL())) {
                 Assertions.assertTrue(result.next());
@@ -359,6 +360,82 @@ public class YdbConnectionImplTest {
         } finally {
             cleanTable();
             jdbc.connection().setAutoCommit(true);
+        }
+    }
+
+    @Test
+    public void schemeQueryWithShadowCommit() throws SQLException {
+        try (Connection connection = jdbc.createCustomConnection("schemeQueryTxMode", "SHADOW_COMMIT")) {
+            connection.setAutoCommit(false);
+
+            try (Statement statement = connection.createStatement()) {
+                Assertions.assertTrue(statement.execute(SELECT_2_2));
+                String txId = getTxId(connection);
+                Assertions.assertNotNull(txId);
+
+                Assertions.assertTrue(statement.execute(SELECT_2_2));
+                Assertions.assertEquals(txId, getTxId(connection));
+
+                Assertions.assertTrue(statement.execute(QUERIES.selectAllSQL()));
+                Assertions.assertEquals(txId, getTxId(connection));
+
+                Assertions.assertFalse(statement.execute(SIMPLE_UPSERT));
+                Assertions.assertEquals(txId, getTxId(connection));
+
+                Assertions.assertTrue(statement.execute(SELECT_2_2));
+                Assertions.assertEquals(txId, getTxId(connection));
+
+                // DDL  - equals to commit
+                statement.execute("CREATE TABLE tmp_table (id Int32, primary key (id))");
+                Assertions.assertNull(getTxId(connection));
+
+                statement.execute("DROP TABLE tmp_table");
+                Assertions.assertNull(getTxId(connection));
+
+                try (ResultSet result = statement.executeQuery(QUERIES.selectAllSQL())) {
+                    Assertions.assertTrue(result.next());
+                }
+            }
+        } finally {
+            cleanTable();
+        }
+    }
+
+    @Test
+    public void schemeQueryInFakeTx() throws SQLException {
+        try (Connection connection = jdbc.createCustomConnection("schemeQueryTxMode", "FAKE_TX")) {
+            connection.setAutoCommit(false);
+
+            try (Statement statement = connection.createStatement()) {
+                Assertions.assertTrue(statement.execute(SELECT_2_2));
+                String txId = getTxId(connection);
+                Assertions.assertNotNull(txId);
+
+                Assertions.assertTrue(statement.execute(SELECT_2_2));
+                Assertions.assertEquals(txId, getTxId(connection));
+
+                Assertions.assertTrue(statement.execute(QUERIES.selectAllSQL()));
+                Assertions.assertEquals(txId, getTxId(connection));
+
+                Assertions.assertFalse(statement.execute(SIMPLE_UPSERT));
+                Assertions.assertEquals(txId, getTxId(connection));
+
+                Assertions.assertTrue(statement.execute(SELECT_2_2));
+                Assertions.assertEquals(txId, getTxId(connection));
+
+                // FAKE TX - DDL will be executed outside current transaction
+                statement.execute("CREATE TABLE tmp_table (id Int32, primary key (id))");
+                Assertions.assertEquals(txId, getTxId(connection));
+
+                statement.execute("DROP TABLE tmp_table");
+                Assertions.assertEquals(txId, getTxId(connection));
+
+                try (ResultSet result = statement.executeQuery(QUERIES.selectAllSQL())) {
+                    Assertions.assertTrue(result.next());
+                }
+            }
+        } finally {
+            cleanTable();
         }
     }
 
@@ -367,26 +444,26 @@ public class YdbConnectionImplTest {
         jdbc.connection().setAutoCommit(false);
         try (Statement statement = jdbc.connection().createStatement()) {
             Assertions.assertTrue(statement.execute(SELECT_2_2));
-            String txId = currentTxId();
+            String txId = getTxId(jdbc.connection());
             Assertions.assertNotNull(txId);
 
             Assertions.assertTrue(statement.execute(SELECT_2_2));
-            Assertions.assertEquals(txId, currentTxId());
+            Assertions.assertEquals(txId, getTxId(jdbc.connection()));
 
             Assertions.assertTrue(statement.execute(QUERIES.selectAllSQL()));
-            Assertions.assertEquals(txId, currentTxId());
+            Assertions.assertEquals(txId, getTxId(jdbc.connection()));
 
             Assertions.assertFalse(statement.execute(SIMPLE_UPSERT));
-            Assertions.assertEquals(txId, currentTxId());
+            Assertions.assertEquals(txId, getTxId(jdbc.connection()));
 
             Assertions.assertTrue(statement.execute(SELECT_2_2));
-            Assertions.assertEquals(txId, currentTxId());
+            Assertions.assertEquals(txId, getTxId(jdbc.connection()));
 
             jdbc.connection().rollback();
-            Assertions.assertNull(currentTxId());
+            Assertions.assertNull(getTxId(jdbc.connection()));
 
             jdbc.connection().rollback(); // does nothing
-            Assertions.assertNull(currentTxId());
+            Assertions.assertNull(getTxId(jdbc.connection()));
 
             try (ResultSet result = statement.executeQuery(QUERIES.selectAllSQL())) {
                 Assertions.assertFalse(result.next());
@@ -406,10 +483,10 @@ public class YdbConnectionImplTest {
             ExceptionAssert.ydbNonRetryable("Member not found: key2. Did you mean key?",
                     () -> statement.executeQuery(QUERIES.wrongSelectSQL()));
 
-            Assertions.assertNull(currentTxId());
+            Assertions.assertNull(getTxId(jdbc.connection()));
 
             jdbc.connection().commit(); // Nothing to commit, transaction was rolled back already
-            Assertions.assertNull(currentTxId());
+            Assertions.assertNull(getTxId(jdbc.connection()));
         } finally {
             cleanTable();
             jdbc.connection().setAutoCommit(true);
@@ -428,9 +505,9 @@ public class YdbConnectionImplTest {
             ExceptionAssert.ydbNonRetryable("Member not found: key2. Did you mean key?",
                     () -> statement.executeQuery(QUERIES.wrongSelectSQL()));
 
-            Assertions.assertNull(currentTxId());
+            Assertions.assertNull(getTxId(jdbc.connection()));
             jdbc.connection().rollback();
-            Assertions.assertNull(currentTxId());
+            Assertions.assertNull(getTxId(jdbc.connection()));
         } finally {
             cleanTable();
             jdbc.connection().setAutoCommit(true);

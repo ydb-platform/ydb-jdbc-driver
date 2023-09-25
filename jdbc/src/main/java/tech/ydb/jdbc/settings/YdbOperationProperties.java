@@ -45,7 +45,9 @@ public class YdbOperationProperties {
 
         this.scanQueryTxMode = params.get(YdbOperationProperty.SCAN_QUERY_TX_MODE).getParsedValue();
         this.schemeQueryTxMode = params.get(YdbOperationProperty.SCHEME_QUERY_TX_MODE).getParsedValue();
-        this.forcedQueryType = params.get(YdbOperationProperty.FORCE_QUERY_MODE).getParsedValue();
+
+        ParsedProperty forcedType = params.get(YdbOperationProperty.FORCE_QUERY_MODE);
+        this.forcedQueryType = forcedType != null ? forcedType.getParsedValue() : null;
     }
 
     public Map<YdbOperationProperty<?>, ParsedProperty> getParams() {

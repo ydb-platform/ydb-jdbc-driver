@@ -31,7 +31,7 @@ public class YdbStatementImplTest {
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
     @RegisterExtension
-    private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb, false);
+    private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb);
 
     private static final SqlQueries TEST_TABLE = new SqlQueries("ydb_statement_test");
 
@@ -315,40 +315,6 @@ public class YdbStatementImplTest {
         ExceptionAssert.ydbConditionallyRetryable("Scan query should have a single result set",
                 () -> statement.executeUpdate("scan select 2 + 2;scan select 2 + 3")
         );
-    }
-
-    @Test
-    public void executeScanQueryInTx() throws SQLException {
-        statement.executeUpdate(TEST_UPSERT1_SQL);
-
-        try (ResultSet rs = statement.executeQuery("scan " + TEST_TABLE.selectSQL())) {
-            Assertions.assertFalse(rs.next());
-        }
-
-        jdbc.connection().commit();
-        try (ResultSet rs = statement.executeQuery("scan   " + TEST_TABLE.selectSQL())) {
-            Assertions.assertTrue(rs.next());
-            Assertions.assertEquals(1, rs.getInt("key"));
-        }
-    }
-
-    @Test
-    public void executeScanQueryExplicitlyInTx() throws SQLException {
-        statement.executeUpdate(TEST_UPSERT1_SQL);
-        try (ResultSet rs = statement.executeQuery("scan\n" + TEST_TABLE.selectSQL())) {
-            Assertions.assertFalse(rs.next());
-        }
-
-        jdbc.connection().commit();
-        try (ResultSet rs = statement.executeQuery("ScAn\t" + TEST_TABLE.selectSQL())) {
-            Assertions.assertTrue(rs.next());
-            Assertions.assertEquals(1, rs.getInt("key"));
-        }
-
-        try (ResultSet rs = statement.unwrap(YdbStatement.class).executeScanQuery(TEST_TABLE.selectSQL())) {
-            Assertions.assertTrue(rs.next());
-            Assertions.assertEquals(1, rs.getInt("key"));
-        }
     }
 
     @Test
