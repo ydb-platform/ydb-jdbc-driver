@@ -1,5 +1,6 @@
 package tech.ydb.jdbc.impl;
 
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import tech.ydb.jdbc.YdbConnection;
+import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
@@ -85,16 +87,17 @@ public class YdbPreparedStatementWithDataQueryImplTest {
                 .replaceAll("#tableName", TEST_TABLE_NAME);
     }
 
+    private String scanSelectSql(String column) {
+        return SCAN_SELECT_BY_KEY_SQL
+                .replaceAll("#column", column)
+                .replaceAll("#tableName", TEST_TABLE_NAME);
+    }
+
     private String scanUpsertSql(String column, String type) {
         return SCAN_UPSERT_SQL
                 .replaceAll("#column", column)
                 .replaceAll("#type", type)
                 .replaceAll("#tableName", TEST_TABLE_NAME);
-    }
-
-    private YdbPreparedStatement prepareUpsert(String column, String type) throws SQLException {
-        return jdbc.connection().unwrap(YdbConnection.class)
-                .prepareStatement(upsertSql(column, type));
     }
 
     private PreparedStatement prepareSimpleSelect(String column) throws SQLException {
@@ -111,22 +114,15 @@ public class YdbPreparedStatementWithDataQueryImplTest {
         return jdbc.connection().prepareStatement(sql).unwrap(YdbPreparedStatement.class);
     }
 
-    private YdbPreparedStatement prepareScanSelectByKey(String column) throws SQLException {
-        String sql = SCAN_SELECT_BY_KEY_SQL
-                .replaceAll("#column", column)
-                .replaceAll("#tableName", TEST_TABLE_NAME);
-        return jdbc.connection().prepareStatement(sql)
-                .unwrap(YdbPreparedStatement.class);
-    }
-
     @Test
     public void executeWrongParameters() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Text")) { // Must be Text?
+        String sql = upsertSql("c_Text", "Text");  // Must be Text?
+        try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(sql)) {
             statement.setInt("key", 1);
             ExceptionAssert.ydbNonRetryable("Missing value for parameter", statement::execute);
         }
 
-        try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Text")) {
+        try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(sql)) {
             statement.setInt("key", 1);
             ExceptionAssert.sqlException("Missing required value for parameter: $c_Text", () -> {
                 statement.setObject("c_Text", PrimitiveType.Text.makeOptional().emptyValue());
@@ -136,7 +132,8 @@ public class YdbPreparedStatementWithDataQueryImplTest {
 
     @Test
     public void executeDataQuery() throws SQLException {
-        try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Optional<Text>")) {
+        String sql = upsertSql("c_Text", "Text?");
+        try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(sql)) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
             statement.execute();
@@ -157,7 +154,7 @@ public class YdbPreparedStatementWithDataQueryImplTest {
                     .noNextRows();
         }
 
-        try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Optional<Text>")) {
+        try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(sql)) {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
             statement.execute();
@@ -181,7 +178,8 @@ public class YdbPreparedStatementWithDataQueryImplTest {
     public void executeQueryInTx() throws SQLException {
         jdbc.connection().setAutoCommit(false);
         try {
-            try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Optional<Text>")) {
+            String sql = upsertSql("c_Text", "Optional<Text>");
+            try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(sql)) {
                 statement.setInt("key", 1);
                 statement.setString("c_Text", "value-1");
                 statement.execute();
@@ -207,16 +205,18 @@ public class YdbPreparedStatementWithDataQueryImplTest {
     public void executeScanQueryInTx() throws SQLException {
         jdbc.connection().setAutoCommit(false);
         try {
-            try (YdbPreparedStatement statement = prepareUpsert("c_Text", "Optional<Text>")) {
+            String sql = upsertSql("c_Text", "Optional<Text>");
+            try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(sql)) {
                 statement.setInt("key", 1);
                 statement.setString("c_Text", "value-1");
                 statement.execute();
             }
 
-            try (YdbPreparedStatement select = prepareScanSelectByKey("c_Text")) {
+            String scan = scanSelectSql("c_Text");
+            try (YdbPreparedStatement select = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(scan)) {
                 select.setInt("key", 1);
-                TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
-                        .noNextRows();
+
+                ExceptionAssert.sqlException(YdbConst.SCAN_QUERY_INSIDE_TRANSACTION, () -> select.executeQuery());
 
                 jdbc.connection().commit();
 
@@ -227,6 +227,56 @@ public class YdbPreparedStatementWithDataQueryImplTest {
             }
         } finally {
             jdbc.connection().setAutoCommit(true);
+        }
+    }
+
+    @Test
+    public void executeScanQueryInFakeTx() throws SQLException {
+        try (Connection connection = jdbc.createCustomConnection("scanQueryTxMode", "FAKE_TX")) {
+            connection.setAutoCommit(false);
+
+            String sql = upsertSql("c_Text", "Text?");
+            try (YdbPreparedStatement statement = connection.unwrap(YdbConnection.class).prepareStatement(sql)) {
+                statement.setInt("key", 1);
+                statement.setString("c_Text", "value-1");
+                statement.execute();
+            }
+
+            String scan = scanSelectSql("c_Text");
+            try (YdbPreparedStatement select = connection.unwrap(YdbConnection.class).prepareStatement(scan)) {
+                select.setInt("key", 1);
+                TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
+                        .noNextRows();
+
+                connection.commit();
+
+                select.setInt("key", 1);
+                TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
+                        .nextRow(1, "value-1")
+                        .noNextRows();
+            }
+        }
+    }
+
+    @Test
+    public void executeScanQueryInTxWithShadowCommit() throws SQLException {
+        try (Connection connection = jdbc.createCustomConnection("scanQueryTxMode", "SHADOW_COMMIT")) {
+            connection.setAutoCommit(false);
+
+            String sql = upsertSql("c_Text", "Text?");
+            try (YdbPreparedStatement statement = connection.unwrap(YdbConnection.class).prepareStatement(sql)) {
+                statement.setInt("key", 1);
+                statement.setString("c_Text", "value-1");
+                statement.execute();
+            }
+
+            String scan = scanSelectSql("c_Text");
+            try (YdbPreparedStatement select = connection.unwrap(YdbConnection.class).prepareStatement(scan)) {
+                select.setInt("key", 1);
+                TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
+                        .nextRow(1, "value-1")
+                        .noNextRows();
+            }
         }
     }
 

@@ -388,10 +388,11 @@ public class YdbPreparedStatementImplTest {
     @ParameterizedTest(name = "with {0}")
     @EnumSource(SqlQueries.YqlQuery.class)
     public void executeScanQueryInTx(SqlQueries.YqlQuery mode) throws SQLException {
-        jdbc.connection().setAutoCommit(false);
-        YdbConnection conn = jdbc.connection().unwrap(YdbConnection.class);
         String upsertYql = TEST_TABLE.upsertOne(mode, "c_Text", "Text");
         String scanSelectYql = scanSelectByKey("c_Text");
+
+        jdbc.connection().setAutoCommit(false);
+        YdbConnection conn = jdbc.connection().unwrap(YdbConnection.class);
         try {
             try (YdbPreparedStatement statement = conn.prepareStatement(upsertYql)) {
                 statement.setInt("key", 1);
@@ -401,8 +402,8 @@ public class YdbPreparedStatementImplTest {
 
             try (YdbPreparedStatement select = conn.prepareStatement(scanSelectYql)) {
                 select.setInt("key", 1);
-                TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
-                        .noNextRows();
+
+                ExceptionAssert.sqlException(YdbConst.SCAN_QUERY_INSIDE_TRANSACTION, () -> select.executeQuery());
 
                 jdbc.connection().commit();
 

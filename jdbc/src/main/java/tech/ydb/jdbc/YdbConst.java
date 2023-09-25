@@ -91,6 +91,10 @@ public final class YdbConst {
     public static final String UNSUPPORTED_QUERY_TYPE_IN_PS = "Query type in prepared statement not supported: ";
     public static final String STATEMENT_IS_NOT_A_BATCH = "Statement cannot be executed as batch statement: ";
     public static final String MULTI_TYPES_IN_ONE_QUERY = "Query cannot contain expressions with different types: ";
+    public static final String SCAN_QUERY_INSIDE_TRANSACTION = "Scan query cannot be executed inside active "
+            + "transaction. This behavior may be changed by property scanQueryTxMode";
+    public static final String SCHEME_QUERY_INSIDE_TRANSACTION = "Scheme query cannot be executed inside active "
+            + "transaction. This behavior may be changed by property schemeQueryTxMode";
 
     // Cast errors
 

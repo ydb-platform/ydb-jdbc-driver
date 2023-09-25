@@ -15,13 +15,15 @@ public class YdbQueryBuilder {
     private final String origin;
     private final StringBuilder query;
     private final List<String> args = new ArrayList<>();
+    private final QueryType forcedType;
 
     private int argsCounter = 0;
     private QueryType currentType = null;
 
-    public YdbQueryBuilder(String origin) {
+    public YdbQueryBuilder(String origin, QueryType forcedType) {
         this.origin = origin;
         this.query = new StringBuilder(origin.length() + 10);
+        this.forcedType = forcedType;
     }
 
     public String createNextArgName() {
@@ -36,6 +38,10 @@ public class YdbQueryBuilder {
     }
 
     public void setQueryType(QueryType type) throws YdbNonRetryableException {
+        if (forcedType != null) {
+            return;
+        }
+
         if (currentType != null && currentType != type) {
             String msg = YdbConst.MULTI_TYPES_IN_ONE_QUERY + currentType + ", " + type;
             throw new YdbNonRetryableException(msg, StatusCode.BAD_REQUEST);
@@ -44,7 +50,15 @@ public class YdbQueryBuilder {
     }
 
     public QueryType getQueryType() {
-        return currentType != null ? currentType : QueryType.DATA_QUERY;
+        if (forcedType != null) {
+            return forcedType;
+        }
+
+        if (currentType != null) {
+            return currentType;
+        }
+
+        return QueryType.DATA_QUERY;
     }
 
     public String getOriginSQL() {

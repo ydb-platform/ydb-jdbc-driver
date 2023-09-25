@@ -5,6 +5,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Stack;
 
 import org.junit.Assert;
@@ -64,6 +65,12 @@ public class JdbcConnectionExtention implements ExecutionCondition,
     public Connection connection() {
         Assert.assertFalse("Retrive connection before initialization", stack.isEmpty());
         return stack.peek();
+    }
+
+    public Connection createCustomConnection(String arg, String value) throws SQLException {
+        Properties props = new Properties();
+        props.put(arg, value);
+        return DriverManager.getConnection(jdbcURL(), props);
     }
 
     @Override
