@@ -14,8 +14,6 @@ import tech.ydb.jdbc.settings.YdbOperationProperty;
  * @author Aleksandr Gorshenin
  */
 public class YdbQueryOptions {
-    private final boolean isEnforceSyntaxV1;
-
     private final boolean isDetectQueryType;
     private final boolean isDetectJdbcParameters;
     private final boolean isDeclareJdbcParameters;
@@ -27,7 +25,6 @@ public class YdbQueryOptions {
 
     @VisibleForTesting
     YdbQueryOptions(
-            boolean enforceV1,
             boolean detectQueryType,
             boolean detectJbdcParams,
             boolean declareJdbcParams,
@@ -35,8 +32,6 @@ public class YdbQueryOptions {
             boolean detectBatchQuery,
             QueryType forcedType
     ) {
-        this.isEnforceSyntaxV1 = enforceV1;
-
         this.isDetectQueryType = detectQueryType;
         this.isDetectJdbcParameters = detectJbdcParams;
         this.isDeclareJdbcParameters = declareJdbcParams;
@@ -45,10 +40,6 @@ public class YdbQueryOptions {
         this.isDetectBatchQueries = detectBatchQuery;
 
         this.forcedType = forcedType;
-    }
-
-    public boolean isEnforceSyntaxV1() {
-        return isEnforceSyntaxV1;
     }
 
     public boolean isDetectQueryType() {
@@ -76,20 +67,14 @@ public class YdbQueryOptions {
     }
 
     public static YdbQueryOptions createFrom(YdbOperationProperties props) {
-        int level = props.getJdbcSupportLevel();
-
-        boolean enforceV1 = level > 5;
-        boolean declareJdbcParams = level > 4;
-        boolean detectJbdcParams = level > 3;
-        boolean detectBatchQuery = level > 2;
-        boolean prepareDataQuery = level > 1;
-        boolean detectQueryType = level > 0;
+        boolean declareJdbcParams = true;
+        boolean detectJbdcParams = true;
+        boolean detectBatchQuery = true;
+        boolean prepareDataQuery = true;
+        boolean detectQueryType = true;
 
         // forced properies
         Map<YdbOperationProperty<?>, ParsedProperty> params = props.getParams();
-        if (params.containsKey(YdbOperationProperty.ENFORCE_SQL_V1)) {
-            enforceV1 = params.get(YdbOperationProperty.ENFORCE_SQL_V1).getParsedValue();
-        }
 
         if (params.containsKey(YdbOperationProperty.DISABLE_AUTO_PREPARED_BATCHES)) {
             boolean v = params.get(YdbOperationProperty.DISABLE_AUTO_PREPARED_BATCHES).getParsedValue();
@@ -123,7 +108,6 @@ public class YdbQueryOptions {
         QueryType forcedQueryType = props.getForcedQueryType();
 
         return new YdbQueryOptions(
-                enforceV1,
                 detectQueryType,
                 detectJbdcParams,
                 declareJdbcParams,

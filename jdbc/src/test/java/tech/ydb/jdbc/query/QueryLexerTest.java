@@ -30,20 +30,8 @@ public class QueryLexerTest {
     }
 
     @Test
-    public void enforceV1Test() throws SQLException {
-        YdbQueryOptions disabled = new YdbQueryOptions(false, true, true, true, true, true, null);
-        YdbQueryOptions enabled = new YdbQueryOptions(true, true, true, true, true, true, null);
-
-        Assertions.assertEquals("CREATE TABLE test_table (id int, value text)",
-                parseQuery(disabled, "CREATE TABLE test_table (id int, value text)"));
-
-        Assertions.assertEquals("--!syntax_v1\nCREATE TABLE test_table (id int, value text)",
-                parseQuery(enabled, "CREATE TABLE test_table (id int, value text)"));
-    }
-
-    @Test
     public void queryTypesTest() throws SQLException {
-        YdbQueryOptions opts = new YdbQueryOptions(false, true, false, false, false, false, null);
+        YdbQueryOptions opts = new YdbQueryOptions(true, false, false, false, false, null);
 
         Assertions.assertEquals(QueryType.SCHEME_QUERY, parseQueryType(opts,
                 "CREATE TABLE test_table (id int, value text)"
@@ -89,7 +77,7 @@ public class QueryLexerTest {
 
     @Test
     public void mixQueryExceptionTest() throws SQLException {
-        YdbQueryOptions opts = new YdbQueryOptions(false, true, false, false, false, false, null);
+        YdbQueryOptions opts = new YdbQueryOptions(true, false, false, false, false, null);
 
         assertMixType(opts, "SCHEME_QUERY, DATA_QUERY",
                 "CREATE TABLE test_table (id int, value text);" +
@@ -111,7 +99,7 @@ public class QueryLexerTest {
 
     @Test
     public void forsedTypeTest() throws SQLException {
-        YdbQueryOptions opts = new YdbQueryOptions(false, true, false, false, false, false, QueryType.SCHEME_QUERY);
+        YdbQueryOptions opts = new YdbQueryOptions(true, false, false, false, false, QueryType.SCHEME_QUERY);
 
         Assertions.assertEquals(QueryType.SCHEME_QUERY, parseQueryType(opts,
                 "CREATE TABLE test_table (id int, value text)"

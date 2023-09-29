@@ -1,3 +1,7 @@
+## 2.0.2 ##
+
+* Removed obsolete options
+
 ## 2.0.1 ##
 
 * Added column tables to getTables() method
