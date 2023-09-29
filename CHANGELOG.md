@@ -1,8 +1,8 @@
 ## 2.0.1 ##
 
-* Added column types to getTables() method
+* Added column tables to getTables() method
 * Added parameter `forceQueryMode` to use for specifying the type of query
-* Execution of scan or scheme query inside active transaction will raise exception
+* Execution of scan or scheme query inside active transaction will throw exception
 
 ## 2.0.0 ##
 
