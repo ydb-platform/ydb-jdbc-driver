@@ -324,15 +324,11 @@ public class YdbDriverProperitesTest {
 
                 YdbOperationProperty.CACHE_CONNECTIONS_IN_DRIVER.toDriverPropertyInfo("true"),
 
-                YdbOperationProperty.ENFORCE_SQL_V1.toDriverPropertyInfo("false"),
-
                 YdbOperationProperty.DISABLE_DETECT_SQL_OPERATIONS.toDriverPropertyInfo("false"),
                 YdbOperationProperty.DISABLE_PREPARE_DATAQUERY.toDriverPropertyInfo("false"),
                 YdbOperationProperty.DISABLE_AUTO_PREPARED_BATCHES.toDriverPropertyInfo("false"),
                 YdbOperationProperty.DISABLE_JDBC_PARAMETERS.toDriverPropertyInfo("false"),
                 YdbOperationProperty.DISABLE_JDBC_PARAMETERS_DECLARE.toDriverPropertyInfo("false"),
-
-                YdbOperationProperty.JDBC_SUPPORT_LEVEL.toDriverPropertyInfo("" + YdbConst.DEFAULT_JDBC_SUPPORT_LEVEL),
 
                 YdbOperationProperty.SCAN_QUERY_TX_MODE.toDriverPropertyInfo("ERROR"),
                 YdbOperationProperty.SCHEME_QUERY_TX_MODE.toDriverPropertyInfo("ERROR"),
@@ -368,13 +364,11 @@ public class YdbDriverProperitesTest {
 
         properties.setProperty("cacheConnectionsInDriver", "false");
 
-        properties.setProperty("enforceSqlV1", "true");
         properties.setProperty("disablePrepareDataQuery", "true");
         properties.setProperty("disableAutoPreparedBatches", "true");
         properties.setProperty("disableDetectSqlOperations", "true");
         properties.setProperty("disableJdbcParameters", "true");
         properties.setProperty("disableJdbcParameterDeclare", "true");
-        properties.setProperty("jdbcSupportLevel", "0");
 
         properties.setProperty("scanQueryTxMode", "FAKE_TX");
         properties.setProperty("schemeQueryTxMode", "SHADOW_COMMIT");
@@ -410,14 +404,11 @@ public class YdbDriverProperitesTest {
 
                 YdbOperationProperty.CACHE_CONNECTIONS_IN_DRIVER.toDriverPropertyInfo("false"),
 
-                YdbOperationProperty.ENFORCE_SQL_V1.toDriverPropertyInfo("true"),
                 YdbOperationProperty.DISABLE_DETECT_SQL_OPERATIONS.toDriverPropertyInfo("true"),
                 YdbOperationProperty.DISABLE_PREPARE_DATAQUERY.toDriverPropertyInfo("true"),
                 YdbOperationProperty.DISABLE_AUTO_PREPARED_BATCHES.toDriverPropertyInfo("true"),
                 YdbOperationProperty.DISABLE_JDBC_PARAMETERS.toDriverPropertyInfo("true"),
                 YdbOperationProperty.DISABLE_JDBC_PARAMETERS_DECLARE.toDriverPropertyInfo("true"),
-
-                YdbOperationProperty.JDBC_SUPPORT_LEVEL.toDriverPropertyInfo("0"),
 
                 YdbOperationProperty.SCAN_QUERY_TX_MODE.toDriverPropertyInfo("FAKE_TX"),
                 YdbOperationProperty.SCHEME_QUERY_TX_MODE.toDriverPropertyInfo("SHADOW_COMMIT"),
@@ -439,7 +430,6 @@ public class YdbDriverProperitesTest {
         Assertions.assertTrue(ops.isAutoCommit());
         Assertions.assertEquals(YdbConst.ONLINE_CONSISTENT_READ_ONLY, ops.getTransactionLevel());
         Assertions.assertFalse(ops.isCacheConnectionsInDriver());
-        Assertions.assertEquals(0, ops.getJdbcSupportLevel());
     }
 
     static String asString(DriverPropertyInfo info) {

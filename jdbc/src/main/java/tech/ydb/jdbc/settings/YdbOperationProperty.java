@@ -6,7 +6,6 @@ import java.util.Collection;
 
 import javax.annotation.Nullable;
 
-import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.query.QueryType;
 
 
@@ -89,13 +88,6 @@ public class YdbOperationProperty<T> extends AbstractYdbProperty<T, Void> {
                     PropertyConverter.booleanValue());
 
 
-    public static final YdbOperationProperty<Boolean> ENFORCE_SQL_V1 =
-            new YdbOperationProperty<>("enforceSqlV1",
-                    "Enforce SQL v1 grammar by adding --!syntax_v1 in the beginning of each SQL statement",
-                    "false",
-                    Boolean.class,
-                    PropertyConverter.booleanValue());
-
     public static final YdbOperationProperty<Boolean> DISABLE_DETECT_SQL_OPERATIONS =
             new YdbOperationProperty<>("disableDetectSqlOperations",
                     "Disable detecting SQL operation based on SQL keywords",
@@ -131,13 +123,6 @@ public class YdbOperationProperty<T> extends AbstractYdbProperty<T, Void> {
                     "false",
                     Boolean.class,
                     PropertyConverter.booleanValue());
-
-    public static final YdbOperationProperty<Integer> JDBC_SUPPORT_LEVEL =
-            new YdbOperationProperty<>("jdbcSupportLevel",
-                    "Disable auto detect JDBC standart parameters '?'",
-                    "" + YdbConst.DEFAULT_JDBC_SUPPORT_LEVEL,
-                    Integer.class,
-                    PropertyConverter.integerValue());
 
     public static final YdbOperationProperty<FakeTxMode> SCAN_QUERY_TX_MODE =
             new YdbOperationProperty<>("scanQueryTxMode",

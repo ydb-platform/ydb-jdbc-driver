@@ -46,13 +46,6 @@ public class YdbQuery {
     public String getYqlQuery(Params params) throws SQLException {
         StringBuilder yql = new StringBuilder();
 
-        if (opts.isEnforceSyntaxV1()) {
-            if (!yqlQuery.startsWith(YdbConst.PREFIX_SYNTAX_V1)) {
-                yql.append(YdbConst.PREFIX_SYNTAX_V1);
-                yql.append("\n");
-            }
-        }
-
         if (indexesArgsNames != null) {
             if (params != null) {
                 Map<String, Value<?>> values = params.values();

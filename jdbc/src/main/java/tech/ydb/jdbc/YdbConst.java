@@ -135,11 +135,7 @@ public final class YdbConst {
      */
     public static final int STALE_CONSISTENT_READ_ONLY = 3; // TODO: verify if we can do that
 
-    public static final int DEFAULT_JDBC_SUPPORT_LEVEL = 5;
-
     // Processing queries
-    public static final String PREFIX_SYNTAX_V1 = "--!syntax_v1";
-
     public static final String EXPLAIN_COLUMN_AST = "AST";
     public static final String EXPLAIN_COLUMN_PLAN = "PLAN";
 
