@@ -9,7 +9,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -24,6 +23,7 @@ import javax.annotation.Nullable;
 
 import com.google.common.base.Strings;
 
+import tech.ydb.core.StatusCode;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbDatabaseMetaData;
@@ -31,6 +31,7 @@ import tech.ydb.jdbc.YdbDriverInfo;
 import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.common.YdbFunctions;
 import tech.ydb.jdbc.context.YdbExecutor;
+import tech.ydb.jdbc.exception.YdbExecutionStatusException;
 import tech.ydb.proto.scheme.SchemeOperationProtos;
 import tech.ydb.scheme.SchemeClient;
 import tech.ydb.scheme.description.ListDirectoryResult;
@@ -764,7 +765,9 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         }
 
         Predicate<String> columnFilter = equalsFilter(columnNamePattern);
-        return fromTables(tableNamePattern,
+        Collection<String> tables = listTables(tableNamePattern);
+
+        return fromTables(tables,
                 (tableName, tableDesc, rows) -> {
                     short index = 0;
                     for (TableColumn column : tableDesc.getColumns()) {
@@ -849,7 +852,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         }
 
         // Only primary keys could be used as row identifiers
-        return fromTables(table,
+        return fromTables(Collections.singletonList(table),
                 (tableName, tableDesc, rows) -> {
                     Map<String, TableColumn> columnMap = tableDesc.getColumns().stream()
                             .collect(Collectors.toMap(TableColumn::getName, Function.identity()));
@@ -899,7 +902,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
             return fromEmptyResultSet();
         }
 
-        return fromTables(table,
+        return fromTables(Collections.singletonList(table),
                 (tableName, tableDesc, rows) -> {
                     short index = 0;
                     for (String key : tableDesc.getPrimaryKeys()) {
@@ -1039,7 +1042,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
             return fromEmptyResultSet();
         }
 
-        return fromTables(table,
+        return fromTables(Collections.singletonList(table),
                 (tableName, tableDesc, rows) -> {
                     for (TableIndex tableIndex : tableDesc.getIndexes()) {
                         short index = 0;
@@ -1281,21 +1284,6 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         return iface.isAssignableFrom(getClass());
     }
 
-    private Map<String, TableDescription> collectTableDescriptions(Session session, Collection<String> tables) throws SQLException {
-        DescribeTableSettings settings = connection.withDefaultTimeout(new DescribeTableSettings());
-        String databaseWithSuffix = withSuffix(connection.getCtx().getDatabase());
-
-        Map<String, TableDescription> target = new LinkedHashMap<>(tables.size());
-
-        for (String table: tables) {
-            target.put(table, executor.call("Get table description for " + table,
-                    () -> session.describeTable(databaseWithSuffix + table, settings)
-            ));
-        }
-
-        return target;
-    }
-
     private Collection<String> listTables(String tableNamePattern) throws SQLException {
         Predicate<String> filter = equalsFilter(tableNamePattern);
 
@@ -1338,21 +1326,35 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         return tables;
     }
 
-    private ResultSet fromTables(String tableNamePattern,
+    private ResultSet fromTables(Collection<String> tables,
                                  TableCollector tableCollector,
                                  Comparator<Map<String, Object>> comparator) throws SQLException {
-        Collection<String> tables = listTables(tableNamePattern);
         if (tables.isEmpty()) {
             return fromEmptyResultSet();
         }
 
-        try (Session session = executor.createSession(connection.getCtx())) {
-            Map<String, TableDescription> tableMap = collectTableDescriptions(session, tables);
+        DescribeTableSettings settings = connection.withDefaultTimeout(new DescribeTableSettings());
+        String databaseWithSuffix = withSuffix(connection.getCtx().getDatabase());
 
-            List<Map<String, Object>> rows = new ArrayList<>(tableMap.size() * 16);
-            for (Map.Entry<String, TableDescription> entry : tableMap.entrySet()) {
-                tableCollector.collect(entry.getKey(), entry.getValue(), rows);
+        try (Session session = executor.createSession(connection.getCtx())) {
+            List<Map<String, Object>> rows = new ArrayList<>(tables.size() * 16);
+
+            for (String table: tables) {
+                try {
+                    TableDescription description = executor.call("Describe table " + table,
+                            () -> session.describeTable(databaseWithSuffix + table, settings)
+                    );
+                    tableCollector.collect(table, description, rows);
+                } catch (YdbExecutionStatusException ex) {
+                    if (ex.getStatusCode() != StatusCode.SCHEME_ERROR) { // ignore scheme errors like path not found
+                        throw ex;
+                    }
+                    LOGGER.log(Level.WARNING, "Cannot describe table {0} -> {1}",
+                            new Object[]{ table, ex.getMessage() }
+                    );
+                }
             }
+
             rows.sort(comparator);
             return fromRows(rows);
         }
