@@ -297,16 +297,13 @@ public abstract class BaseYdbStatement implements YdbStatement {
     protected static class ResultState {
         private final List<YdbResultSet> results;
         private int resultSetIndex;
-        private final int updateCount;
 
         private ResultState() {
             results = null;
             resultSetIndex = -1;
-            updateCount = -1;
         }
 
         private ResultState(List<YdbResultSet> list) {
-            updateCount = (list == null || list.isEmpty()) ? 1 : -1; // TODO: Get update count?
             results = list;
             resultSetIndex = 0;
         }
@@ -315,8 +312,9 @@ public abstract class BaseYdbStatement implements YdbStatement {
             return results != null && !results.isEmpty();
         }
 
+        // TODO: YDB doesn't return the count of affected rows, so we use little hach to return always 1
         public int getUpdateCount() {
-            return updateCount;
+            return (results != null && results.isEmpty() && resultSetIndex == 0) ? 1 : -1;
         }
 
         public YdbResultSet getCurrentResultSet() throws SQLException {
@@ -336,6 +334,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
 
         public boolean getMoreResults(int current) throws SQLException {
             if (results == null || results.isEmpty()) {
+                resultSetIndex = -1; // reset updateCount
                 return false;
             }
 
