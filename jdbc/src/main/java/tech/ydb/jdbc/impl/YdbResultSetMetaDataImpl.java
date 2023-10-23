@@ -5,14 +5,11 @@ import java.util.Objects;
 
 import com.google.common.base.Preconditions;
 
+import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSetMetaData;
 import tech.ydb.jdbc.common.TypeDescription;
 import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.values.Type;
-
-import static tech.ydb.jdbc.YdbConst.CANNOT_UNWRAP_TO;
-import static tech.ydb.jdbc.YdbConst.COLUMN_NOT_FOUND;
-import static tech.ydb.jdbc.YdbConst.COLUMN_NUMBER_NOT_FOUND;
 
 public class YdbResultSetMetaDataImpl implements YdbResultSetMetaData {
     private final ResultSetReader result;
@@ -147,7 +144,7 @@ public class YdbResultSetMetaDataImpl implements YdbResultSetMetaData {
         if (index >= 0) {
             return index + 1;
         } else {
-            throw new SQLException(COLUMN_NOT_FOUND + columnName);
+            throw new SQLException(YdbConst.COLUMN_NOT_FOUND + columnName);
         }
     }
 
@@ -156,7 +153,7 @@ public class YdbResultSetMetaDataImpl implements YdbResultSetMetaData {
 
     private int getIndex(int column) throws SQLException {
         if (column <= 0 || column > descriptions.length) {
-            throw new SQLException(COLUMN_NUMBER_NOT_FOUND + column);
+            throw new SQLException(YdbConst.COLUMN_NUMBER_NOT_FOUND + column);
         }
         return column - 1;
     }
@@ -179,7 +176,7 @@ public class YdbResultSetMetaDataImpl implements YdbResultSetMetaData {
         if (iface.isAssignableFrom(getClass())) {
             return iface.cast(this);
         }
-        throw new SQLException(CANNOT_UNWRAP_TO + iface);
+        throw new SQLException(YdbConst.CANNOT_UNWRAP_TO + iface);
     }
 
     @Override

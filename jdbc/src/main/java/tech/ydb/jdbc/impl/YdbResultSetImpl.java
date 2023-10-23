@@ -30,6 +30,7 @@ import java.util.function.Supplier;
 
 import com.google.common.base.Suppliers;
 
+import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbResultSetMetaData;
 import tech.ydb.jdbc.YdbStatement;
@@ -38,24 +39,6 @@ import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.result.ValueReader;
 import tech.ydb.table.values.OptionalValue;
 import tech.ydb.table.values.Value;
-
-import static tech.ydb.jdbc.YdbConst.ARRAYS_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.ASCII_STREAM_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.BLOB_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.CANNOT_UNWRAP_TO;
-import static tech.ydb.jdbc.YdbConst.CLOB_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.COLUMN_NOT_FOUND;
-import static tech.ydb.jdbc.YdbConst.CURSOR_UPDATING_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.FORWARD_ONLY_MODE;
-import static tech.ydb.jdbc.YdbConst.INVALID_FETCH_DIRECTION;
-import static tech.ydb.jdbc.YdbConst.INVALID_ROW;
-import static tech.ydb.jdbc.YdbConst.NAMED_CURSORS_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.NCLOB_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.OBJECT_TYPED_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.REF_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.ROWID_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.SQLXML_UNSUPPORTED;
-import static tech.ydb.jdbc.YdbConst.UNABLE_TO_CONVERT_AS_URL;
 
 public class YdbResultSetImpl implements YdbResultSet {
 
@@ -418,7 +401,7 @@ public class YdbResultSetImpl implements YdbResultSet {
     public void setFetchDirection(int direction) throws SQLException {
         int resultSetType = getType();
         if (resultSetType == ResultSet.TYPE_FORWARD_ONLY && direction != ResultSet.FETCH_FORWARD) {
-            throw new SQLException(String.format(INVALID_FETCH_DIRECTION, direction, resultSetType));
+            throw new SQLException(String.format(YdbConst.INVALID_FETCH_DIRECTION, direction, resultSetType));
         }
         state.direction = direction;
     }
@@ -495,7 +478,7 @@ public class YdbResultSetImpl implements YdbResultSet {
         try {
             return new URL(copy);
         } catch (MalformedURLException e) {
-            throw new SQLException(UNABLE_TO_CONVERT_AS_URL + result, e);
+            throw new SQLException(YdbConst.UNABLE_TO_CONVERT_AS_URL + result, e);
         }
     }
 
@@ -594,21 +577,21 @@ public class YdbResultSetImpl implements YdbResultSet {
             state.description = description;
             state.nullValue = isNullValue(description, value);
         } catch (IllegalStateException e) {
-            throw new SQLException(INVALID_ROW + state.rowIndex);
+            throw new SQLException(YdbConst.INVALID_ROW + state.rowIndex);
         }
     }
 
     private int getColumnIndex(String columnLabel) throws SQLException {
         int index = result.getColumnIndex(columnLabel);
         if (index < 0) {
-            throw new SQLException(COLUMN_NOT_FOUND + columnLabel);
+            throw new SQLException(YdbConst.COLUMN_NOT_FOUND + columnLabel);
         }
         return index + 1;
     }
 
     private void checkScroll() throws SQLException {
         if (getType() == ResultSet.TYPE_FORWARD_ONLY) {
-            throw new SQLException(FORWARD_ONLY_MODE);
+            throw new SQLException(YdbConst.FORWARD_ONLY_MODE);
         }
     }
 
@@ -650,573 +633,573 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public String getCursorName() throws SQLException {
-        throw new SQLFeatureNotSupportedException(NAMED_CURSORS_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.NAMED_CURSORS_UNSUPPORTED);
     }
 
     @Override
     public boolean rowUpdated() throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public boolean rowInserted() throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public boolean rowDeleted() throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateNull(int columnIndex) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateBoolean(int columnIndex, boolean x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateByte(int columnIndex, byte x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateShort(int columnIndex, short x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateInt(int columnIndex, int x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateLong(int columnIndex, long x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateFloat(int columnIndex, float x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateDouble(int columnIndex, double x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateBigDecimal(int columnIndex, BigDecimal x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateString(int columnIndex, String x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateBytes(int columnIndex, byte[] x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateDate(int columnIndex, Date x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateTime(int columnIndex, Time x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateTimestamp(int columnIndex, Timestamp x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateAsciiStream(int columnIndex, InputStream x, int length) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateBinaryStream(int columnIndex, InputStream x, int length) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateCharacterStream(int columnIndex, Reader x, int length) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateObject(int columnIndex, Object x, int scaleOrLength) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateObject(int columnIndex, Object x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateNull(String columnLabel) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateBoolean(String columnLabel, boolean x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateByte(String columnLabel, byte x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateShort(String columnLabel, short x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateInt(String columnLabel, int x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateLong(String columnLabel, long x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateFloat(String columnLabel, float x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateDouble(String columnLabel, double x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateBigDecimal(String columnLabel, BigDecimal x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateString(String columnLabel, String x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateBytes(String columnLabel, byte[] x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateDate(String columnLabel, Date x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateTime(String columnLabel, Time x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateTimestamp(String columnLabel, Timestamp x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateAsciiStream(String columnLabel, InputStream x, int length) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateBinaryStream(String columnLabel, InputStream x, int length) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateCharacterStream(String columnLabel, Reader reader, int length) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateObject(String columnLabel, Object x, int scaleOrLength) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateObject(String columnLabel, Object x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void insertRow() throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateRow() throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void deleteRow() throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void refreshRow() throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void cancelRowUpdates() throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void moveToInsertRow() throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void moveToCurrentRow() throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
 
     @Override
     public void updateRef(int columnIndex, Ref x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateRef(String columnLabel, Ref x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateBlob(int columnIndex, Blob x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateBlob(String columnLabel, Blob x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateClob(int columnIndex, Clob x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateClob(String columnLabel, Clob x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateArray(int columnIndex, Array x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateArray(String columnLabel, Array x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public RowId getRowId(int columnIndex) throws SQLException {
-        throw new SQLFeatureNotSupportedException(ROWID_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.ROWID_UNSUPPORTED);
     }
 
     @Override
     public RowId getRowId(String columnLabel) throws SQLException {
-        throw new SQLFeatureNotSupportedException(ROWID_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.ROWID_UNSUPPORTED);
     }
 
 
     @Override
     public void updateRowId(int columnIndex, RowId x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateRowId(String columnLabel, RowId x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
 
     @Override
     public void updateNCharacterStream(int columnIndex, Reader x, long length) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateNCharacterStream(String columnLabel, Reader reader, long length) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateAsciiStream(int columnIndex, InputStream x, long length) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateBinaryStream(int columnIndex, InputStream x, long length) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateCharacterStream(int columnIndex, Reader x, long length) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateAsciiStream(String columnLabel, InputStream x, long length) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateBinaryStream(String columnLabel, InputStream x, long length) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateCharacterStream(String columnLabel, Reader reader, long length) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateBlob(int columnIndex, InputStream inputStream, long length) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateBlob(String columnLabel, InputStream inputStream, long length) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateClob(int columnIndex, Reader reader, long length) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateClob(String columnLabel, Reader reader, long length) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateNClob(int columnIndex, Reader reader, long length) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateNClob(String columnLabel, Reader reader, long length) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateNCharacterStream(int columnIndex, Reader x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateNCharacterStream(String columnLabel, Reader reader) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateAsciiStream(int columnIndex, InputStream x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateBinaryStream(int columnIndex, InputStream x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateCharacterStream(int columnIndex, Reader x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateAsciiStream(String columnLabel, InputStream x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateBinaryStream(String columnLabel, InputStream x) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateCharacterStream(String columnLabel, Reader reader) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateBlob(int columnIndex, InputStream inputStream) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateBlob(String columnLabel, InputStream inputStream) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateClob(int columnIndex, Reader reader) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateClob(String columnLabel, Reader reader) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateNClob(int columnIndex, Reader reader) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateNClob(String columnLabel, Reader reader) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
 
     @Override
     public void updateNString(int columnIndex, String nString) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateNString(String columnLabel, String nString) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateNClob(int columnIndex, NClob nClob) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateNClob(String columnLabel, NClob nClob) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
 
     @Override
     public void updateSQLXML(int columnIndex, SQLXML xmlObject) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
     @Override
     public void updateSQLXML(String columnLabel, SQLXML xmlObject) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CURSOR_UPDATING_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CURSOR_UPDATING_UNSUPPORTED);
     }
 
 
     @Override
     public Object getObject(int columnIndex, Map<String, Class<?>> map) throws SQLException {
-        throw new SQLFeatureNotSupportedException(OBJECT_TYPED_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.OBJECT_TYPED_UNSUPPORTED);
     }
 
     @Override
     public Ref getRef(int columnIndex) throws SQLException {
-        throw new SQLFeatureNotSupportedException(REF_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.REF_UNSUPPORTED);
     }
 
     @Override
     public Blob getBlob(int columnIndex) throws SQLException {
-        throw new SQLFeatureNotSupportedException(BLOB_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.BLOB_UNSUPPORTED);
     }
 
     @Override
     public Clob getClob(int columnIndex) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CLOB_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CLOB_UNSUPPORTED);
     }
 
     @Override
     public Array getArray(int columnIndex) throws SQLException {
-        throw new SQLFeatureNotSupportedException(ARRAYS_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.ARRAYS_UNSUPPORTED);
     }
 
     @Override
     public Object getObject(String columnLabel, Map<String, Class<?>> map) throws SQLException {
-        throw new SQLFeatureNotSupportedException(OBJECT_TYPED_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.OBJECT_TYPED_UNSUPPORTED);
     }
 
     @Override
     public Ref getRef(String columnLabel) throws SQLException {
-        throw new SQLFeatureNotSupportedException(REF_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.REF_UNSUPPORTED);
     }
 
     @Override
     public Blob getBlob(String columnLabel) throws SQLException {
-        throw new SQLFeatureNotSupportedException(BLOB_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.BLOB_UNSUPPORTED);
     }
 
     @Override
     public Clob getClob(String columnLabel) throws SQLException {
-        throw new SQLFeatureNotSupportedException(CLOB_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.CLOB_UNSUPPORTED);
     }
 
     @Override
     public Array getArray(String columnLabel) throws SQLException {
-        throw new SQLFeatureNotSupportedException(ARRAYS_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.ARRAYS_UNSUPPORTED);
     }
 
     @Override
     public NClob getNClob(int columnIndex) throws SQLException {
-        throw new SQLFeatureNotSupportedException(NCLOB_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.NCLOB_UNSUPPORTED);
     }
 
     @Override
     public NClob getNClob(String columnLabel) throws SQLException {
-        throw new SQLFeatureNotSupportedException(NCLOB_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.NCLOB_UNSUPPORTED);
     }
 
     @Override
     public SQLXML getSQLXML(int columnIndex) throws SQLException {
-        throw new SQLFeatureNotSupportedException(SQLXML_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.SQLXML_UNSUPPORTED);
     }
 
     @Override
     public SQLXML getSQLXML(String columnLabel) throws SQLException {
-        throw new SQLFeatureNotSupportedException(SQLXML_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.SQLXML_UNSUPPORTED);
     }
 
     @Override
     public InputStream getAsciiStream(int columnIndex) throws SQLException {
-        throw new SQLFeatureNotSupportedException(ASCII_STREAM_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.ASCII_STREAM_UNSUPPORTED);
     }
 
     @Override
     public InputStream getAsciiStream(String columnLabel) throws SQLException {
-        throw new SQLFeatureNotSupportedException(ASCII_STREAM_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.ASCII_STREAM_UNSUPPORTED);
     }
 
     @Override
     public <T> T getObject(int columnIndex, Class<T> type) throws SQLException {
-        throw new SQLFeatureNotSupportedException(OBJECT_TYPED_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.OBJECT_TYPED_UNSUPPORTED);
     }
 
     @Override
     public <T> T getObject(String columnLabel, Class<T> type) throws SQLException {
-        throw new SQLFeatureNotSupportedException(OBJECT_TYPED_UNSUPPORTED);
+        throw new SQLFeatureNotSupportedException(YdbConst.OBJECT_TYPED_UNSUPPORTED);
     }
 
     @Override
@@ -1224,7 +1207,7 @@ public class YdbResultSetImpl implements YdbResultSet {
         if (iface.isAssignableFrom(getClass())) {
             return iface.cast(this);
         }
-        throw new SQLException(CANNOT_UNWRAP_TO + iface);
+        throw new SQLException(YdbConst.CANNOT_UNWRAP_TO + iface);
     }
 
     @Override
