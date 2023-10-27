@@ -21,9 +21,8 @@ public class TableAssert {
     private static final TableAssert SELECT_INT = new TableAssert();
     private static final TableAssert.IntColumn INT_COLUMN = SELECT_INT.addIntColumn("column0", "Int32");
 
-    public static void assertEmpty(ResultSet rs) throws SQLException {
+    public static void assertNotRows(ResultSet rs) throws SQLException {
         EMPTY.check(rs)
-                .assertMetaColumns()
                 .assertNoRows();
     }
 
@@ -50,6 +49,12 @@ public class TableAssert {
 
     public IntColumn addIntColumn(String name, String typeName) {
         IntColumn column = new IntColumn(columns.size() + 1, name, typeName);
+        columns.add(column);
+        return column;
+    }
+
+    public LongColumn addLongColumn(String name, String typeName) {
+        LongColumn column = new LongColumn(columns.size() + 1, name, typeName);
         columns.add(column);
         return column;
     }
@@ -290,6 +295,37 @@ public class TableAssert {
 
                     Assertions.assertEquals(value, rs.getShort(column.index),
                             "Wrong short value of column index " + column.index);
+                    Assertions.assertFalse(rs.wasNull(), "Null value for column index " + column.index);
+                }
+            };
+        }
+    }
+
+    public class LongColumn extends Column {
+        public LongColumn(int index, String name, String typeName) {
+            super(index, name, Types.BIGINT, typeName);
+        }
+
+        public LongColumn defaultNull() {
+            defaultValues.put(this, new NullValueAssert(this));
+            return this;
+        }
+
+        public LongColumn defaultValue(long defaultValue) {
+            defaultValues.put(this, eq(defaultValue));
+            return this;
+        }
+
+        public ValueAssert eq(long value) {
+            return new ValueAssert(this) {
+                @Override
+                public void assertValue(ResultSet rs) throws SQLException {
+                    Assertions.assertEquals(value, rs.getLong(column.name),
+                            "Wrong long value for column label " + column.name);
+                    Assertions.assertFalse(rs.wasNull(), "Null value for column label " + column.name);
+
+                    Assertions.assertEquals(value, rs.getLong(column.index),
+                            "Wrong long value of column index " + column.index);
                     Assertions.assertFalse(rs.wasNull(), "Null value for column index " + column.index);
                 }
             };

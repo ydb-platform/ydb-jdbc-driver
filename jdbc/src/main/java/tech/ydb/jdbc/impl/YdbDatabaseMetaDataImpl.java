@@ -5,11 +5,8 @@ import java.sql.RowIdLifetime;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -24,13 +21,16 @@ import javax.annotation.Nullable;
 
 import com.google.common.base.Strings;
 
+import tech.ydb.core.StatusCode;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbDatabaseMetaData;
 import tech.ydb.jdbc.YdbDriverInfo;
 import tech.ydb.jdbc.YdbTypes;
+import tech.ydb.jdbc.common.FixedResultSetFactory;
 import tech.ydb.jdbc.common.YdbFunctions;
 import tech.ydb.jdbc.context.YdbExecutor;
+import tech.ydb.jdbc.exception.YdbStatusException;
 import tech.ydb.proto.scheme.SchemeOperationProtos;
 import tech.ydb.scheme.SchemeClient;
 import tech.ydb.scheme.description.ListDirectoryResult;
@@ -660,13 +660,15 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     @Override
     public ResultSet getProcedures(String catalog, String schemaPattern, String procedureNamePattern) {
-        return fromEmptyResultSet(); // Procedures are not supported
+        // Procedures are not supported
+        return emptyResultSet(MetaDataTables.PROCEDURES);
     }
 
     @Override
     public ResultSet getProcedureColumns(String catalog, String schemaPattern, String procedureNamePattern,
                                          String columnNamePattern) {
-        return fromEmptyResultSet(); // Procedures are not supported
+        // Procedures are not supported
+        return emptyResultSet(MetaDataTables.PROCEDURE_COLUMNS);
     }
 
     @Override
@@ -677,10 +679,10 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
                 new Object[]{catalog, schemaPattern, tableNamePattern, types == null ? "<null>" : Arrays.asList(types)}
         );
         if (!isMatchedCatalog(catalog)) {
-            return fromEmptyResultSet();
+            return emptyResultSet(MetaDataTables.TABLES);
         }
         if (!isMatchedSchema(schemaPattern)) {
-            return fromEmptyResultSet();
+            return emptyResultSet(MetaDataTables.TABLES);
         }
 
         boolean matchTables;
@@ -696,37 +698,42 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         }
 
         if (!matchTables && !matchSystemTables) {
-            return fromEmptyResultSet();
+            return emptyResultSet(MetaDataTables.TABLES);
         }
 
-        List<Map<String, Object>> rows = listTables(tableNamePattern).stream()
-                .map(tableName -> MappingResultSets.stableMap(
-                        "TABLE_CAT", null,
-                        "TABLE_SCHEM", null,
-                        "TABLE_NAME", tableName,
-                        "TABLE_TYPE", getTableType(tableName),
-                        "REMARKS", null,
-                        "TYPE_CAT", null,
-                        "TYPE_SCHEM", null,
-                        "TYPE_NAME", null,
-                        "SELF_REFERENCING_COL_NAME", null,
-                        "REF_GENERATION", null
-                ))
-                .filter(map -> (matchTables || !TABLE.equals(map.get("TABLE_TYPE"))) &&
-                        (matchSystemTables || !SYSTEM_TABLE.equals(map.get("TABLE_TYPE"))))
-                .sorted(Comparator
-                        .comparing((Map<String, Object> m) -> (String) m.get("TABLE_TYPE"))
-                        .thenComparing(m -> (String) m.get("TABLE_NAME")))
-                .collect(Collectors.toList());
+        FixedResultSetFactory.ResultSetBuilder rs = MetaDataTables.TABLES.createResultSet();
+        listTables(tableNamePattern).stream()
+                .map(TableRecord::new)
+                .filter(tr -> (matchTables && !tr.isSystem) || (matchSystemTables && tr.isSystem))
+                .sorted()
+                .forEach(tr -> {
+                    rs.newRow()
+                            .withTextValue("TABLE_NAME", tr.name)
+                            .withTextValue("TABLE_TYPE", tr.isSystem ? SYSTEM_TABLE : TABLE)
+                            .build();
+                });
 
-        return fromRows(rows);
+        return resultSet(rs.build());
     }
 
-    private String getTableType(String tableName) {
-        if (tableName.startsWith(".sys/") || tableName.startsWith(".sys_health/")) {
-            return SYSTEM_TABLE;
+    private class TableRecord implements Comparable<TableRecord> {
+        private final boolean isSystem;
+        private final String name;
+
+        public TableRecord(String name) {
+            this.name = name;
+            this.isSystem = name.startsWith(".sys/")
+                    || name.startsWith(".sys_health/")
+                    || name.startsWith(".sys_health_dev/");
         }
-        return TABLE;
+
+        @Override
+        public int compareTo(TableRecord o) {
+            if (isSystem != o.isSystem) {
+                return isSystem ? 1 : -1;
+            }
+            return name.compareTo(o.name);
+        }
     }
 
     @Override
@@ -736,15 +743,17 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     @Override
     public ResultSet getCatalogs() {
-        return fromEmptyResultSet(); // Does not support catalogs, all table names has full catalog prefix
+        // Does not support catalogs, all table names has full catalog prefix
+        return emptyResultSet(MetaDataTables.CATALOGS);
     }
 
     @Override
     public ResultSet getTableTypes() {
-        return fromRows(Arrays.asList(
-                Collections.singletonMap("TABLE_TYPE", TABLE),
-                Collections.singletonMap("TABLE_TYPE", SYSTEM_TABLE)
-        ));
+        ResultSetReader rs = MetaDataTables.TABLE_TYPES.createResultSet()
+                .newRow().withTextValue("TABLE_TYPE", TABLE).build()
+                .newRow().withTextValue("TABLE_TYPE", SYSTEM_TABLE).build()
+                .build();
+        return resultSet(rs);
     }
 
     @Override
@@ -756,75 +765,77 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         );
 
         if (!isMatchedCatalog(catalog)) {
-            return fromEmptyResultSet();
+            return emptyResultSet(MetaDataTables.COLUMNS);
         }
 
         if (!isMatchedSchema(schemaPattern)) {
-            return fromEmptyResultSet();
+            return emptyResultSet(MetaDataTables.COLUMNS);
         }
 
         Predicate<String> columnFilter = equalsFilter(columnNamePattern);
-        return fromTables(tableNamePattern,
-                (tableName, tableDesc, rows) -> {
-                    short index = 0;
-                    for (TableColumn column : tableDesc.getColumns()) {
-                        index++;
-                        if (!columnFilter.test(column.getName())) {
-                            continue;
-                        }
-                        Type type = column.getType();
+        List<String> tableNames = listTables(tableNamePattern);
+        Collections.sort(tableNames);
 
-                        int nullable;
-                        if (type.getKind() == Type.Kind.OPTIONAL) {
-                            nullable = columnNullable;
-                            type = type.unwrapOptional();
-                        } else {
-                            nullable = columnNoNulls;
-                        }
+        FixedResultSetFactory.ResultSetBuilder rs = MetaDataTables.COLUMNS.createResultSet();
+        for (String tableName: tableNames) {
+            TableDescription tableDescription = describeTable(tableName);
+            if (tableDescription == null) {
+                continue;
+            }
 
-                        rows.add(MappingResultSets.stableMap(
-                                "TABLE_CAT", null,
-                                "TABLE_SCHEM", null,
-                                "TABLE_NAME", tableName,
-                                "COLUMN_NAME", column.getName(),
-                                "DATA_TYPE", types.toSqlType(type),
-                                "TYPE_NAME", type.toString(),
-                                "COLUMN_SIZE", types.getSqlPrecision(type),
-                                "BUFFER_LENGTH", 0,
-                                "DECIMAL_DIGITS", (short)(type.getKind() == Type.Kind.DECIMAL ?
-                                        YdbConst.SQL_DECIMAL_DEFAULT_PRECISION :
-                                        0),
-                                "NUM_PREC_RADIX", 10,
-                                "NULLABLE", nullable,
-                                "REMARKS", null,
-                                "COLUMN_DEF", null, // no default values
-                                "SQL_DATA_TYPE", 0,
-                                "SQL_DATETIME_SUB", 0,
-                                "CHAR_OCTET_LENGTH", 0, // unsupported yet
-                                "ORDINAL_POSITION", index,
-                                "IS_NULLABLE", "YES",
-                                "SCOPE_CATALOG", null,
-                                "SCOPE_SCHEMA", null,
-                                "SCOPE_TABLE", null,
-                                "SOURCE_DATA_TYPE", (short) 0,
-                                "IS_AUTOINCREMENT", "NO", // no auto increments
-                                "IS_GENERATEDCOLUMN", "NO" // no generated columns
-                        ));
-                    }
-                },
-                Comparator
-                        .comparing((Map<String, Object> m) -> (String) m.get("TABLE_NAME"))
-                        .thenComparingInt(m -> (Short) m.get("ORDINAL_POSITION")));
+            short index = 0;
+            for (TableColumn column : tableDescription.getColumns()) {
+                index++;
+                if (!columnFilter.test(column.getName())) {
+                    continue;
+                }
+                Type type = column.getType();
+
+                int nullable;
+                if (type.getKind() == Type.Kind.OPTIONAL) {
+                    nullable = columnNullable;
+                    type = type.unwrapOptional();
+                } else {
+                    nullable = columnNoNulls;
+                }
+
+                int decimalDigits = type.getKind() == Type.Kind.DECIMAL ? YdbConst.SQL_DECIMAL_DEFAULT_PRECISION : 0;
+
+                rs.newRow()
+                        .withTextValue("TABLE_NAME", tableName)
+                        .withTextValue("COLUMN_NAME", column.getName())
+                        .withIntValue("DATA_TYPE", types.toSqlType(type))
+                        .withTextValue("TYPE_NAME", type.toString())
+                        .withIntValue("COLUMN_SIZE", types.getSqlPrecision(type))
+                        .withIntValue("BUFFER_LENGTH", 0)
+                        .withIntValue("DECIMAL_DIGITS", decimalDigits)
+                        .withIntValue("NUM_PREC_RADIX", 10)
+                        .withIntValue("NULLABLE", nullable)
+                        .withIntValue("SQL_DATA_TYPE", 0)
+                        .withIntValue("SQL_DATETIME_SUB", 0)
+                        .withIntValue("CHAR_OCTET_LENGTH", 0) // unsupported yet
+                        .withIntValue("ORDINAL_POSITION", index)
+                        .withTextValue("IS_NULLABLE", "YES")
+                        .withShortValue("SOURCE_DATA_TYPE", (short) 0)
+                        .withTextValue("IS_AUTOINCREMENT", "NO") // no auto increments
+                        .withTextValue("IS_GENERATEDCOLUMN", "NO") // no generated columns
+                        .build();
+            }
+        }
+
+        return resultSet(rs.build());
     }
 
     @Override
     public ResultSet getColumnPrivileges(String catalog, String schema, String table, String columnNamePattern) {
-        return fromEmptyResultSet(); // No column-based privileges supported
+        // No column-based privileges supported
+        return emptyResultSet(MetaDataTables.COLUMN_PRIVILEGES);
     }
 
     @Override
     public ResultSet getTablePrivileges(String catalog, String schemaPattern, String tableNamePattern) {
-        return fromEmptyResultSet(); // Unable to collect privileges
+        // Unable to collect privileges
+        return emptyResultSet(MetaDataTables.TABLE_PRIVILEGES);
     }
 
     @Override
@@ -836,49 +847,58 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         );
 
         if (!isMatchedCatalog(catalog)) {
-            return fromEmptyResultSet();
+            return emptyResultSet(MetaDataTables.BEST_ROW_IDENTIFIERS);
         }
         if (!isMatchedSchema(schema)) {
-            return fromEmptyResultSet();
+            return emptyResultSet(MetaDataTables.BEST_ROW_IDENTIFIERS);
         }
         if (isMatchedAny(table)) {
-            return fromEmptyResultSet(); // must be table name
+            // must be table name
+            return emptyResultSet(MetaDataTables.BEST_ROW_IDENTIFIERS);
         }
         if (!nullable) {
-            return fromEmptyResultSet();
+            return emptyResultSet(MetaDataTables.BEST_ROW_IDENTIFIERS);
         }
 
+        TableDescription description = describeTable(table);
+        if (description == null) {
+            return emptyResultSet(MetaDataTables.BEST_ROW_IDENTIFIERS);
+        }
+
+        FixedResultSetFactory.ResultSetBuilder rs = MetaDataTables.BEST_ROW_IDENTIFIERS.createResultSet();
+
+        Map<String, TableColumn> columnMap = description.getColumns().stream()
+                .collect(Collectors.toMap(TableColumn::getName, Function.identity()));
+
         // Only primary keys could be used as row identifiers
-        return fromTables(table,
-                (tableName, tableDesc, rows) -> {
-                    Map<String, TableColumn> columnMap = tableDesc.getColumns().stream()
-                            .collect(Collectors.toMap(TableColumn::getName, Function.identity()));
-                    for (String key : tableDesc.getPrimaryKeys()) {
+        for (String key : description.getPrimaryKeys()) {
+            TableColumn column = columnMap.get(key);
+            Type type = column.getType();
+            if (type.getKind() == Type.Kind.OPTIONAL) {
+                type = type.unwrapOptional();
+            }
 
-                        TableColumn column = columnMap.get(key);
-                        Type type = column.getType();
-                        if (type.getKind() == Type.Kind.OPTIONAL) {
-                            type = type.unwrapOptional();
-                        }
+            int decimalDigits = type.getKind() == Type.Kind.DECIMAL ? YdbConst.SQL_DECIMAL_DEFAULT_PRECISION : 0;
 
-                        rows.add(MappingResultSets.stableMap(
-                                "SCOPE", (short)scope,
-                                "COLUMN_NAME", key,
-                                "DATA_TYPE", types.toSqlType(type),
-                                "TYPE_NAME", type.toString(),
-                                "COLUMN_SIZE", 0,
-                                "BUFFER_LENGTH", 0,
-                                "DECIMAL_DIGITS", (short) 0, // unknown
-                                "PSEUDO_COLUMN", bestRowNotPseudo));
-                    }
+            rs.newRow()
+                    .withShortValue("SCOPE", (short)scope)
+                    .withTextValue("COLUMN_NAME", key)
+                    .withIntValue("DATA_TYPE", types.toSqlType(type))
+                    .withTextValue("TYPE_NAME", type.toString())
+                    .withIntValue("COLUMN_SIZE", 0)
+                    .withIntValue("BUFFER_LENGTH", 0)
+                    .withShortValue("DECIMAL_DIGITS", (short) decimalDigits)
+                    .withShortValue("PSEUDO_COLUMN", (short)bestRowNotPseudo)
+                    .build();
+        }
 
-                },
-                Comparator.comparing(m -> (Short) m.get("SCOPE")));
+        return resultSet(rs.build());
     }
 
     @Override
     public ResultSet getVersionColumns(String catalog, String schema, String table) {
-        return fromEmptyResultSet(); // Version columns are not supported
+        // Version columns are not supported
+        return emptyResultSet(MetaDataTables.VERSION_COLUMNS);
     }
 
     @Override
@@ -888,83 +908,82 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         });
 
         if (!isMatchedCatalog(catalog)) {
-            return fromEmptyResultSet();
+            return emptyResultSet(MetaDataTables.PRIMARY_KEYS);
         }
 
         if (!isMatchedSchema(schema)) {
-            return fromEmptyResultSet();
+            return emptyResultSet(MetaDataTables.PRIMARY_KEYS);
         }
 
         if (isMatchedAny(table)) {
-            return fromEmptyResultSet();
+            return emptyResultSet(MetaDataTables.PRIMARY_KEYS);
         }
 
-        return fromTables(table,
-                (tableName, tableDesc, rows) -> {
-                    short index = 0;
-                    for (String key : tableDesc.getPrimaryKeys()) {
-                        index++;
-                        rows.add(MappingResultSets.stableMap(
-                                "TABLE_CAT", null,
-                                "TABLE_SCHEM", null,
-                                "TABLE_NAME", tableName,
-                                "COLUMN_NAME", key,
-                                "KEY_SEQ", index,
-                                "PK_NAME", null));
-                    }
+        TableDescription description = describeTable(table);
+        if (description == null) {
+            return emptyResultSet(MetaDataTables.PRIMARY_KEYS);
+        }
 
-                },
-                Comparator.comparing(m -> (String) m.get("COLUMN_NAME")));
+        FixedResultSetFactory.ResultSetBuilder rs = MetaDataTables.PRIMARY_KEYS.createResultSet();
+        short index = 0;
+        for (String key : description.getPrimaryKeys()) {
+            index++;
+            rs.newRow()
+                    .withTextValue("TABLE_NAME", table)
+                    .withTextValue("COLUMN_NAME", key)
+                    .withShortValue("KEY_SEQ", index)
+                    .build();
+        }
+        return resultSet(rs.build());
     }
 
     @Override
     public ResultSet getImportedKeys(String catalog, String schema, String table) {
-        return fromEmptyResultSet(); // Foreign keys are not supported
+        // Foreign keys are not supported
+        return emptyResultSet(MetaDataTables.IMPORTED_KEYS);
     }
 
     @Override
     public ResultSet getExportedKeys(String catalog, String schema, String table) {
-        return fromEmptyResultSet();  // Foreign keys are not supported
+        // Foreign keys are not supported
+        return emptyResultSet(MetaDataTables.EXPORTED_KEYS);
     }
 
     @Override
     public ResultSet getCrossReference(String parentCatalog, String parentSchema, String parentTable,
                                        String foreignCatalog, String foreignSchema, String foreignTable) {
-        return fromEmptyResultSet();  // Foreign keys are not supported
+        // Foreign keys are not supported
+        return emptyResultSet(MetaDataTables.CROSS_REFERENCES);
     }
 
     @Override
     public ResultSet getTypeInfo() {
-        List<Map<String, Object>> rows = types.getAllDatabaseTypes().stream()
-                .map(type -> {
-                    String literal = getLiteral(type);
-                    int scale = type.getKind() == Type.Kind.DECIMAL ? YdbConst.SQL_DECIMAL_DEFAULT_SCALE : 0;
-                    return MappingResultSets.stableMap(
-                            "TYPE_NAME", type.toString(),
-                            "DATA_TYPE", types.toSqlType(type),
-                            "PRECISION", types.getSqlPrecision(type),
-                            "LITERAL_PREFIX", literal,
-                            "LITERAL_SUFFIX", literal,
-                            "CREATE_PARAMS", null,
-                            "NULLABLE", typeNullable,
-                            "CASE_SENSITIVE", true,
-                            "SEARCHABLE", getSearchable(type),
-                            "UNSIGNED_ATTRIBUTE", getUnsigned(type),
-                            "FIXED_PREC_SCALE", type.getKind() == Type.Kind.DECIMAL,
-                            "AUTO_INCREMENT", false, // no auto-increments
-                            "LOCAL_TYPE_NAME", null,
-                            "MINIMUM_SCALE", scale,
-                            "MAXIMUM_SCALE", scale,
-                            "SQL_DATA_TYPE", 0,
-                            "SQL_DATETIME_SUB", 0,
-                            "NUM_PREC_RADIX", 10
-                    );
-                })
-                .sorted(Comparator.comparing((Map<String, Object> m) -> (Integer) m.get("DATA_TYPE")))
-                .collect(Collectors.toList());
+        FixedResultSetFactory.ResultSetBuilder rs = MetaDataTables.TYPE_INFOS.createResultSet();
 
+        for (Type type: types.getAllDatabaseTypes()) {
+            String literal = getLiteral(type);
+            int scale = type.getKind() == Type.Kind.DECIMAL ? YdbConst.SQL_DECIMAL_DEFAULT_SCALE : 0;
+            rs.newRow()
+                    .withTextValue("TYPE_NAME", type.toString())
+                    .withIntValue("DATA_TYPE", types.toSqlType(type))
+                    .withIntValue("PRECISION", types.getSqlPrecision(type))
+                    .withTextValue("LITERAL_PREFIX", literal)
+                    .withTextValue("LITERAL_SUFFIX", literal)
+                    .withShortValue("NULLABLE", (short)typeNullable)
+                    .withBoolValue("CASE_SENSITIVE", true)
+                    .withShortValue("SEARCHABLE", getSearchable(type))
+                    .withBoolValue("UNSIGNED_ATTRIBUTE", getUnsigned(type))
+                    .withBoolValue("FIXED_PREC_SCALE", type.getKind() == Type.Kind.DECIMAL)
+                    .withBoolValue("AUTO_INCREMENT", false) // no auto-increments
+                    .withShortValue("MINIMUM_SCALE", (short)scale)
+                    .withShortValue("MAXIMUM_SCALE", (short)scale)
+                    .withIntValue("SQL_DATA_TYPE", 0)
+                    .withIntValue("SQL_DATETIME_SUB", 0)
+                    .withIntValue("NUM_PREC_RADIX", 10)
+                    .build();
+        }
 
-        return fromRows(rows);
+        return resultSet(rs.build());
     }
 
     private short getSearchable(Type type) {
@@ -1024,49 +1043,44 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         );
 
         if (!isMatchedCatalog(catalog)) {
-            return fromEmptyResultSet();
+            return emptyResultSet(MetaDataTables.INDEX_INFOS);
         }
 
         if (!isMatchedSchema(schema)) { // not exactly the same schema
-            return fromEmptyResultSet();
+            return emptyResultSet(MetaDataTables.INDEX_INFOS);
         }
 
         if (isMatchedAny(table)) {
-            return fromEmptyResultSet(); // must be table name
+            return emptyResultSet(MetaDataTables.INDEX_INFOS);
         }
 
         if (unique) {
-            return fromEmptyResultSet();
+            return emptyResultSet(MetaDataTables.INDEX_INFOS);
         }
 
-        return fromTables(table,
-                (tableName, tableDesc, rows) -> {
-                    for (TableIndex tableIndex : tableDesc.getIndexes()) {
-                        short index = 0;
-                        for (String column : tableIndex.getColumns()) {
-                            index++;
-                            rows.add(MappingResultSets.stableMap(
-                                    "TABLE_CAT", null,
-                                    "TABLE_SCHEM", null,
-                                    "TABLE_NAME", tableName,
-                                    "NON_UNIQUE", true,
-                                    "INDEX_QUALIFIER", null,
-                                    "INDEX_NAME", tableIndex.getName(),
-                                    "TYPE", tableIndexHashed, // just an index?
-                                    "ORDINAL_POSITION", index,
-                                    "COLUMN_NAME", column,
-                                    "ASC_OR_DESC", null, // unknown sort sequence?
-                                    "CARDINALITY", 0,
-                                    "PAGES", 0,
-                                    "FILTER_CONDITION", null));
-                        }
-                    }
-                },
-                Comparator
-                        .comparing((Map<String, Object> m) -> (Boolean) m.get("NON_UNIQUE"))
-                        .thenComparing(m -> (Short) m.get("TYPE"))
-                        .thenComparing(m -> (String) m.get("INDEX_NAME"))
-                        .thenComparing(m -> (Short) m.get("ORDINAL_POSITION")));
+        TableDescription description = describeTable(table);
+        if (description == null) {
+            return emptyResultSet(MetaDataTables.INDEX_INFOS);
+        }
+
+        FixedResultSetFactory.ResultSetBuilder rs = MetaDataTables.INDEX_INFOS.createResultSet();
+        for (TableIndex tableIndex : description.getIndexes()) {
+            short index = 0;
+            for (String column : tableIndex.getColumns()) {
+                index++;
+                rs.newRow()
+                        .withTextValue("TABLE_NAME", table)
+                        .withBoolValue("NON_UNIQUE", true)
+                        .withTextValue("INDEX_NAME", tableIndex.getName())
+                        .withShortValue("TYPE", tableIndexHashed) // just an index?
+                        .withShortValue("ORDINAL_POSITION", index)
+                        .withTextValue("COLUMN_NAME", column)
+                        .withLongValue("CARDINALITY", 0)
+                        .withLongValue("PAGES", 0)
+                        .build();
+            }
+        }
+        return resultSet(rs.build());
     }
 
     @Override
@@ -1132,7 +1146,8 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     @Override
     public ResultSet getUDTs(String catalog, String schemaPattern, String typeNamePattern, int[] types) {
-        return fromEmptyResultSet(); // UDTs are not supported
+        // UDTs are not supported
+        return emptyResultSet(MetaDataTables.UDTS);
     }
 
     @Override
@@ -1162,18 +1177,21 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     @Override
     public ResultSet getSuperTypes(String catalog, String schemaPattern, String typeNamePattern) {
-        return fromEmptyResultSet();  // UDTs are not supported
+        // Super-types are not supported
+        return emptyResultSet(MetaDataTables.SUPER_TYPES);
     }
 
     @Override
     public ResultSet getSuperTables(String catalog, String schemaPattern, String tableNamePattern) {
-        return fromEmptyResultSet(); // Super-tables are not supported
+        // Super-tables are not supported
+        return emptyResultSet(MetaDataTables.SUPER_TABLES);
     }
 
     @Override
     public ResultSet getAttributes(String catalog, String schemaPattern, String typeNamePattern,
                                    String attributeNamePattern) {
-        return fromEmptyResultSet(); // UDTss are not supported
+        // Attributes are not supported
+        return emptyResultSet(MetaDataTables.ATTRIBUTES);
     }
 
     @Override
@@ -1228,7 +1246,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     @Override
     public ResultSet getSchemas(String catalog, String schemaPattern) {
-        return fromEmptyResultSet();
+        return emptyResultSet(MetaDataTables.SCHEMAS);
     }
 
     @Override
@@ -1243,24 +1261,28 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     @Override
     public ResultSet getClientInfoProperties() {
-        return fromEmptyResultSet(); // No client info getOperationProperties?
+        // No client info getOperationProperties?
+        return emptyResultSet(MetaDataTables.CLIENT_INFO_PROPERTIES);
     }
 
     @Override
     public ResultSet getFunctions(String catalog, String schemaPattern, String functionNamePattern) {
-        return fromEmptyResultSet();  // Custom functions are not supported
+        // Custom functions are not supported
+        return emptyResultSet(MetaDataTables.FUNCTIONS);
     }
 
     @Override
     public ResultSet getFunctionColumns(String catalog, String schemaPattern, String functionNamePattern,
                                         String columnNamePattern) {
-        return fromEmptyResultSet(); // Custom functions are not supported
+        // Custom functions are not supported
+        return emptyResultSet(MetaDataTables.FUNCTION_COLUMNS);
     }
 
     @Override
     public ResultSet getPseudoColumns(String catalog, String schemaPattern, String tableNamePattern,
                                       String columnNamePattern) {
-        return fromEmptyResultSet(); // Pseudo columns are not supported
+        // Pseudo columns are not supported
+        return emptyResultSet(MetaDataTables.PSEUDO_COLUMNS);
     }
 
     @Override
@@ -1281,31 +1303,16 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         return iface.isAssignableFrom(getClass());
     }
 
-    private Map<String, TableDescription> collectTableDescriptions(Session session, Collection<String> tables) throws SQLException {
-        DescribeTableSettings settings = connection.withDefaultTimeout(new DescribeTableSettings());
-        String databaseWithSuffix = withSuffix(connection.getCtx().getDatabase());
-
-        Map<String, TableDescription> target = new LinkedHashMap<>(tables.size());
-
-        for (String table: tables) {
-            target.put(table, executor.call("Get table description for " + table,
-                    () -> session.describeTable(databaseWithSuffix + table, settings)
-            ));
-        }
-
-        return target;
-    }
-
-    private Collection<String> listTables(String tableNamePattern) throws SQLException {
+    private List<String> listTables(String tableNamePattern) throws SQLException {
         Predicate<String> filter = equalsFilter(tableNamePattern);
 
-        Collection<String> allTables = listTables(filter);
+        List<String> allTables = listTables(filter);
         LOGGER.log(Level.FINE, "Loaded {0} tables...", allTables.size());
 
         return allTables;
     }
 
-    private Collection<String> listTables(Predicate<String> filter) throws SQLException {
+    private List<String> listTables(Predicate<String> filter) throws SQLException {
         String databaseWithSuffix = withSuffix(connection.getCtx().getDatabase());
         return tables(databaseWithSuffix, databaseWithSuffix, filter);
     }
@@ -1338,36 +1345,36 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         return tables;
     }
 
-    private ResultSet fromTables(String tableNamePattern,
-                                 TableCollector tableCollector,
-                                 Comparator<Map<String, Object>> comparator) throws SQLException {
-        Collection<String> tables = listTables(tableNamePattern);
-        if (tables.isEmpty()) {
-            return fromEmptyResultSet();
-        }
+    private TableDescription describeTable(String table) throws SQLException {
+        DescribeTableSettings settings = connection.withDefaultTimeout(new DescribeTableSettings());
+        String databaseWithSuffix = withSuffix(connection.getCtx().getDatabase());
 
         try (Session session = executor.createSession(connection.getCtx())) {
-            Map<String, TableDescription> tableMap = collectTableDescriptions(session, tables);
+            try {
+                return executor.call("Describe table " + table,
+                        () -> session.describeTable(databaseWithSuffix + table, settings)
+                );
+            } catch (YdbStatusException ex) {
+                if (ex.getStatus().getCode() != StatusCode.SCHEME_ERROR) { // ignore scheme errors like path not found
+                    throw ex;
+                }
+                LOGGER.log(Level.WARNING, "Cannot describe table {0} -> {1}",
+                        new Object[]{ table, ex.getMessage() }
+                );
 
-            List<Map<String, Object>> rows = new ArrayList<>(tableMap.size() * 16);
-            for (Map.Entry<String, TableDescription> entry : tableMap.entrySet()) {
-                tableCollector.collect(entry.getKey(), entry.getValue(), rows);
+                return null;
             }
-            rows.sort(comparator);
-            return fromRows(rows);
         }
     }
 
-    private ResultSet fromEmptyResultSet() {
+    private ResultSet emptyResultSet(FixedResultSetFactory factory) {
         YdbStatementImpl statement = new YdbStatementImpl(connection, ResultSet.TYPE_SCROLL_INSENSITIVE);
-        ResultSetReader reader = MappingResultSets.emptyReader();
-        return new YdbResultSetImpl(statement, reader);
+        return new YdbResultSetImpl(statement, factory.createResultSet().build());
     }
 
-    private ResultSet fromRows(List<Map<String, Object>> rows) {
+    private ResultSet resultSet(ResultSetReader rsReader) {
         YdbStatementImpl statement = new YdbStatementImpl(connection, ResultSet.TYPE_SCROLL_INSENSITIVE);
-        ResultSetReader reader = MappingResultSets.readerFromList(rows);
-        return new YdbResultSetImpl(statement, reader);
+        return new YdbResultSetImpl(statement, rsReader);
     }
 
     private boolean isMatchedCatalog(String catalog) {
@@ -1392,9 +1399,5 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     static String withSuffix(String prefix) {
         return prefix == null || prefix.endsWith("/") ? prefix : prefix + "/";
-    }
-
-    interface TableCollector {
-        void collect(String tableName, TableDescription tableDescription, List<Map<String, Object>> rows);
     }
 }

@@ -3,30 +3,26 @@ package tech.ydb.jdbc.impl;
 import java.sql.SQLException;
 import java.util.Objects;
 
-import com.google.common.base.Preconditions;
-
+import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSetMetaData;
 import tech.ydb.jdbc.common.TypeDescription;
 import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.values.Type;
-
-import static tech.ydb.jdbc.YdbConst.CANNOT_UNWRAP_TO;
-import static tech.ydb.jdbc.YdbConst.COLUMN_NOT_FOUND;
-import static tech.ydb.jdbc.YdbConst.COLUMN_NUMBER_NOT_FOUND;
 
 public class YdbResultSetMetaDataImpl implements YdbResultSetMetaData {
     private final ResultSetReader result;
     private final TypeDescription[] descriptions;
     private final String[] names;
 
-    YdbResultSetMetaDataImpl(ResultSetReader result, TypeDescription[] descriptions) {
+    YdbResultSetMetaDataImpl(ResultSetReader result) {
         this.result = Objects.requireNonNull(result);
-        this.descriptions = Objects.requireNonNull(descriptions);
-        this.names = asNames(result);
-        Preconditions.checkState(result.getColumnCount() == descriptions.length,
-                "Internal error, column count in resultSet must be equals to extract column descriptions");
-        Preconditions.checkState(descriptions.length == names.length,
-                "Internal error, column description count must be equals to extract column names");
+        this.descriptions = new TypeDescription[result.getColumnCount()];
+        this.names = new String[result.getColumnCount()];
+
+        for (int i = 0; i < result.getColumnCount(); i++) {
+            descriptions[i] = TypeDescription.of(result.getColumnType(i));
+            names[i] = result.getColumnName(i);
+        }
     }
 
     @Override
@@ -147,7 +143,7 @@ public class YdbResultSetMetaDataImpl implements YdbResultSetMetaData {
         if (index >= 0) {
             return index + 1;
         } else {
-            throw new SQLException(COLUMN_NOT_FOUND + columnName);
+            throw new SQLException(YdbConst.COLUMN_NOT_FOUND + columnName);
         }
     }
 
@@ -156,7 +152,7 @@ public class YdbResultSetMetaDataImpl implements YdbResultSetMetaData {
 
     private int getIndex(int column) throws SQLException {
         if (column <= 0 || column > descriptions.length) {
-            throw new SQLException(COLUMN_NUMBER_NOT_FOUND + column);
+            throw new SQLException(YdbConst.COLUMN_NUMBER_NOT_FOUND + column);
         }
         return column - 1;
     }
@@ -166,20 +162,12 @@ public class YdbResultSetMetaDataImpl implements YdbResultSetMetaData {
     }
 
 
-    private static String[] asNames(ResultSetReader result) {
-        String[] names = new String[result.getColumnCount()];
-        for (int i = 0; i < names.length; i++) {
-            names[i] = result.getColumnName(i);
-        }
-        return names;
-    }
-
     @Override
     public <T> T unwrap(Class<T> iface) throws SQLException {
         if (iface.isAssignableFrom(getClass())) {
             return iface.cast(this);
         }
-        throw new SQLException(CANNOT_UNWRAP_TO + iface);
+        throw new SQLException(YdbConst.CANNOT_UNWRAP_TO + iface);
     }
 
     @Override

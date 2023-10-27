@@ -3,9 +3,8 @@ package tech.ydb.jdbc.query;
 import java.util.ArrayList;
 import java.util.List;
 
-import tech.ydb.core.StatusCode;
 import tech.ydb.jdbc.YdbConst;
-import tech.ydb.jdbc.exception.YdbNonRetryableException;
+import tech.ydb.jdbc.exception.YdbStatusException;
 
 /**
  *
@@ -37,14 +36,13 @@ public class YdbQueryBuilder {
         }
     }
 
-    public void setQueryType(QueryType type) throws YdbNonRetryableException {
+    public void setQueryType(QueryType type) throws YdbStatusException {
         if (forcedType != null) {
             return;
         }
 
         if (currentType != null && currentType != type) {
-            String msg = YdbConst.MULTI_TYPES_IN_ONE_QUERY + currentType + ", " + type;
-            throw new YdbNonRetryableException(msg, StatusCode.BAD_REQUEST);
+            throw YdbStatusException.newBadRequest(YdbConst.MULTI_TYPES_IN_ONE_QUERY + currentType + ", " + type);
         }
         this.currentType = type;
     }

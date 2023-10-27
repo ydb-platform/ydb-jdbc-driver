@@ -1,8 +1,5 @@
 package tech.ydb.jdbc.impl;
 
-import tech.ydb.jdbc.common.JdbcDriverVersion;
-import tech.ydb.jdbc.common.YdbFunctions;
-
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
@@ -25,6 +22,8 @@ import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbDatabaseMetaData;
 import tech.ydb.jdbc.YdbDriverInfo;
 import tech.ydb.jdbc.YdbStatement;
+import tech.ydb.jdbc.common.JdbcDriverVersion;
+import tech.ydb.jdbc.common.YdbFunctions;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.SqlQueries;
@@ -319,33 +318,33 @@ public class YdbDatabaseMetaDataImplTest {
 
     @Test
     public void unsupportedListsTest() throws SQLException {
-        TableAssert.assertEmpty(metaData.getAttributes(null, null, null, null));
-        TableAssert.assertEmpty(metaData.getClientInfoProperties());
+        TableAssert.assertNotRows(metaData.getAttributes(null, null, null, null));
+        TableAssert.assertNotRows(metaData.getClientInfoProperties());
 
-        TableAssert.assertEmpty(metaData.getSchemas());
-        TableAssert.assertEmpty(metaData.getCatalogs());
+        TableAssert.assertNotRows(metaData.getSchemas());
+        TableAssert.assertNotRows(metaData.getCatalogs());
 
-        TableAssert.assertEmpty(metaData.getProcedures(null, null, null));
-        TableAssert.assertEmpty(metaData.getProcedureColumns(null, null, null, null));
+        TableAssert.assertNotRows(metaData.getProcedures(null, null, null));
+        TableAssert.assertNotRows(metaData.getProcedureColumns(null, null, null, null));
 
-        TableAssert.assertEmpty(metaData.getSuperTypes(null, null, null));
-        TableAssert.assertEmpty(metaData.getSuperTables(null, null, null));
+        TableAssert.assertNotRows(metaData.getSuperTypes(null, null, null));
+        TableAssert.assertNotRows(metaData.getSuperTables(null, null, null));
 
-        TableAssert.assertEmpty(metaData.getFunctions(null, null, null));
-        TableAssert.assertEmpty(metaData.getFunctionColumns(null, null, null, null));
+        TableAssert.assertNotRows(metaData.getFunctions(null, null, null));
+        TableAssert.assertNotRows(metaData.getFunctionColumns(null, null, null, null));
 
-        TableAssert.assertEmpty(metaData.getPseudoColumns(null, null, null, null));
-        TableAssert.assertEmpty(metaData.getVersionColumns(null, null, null));
+        TableAssert.assertNotRows(metaData.getPseudoColumns(null, null, null, null));
+        TableAssert.assertNotRows(metaData.getVersionColumns(null, null, null));
 
-        TableAssert.assertEmpty(metaData.getUDTs(null, null, null, null));
+        TableAssert.assertNotRows(metaData.getUDTs(null, null, null, null));
 
-        TableAssert.assertEmpty(metaData.getImportedKeys(null, null, null));
-        TableAssert.assertEmpty(metaData.getExportedKeys(null, null, null));
+        TableAssert.assertNotRows(metaData.getImportedKeys(null, null, null));
+        TableAssert.assertNotRows(metaData.getExportedKeys(null, null, null));
 
-        TableAssert.assertEmpty(metaData.getCrossReference(null, null, null, null, null, null));
+        TableAssert.assertNotRows(metaData.getCrossReference(null, null, null, null, null, null));
 
-        TableAssert.assertEmpty(metaData.getColumnPrivileges(null, null, null, null));
-        TableAssert.assertEmpty(metaData.getTablePrivileges(null, null, null));
+        TableAssert.assertNotRows(metaData.getColumnPrivileges(null, null, null, null));
+        TableAssert.assertNotRows(metaData.getTablePrivileges(null, null, null));
     }
 
     @Test
@@ -373,15 +372,15 @@ public class YdbDatabaseMetaDataImplTest {
         TableAssert.TextColumn prefix = types.addTextColumn("LITERAL_PREFIX", "Text").defaultNull();
         TableAssert.TextColumn suffix = types.addTextColumn("LITERAL_SUFFIX", "Text").defaultNull();
         /* createParams = */types.addTextColumn("CREATE_PARAMS", "Text").defaultNull();
-        /* nullable = */types.addIntColumn("NULLABLE", "Int32").defaultValue(DatabaseMetaData.typeNullable);
+        /* nullable = */types.addShortColumn("NULLABLE", "Int16").defaultValue((short) DatabaseMetaData.typeNullable);
         /* caseSensitive = */types.addBoolColumn("CASE_SENSITIVE", "Bool").defaultValue(true);
         TableAssert.ShortColumn searchable = types.addShortColumn("SEARCHABLE", "Int16").defaultValue(searchBasic);
         TableAssert.BoolColumn unsigned = types.addBoolColumn("UNSIGNED_ATTRIBUTE", "Bool");
         TableAssert.BoolColumn fixedPrec = types.addBoolColumn("FIXED_PREC_SCALE", "Bool").defaultValue(false);
         /* autoIncrement = */types.addBoolColumn("AUTO_INCREMENT", "Bool").defaultValue(false);
         /* localName = */types.addTextColumn("LOCAL_TYPE_NAME", "Text").defaultNull();
-        TableAssert.IntColumn minScale = types.addIntColumn("MINIMUM_SCALE", "Int32").defaultValue(0);
-        TableAssert.IntColumn maxScale = types.addIntColumn("MAXIMUM_SCALE", "Int32").defaultValue(0);
+        TableAssert.ShortColumn minScale = types.addShortColumn("MINIMUM_SCALE", "Int16").defaultValue((short) 0);
+        TableAssert.ShortColumn maxScale = types.addShortColumn("MAXIMUM_SCALE", "Int16").defaultValue((short) 0);
         /* sqlDataType = */types.addIntColumn("SQL_DATA_TYPE", "Int32").defaultValue(0);
         /* sqlDatetimeSub = */types.addIntColumn("SQL_DATETIME_SUB", "Int32").defaultValue(0);
         /* numPrecRadix = */types.addIntColumn("NUM_PREC_RADIX", "Int32").defaultValue(10);
@@ -389,34 +388,41 @@ public class YdbDatabaseMetaDataImplTest {
         TableAssert.ResultSetAssert rs = types.check(metaData.getTypeInfo())
                 .assertMetaColumns();
 
+        rs.nextRow(name.eq("Bool"), type.eq(Types.BOOLEAN), precision.eq(1), unsigned.eq(false)).assertAll();
+
+        rs.nextRow(name.eq("Int8"), type.eq(Types.SMALLINT), precision.eq(1), unsigned.eq(false)).assertAll();
+        rs.nextRow(name.eq("Int16"), type.eq(Types.SMALLINT), precision.eq(2), unsigned.eq(false)).assertAll();
+        rs.nextRow(name.eq("Int32"), type.eq(Types.INTEGER), precision.eq(4), unsigned.eq(false)).assertAll();
         rs.nextRow(name.eq("Int64"), type.eq(Types.BIGINT), precision.eq(8), unsigned.eq(false)).assertAll();
+
+        rs.nextRow(name.eq("Uint8"), type.eq(Types.INTEGER), precision.eq(1), unsigned.eq(true)).assertAll();
+        rs.nextRow(name.eq("Uint16"), type.eq(Types.INTEGER), precision.eq(2), unsigned.eq(true)).assertAll();
         rs.nextRow(name.eq("Uint32"), type.eq(Types.BIGINT), precision.eq(4), unsigned.eq(true)).assertAll();
         rs.nextRow(name.eq("Uint64"), type.eq(Types.BIGINT), precision.eq(8), unsigned.eq(true)).assertAll();
-        rs.nextRow(name.eq("Interval"), type.eq(Types.BIGINT), precision.eq(8), unsigned.eq(false)).assertAll();
 
-        rs.nextRow(name.eq("Bytes"), type.eq(Types.BINARY), precision.eq(YdbConst.MAX_COLUMN_SIZE),
-                prefix.eq("'"), suffix.eq("'"), unsigned.eq(false), searchable.eq(searchFull)).assertAll();
-        rs.nextRow(name.eq("Yson"), type.eq(Types.BINARY), precision.eq(YdbConst.MAX_COLUMN_SIZE),
-                prefix.eq("'"), suffix.eq("'"), unsigned.eq(false), searchable.eq(searchNone)).assertAll();
-        rs.nextRow(name.eq("Decimal(22, 9)"), type.eq(Types.DECIMAL), precision.eq(16),
-                unsigned.eq(false), fixedPrec.eq(true), minScale.eq(9), maxScale.eq(9)).assertAll();
-
-        rs.nextRow(name.eq("Int32"), type.eq(Types.INTEGER), precision.eq(4), unsigned.eq(false)).assertAll();
-        rs.nextRow(name.eq("Uint8"), type.eq(Types.INTEGER), precision.eq(1), unsigned.eq(true)).assertAll();
         rs.nextRow(name.eq("Float"), type.eq(Types.FLOAT), precision.eq(4), unsigned.eq(false)).assertAll();
         rs.nextRow(name.eq("Double"), type.eq(Types.DOUBLE), precision.eq(8), unsigned.eq(false)).assertAll();
 
+        rs.nextRow(name.eq("Bytes"), type.eq(Types.BINARY), precision.eq(YdbConst.MAX_COLUMN_SIZE),
+                prefix.eq("'"), suffix.eq("'"), unsigned.eq(false), searchable.eq(searchFull)).assertAll();
         rs.nextRow(name.eq("Text"), type.eq(Types.VARCHAR), precision.eq(YdbConst.MAX_COLUMN_SIZE),
                 prefix.eq("'"), suffix.eq("'"), unsigned.eq(false), searchable.eq(searchFull)).assertAll();
+
         rs.nextRow(name.eq("Json"), type.eq(Types.VARCHAR), precision.eq(YdbConst.MAX_COLUMN_SIZE),
                 prefix.eq("'"), suffix.eq("'"), unsigned.eq(false), searchable.eq(searchNone)).assertAll();
         rs.nextRow(name.eq("JsonDocument"), type.eq(Types.VARCHAR), precision.eq(YdbConst.MAX_COLUMN_SIZE),
                 prefix.eq("'"), suffix.eq("'"), unsigned.eq(false), searchable.eq(searchNone)).assertAll();
 
-        rs.nextRow(name.eq("Bool"), type.eq(Types.BOOLEAN), precision.eq(1), unsigned.eq(false)).assertAll();
+        rs.nextRow(name.eq("Yson"), type.eq(Types.BINARY), precision.eq(YdbConst.MAX_COLUMN_SIZE),
+                prefix.eq("'"), suffix.eq("'"), unsigned.eq(false), searchable.eq(searchNone)).assertAll();
+
         rs.nextRow(name.eq("Date"), type.eq(Types.DATE), precision.eq(10), unsigned.eq(false)).assertAll();
         rs.nextRow(name.eq("Datetime"), type.eq(Types.TIME), precision.eq(19), unsigned.eq(false)).assertAll();
         rs.nextRow(name.eq("Timestamp"), type.eq(Types.TIMESTAMP), precision.eq(26), unsigned.eq(false)).assertAll();
+        rs.nextRow(name.eq("Interval"), type.eq(Types.BIGINT), precision.eq(8), unsigned.eq(false)).assertAll();
+
+        rs.nextRow(name.eq("Decimal(22, 9)"), type.eq(Types.DECIMAL), precision.eq(16),
+                unsigned.eq(false), fixedPrec.eq(true), minScale.eq(9), maxScale.eq(9)).assertAll();
 
         rs.assertNoRows();
     }
@@ -446,11 +452,11 @@ public class YdbDatabaseMetaDataImplTest {
         /* refGeneration = */ tables.addTextColumn("REF_GENERATION", "Text").defaultNull();
 
         // wrong filters
-        TableAssert.assertEmpty(metaData.getTables("-", null, null, null));
-        TableAssert.assertEmpty(metaData.getTables(null, "-", null, null));
-        TableAssert.assertEmpty(metaData.getTables(null, "-", "unknown-table", null));
-        TableAssert.assertEmpty(metaData.getTables(null, "-", null, asArray("U-1")));
-        TableAssert.assertEmpty(metaData.getTables(null, "-", null, new String[0]));
+        tables.check(metaData.getTables("-", null, null, null)).assertMetaColumns().assertNoRows();
+        tables.check(metaData.getTables(null, "-", null, null)).assertMetaColumns().assertNoRows();
+        tables.check(metaData.getTables(null, "-", "unknown-table", null)).assertMetaColumns().assertNoRows();
+        tables.check(metaData.getTables(null, "-", null, asArray("U-1"))).assertMetaColumns().assertNoRows();
+        tables.check(metaData.getTables(null, "-", null, new String[0])).assertMetaColumns().assertNoRows();
 
         // fetch system tables
         List<String> systemTables = new ArrayList<>();
@@ -503,16 +509,13 @@ public class YdbDatabaseMetaDataImplTest {
         rs.assertNoRows();
 
         // filter by name
-        TableAssert.assertEmpty(metaData.getTables(null, null, "dir1/t1", asArray(SYSTEM_TABLE_TYPE)));
+        tables.check(metaData.getTables(null, null, "dir1/t1", asArray(SYSTEM_TABLE_TYPE)))
+                .assertMetaColumns()
+                .assertNoRows();
     }
 
     @Test
     public void getColumns() throws SQLException {
-        TableAssert.assertEmpty(metaData.getColumns("-", null, null, null));
-        TableAssert.assertEmpty(metaData.getColumns(null, "-", null, null));
-        TableAssert.assertEmpty(metaData.getColumns(null, "-", "unknown-table", null));
-        TableAssert.assertEmpty(metaData.getColumns(null, "-", null, "x-column-unknown"));
-
         TableAssert columns = new TableAssert();
         columns.addTextColumn("TABLE_CAT", "Text").defaultNull();
         columns.addTextColumn("TABLE_SCHEM", "Text").defaultNull();
@@ -522,8 +525,7 @@ public class YdbDatabaseMetaDataImplTest {
         TableAssert.TextColumn typeName = columns.addTextColumn("TYPE_NAME", "Text");
         TableAssert.IntColumn columnSize = columns.addIntColumn("COLUMN_SIZE", "Int32");
         columns.addIntColumn("BUFFER_LENGTH", "Int32").defaultValue(0);
-        TableAssert.ShortColumn decimalDigits = columns.addShortColumn("DECIMAL_DIGITS", "Int16")
-                .defaultValue((short)0);
+        TableAssert.IntColumn decimalDigits = columns.addIntColumn("DECIMAL_DIGITS", "Int32").defaultValue(0);
         columns.addIntColumn("NUM_PREC_RADIX", "Int32").defaultValue(10);
         columns.addIntColumn("NULLABLE", "Int32").defaultValue(DatabaseMetaData.columnNullable);
         columns.addTextColumn("REMARKS", "Text").defaultNull();
@@ -531,7 +533,7 @@ public class YdbDatabaseMetaDataImplTest {
         columns.addIntColumn("SQL_DATA_TYPE", "Int32").defaultValue(0);
         columns.addIntColumn("SQL_DATETIME_SUB", "Int32").defaultValue(0);
         columns.addIntColumn("CHAR_OCTET_LENGTH", "Int32").defaultValue(0);
-        TableAssert.ShortColumn ordinal = columns.addShortColumn("ORDINAL_POSITION", "Int16");
+        TableAssert.IntColumn ordinal = columns.addIntColumn("ORDINAL_POSITION", "Int32");
         columns.addTextColumn("IS_NULLABLE", "Text").defaultValue("YES");
         columns.addTextColumn("SCOPE_CATALOG", "Text").defaultNull();
         columns.addTextColumn("SCOPE_SCHEMA", "Text").defaultNull();
@@ -539,6 +541,11 @@ public class YdbDatabaseMetaDataImplTest {
         columns.addShortColumn("SOURCE_DATA_TYPE", "Int16").defaultValue((short)0);
         columns.addTextColumn("IS_AUTOINCREMENT", "Text").defaultValue("NO");
         columns.addTextColumn("IS_GENERATEDCOLUMN", "Text").defaultValue("NO");
+
+        columns.check(metaData.getColumns("-", null, null, null)).assertMetaColumns().assertNoRows();
+        columns.check(metaData.getColumns(null, "-", null, null)).assertMetaColumns().assertNoRows();
+        columns.check(metaData.getColumns(null, "-", "unknown-table", null)).assertMetaColumns().assertNoRows();
+        columns.check(metaData.getColumns(null, "-", null, "x-column-unknown")).assertMetaColumns().assertNoRows();
 
         // get all columns for ALL_TYPES_TABLE
         TableAssert.ResultSetAssert rs = columns.check(metaData.getColumns(null, null, ALL_TYPES_TABLE, null))
@@ -608,13 +615,6 @@ public class YdbDatabaseMetaDataImplTest {
 
     @Test
     public void getPrimaryKeys() throws SQLException {
-        TableAssert.assertEmpty(metaData.getPrimaryKeys("-", null, null));
-        TableAssert.assertEmpty(metaData.getPrimaryKeys(null, "-", null));
-        TableAssert.assertEmpty(metaData.getPrimaryKeys(null, null, "-"));
-
-        // table name is a must
-        TableAssert.assertEmpty(metaData.getPrimaryKeys(null, null, null));
-
         TableAssert primaryKeys = new TableAssert();
         primaryKeys.addTextColumn("TABLE_CAT", "Text").defaultNull();
         primaryKeys.addTextColumn("TABLE_SCHEM", "Text").defaultNull();
@@ -622,6 +622,14 @@ public class YdbDatabaseMetaDataImplTest {
         TableAssert.TextColumn name = primaryKeys.addTextColumn("COLUMN_NAME", "Text");
         TableAssert.ShortColumn keySeq = primaryKeys.addShortColumn("KEY_SEQ", "Int16");
         primaryKeys.addTextColumn("PK_NAME", "Text").defaultNull();
+
+        primaryKeys.check(metaData.getPrimaryKeys("-", null, null)).assertMetaColumns().assertNoRows();
+        primaryKeys.check(metaData.getPrimaryKeys("-", null, null)).assertMetaColumns().assertNoRows();
+        primaryKeys.check(metaData.getPrimaryKeys(null, "-", null)).assertMetaColumns().assertNoRows();
+        primaryKeys.check(metaData.getPrimaryKeys(null, null, "-")).assertMetaColumns().assertNoRows();
+
+        // table name is a must
+        primaryKeys.check(metaData.getPrimaryKeys(null, null, null)).assertMetaColumns().assertNoRows();
 
         // ALL_TYPES_TABLE has simple primary key
         primaryKeys.check(metaData.getPrimaryKeys(null, null, ALL_TYPES_TABLE))
@@ -639,16 +647,6 @@ public class YdbDatabaseMetaDataImplTest {
 
     @Test
     public void getIndexInfo() throws SQLException {
-        TableAssert.assertEmpty(metaData.getIndexInfo("-", null, null, false, false));
-        TableAssert.assertEmpty(metaData.getIndexInfo(null, "-", null, false, false));
-        TableAssert.assertEmpty(metaData.getIndexInfo(null, null, "-", false, false));
-
-        // no unique indexes
-        TableAssert.assertEmpty(metaData.getIndexInfo(null, null, null, true, false));
-
-        // table name is a must
-        TableAssert.assertEmpty(metaData.getIndexInfo(null, null, null, false, false));
-
         TableAssert indexes = new TableAssert();
         indexes.addTextColumn("TABLE_CAT", "Text").defaultNull();
         indexes.addTextColumn("TABLE_SCHEM", "Text").defaultNull();
@@ -660,9 +658,19 @@ public class YdbDatabaseMetaDataImplTest {
         TableAssert.ShortColumn ordinal = indexes.addShortColumn("ORDINAL_POSITION", "Int16");
         TableAssert.TextColumn columnName = indexes.addTextColumn("COLUMN_NAME", "Text");
         indexes.addTextColumn("ASC_OR_DESC", "Text").defaultNull();
-        indexes.addIntColumn("CARDINALITY", "Int32").defaultValue(0);
-        indexes.addIntColumn("PAGES", "Int32").defaultValue(0);
+        indexes.addLongColumn("CARDINALITY", "Int64").defaultValue(0);
+        indexes.addLongColumn("PAGES", "Int64").defaultValue(0);
         indexes.addTextColumn("FILTER_CONDITION", "Text").defaultNull();
+
+        indexes.check(metaData.getIndexInfo("-", null, null, false, false)).assertMetaColumns().assertNoRows();
+        indexes.check(metaData.getIndexInfo(null, "-", null, false, false)).assertMetaColumns().assertNoRows();
+        indexes.check(metaData.getIndexInfo(null, null, "-", false, false)).assertMetaColumns().assertNoRows();
+
+        // no unique indexes
+        indexes.check(metaData.getIndexInfo(null, null, null, true, false)).assertMetaColumns().assertNoRows();
+
+        // table name is a must
+        indexes.check(metaData.getIndexInfo(null, null, null, false, false)).assertMetaColumns().assertNoRows();
 
         indexes.check(metaData.getIndexInfo(null, null, INDEXES_TABLE, false, false))
                 .assertMetaColumns()
@@ -680,17 +688,6 @@ public class YdbDatabaseMetaDataImplTest {
 
     @Test
     public void getBestRowIdentifier() throws SQLException {
-        TableAssert.assertEmpty(metaData.getBestRowIdentifier("-", null, null, DatabaseMetaData.bestRowSession, true));
-        TableAssert.assertEmpty(metaData.getBestRowIdentifier(null, "-", null, DatabaseMetaData.bestRowSession, true));
-        TableAssert.assertEmpty(metaData.getBestRowIdentifier(null, null, "-", DatabaseMetaData.bestRowSession, true));
-
-        // expect exact column name
-        TableAssert.assertEmpty(metaData.getBestRowIdentifier(null, null, null, DatabaseMetaData.bestRowSession, true));
-
-        // only nullable columns supported
-        TableAssert.assertEmpty(metaData
-                .getBestRowIdentifier(null, null, ALL_TYPES_TABLE, DatabaseMetaData.bestRowSession, false));
-
         TableAssert rowIdentifiers = new TableAssert();
         TableAssert.ShortColumn scope = rowIdentifiers.addShortColumn("SCOPE", "Int16");
         TableAssert.TextColumn name = rowIdentifiers.addTextColumn("COLUMN_NAME", "Text");
@@ -699,7 +696,23 @@ public class YdbDatabaseMetaDataImplTest {
         rowIdentifiers.addIntColumn("COLUMN_SIZE", "Int32").defaultValue(0);
         rowIdentifiers.addIntColumn("BUFFER_LENGTH", "Int32").defaultValue(0);
         rowIdentifiers.addShortColumn("DECIMAL_DIGITS", "Int16").defaultValue((short)0);
-        rowIdentifiers.addIntColumn("PSEUDO_COLUMN", "Int32").defaultValue(DatabaseMetaData.bestRowNotPseudo);
+        rowIdentifiers.addShortColumn("PSEUDO_COLUMN", "Int16").defaultValue((short)DatabaseMetaData.bestRowNotPseudo);
+
+
+        rowIdentifiers.check(metaData.getBestRowIdentifier("-", null, null, DatabaseMetaData.bestRowSession, true))
+                .assertMetaColumns().assertNoRows();
+        rowIdentifiers.check(metaData.getBestRowIdentifier(null, "-", null, DatabaseMetaData.bestRowSession, true))
+                .assertMetaColumns().assertNoRows();
+        rowIdentifiers.check(metaData.getBestRowIdentifier(null, null, "-", DatabaseMetaData.bestRowSession, true))
+                .assertMetaColumns().assertNoRows();
+
+        // expect exact column name
+        rowIdentifiers.check(metaData.getBestRowIdentifier(null, null, null, DatabaseMetaData.bestRowSession, true))
+                .assertMetaColumns().assertNoRows();
+
+        // only nullable columns supported
+        rowIdentifiers.check(metaData
+                .getBestRowIdentifier(null, null, ALL_TYPES_TABLE, DatabaseMetaData.bestRowSession, false));
 
         rowIdentifiers.check(metaData
                 .getBestRowIdentifier(null, null, ALL_TYPES_TABLE, DatabaseMetaData.bestRowSession, true))
