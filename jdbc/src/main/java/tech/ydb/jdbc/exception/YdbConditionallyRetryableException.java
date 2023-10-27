@@ -1,12 +1,12 @@
 package tech.ydb.jdbc.exception;
 
-import tech.ydb.core.StatusCode;
+import tech.ydb.core.Status;
 
 // Treat this as non retryable exception by nature, i.e. need to handle in consciously
 public class YdbConditionallyRetryableException extends YdbNonRetryableException {
-    private static final long serialVersionUID = 1135970796364528563L;
+    private static final long serialVersionUID = -2371144941971339449L;
 
-    public YdbConditionallyRetryableException(String message, StatusCode statusCode) {
-        super(message, statusCode);
+    YdbConditionallyRetryableException(String message, String sqlState, Status status) {
+        super(message, sqlState, status);
     }
 }

@@ -6,9 +6,8 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 
-import tech.ydb.core.StatusCode;
 import tech.ydb.jdbc.YdbConst;
-import tech.ydb.jdbc.exception.YdbNonRetryableException;
+import tech.ydb.jdbc.exception.YdbStatusException;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Value;
 
@@ -52,10 +51,7 @@ public class YdbQuery {
                 for (int idx = 0; idx < indexesArgsNames.size(); idx += 1) {
                     String prm = indexesArgsNames.get(idx);
                     if (!values.containsKey(prm)) {
-                        throw new YdbNonRetryableException(
-                                YdbConst.MISSING_VALUE_FOR_PARAMETER + prm,
-                                StatusCode.BAD_REQUEST
-                        );
+                        throw YdbStatusException.newBadRequest(YdbConst.MISSING_VALUE_FOR_PARAMETER + prm);
                     }
 
                     if (opts.isDeclareJdbcParameters()) {
