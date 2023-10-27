@@ -1,3 +1,9 @@
+## 2.0.3 ##
+
+* Added SqlState info to YDB exceptions
+* Fixed getUpdateCount() after getMoreResults()
+* Fixed columns info for empty result sets from DatabaseMetaData
+
 ## 2.0.2 ##
 
 * Removed obsolete options
