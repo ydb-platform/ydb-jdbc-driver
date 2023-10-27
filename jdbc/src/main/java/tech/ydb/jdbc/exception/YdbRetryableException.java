@@ -1,11 +1,11 @@
 package tech.ydb.jdbc.exception;
 
-import tech.ydb.core.StatusCode;
+import tech.ydb.core.Status;
 
-public class YdbRetryableException extends YdbExecutionStatusException {
-    private static final long serialVersionUID = 688604408491567864L;
+public class YdbRetryableException extends YdbStatusException {
+    private static final long serialVersionUID = 2082287790625648960L;
 
-    public YdbRetryableException(String message, StatusCode statusCode) {
-        super(message, statusCode);
+    YdbRetryableException(String message, String sqlState, Status status) {
+        super(message, sqlState, status);
     }
 }

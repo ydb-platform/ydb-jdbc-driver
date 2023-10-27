@@ -312,7 +312,7 @@ public class YdbStatementImplTest {
 
     @Test
     public void executeScanQueryMultiResult() {
-        ExceptionAssert.ydbConditionallyRetryable("Scan query should have a single result set",
+        ExceptionAssert.ydbNonRetryable("Scan query should have a single result set",
                 () -> statement.executeUpdate("scan select 2 + 2;scan select 2 + 3")
         );
     }
@@ -320,7 +320,7 @@ public class YdbStatementImplTest {
     @Test
     public void executeScanQueryAsUpdate() {
         // Looks weird
-        ExceptionAssert.ydbConditionallyRetryable("Scan query should have a single result set",
+        ExceptionAssert.ydbNonRetryable("Scan query should have a single result set",
                 () -> statement.executeUpdate("SCAN\n" + TEST_UPSERT1_SQL)
         );
     }
