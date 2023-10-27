@@ -722,7 +722,9 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
         public TableRecord(String name) {
             this.name = name;
-            this.isSystem = name.startsWith(".sys/") || name.startsWith(".sys_health/");
+            this.isSystem = name.startsWith(".sys/")
+                    || name.startsWith(".sys_health/")
+                    || name.startsWith(".sys_health_dev/");
         }
 
         @Override
@@ -1397,9 +1399,5 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     static String withSuffix(String prefix) {
         return prefix == null || prefix.endsWith("/") ? prefix : prefix + "/";
-    }
-
-    interface TableCollector {
-        void collect(String tableName, TableDescription tableDescription, List<Map<String, Object>> rows);
     }
 }
