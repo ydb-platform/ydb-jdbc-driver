@@ -30,7 +30,7 @@ import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.common.FixedResultSetFactory;
 import tech.ydb.jdbc.common.YdbFunctions;
 import tech.ydb.jdbc.context.YdbExecutor;
-import tech.ydb.jdbc.exception.YdbExecutionStatusException;
+import tech.ydb.jdbc.exception.YdbStatusException;
 import tech.ydb.proto.scheme.SchemeOperationProtos;
 import tech.ydb.scheme.SchemeClient;
 import tech.ydb.scheme.description.ListDirectoryResult;
@@ -1352,8 +1352,8 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
                 return executor.call("Describe table " + table,
                         () -> session.describeTable(databaseWithSuffix + table, settings)
                 );
-            } catch (YdbExecutionStatusException ex) {
-                if (ex.getStatusCode() != StatusCode.SCHEME_ERROR) { // ignore scheme errors like path not found
+            } catch (YdbStatusException ex) {
+                if (ex.getStatus().getCode() != StatusCode.SCHEME_ERROR) { // ignore scheme errors like path not found
                     throw ex;
                 }
                 LOGGER.log(Level.WARNING, "Cannot describe table {0} -> {1}",
