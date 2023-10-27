@@ -8,9 +8,7 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.logging.Logger;
 
@@ -18,6 +16,7 @@ import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
+import tech.ydb.jdbc.common.FixedResultSetFactory;
 import tech.ydb.jdbc.context.YdbExecutor;
 import tech.ydb.jdbc.exception.YdbResultTruncatedException;
 import tech.ydb.jdbc.query.YdbQuery;
@@ -38,6 +37,11 @@ import static tech.ydb.jdbc.YdbConst.RESULT_SET_MODE_UNSUPPORTED;
  */
 public abstract class BaseYdbStatement implements YdbStatement {
     protected static final ResultState EMPTY_STATE = new ResultState();
+
+    private static FixedResultSetFactory EXPLAIN_RS_FACTORY = FixedResultSetFactory.newBuilder()
+            .addTextColumn(YdbConst.EXPLAIN_COLUMN_AST)
+            .addTextColumn(YdbConst.EXPLAIN_COLUMN_PLAN)
+            .build();
 
     private final YdbConnection connection;
     private final YdbExecutor executor;
@@ -177,10 +181,12 @@ public abstract class BaseYdbStatement implements YdbStatement {
     protected ResultState executeExplainQuery(YdbQuery query) throws SQLException {
         ExplainDataQueryResult explainDataQuery = connection.executeExplainQuery(query, executor);
 
-        Map<String, Object> row = new HashMap<>();
-        row.put(YdbConst.EXPLAIN_COLUMN_AST, explainDataQuery.getQueryAst());
-        row.put(YdbConst.EXPLAIN_COLUMN_PLAN, explainDataQuery.getQueryPlan());
-        ResultSetReader result = MappingResultSets.readerFromMap(row);
+        ResultSetReader result = EXPLAIN_RS_FACTORY.createResultSet()
+                .newRow()
+                .withTextValue(YdbConst.EXPLAIN_COLUMN_AST, explainDataQuery.getQueryAst())
+                .withTextValue(YdbConst.EXPLAIN_COLUMN_PLAN, explainDataQuery.getQueryPlan())
+                .build()
+                .build();
 
         List<YdbResultSet> list = Collections.singletonList(new YdbResultSetImpl(this, result));
         return new ResultState(list);

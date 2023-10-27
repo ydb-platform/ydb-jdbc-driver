@@ -3,8 +3,6 @@ package tech.ydb.jdbc.impl;
 import java.sql.SQLException;
 import java.util.Objects;
 
-import com.google.common.base.Preconditions;
-
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSetMetaData;
 import tech.ydb.jdbc.common.TypeDescription;
@@ -16,14 +14,15 @@ public class YdbResultSetMetaDataImpl implements YdbResultSetMetaData {
     private final TypeDescription[] descriptions;
     private final String[] names;
 
-    YdbResultSetMetaDataImpl(ResultSetReader result, TypeDescription[] descriptions) {
+    YdbResultSetMetaDataImpl(ResultSetReader result) {
         this.result = Objects.requireNonNull(result);
-        this.descriptions = Objects.requireNonNull(descriptions);
-        this.names = asNames(result);
-        Preconditions.checkState(result.getColumnCount() == descriptions.length,
-                "Internal error, column count in resultSet must be equals to extract column descriptions");
-        Preconditions.checkState(descriptions.length == names.length,
-                "Internal error, column description count must be equals to extract column names");
+        this.descriptions = new TypeDescription[result.getColumnCount()];
+        this.names = new String[result.getColumnCount()];
+
+        for (int i = 0; i < result.getColumnCount(); i++) {
+            descriptions[i] = TypeDescription.of(result.getColumnType(i));
+            names[i] = result.getColumnName(i);
+        }
     }
 
     @Override
@@ -162,14 +161,6 @@ public class YdbResultSetMetaDataImpl implements YdbResultSetMetaData {
         return descriptions[getIndex(column)];
     }
 
-
-    private static String[] asNames(ResultSetReader result) {
-        String[] names = new String[result.getColumnCount()];
-        for (int i = 0; i < names.length; i++) {
-            names[i] = result.getColumnName(i);
-        }
-        return names;
-    }
 
     @Override
     public <T> T unwrap(Class<T> iface) throws SQLException {

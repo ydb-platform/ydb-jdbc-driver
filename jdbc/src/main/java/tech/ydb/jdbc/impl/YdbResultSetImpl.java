@@ -26,9 +26,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.LongFunction;
-import java.util.function.Supplier;
-
-import com.google.common.base.Suppliers;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
@@ -46,8 +43,7 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     private final YdbStatement statement;
     private final ResultSetReader result;
-    private final TypeDescription[] types;
-    private final Supplier<YdbResultSetMetaData> metaDataSupplier;
+    private final YdbResultSetMetaDataImpl metaData;
 
     private final int rowCount;
 
@@ -55,8 +51,7 @@ public class YdbResultSetImpl implements YdbResultSet {
         this.statement = Objects.requireNonNull(statement);
         this.result = Objects.requireNonNull(result);
         this.rowCount = result.getRowCount();
-        this.types = asDescription(result);
-        this.metaDataSupplier = Suppliers.memoize(() -> new YdbResultSetMetaDataImpl(result, types))::get;
+        this.metaData = new YdbResultSetMetaDataImpl(result);
     }
 
     @Override
@@ -267,7 +262,7 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public YdbResultSetMetaData getMetaData() {
-        return metaDataSupplier.get();
+        return metaData;
     }
 
     @Override
@@ -561,10 +556,6 @@ public class YdbResultSetImpl implements YdbResultSet {
     }
 
 
-    private TypeDescription getDescription(int columnIndex) {
-        return types[columnIndex - 1];
-    }
-
     private boolean isNullValue(TypeDescription description, ValueReader value) {
         return description.isOptional() && !value.isOptionalItemPresent();
     }
@@ -572,7 +563,7 @@ public class YdbResultSetImpl implements YdbResultSet {
     private void initValueReader(int columnIndex) throws SQLException {
         try {
             ValueReader value = result.getColumn(columnIndex - 1);
-            TypeDescription description = getDescription(columnIndex);
+            TypeDescription description = TypeDescription.of(result.getColumnType(columnIndex - 1));
             state.value = value;
             state.description = description;
             state.nullValue = isNullValue(description, value);
@@ -605,15 +596,6 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     private boolean isRowIndexValid() {
         return state.rowIndex > 0 && state.rowIndex <= rowCount;
-    }
-
-    private static TypeDescription[] asDescription(ResultSetReader result) {
-        // TODO: cache?
-        TypeDescription[] descriptions = new TypeDescription[result.getColumnCount()];
-        for (int i = 0; i < descriptions.length; i++) {
-            descriptions[i] = TypeDescription.of(result.getColumnType(i));
-        }
-        return descriptions;
     }
 
     private static class MutableState {
