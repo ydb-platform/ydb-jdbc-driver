@@ -284,9 +284,12 @@ public class YdbTypesImpl implements YdbTypes {
     public List<Type> getAllDatabaseTypes() {
         return Arrays.asList(
                 PrimitiveType.Bool,
+                PrimitiveType.Int8,
+                PrimitiveType.Int16,
                 PrimitiveType.Int32,
                 PrimitiveType.Int64,
                 PrimitiveType.Uint8,
+                PrimitiveType.Uint16,
                 PrimitiveType.Uint32,
                 PrimitiveType.Uint64,
                 PrimitiveType.Float,
