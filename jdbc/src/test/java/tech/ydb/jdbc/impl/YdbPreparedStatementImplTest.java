@@ -427,7 +427,7 @@ public class YdbPreparedStatementImplTest {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
 
-            ExceptionAssert.ydbConditionallyRetryable("Scan query should have a single result set",
+            ExceptionAssert.ydbNonRetryable("Scan query should have a single result set",
                     statement::executeScanQuery);
         }
     }
