@@ -61,7 +61,7 @@ public class YdbDriverStaticCredsTest {
     }
 
     private ConnectionSupplier connectByAuthority(String username, String password) {
-        return () -> DriverManager.getConnection(jdbcURL.disableToken().withAutority(username, password).build());
+        return () -> DriverManager.getConnection(jdbcURL.disableToken().withAuthority(username, password).build());
     }
 
     private void testConnection(ConnectionSupplier connectionSupplier) throws SQLException {
@@ -94,7 +94,7 @@ public class YdbDriverStaticCredsTest {
     }
 
     @Test
-    public void connectWrong() throws SQLException {
+    public void connectWrong() {
         wrongConnection(connectByProperties("user1", "a"));
         wrongConnection(connectByAuthority("user1", "a"));
 

@@ -43,7 +43,7 @@ public class JdbcConnectionExtention implements ExecutionCondition,
     }
 
     private void register(ExtensionContext ctx) throws SQLException {
-        Assert.assertFalse("Dublicate of context registration", map.containsKey(ctx));
+        Assert.assertFalse("Duplicate of context registration", map.containsKey(ctx));
 
         Connection connection = DriverManager.getConnection(jdbcURL());
         map.put(ctx, connection);
@@ -63,7 +63,7 @@ public class JdbcConnectionExtention implements ExecutionCondition,
     }
 
     public Connection connection() {
-        Assert.assertFalse("Retrive connection before initialization", stack.isEmpty());
+        Assert.assertFalse("Retrieve connection before initialization", stack.isEmpty());
         return stack.peek();
     }
 

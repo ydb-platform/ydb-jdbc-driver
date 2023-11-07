@@ -30,7 +30,7 @@ public class YdbConfig {
     public Properties getSafeProps() {
         Properties safe = new Properties();
         for (String key: properties.stringPropertyNames()) {
-            if (isSensetive(key)) {
+            if (isSensitive(key)) {
                 safe.put(key, "***");
             } else {
                 safe.put(key, properties.get(key));
@@ -39,7 +39,7 @@ public class YdbConfig {
         return safe;
     }
 
-    private static boolean isSensetive(String key) {
+    private static boolean isSensitive(String key) {
         return YdbConnectionProperty.TOKEN.getName().equalsIgnoreCase(key)
                 || "password".equalsIgnoreCase(key);
     }
