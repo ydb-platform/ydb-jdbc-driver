@@ -737,7 +737,6 @@ public class YdbConnectionImplTest {
     @DisplayName("Check unsupported by storage type {arguments}")
     @ParameterizedTest()
     @ValueSource(strings = {
-        "Uuid",
         "TzDate",
         "TzDatetime",
         "TzTimestamp",
