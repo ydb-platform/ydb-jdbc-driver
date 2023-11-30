@@ -9,7 +9,6 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
@@ -46,7 +45,7 @@ public class YdbPreparedStatementTest {
 
     // remove time part from instant in UTC
     private static Instant calcStartDayUTC(Instant instant) {
-        return LocalDate.ofInstant(instant, ZoneOffset.UTC).atStartOfDay().toInstant(ZoneOffset.UTC);
+        return instant.atOffset(ZoneOffset.UTC).toLocalDate().atStartOfDay().toInstant(ZoneOffset.UTC);
     }
 
     @BeforeAll
@@ -59,9 +58,9 @@ public class YdbPreparedStatementTest {
 
     @AfterAll
     public static void dropTable() throws SQLException {
-//        try (Statement statement = jdbc.connection().createStatement();) {
-//            statement.execute(TEST_TABLE.dropTableSQL());
-//        }
+        try (Statement statement = jdbc.connection().createStatement();) {
+            statement.execute(TEST_TABLE.dropTableSQL());
+        }
     }
 
     @BeforeEach
