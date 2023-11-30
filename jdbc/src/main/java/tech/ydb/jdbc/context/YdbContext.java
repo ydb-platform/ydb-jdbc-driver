@@ -3,6 +3,7 @@ package tech.ydb.jdbc.context;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -147,6 +148,17 @@ public class YdbContext implements AutoCloseable {
         if (props.hasStaticCredentials()) {
             builder = builder.withAuthProvider(props.getStaticCredentials());
         }
+
+        // Use custom single thread scheduler because JDBC driver doesn't need to execute retries except for DISCOERY
+        builder.withSchedulerFactory(() -> {
+            final String namePrefix = "ydb-jdbc-scheduler[" + props.hashCode() +"]-thread-";
+            final AtomicInteger threadNumber = new AtomicInteger(1);
+            return Executors.newScheduledThreadPool(1, (Runnable r) -> {
+                Thread t = new Thread(r, namePrefix + threadNumber.getAndIncrement());
+                t.setDaemon(true);
+                return t;
+            });
+        });
 
         return builder.build();
     }
