@@ -219,6 +219,22 @@ public class YdbDriverExampleTest {
                 rs.next();
                 Assertions.assertEquals(8, rs.getLong("cnt"));
             }
+
+            try (PreparedStatement ps = connection.prepareStatement("select * from table_sample where value like ? escape ?")) {
+
+                ps.setString(1, "value");
+                ps.setString(2, "^");
+
+                ResultSet rs = ps.executeQuery();
+                rs.next();
+            }
+
+            try (PreparedStatement select = connection
+                    .prepareStatement("select count(1) as cnt from table_sample")) {
+                ResultSet rs = select.executeQuery();
+                rs.next();
+                Assertions.assertEquals(8, rs.getLong("cnt"));
+            }
         }
     }
 }
