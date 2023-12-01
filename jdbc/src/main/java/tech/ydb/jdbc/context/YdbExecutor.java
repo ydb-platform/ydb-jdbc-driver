@@ -80,14 +80,14 @@ public class YdbExecutor {
 
     public <T> T call(String msg, Supplier<CompletableFuture<Result<T>>> callSupplier) throws SQLException {
         if (!isDebug) {
-            return simpleCall(callSupplier);
+            return simpleCall(msg, callSupplier);
         }
 
         logger.finest(msg);
         Stopwatch sw = Stopwatch.createStarted();
 
         try {
-            T value = simpleCall(callSupplier);
+            T value = simpleCall(msg, callSupplier);
             logger.log(Level.FINEST, "[{0}] OK ", sw.stop());
             return value;
         } catch (SQLException | RuntimeException ex) {
@@ -96,13 +96,13 @@ public class YdbExecutor {
         }
     }
 
-    private <T> T simpleCall(Supplier<CompletableFuture<Result<T>>> supplier) throws SQLException {
+    private <T> T simpleCall(String msg, Supplier<CompletableFuture<Result<T>>> supplier) throws SQLException {
         try {
             Result<T> result = supplier.get().join();
             issues.addAll(Arrays.asList(result.getStatus().getIssues()));
             return result.getValue();
         } catch (UnexpectedResultException ex) {
-            throw ExceptionFactory.createException(ex);
+            throw ExceptionFactory.createException("Cannot call '" + msg + "' with " + ex.getStatus(), ex);
         }
     }
 
@@ -110,7 +110,8 @@ public class YdbExecutor {
         Status status = supplier.get().join();
         issues.addAll(Arrays.asList(status.getIssues()));
         if (!status.isSuccess()) {
-            throw ExceptionFactory.createException(new UnexpectedResultException(msg, status));
+            throw ExceptionFactory.createException("Cannot execute '" + msg + "' with " + status,
+                    new UnexpectedResultException("Unexpected status", status));
         }
     }
 }
