@@ -119,7 +119,7 @@ public class YdbPreparedStatementWithDataQueryImplTest {
         String sql = upsertSql("c_Text", "Text");  // Must be Text?
         try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(sql)) {
             statement.setInt("key", 1);
-            ExceptionAssert.ydbNonRetryable("Missing value for parameter", statement::execute);
+            ExceptionAssert.sqlDataException("Missing value for parameter", statement::execute);
         }
 
         try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(sql)) {
@@ -290,7 +290,7 @@ public class YdbPreparedStatementWithDataQueryImplTest {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
 
-            ExceptionAssert.ydbNonRetryable("Scan query should have a single result set", statement::execute);
+            ExceptionAssert.ydbException("Scan query should have a single result set", statement::execute);
         }
     }
 }

@@ -1,16 +1,14 @@
 package tech.ydb.jdbc.impl.helper;
 
+import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.sql.SQLRecoverableException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.function.Executable;
 
-import tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
-import tech.ydb.jdbc.exception.YdbConfigurationException;
-import tech.ydb.jdbc.exception.YdbExecutionException;
-import tech.ydb.jdbc.exception.YdbNonRetryableException;
-import tech.ydb.jdbc.exception.YdbResultTruncatedException;
+import tech.ydb.jdbc.exception.YdbSQLException;
 
 /**
  *
@@ -19,42 +17,28 @@ import tech.ydb.jdbc.exception.YdbResultTruncatedException;
 public class ExceptionAssert {
     private ExceptionAssert() { }
 
-    public static void ydbConfiguration(String message, Executable exec) {
-        YdbConfigurationException ex = Assertions.assertThrows(YdbConfigurationException.class, exec,
-                "Invalid statement must throw YdbConfigurationException"
-        );
-        Assertions.assertEquals(message, ex.getMessage());
-    }
-
-    public static void ydbNonRetryable(String message, Executable exec) {
-        YdbNonRetryableException ex = Assertions.assertThrows(YdbNonRetryableException.class, exec,
-                "Invalid statement must throw YdbNonRetryableException"
+    public static void ydbException(String message, Executable exec) {
+        YdbSQLException ex = Assertions.assertThrows(YdbSQLException.class, exec,
+                "Invalid statement must throw YdbSQLException"
         );
         Assertions.assertTrue(ex.getMessage().contains(message),
                 "YdbNonRetryableException '" + ex.getMessage() + "' doesn't contain message '" + message + "'");
     }
 
-    public static void ydbExecution(String message, Executable exec) {
-        YdbExecutionException ex = Assertions.assertThrows(YdbExecutionException.class, exec,
-                "Invalid statement must throw YdbExecutionException"
-        );
-        Assertions.assertEquals(message, ex.getMessage());
-    }
-
-    public static void ydbResultTruncated(String message, Executable exec) {
-        YdbResultTruncatedException ex = Assertions.assertThrows(YdbResultTruncatedException.class, exec,
-                "Invalid statement must throw YdbExecutionException"
-        );
-        Assertions.assertEquals(message, ex.getMessage());
-    }
-
-    public static void ydbConditionallyRetryable(String message, Executable exec) {
-        YdbConditionallyRetryableException ex = Assertions.assertThrows(YdbConditionallyRetryableException.class, exec,
-                "Invalid statement must throw YdbConditionallyRetryableException"
+    public static void sqlDataException(String message, Executable exec) {
+        SQLDataException ex = Assertions.assertThrows(SQLDataException.class, exec,
+                "Invalid statement must throw SQLDataException"
         );
         Assertions.assertTrue(ex.getMessage().contains(message),
-                "YdbConditionallyRetryableException '" + ex.getMessage()
-                        + "' doesn't contain message '" + message + "'");
+                "SQLDataException '" + ex.getMessage() + "' doesn't contain message '" + message + "'");
+    }
+
+    public static void sqlRecoverable(String message, Executable exec) {
+        SQLRecoverableException ex = Assertions.assertThrows(SQLRecoverableException.class, exec,
+                "Invalid statement must throw SQLRecoverableException"
+        );
+        Assertions.assertTrue(ex.getMessage().contains(message),
+                "SQLRecoverableException '" + ex.getMessage() + "' doesn't contain message '" + message + "'");
     }
 
     public static void sqlFeatureNotSupported(String message, Executable exec) {

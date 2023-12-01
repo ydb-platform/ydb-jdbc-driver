@@ -116,7 +116,7 @@ public class YdbPreparedStatementTest {
 
         try (PreparedStatement statement = jdbc.connection().prepareStatement(sql)) {
             statement.setInt(1, 1);
-            ExceptionAssert.ydbNonRetryable("Missing value for parameter", statement::execute);
+            ExceptionAssert.sqlDataException("Missing value for parameter", statement::execute);
         }
     }
 

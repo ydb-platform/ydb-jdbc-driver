@@ -249,7 +249,7 @@ public class YdbConnectionImplTest {
             String txId = getTxId(jdbc.connection());
             Assertions.assertNotNull(txId);
 
-            ExceptionAssert.ydbNonRetryable("Column reference 'x' (S_ERROR)", () -> statement.execute("select 2 + x"));
+            ExceptionAssert.ydbException("Column reference 'x' (S_ERROR)", () -> statement.execute("select 2 + x"));
 
             statement.execute(SELECT_2_2);
             Assertions.assertNotNull(getTxId(jdbc.connection()));
@@ -480,7 +480,7 @@ public class YdbConnectionImplTest {
             statement.execute(SIMPLE_UPSERT);
             statement.execute(SIMPLE_UPSERT);
 
-            ExceptionAssert.ydbNonRetryable("Member not found: key2. Did you mean key?",
+            ExceptionAssert.ydbException("Member not found: key2. Did you mean key?",
                     () -> statement.executeQuery(QUERIES.wrongSelectSQL()));
 
             Assertions.assertNull(getTxId(jdbc.connection()));
@@ -502,7 +502,7 @@ public class YdbConnectionImplTest {
 
             statement.execute(SIMPLE_UPSERT);
 
-            ExceptionAssert.ydbNonRetryable("Member not found: key2. Did you mean key?",
+            ExceptionAssert.ydbException("Member not found: key2. Did you mean key?",
                     () -> statement.executeQuery(QUERIES.wrongSelectSQL()));
 
             Assertions.assertNull(getTxId(jdbc.connection()));
@@ -746,7 +746,7 @@ public class YdbConnectionImplTest {
         String sql = "create table " + tableName + " (key Int32, payload " + type + ", primary key(key))";
 
         try (Statement statement = jdbc.connection().createStatement()) {
-            ExceptionAssert.ydbNonRetryable("is not supported by storage", () -> statement.execute(sql));
+            ExceptionAssert.ydbException("is not supported by storage", () -> statement.execute(sql));
         }
     }
 
@@ -762,7 +762,7 @@ public class YdbConnectionImplTest {
         String sql = "create table " + tableName + " (key Int32, payload " + type + ", primary key(key))";
 
         try (Statement statement = jdbc.connection().createStatement()) {
-            ExceptionAssert.ydbNonRetryable("Invalid type for column: payload.",
+            ExceptionAssert.ydbException("Invalid type for column: payload.",
                     () -> statement.execute(sql));
         }
     }
