@@ -68,14 +68,19 @@ public class JdbcQueryLexer {
                         }
 
                         // Detect data query expression - starts with SELECT, UPDATE, INSERT, UPSERT, DELETE, REPLACE
-                        if (parseSelectKeyword(chars, i)
-                                || parseUpdateKeyword(chars, i)
+                        if (parseSelectKeyword(chars, i)) {
+                            builder.addExpression(QueryType.DATA_QUERY, YdbExpression.SELECT);
+                            detectJdbcArgs = options.isDetectJdbcParameters();
+                            break;
+                        }
+
+                        if (parseUpdateKeyword(chars, i)
                                 || parseInsertKeyword(chars, i)
                                 || parseUpsertKeyword(chars, i)
                                 || parseDeleteKeyword(chars, i)
                                 || parseReplaceKeyword(chars, i)
                                 ) {
-                            builder.setQueryType(QueryType.DATA_QUERY);
+                            builder.addExpression(QueryType.DATA_QUERY, YdbExpression.OTHER_DML);
                             detectJdbcArgs = options.isDetectJdbcParameters();
                             break;
                         }
@@ -84,13 +89,13 @@ public class JdbcQueryLexer {
                         if (parseAlterKeyword(chars, i)
                                 || parseCreateKeyword(chars, i)
                                 || parseDropKeyword(chars, i)) {
-                            builder.setQueryType(QueryType.SCHEME_QUERY);
+                            builder.addExpression(QueryType.SCHEME_QUERY, YdbExpression.DDL);
                             break;
                         }
 
                         // Detect scan expression - starts with SCAN
                         if (parseScanKeyword(chars, i)) {
-                            builder.setQueryType(QueryType.SCAN_QUERY);
+                            builder.addExpression(QueryType.SCAN_QUERY, YdbExpression.SELECT);
                             detectJdbcArgs = options.isDetectJdbcParameters();
 
                             // Skip SCAN prefix
@@ -101,7 +106,7 @@ public class JdbcQueryLexer {
 
                         // Detect explain expression - starts with EXPLAIN
                         if (parseExplainKeyword(chars, i)) {
-                            builder.setQueryType(QueryType.EXPLAIN_QUERY);
+                            builder.addExpression(QueryType.EXPLAIN_QUERY, YdbExpression.SELECT);
                             detectJdbcArgs = options.isDetectJdbcParameters();
 
                             // Skip EXPLAIN prefix
