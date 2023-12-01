@@ -17,4 +17,11 @@ public class YdbExpression {
         this.isSelect = isSelect;
     }
 
+    public boolean isDDL() {
+        return isDDL;
+    }
+
+    public boolean isSelect() {
+        return isSelect;
+    }
 }

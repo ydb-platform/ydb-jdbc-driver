@@ -36,6 +36,10 @@ public class YdbQuery {
         return originSQL;
     }
 
+    public List<YdbExpression> getExpressions() {
+        return expressions;
+    }
+
     public boolean hasIndexesParameters() {
         return indexesArgsNames != null && !indexesArgsNames.isEmpty();
     }

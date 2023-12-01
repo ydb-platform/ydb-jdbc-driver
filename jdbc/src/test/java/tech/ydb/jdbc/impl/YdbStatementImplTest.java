@@ -384,6 +384,8 @@ public class YdbStatementImplTest {
         statement.execute(TEST_UPSERT1_SQL + ";\n" + TEST_UPSERT2_SQL + ";");
         Assertions.assertEquals(1, statement.getUpdateCount()); // just a single statement
         Assertions.assertFalse(statement.getMoreResults());
+        Assertions.assertEquals(1, statement.getUpdateCount());
+        Assertions.assertFalse(statement.getMoreResults());
         Assertions.assertEquals(-1, statement.getUpdateCount());
 
         Assertions.assertTrue(statement.execute("select 2 + 2"));
@@ -426,9 +428,8 @@ public class YdbStatementImplTest {
 
         ResultSet rs0 = statement.getResultSet();
 
-        // TODO: YDB don't support update count so next lines are not working
-        // Assertions.assertFalse(statement.getMoreResults());
-        // Assertions.assertEquals(1, statement.getUpdateCount());
+        Assertions.assertFalse(statement.getMoreResults());
+        Assertions.assertEquals(1, statement.getUpdateCount());
 
         Assertions.assertTrue(statement.getMoreResults());
         Assertions.assertEquals(-1, statement.getUpdateCount());

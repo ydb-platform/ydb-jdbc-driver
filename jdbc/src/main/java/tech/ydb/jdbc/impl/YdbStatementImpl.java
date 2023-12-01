@@ -39,7 +39,7 @@ public class YdbStatementImpl extends BaseYdbStatement {
         clearBatch();
 
         YdbQuery query = createYdbQuery(sql);
-        ResultState results = executeScanQuery(query, Params.empty());
+        List<YdbResult> results = executeScanQuery(query, Params.empty());
         if (!updateState(results)) {
             throw new SQLException(YdbConst.QUERY_EXPECT_RESULT_SET);
         }
@@ -52,7 +52,7 @@ public class YdbStatementImpl extends BaseYdbStatement {
         clearBatch();
 
         YdbQuery query = createYdbQuery(sql);
-        ResultState newState = executeExplainQuery(query);
+        List<YdbResult> newState = executeExplainQuery(query);
         if (!updateState(newState)) {
             throw new SQLException(YdbConst.QUERY_EXPECT_RESULT_SET);
         }
@@ -80,10 +80,10 @@ public class YdbStatementImpl extends BaseYdbStatement {
         cleanState();
 
         YdbQuery query = createYdbQuery(sql);
-        ResultState newState = EMPTY_STATE;
+        List<YdbResult> newState = null;
         switch (query.type()) {
             case SCHEME_QUERY:
-                executeSchemeQuery(query);
+                newState = executeSchemeQuery(query);
                 break;
             case DATA_QUERY:
                 newState = executeDataQuery(query, Params.empty());
