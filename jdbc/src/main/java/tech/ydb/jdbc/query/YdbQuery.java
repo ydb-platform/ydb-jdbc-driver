@@ -2,12 +2,12 @@ package tech.ydb.jdbc.query;
 
 
 
+import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 
 import tech.ydb.jdbc.YdbConst;
-import tech.ydb.jdbc.exception.YdbStatusException;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Value;
 
@@ -51,7 +51,7 @@ public class YdbQuery {
                 for (int idx = 0; idx < indexesArgsNames.size(); idx += 1) {
                     String prm = indexesArgsNames.get(idx);
                     if (!values.containsKey(prm)) {
-                        throw YdbStatusException.newBadRequest(YdbConst.MISSING_VALUE_FOR_PARAMETER + prm);
+                        throw new SQLDataException(YdbConst.MISSING_VALUE_FOR_PARAMETER + prm);
                     }
 
                     if (opts.isDeclareJdbcParameters()) {

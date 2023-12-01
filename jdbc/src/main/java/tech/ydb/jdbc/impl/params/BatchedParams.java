@@ -1,6 +1,7 @@
 package tech.ydb.jdbc.impl.params;
 
 
+import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -14,7 +15,6 @@ import java.util.TreeSet;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
-import tech.ydb.jdbc.exception.YdbStatusException;
 import tech.ydb.jdbc.impl.YdbJdbcParams;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.ListType;
@@ -119,7 +119,7 @@ public class BatchedParams implements YdbJdbcParams {
                 continue;
             }
 
-            throw YdbStatusException.newBadRequest(YdbConst.MISSING_VALUE_FOR_PARAMETER + prm.displayName());
+            throw new SQLDataException(YdbConst.MISSING_VALUE_FOR_PARAMETER + prm.displayName());
         }
         return StructValue.of(currentValues);
     }

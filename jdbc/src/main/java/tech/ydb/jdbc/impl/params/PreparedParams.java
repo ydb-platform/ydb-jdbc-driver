@@ -1,6 +1,7 @@
 package tech.ydb.jdbc.impl.params;
 
 
+import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -94,7 +95,7 @@ public class PreparedParams implements YdbJdbcParams {
     }
 
     @Override
-    public void addBatch() {
+    public void addBatch() throws SQLException {
         batchList.add(getCurrentParams());
         clearParameters();
     }
@@ -114,14 +115,23 @@ public class PreparedParams implements YdbJdbcParams {
         return batchList.size();
     }
 
+    private Params validateParams(Map<String, Value<?>> values) throws SQLException {
+        for (String key: this.params.keySet()) {
+            if (!values.containsKey(key)) {
+                throw new SQLDataException(YdbConst.MISSING_VALUE_FOR_PARAMETER + key);
+            }
+        }
+        return Params.copyOf(values);
+    }
+
     @Override
     public List<Params> getBatchParams() {
         return batchList;
     }
 
     @Override
-    public Params getCurrentParams() {
-        return Params.copyOf(paramValues);
+    public Params getCurrentParams() throws SQLException {
+        return validateParams(paramValues);
     }
 
     @Override

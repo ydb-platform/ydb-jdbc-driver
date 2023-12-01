@@ -36,7 +36,6 @@ import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbExecutor;
 import tech.ydb.jdbc.context.YdbTxState;
-import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.settings.FakeTxMode;
@@ -270,7 +269,7 @@ public class YdbConnectionImpl implements YdbConnection {
                     break;
                 case ERROR:
                 default:
-                    throw new YdbExecutionException(YdbConst.SCHEME_QUERY_INSIDE_TRANSACTION);
+                    throw new SQLException(YdbConst.SCHEME_QUERY_INSIDE_TRANSACTION);
 
             }
         }
@@ -317,8 +316,7 @@ public class YdbConnectionImpl implements YdbConnection {
                     break;
                 case ERROR:
                 default:
-                    throw new YdbExecutionException(YdbConst.SCAN_QUERY_INSIDE_TRANSACTION);
-
+                    throw new SQLException(YdbConst.SCAN_QUERY_INSIDE_TRANSACTION);
             }
         }
 

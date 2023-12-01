@@ -16,8 +16,8 @@ import com.google.common.base.Stopwatch;
 import tech.ydb.core.Issue;
 import tech.ydb.core.Result;
 import tech.ydb.core.Status;
-import tech.ydb.jdbc.exception.YdbExecutionException;
-import tech.ydb.jdbc.exception.YdbStatusException;
+import tech.ydb.core.UnexpectedResultException;
+import tech.ydb.jdbc.exception.ExceptionFactory;
 import tech.ydb.table.Session;
 
 /**
@@ -62,7 +62,7 @@ public class YdbExecutor {
 
     public void execute(String msg, Supplier<CompletableFuture<Status>> runnableSupplier) throws SQLException {
         if (!isDebug) {
-            simpleExecute(runnableSupplier);
+            simpleExecute(msg, runnableSupplier);
             return;
         }
 
@@ -70,7 +70,7 @@ public class YdbExecutor {
         Stopwatch sw = Stopwatch.createStarted();
 
         try {
-            simpleExecute(runnableSupplier);
+            simpleExecute(msg, runnableSupplier);
             logger.log(Level.FINEST, "[{0}] OK ", sw.stop());
         } catch (SQLException | RuntimeException ex) {
             logger.log(Level.FINE, "[{0}] {1} ", new Object[] { sw.stop(), ex.getMessage() });
@@ -99,26 +99,18 @@ public class YdbExecutor {
     private <T> T simpleCall(Supplier<CompletableFuture<Result<T>>> supplier) throws SQLException {
         try {
             Result<T> result = supplier.get().join();
-            validate(result.getStatus().toString(), result.getStatus());
+            issues.addAll(Arrays.asList(result.getStatus().getIssues()));
             return result.getValue();
-        } catch (RuntimeException ex) {
-            throw new YdbExecutionException(ex.getMessage(), ex);
+        } catch (UnexpectedResultException ex) {
+            throw ExceptionFactory.createException(ex);
         }
     }
 
-    private void simpleExecute(Supplier<CompletableFuture<Status>> supplier) throws SQLException {
-        try {
-            Status status = supplier.get().join();
-            validate(status.toString(), status);
-        } catch (RuntimeException ex) {
-            throw new YdbExecutionException(ex.getMessage(), ex);
-        }
-    }
-
-    private void validate(String message, Status status) throws SQLException {
+    private void simpleExecute(String msg, Supplier<CompletableFuture<Status>> supplier) throws SQLException {
+        Status status = supplier.get().join();
         issues.addAll(Arrays.asList(status.getIssues()));
         if (!status.isSuccess()) {
-            throw YdbStatusException.newException(message, status);
+            throw ExceptionFactory.createException(new UnexpectedResultException(msg, status));
         }
     }
 }

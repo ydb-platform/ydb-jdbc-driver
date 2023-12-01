@@ -25,7 +25,6 @@ import io.grpc.netty.shaded.io.netty.util.collection.IntObjectMap;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbTypes;
-import tech.ydb.jdbc.exception.YdbRuntimeException;
 import tech.ydb.table.values.DecimalValue;
 import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.table.values.Type;
@@ -210,8 +209,7 @@ public class YdbTypesImpl implements YdbTypes {
 
             Integer value = sqlTypeByPrimitiveNumId.get(type);
             if (value == null) {
-                throw new YdbRuntimeException("Internal error. Unsupported YDB type: " + idType +
-                        " as " + type);
+                throw new RuntimeException("Internal error. Unsupported YDB type: " + idType + " as " + type);
             }
             return value;
         } else {

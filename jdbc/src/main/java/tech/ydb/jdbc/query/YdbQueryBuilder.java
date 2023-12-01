@@ -1,10 +1,11 @@
 package tech.ydb.jdbc.query;
 
+import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
 import java.util.List;
 
 import tech.ydb.jdbc.YdbConst;
-import tech.ydb.jdbc.exception.YdbStatusException;
 
 /**
  *
@@ -36,13 +37,13 @@ public class YdbQueryBuilder {
         }
     }
 
-    public void setQueryType(QueryType type) throws YdbStatusException {
+    public void setQueryType(QueryType type) throws SQLException {
         if (forcedType != null) {
             return;
         }
 
         if (currentType != null && currentType != type) {
-            throw YdbStatusException.newBadRequest(YdbConst.MULTI_TYPES_IN_ONE_QUERY + currentType + ", " + type);
+            throw new SQLFeatureNotSupportedException(YdbConst.MULTI_TYPES_IN_ONE_QUERY + currentType + ", " + type);
         }
         this.currentType = type;
     }
