@@ -1,5 +1,6 @@
 package tech.ydb.jdbc.impl;
 
+import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -9,7 +10,6 @@ import javax.annotation.Nullable;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.common.TypeDescription;
-import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.jdbc.impl.params.BatchedParams;
 import tech.ydb.jdbc.impl.params.InMemoryParams;
 import tech.ydb.jdbc.impl.params.PreparedParams;
@@ -61,7 +61,7 @@ public interface YdbJdbcParams {
             }
 
             if (requireBatch) {
-                throw new YdbExecutionException(YdbConst.STATEMENT_IS_NOT_A_BATCH + query.originSQL());
+                throw new SQLDataException(YdbConst.STATEMENT_IS_NOT_A_BATCH + query.originSQL());
             }
         }
 

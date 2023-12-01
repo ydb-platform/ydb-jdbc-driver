@@ -14,7 +14,6 @@ import java.util.Properties;
 
 import tech.ydb.core.utils.URITools;
 import tech.ydb.jdbc.YdbConst;
-import tech.ydb.jdbc.exception.YdbConfigurationException;
 
 
 /**
@@ -31,7 +30,7 @@ public class YdbJdbcTools {
     public static YdbProperties from(String jdbcURL, Properties origProperties) throws SQLException {
         if (!isYdb(jdbcURL)) {
             String msg = "[" + jdbcURL + "] is not a YDB URL, must starts from " + YdbConst.JDBC_YDB_PREFIX;
-            throw new YdbConfigurationException(msg);
+            throw new SQLException(msg);
         }
 
         try {
@@ -111,7 +110,7 @@ public class YdbJdbcTools {
 
             return new YdbProperties(ydbConnectionProps, ydbClientProperties, ydbOperationProperties);
         } catch (URISyntaxException | RuntimeException | UnsupportedEncodingException ex) {
-            throw new YdbConfigurationException(ex.getMessage(), ex);
+            throw new SQLException(ex.getMessage(), ex);
         }
     }
 
@@ -130,16 +129,15 @@ public class YdbJdbcTools {
                     String stringValue = (String) value;
                     try {
                         parsed = new ParsedProperty(stringValue, converter.convert(stringValue));
-                    } catch (SQLException e) {
-                        throw new YdbConfigurationException("Unable to convert property " +
-                                title + ": " + e.getMessage(), e);
+                    } catch (RuntimeException e) {
+                        throw new SQLException("Unable to convert property " + title + ": " + e.getMessage(), e);
                     }
                 } else {
                     if (property.getType().isAssignableFrom(value.getClass())) {
                         parsed = new ParsedProperty("", value);
                     } else {
-                        throw new SQLException("Invalid object property " + title +
-                                ", must be " + property.getType() + ", got " + value.getClass());
+                        throw new SQLException("Invalid object property " + title +", must be " + property.getType() +
+                                ", got " + value.getClass());
                     }
                 }
             } else {
@@ -147,9 +145,8 @@ public class YdbJdbcTools {
                 if (stringValue != null) {
                     try {
                         parsed = new ParsedProperty(stringValue, converter.convert(stringValue));
-                    } catch (SQLException e) {
-                        throw new YdbConfigurationException("Unable to convert property " +
-                                title + ": " + e.getMessage(), e);
+                    } catch (RuntimeException e) {
+                        throw new SQLException("Unable to convert property " + title + ": " + e.getMessage(), e);
                     }
                 } else {
                     parsed = null;

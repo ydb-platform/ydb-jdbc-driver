@@ -18,7 +18,6 @@ import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.common.FixedResultSetFactory;
 import tech.ydb.jdbc.context.YdbExecutor;
-import tech.ydb.jdbc.exception.YdbResultTruncatedException;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.query.YdbQueryOptions;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
@@ -213,7 +212,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
             ResultSetReader rs = result.getResultSet(idx);
             if (failOnTruncatedResult && rs.isTruncated()) {
                 String msg = String.format(YdbConst.RESULT_IS_TRUNCATED, idx, rs.getRowCount());
-                throw new YdbResultTruncatedException(msg);
+                throw new SQLException(msg);
             }
             list.add(new YdbResultSetImpl(this, rs));
         }

@@ -10,7 +10,6 @@ import java.util.logging.Logger;
 
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
-import tech.ydb.jdbc.exception.YdbConfigurationException;
 import tech.ydb.jdbc.query.YdbQueryOptions;
 import tech.ydb.jdbc.settings.ParsedProperty;
 import tech.ydb.jdbc.settings.YdbClientProperties;
@@ -132,8 +131,8 @@ public class YdbContext implements AutoCloseable {
             boolean autoResize = buildTableClient(tableClient, clientProps);
 
             return new YdbContext(config, grpcTransport, tableClient.build(), autoResize);
-        } catch (Exception ex) {
-            throw new YdbConfigurationException("Cannot connect to YDB: " + ex.getMessage(), ex);
+        } catch (RuntimeException ex) {
+            throw new SQLException("Cannot connect to YDB: " + ex.getMessage(), ex);
         }
     }
 

@@ -270,7 +270,7 @@ public class YdbStatementImplTest {
         statement.execute("create table scheme_query_test(id Int32, primary key(id))");
 
         String dropSql = "scan drop table scheme_query_test";
-        ExceptionAssert.ydbNonRetryable("Operation is not supported in current execution mode, check query type. ",
+        ExceptionAssert.ydbException("Operation is not supported in current execution mode, check query type. ",
                 () -> statement.unwrap(YdbStatement.class).executeQuery(dropSql));
         statement.unwrap(YdbStatement.class).executeSchemeQuery(dropSql);
     }
@@ -312,7 +312,7 @@ public class YdbStatementImplTest {
 
     @Test
     public void executeScanQueryMultiResult() {
-        ExceptionAssert.ydbNonRetryable("Scan query should have a single result set",
+        ExceptionAssert.ydbException("Scan query should have a single result set",
                 () -> statement.executeUpdate("scan select 2 + 2;scan select 2 + 3")
         );
     }
@@ -320,7 +320,7 @@ public class YdbStatementImplTest {
     @Test
     public void executeScanQueryAsUpdate() {
         // Looks weird
-        ExceptionAssert.ydbNonRetryable("Scan query should have a single result set",
+        ExceptionAssert.ydbException("Scan query should have a single result set",
                 () -> statement.executeUpdate("SCAN\n" + TEST_UPSERT1_SQL)
         );
     }

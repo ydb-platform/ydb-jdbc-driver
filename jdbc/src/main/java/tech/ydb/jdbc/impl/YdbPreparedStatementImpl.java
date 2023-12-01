@@ -12,6 +12,7 @@ import java.sql.NClob;
 import java.sql.Ref;
 import java.sql.ResultSetMetaData;
 import java.sql.RowId;
+import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLXML;
@@ -30,7 +31,6 @@ import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.common.MappingSetters;
-import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Type;
@@ -193,7 +193,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
     @Override
     public void setObject(String parameterName, Object x) throws SQLException {
         if (x == null) {
-            throw new YdbExecutionException(String.format(YdbConst.UNABLE_TO_SET_NULL_OBJECT));
+            throw new SQLDataException(YdbConst.UNABLE_TO_SET_NULL_OBJECT);
         }
         params.setParam(parameterName, x, ydbType(x.getClass()));
     }
@@ -201,7 +201,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
     @Override
     public void setObject(int parameterIndex, Object x) throws SQLException {
         if (x == null) {
-            throw new YdbExecutionException(String.format(YdbConst.UNABLE_TO_SET_NULL_OBJECT));
+            throw new SQLDataException(YdbConst.UNABLE_TO_SET_NULL_OBJECT);
         }
         params.setParam(parameterIndex, x, ydbType(x.getClass()));
     }

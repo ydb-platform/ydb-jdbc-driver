@@ -22,7 +22,6 @@ import java.util.concurrent.TimeUnit;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CharStreams;
 
-import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.table.values.DecimalType;
 import tech.ydb.table.values.DecimalValue;
 import tech.ydb.table.values.ListType;
@@ -461,7 +460,7 @@ public class MappingSetters {
                         return CharStreams.toString(reader);
                     }
                 } catch (IOException e) {
-                    throw new YdbExecutionException(CANNOT_LOAD_DATA_FROM_READER + e.getMessage(), e);
+                    throw new RuntimeException(CANNOT_LOAD_DATA_FROM_READER + e.getMessage(), e);
                 }
             };
         }
@@ -480,7 +479,7 @@ public class MappingSetters {
                         return ByteStreams.toByteArray(stream);
                     }
                 } catch (IOException e) {
-                    throw new YdbExecutionException(CANNOT_LOAD_DATA_FROM_IS + e.getMessage(), e);
+                    throw new RuntimeException(CANNOT_LOAD_DATA_FROM_IS + e.getMessage(), e);
                 }
             };
         }
