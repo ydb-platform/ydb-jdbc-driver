@@ -119,7 +119,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
 
     @Test
     public void testInvalidStruct() throws SQLException {
-        ExceptionAssert.ydbNonRetryable("Duplicated member: key", () -> {
+        ExceptionAssert.ydbException("Duplicated member: key", () -> {
             jdbc.connection().unwrap(YdbConnection.class).prepareStatement(
                     invalidBatchUpsertSql("c_Text", "Text"),
                     YdbPrepareMode.DATA_QUERY_BATCH);
@@ -283,7 +283,7 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
 
         jdbc.connection().commit();
 
-        ExceptionAssert.ydbResultTruncated("Result #0 was truncated to 1000 rows", () -> {
+        ExceptionAssert.sqlException("Result #0 was truncated to 1000 rows", () -> {
             // Result is truncated (and we catch that)
             try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
                 select.executeQuery();

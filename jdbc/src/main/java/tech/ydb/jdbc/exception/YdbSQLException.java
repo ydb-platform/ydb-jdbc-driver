@@ -1,15 +1,16 @@
 package tech.ydb.jdbc.exception;
 
-import java.sql.SQLRecoverableException;
+import java.sql.SQLException;
 
 import tech.ydb.core.Status;
 import tech.ydb.core.UnexpectedResultException;
 
-public class YdbRetryableException extends SQLRecoverableException {
-    private static final long serialVersionUID = -7171306648623023924L;
+public class YdbSQLException extends SQLException {
+    private static final long serialVersionUID = 6204553083196091739L;
+
     private final Status status;
 
-    YdbRetryableException(String message, String sqlState, int code, UnexpectedResultException cause) {
+    YdbSQLException(String message, String sqlState, int code, UnexpectedResultException cause) {
         super(message, sqlState, code, cause);
         this.status = cause.getStatus();
     }

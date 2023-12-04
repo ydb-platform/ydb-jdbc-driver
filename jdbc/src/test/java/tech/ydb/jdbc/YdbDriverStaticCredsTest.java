@@ -73,7 +73,7 @@ public class YdbDriverStaticCredsTest {
     }
 
     private void wrongConnection(ConnectionSupplier connectionSupplier) {
-        ExceptionAssert.ydbConfiguration("Cannot connect to YDB: gRPC error: (INTERNAL) get token exception: "
+        ExceptionAssert.sqlException("Cannot connect to YDB: gRPC error: (INTERNAL) get token exception: "
                 + "Can't login, code: UNAUTHORIZED, issues: [#400020 Invalid password (S_FATAL)]",
                 () -> testConnection(connectionSupplier));
     }

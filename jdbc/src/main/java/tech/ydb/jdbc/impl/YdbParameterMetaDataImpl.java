@@ -1,6 +1,7 @@
 package tech.ydb.jdbc.impl;
 
 
+
 import java.sql.ParameterMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -10,10 +11,12 @@ import tech.ydb.jdbc.common.TypeDescription;
 
 import static tech.ydb.jdbc.YdbConst.CANNOT_UNWRAP_TO;
 
-public class YdbParameterMetaDataImpl implements YdbParameterMetaData {
-    private final YdbJdbcParams params;
+import tech.ydb.jdbc.query.JdbcParams;
 
-    public YdbParameterMetaDataImpl(YdbJdbcParams params) {
+public class YdbParameterMetaDataImpl implements YdbParameterMetaData {
+    private final JdbcParams params;
+
+    public YdbParameterMetaDataImpl(JdbcParams params) {
         this.params = params;
     }
 

@@ -5,7 +5,6 @@ import java.time.Duration;
 import java.time.format.DateTimeParseException;
 import java.util.Locale;
 
-import tech.ydb.jdbc.exception.YdbConfigurationException;
 
 interface PropertyConverter<T> {
     T convert(String value) throws SQLException;
@@ -31,7 +30,7 @@ interface PropertyConverter<T> {
             try {
                 return Duration.parse(targetValue);
             } catch (DateTimeParseException e) {
-                throw new YdbConfigurationException("Unable to parse value [" + value + "] -> [" +
+                throw new RuntimeException("Unable to parse value [" + value + "] -> [" +
                         targetValue + "] as Duration: " + e.getMessage(), e);
             }
         };
@@ -42,7 +41,7 @@ interface PropertyConverter<T> {
             try {
                 return Integer.valueOf(value);
             } catch (NumberFormatException e) {
-                throw new YdbConfigurationException("Unable to parse value [" + value + "] as Integer: " +
+                throw new RuntimeException("Unable to parse value [" + value + "] as Integer: " +
                         e.getMessage(), e);
             }
         };

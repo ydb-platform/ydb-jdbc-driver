@@ -80,5 +80,5 @@ upsert into #tableName (
     $p19,
     $p20,
     $p21,
-    $p22,
+    $p22
 )

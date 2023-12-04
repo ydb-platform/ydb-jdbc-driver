@@ -143,7 +143,6 @@ public class YdbPreparedStatementImplTest {
             statement.setInt("key", 1);
 
             ExceptionAssert.sqlException("Parameter not found: column0", () -> statement.setObject("column0", "value"));
-            statement.execute();
         }
     }
 
@@ -268,8 +267,8 @@ public class YdbPreparedStatementImplTest {
     public void executeEmptyBatch(SqlQueries.YqlQuery mode) throws SQLException {
         String yql = TEST_TABLE.upsertOne(mode, "c_Text", "Text");
         try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(yql)) {
-            ExceptionAssert.ydbNonRetryable("Missing value for parameter", () -> statement.execute());
-            ExceptionAssert.ydbNonRetryable("Missing value for parameter", () -> statement.executeUpdate());
+            ExceptionAssert.sqlDataException("Missing value for parameter", () -> statement.execute());
+            ExceptionAssert.sqlDataException("Missing value for parameter", () -> statement.executeUpdate());
             statement.executeBatch();
         }
 
@@ -303,7 +302,7 @@ public class YdbPreparedStatementImplTest {
             }
         }
 
-        ExceptionAssert.ydbResultTruncated("Result #0 was truncated to 1000 rows", () -> {
+        ExceptionAssert.sqlException("Result #0 was truncated to 1000 rows", () -> {
             // Result is truncated (and we catch that)
             try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
                 select.executeQuery();
@@ -427,7 +426,7 @@ public class YdbPreparedStatementImplTest {
             statement.setInt("key", 1);
             statement.setString("c_Text", "value-1");
 
-            ExceptionAssert.ydbNonRetryable("Scan query should have a single result set",
+            ExceptionAssert.ydbException("Scan query should have a single result set",
                     statement::executeScanQuery);
         }
     }

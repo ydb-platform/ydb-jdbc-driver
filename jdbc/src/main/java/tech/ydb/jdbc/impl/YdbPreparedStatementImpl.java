@@ -1,5 +1,6 @@
 package tech.ydb.jdbc.impl;
 
+
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -12,6 +13,7 @@ import java.sql.NClob;
 import java.sql.Ref;
 import java.sql.ResultSetMetaData;
 import java.sql.RowId;
+import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLXML;
@@ -20,6 +22,7 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.List;
 import java.util.Objects;
 import java.util.logging.Logger;
 
@@ -30,19 +33,19 @@ import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.common.MappingSetters;
-import tech.ydb.jdbc.exception.YdbExecutionException;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Type;
 import tech.ydb.table.values.VoidType;
+import tech.ydb.jdbc.query.JdbcParams;
 
 public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPreparedStatement {
     private static final Logger LOGGER = Logger.getLogger(YdbPreparedStatementImpl.class.getName());
     private final YdbQuery query;
-    private final YdbJdbcParams params;
+    private final JdbcParams params;
     private final YdbTypes types;
 
-    public YdbPreparedStatementImpl(YdbConnection connection, YdbQuery query, YdbJdbcParams params, int resultSetType) {
+    public YdbPreparedStatementImpl(YdbConnection connection, YdbQuery query, JdbcParams params, int resultSetType) {
         super(LOGGER, connection, resultSetType, true); // is poolable by default
 
         this.query = Objects.requireNonNull(query);
@@ -123,7 +126,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
         cleanState();
         clearBatch();
 
-        ResultState newState = EMPTY_STATE;
+        List<YdbResult> newState = null;
         switch (query.type()) {
             case DATA_QUERY:
                 newState = executeDataQuery(query, params.getCurrentParams());
@@ -142,7 +145,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
     @Override
     public YdbResultSet executeScanQuery() throws SQLException {
         cleanState();
-        ResultState state = executeScanQuery(query, params.getCurrentParams());
+        List<YdbResult> state = executeScanQuery(query, params.getCurrentParams());
         params.clearParameters();
         updateState(state);
         return getResultSet();
@@ -151,7 +154,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
     @Override
     public YdbResultSet executeExplainQuery() throws SQLException {
         cleanState();
-        ResultState state = executeExplainQuery(query);
+        List<YdbResult> state = executeExplainQuery(query);
         updateState(state);
         return getResultSet();
     }
@@ -193,7 +196,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
     @Override
     public void setObject(String parameterName, Object x) throws SQLException {
         if (x == null) {
-            throw new YdbExecutionException(String.format(YdbConst.UNABLE_TO_SET_NULL_OBJECT));
+            throw new SQLDataException(YdbConst.UNABLE_TO_SET_NULL_OBJECT);
         }
         params.setParam(parameterName, x, ydbType(x.getClass()));
     }
@@ -201,7 +204,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
     @Override
     public void setObject(int parameterIndex, Object x) throws SQLException {
         if (x == null) {
-            throw new YdbExecutionException(String.format(YdbConst.UNABLE_TO_SET_NULL_OBJECT));
+            throw new SQLDataException(YdbConst.UNABLE_TO_SET_NULL_OBJECT);
         }
         params.setParam(parameterIndex, x, ydbType(x.getClass()));
     }

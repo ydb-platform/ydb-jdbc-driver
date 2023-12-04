@@ -1,17 +1,20 @@
-package tech.ydb.jdbc.impl.params;
+package tech.ydb.jdbc.query.params;
 
 
+import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
-import tech.ydb.jdbc.exception.YdbStatusException;
-import tech.ydb.jdbc.impl.YdbJdbcParams;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.ListType;
 import tech.ydb.table.values.ListValue;
@@ -19,12 +22,13 @@ import tech.ydb.table.values.StructType;
 import tech.ydb.table.values.StructValue;
 import tech.ydb.table.values.Type;
 import tech.ydb.table.values.Value;
+import tech.ydb.jdbc.query.JdbcParams;
 
 /**
  *
  * @author Aleksandr Gorshenin
  */
-public class BatchedParams implements YdbJdbcParams {
+public class BatchedParams implements JdbcParams {
     private final String batchParamName;
     private final Map<String, ParamDescription> paramsByName;
     private final ParamDescription[] params;
@@ -37,14 +41,44 @@ public class BatchedParams implements YdbJdbcParams {
         this.paramsByName = new HashMap<>();
         this.params = new ParamDescription[structType.getMembersCount()];
 
+        Map<String, Type> types = new HashMap<>();
         for (int idx = 0; idx < structType.getMembersCount(); idx += 1) {
-            String paramName = structType.getMemberName(idx);
-            String displayName = YdbConst.VARIABLE_PARAMETER_PREFIX + paramName;
-            TypeDescription type = TypeDescription.of(structType.getMemberType(idx));
+            types.put(structType.getMemberName(idx), structType.getMemberType(idx));
+        }
 
-            ParamDescription param = new ParamDescription(idx, paramName, displayName, type);
-            params[idx] = param;
-            paramsByName.put(paramName, param);
+        // Firstly put all indexed params (p1, p2, ...,  pN) in correct places of paramNames
+        Set<String> indexedNames = new HashSet<>();
+        for (int idx = 0; idx < structType.getMembersCount(); idx += 1) {
+            String indexedName = YdbConst.INDEXED_PARAMETER_PREFIX + (1 + idx);
+            if (types.containsKey(indexedName)) {
+                String displayName = YdbConst.VARIABLE_PARAMETER_PREFIX + indexedName;
+                TypeDescription typeDesc = TypeDescription.of(types.get(indexedName));
+                ParamDescription paramDesc = new ParamDescription(idx, indexedName, displayName, typeDesc);
+
+                params[idx] = paramDesc;
+                paramsByName.put(indexedName, paramDesc);
+                indexedNames.add(indexedName);
+            }
+        }
+
+        // Then put all others params in free places of paramNames in alphabetic order
+        Iterator<String> sortedIter = new TreeSet<>(types.keySet()).iterator();
+        for (int idx = 0; idx < params.length; idx += 1) {
+            if (params[idx] != null) {
+                continue;
+            }
+
+            String param = sortedIter.next();
+            while (indexedNames.contains(param)) {
+                param = sortedIter.next();
+            }
+
+            String displayName = YdbConst.VARIABLE_PARAMETER_PREFIX + param;
+            TypeDescription typeDesc = TypeDescription.of(types.get(param));
+            ParamDescription paramDesc = new ParamDescription(idx, param, displayName, typeDesc);
+
+            params[idx] = paramDesc;
+            paramsByName.put(param, paramDesc);
         }
     }
 
@@ -85,7 +119,7 @@ public class BatchedParams implements YdbJdbcParams {
                 continue;
             }
 
-            throw YdbStatusException.newBadRequest(YdbConst.MISSING_VALUE_FOR_PARAMETER + prm.displayName());
+            throw new SQLDataException(YdbConst.MISSING_VALUE_FOR_PARAMETER + prm.displayName());
         }
         return StructValue.of(currentValues);
     }

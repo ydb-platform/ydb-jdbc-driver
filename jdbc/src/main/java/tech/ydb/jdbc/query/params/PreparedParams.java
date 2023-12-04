@@ -1,6 +1,7 @@
-package tech.ydb.jdbc.impl.params;
+package tech.ydb.jdbc.query.params;
 
 
+import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -13,16 +14,16 @@ import java.util.TreeSet;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
-import tech.ydb.jdbc.impl.YdbJdbcParams;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Type;
 import tech.ydb.table.values.Value;
+import tech.ydb.jdbc.query.JdbcParams;
 
 /**
  *
  * @author Aleksandr Gorshenin
  */
-public class PreparedParams implements YdbJdbcParams {
+public class PreparedParams implements JdbcParams {
     private final Map<String, ParamDescription> params;
     private final String[] paramNames;
 
@@ -94,7 +95,7 @@ public class PreparedParams implements YdbJdbcParams {
     }
 
     @Override
-    public void addBatch() {
+    public void addBatch() throws SQLException {
         batchList.add(getCurrentParams());
         clearParameters();
     }
@@ -114,14 +115,23 @@ public class PreparedParams implements YdbJdbcParams {
         return batchList.size();
     }
 
+    private Params validateParams(Map<String, Value<?>> values) throws SQLException {
+        for (String key: this.params.keySet()) {
+            if (!values.containsKey(key)) {
+                throw new SQLDataException(YdbConst.MISSING_VALUE_FOR_PARAMETER + key);
+            }
+        }
+        return Params.copyOf(values);
+    }
+
     @Override
     public List<Params> getBatchParams() {
         return batchList;
     }
 
     @Override
-    public Params getCurrentParams() {
-        return Params.copyOf(paramValues);
+    public Params getCurrentParams() throws SQLException {
+        return validateParams(paramValues);
     }
 
     @Override

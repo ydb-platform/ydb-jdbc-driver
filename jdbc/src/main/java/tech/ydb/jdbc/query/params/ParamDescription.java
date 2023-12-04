@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.impl.params;
+package tech.ydb.jdbc.query.params;
 
 import java.sql.SQLException;
 
