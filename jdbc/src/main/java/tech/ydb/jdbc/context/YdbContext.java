@@ -11,6 +11,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+
 import tech.ydb.core.Result;
 import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.core.grpc.GrpcTransport;
@@ -37,11 +40,11 @@ import tech.ydb.table.SessionRetryContext;
 import tech.ydb.table.TableClient;
 import tech.ydb.table.description.TableDescription;
 import tech.ydb.table.impl.PooledTableClient;
-import tech.ydb.table.query.DataQuery;
 import tech.ydb.table.rpc.grpc.GrpcTableRpc;
 import tech.ydb.table.settings.DescribeTableSettings;
 import tech.ydb.table.settings.PrepareDataQuerySettings;
 import tech.ydb.table.settings.RequestSettings;
+import tech.ydb.table.values.Type;
 
 /**
  *
@@ -64,6 +67,9 @@ public class YdbContext implements AutoCloseable {
     private final YdbQueryOptions queryOptions;
     private final SessionRetryContext retryCtx;
 
+    private final Cache<String, YdbQuery> queriesCache;
+    private final Cache<String, Map<String, Type>> queryParamsCache;
+
     private final boolean autoResizeSessionPool;
     private final AtomicInteger connectionsCount = new AtomicInteger();
 
@@ -75,6 +81,15 @@ public class YdbContext implements AutoCloseable {
         this.queryOptions = YdbQueryOptions.createFrom(config.getOperationProperties());
         this.autoResizeSessionPool = autoResize;
         this.retryCtx = SessionRetryContext.create(tableClient).build();
+
+        int cacheSize = config.getOperationProperties().getPreparedStatementCacheSize();
+        if (cacheSize > 0) {
+            queriesCache = CacheBuilder.newBuilder().maximumSize(cacheSize).build();
+            queryParamsCache = CacheBuilder.newBuilder().maximumSize(cacheSize).build();
+        } else {
+            queriesCache = null;
+            queryParamsCache = null;
+        }
     }
 
 
@@ -232,7 +247,17 @@ public class YdbContext implements AutoCloseable {
     }
 
     public YdbQuery findOrParseYdbQuery(String sql) throws SQLException {
-        return parseYdbQuery(sql);
+        if (queriesCache == null) {
+            return parseYdbQuery(sql);
+        }
+
+        YdbQuery cached = queriesCache.getIfPresent(sql);
+        if (cached == null) {
+            cached = parseYdbQuery(sql);
+            queriesCache.put(sql, cached);
+        }
+
+        return cached;
     }
 
     public JdbcParams findOrCreateJdbcParams(YdbQuery query, YdbPrepareMode mode) throws SQLException {
@@ -245,12 +270,18 @@ public class YdbContext implements AutoCloseable {
         String yql = query.getYqlQuery(null);
         PrepareDataQuerySettings settings = withDefaultTimeout(new PrepareDataQuerySettings());
         try {
-            DataQuery prepared = retryCtx.supplyResult(session -> session.prepareDataQuery(yql, settings))
-                    .join().getValue();
+            Map<String, Type> types = queryParamsCache.getIfPresent(query.originSQL());
+            if (types == null) {
+                types = retryCtx.supplyResult(session -> session.prepareDataQuery(yql, settings))
+                        .join()
+                        .getValue()
+                        .types();
+                queryParamsCache.put(query.originSQL(), types);
+            }
 
             boolean requireBatch = mode == YdbPrepareMode.DATA_QUERY_BATCH;
             if (requireBatch || (mode == YdbPrepareMode.AUTO && queryOptions.isDetectBatchQueries())) {
-                BatchedParams params = BatchedParams.tryCreateBatched(prepared.types());
+                BatchedParams params = BatchedParams.tryCreateBatched(types);
                 if (params != null) {
                     return params;
                 }
@@ -259,7 +290,7 @@ public class YdbContext implements AutoCloseable {
                     throw new SQLDataException(YdbConst.STATEMENT_IS_NOT_A_BATCH + query.originSQL());
                 }
             }
-            return new PreparedParams(prepared.types());
+            return new PreparedParams(types);
         } catch (UnexpectedResultException ex) {
             throw ExceptionFactory.createException("Cannot prepare data query: " + ex.getMessage(), ex);
         }
