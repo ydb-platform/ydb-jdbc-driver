@@ -29,7 +29,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import tech.ydb.auth.AuthProvider;
-import tech.ydb.jdbc.exception.YdbConfigurationException;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.settings.ParsedProperty;
 import tech.ydb.jdbc.settings.YdbClientProperty;
@@ -51,7 +50,7 @@ public class YdbDriverProperitesTest {
     private YdbDriver driver;
 
     @BeforeAll
-    public static void beforeAll() throws YdbConfigurationException, IOException {
+    public static void beforeAll() throws SQLException, IOException {
         TOKEN_FILE = safeCreateFile(TOKEN_FROM_FILE);
         CERTIFICATE_FILE = safeCreateFile(CERTIFICATE_FROM_FILE);
     }
@@ -222,7 +221,10 @@ public class YdbDriverProperitesTest {
     @MethodSource("unknownFiles")
     public void getTokenAsInvalid(String token, String expectException) {
         String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/db?token=" + token;
-        ExceptionAssert.ydbConfiguration(expectException, () -> YdbJdbcTools.from(url, new Properties()));
+        ExceptionAssert.sqlException(
+                "Unable to convert property token: " + expectException,
+                () -> YdbJdbcTools.from(url, new Properties())
+        );
     }
 
     @ParameterizedTest(name = "[{index}] {1}")
@@ -246,14 +248,17 @@ public class YdbDriverProperitesTest {
     public void getCaCertificateAsInvalid(String certificate, String expectException) {
         String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/db" +
                 "?secureConnectionCertificate=" + certificate;
-        ExceptionAssert.ydbConfiguration(expectException, () -> YdbJdbcTools.from(url, new Properties()));
+        ExceptionAssert.sqlException(
+                "Unable to convert property secureConnectionCertificate: " + expectException,
+                () -> YdbJdbcTools.from(url, new Properties())
+        );
     }
 
     @ParameterizedTest
     @MethodSource("invalidDurationParams")
     public void invalidDuration(String param) {
         String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/db?" + param + "=1bc";
-        ExceptionAssert.ydbConfiguration("Unable to convert property " + param +
+        ExceptionAssert.sqlException("Unable to convert property " + param +
                         ": Unable to parse value [1bc] -> [PT1BC] as Duration: Text cannot be parsed to a Duration",
                 () -> YdbJdbcTools.from(url, new Properties()));
     }
@@ -262,7 +267,7 @@ public class YdbDriverProperitesTest {
     @MethodSource("invalidIntegerParams")
     public void invalidInteger(String param) {
         String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/db?" + param + "=1bc";
-        ExceptionAssert.ydbConfiguration("Unable to convert property " + param +
+        ExceptionAssert.sqlException("Unable to convert property " + param +
                         ": Unable to parse value [1bc] as Integer: For input string: \"1bc\"",
                 () -> YdbJdbcTools.from(url, new Properties()));
     }
@@ -323,6 +328,7 @@ public class YdbDriverProperitesTest {
                 YdbOperationProperty.TRANSACTION_LEVEL.toDriverPropertyInfo("8"),
 
                 YdbOperationProperty.CACHE_CONNECTIONS_IN_DRIVER.toDriverPropertyInfo("true"),
+                YdbOperationProperty.PREPARED_STATEMENT_CACHE_SIZE.toDriverPropertyInfo("256"),
 
                 YdbOperationProperty.DISABLE_DETECT_SQL_OPERATIONS.toDriverPropertyInfo("false"),
                 YdbOperationProperty.DISABLE_PREPARE_DATAQUERY.toDriverPropertyInfo("false"),
@@ -363,6 +369,7 @@ public class YdbDriverProperitesTest {
         properties.setProperty("transactionLevel", "4");
 
         properties.setProperty("cacheConnectionsInDriver", "false");
+        properties.setProperty("preparedStatementCacheQueries", "100");
 
         properties.setProperty("disablePrepareDataQuery", "true");
         properties.setProperty("disableAutoPreparedBatches", "true");
@@ -403,6 +410,7 @@ public class YdbDriverProperitesTest {
                 YdbOperationProperty.TRANSACTION_LEVEL.toDriverPropertyInfo("4"),
 
                 YdbOperationProperty.CACHE_CONNECTIONS_IN_DRIVER.toDriverPropertyInfo("false"),
+                YdbOperationProperty.PREPARED_STATEMENT_CACHE_SIZE.toDriverPropertyInfo("100"),
 
                 YdbOperationProperty.DISABLE_DETECT_SQL_OPERATIONS.toDriverPropertyInfo("true"),
                 YdbOperationProperty.DISABLE_PREPARE_DATAQUERY.toDriverPropertyInfo("true"),

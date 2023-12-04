@@ -137,8 +137,7 @@ public class YdbDriverExampleTest {
     public void testYdbNotNull() throws SQLException {
         try (Connection connection = DriverManager.getConnection(jdbcURL())) {
             try {
-                connection.createStatement()
-                        .execute("drop table table_sample");
+                connection.createStatement().execute("drop table table_sample");
             } catch (SQLException e) {
                 //
             }

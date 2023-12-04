@@ -20,6 +20,7 @@ public class YdbOperationProperties {
     private final int transactionLevel;
     private final int maxRows;
     private final boolean cacheConnectionsInDriver;
+    private final int preparedStatementCacheSize;
 
     private final FakeTxMode scanQueryTxMode;
     private final FakeTxMode schemeQueryTxMode;
@@ -38,6 +39,8 @@ public class YdbOperationProperties {
         this.transactionLevel = params.get(YdbOperationProperty.TRANSACTION_LEVEL).getParsedValue();
         this.maxRows = MAX_ROWS;
         this.cacheConnectionsInDriver = params.get(YdbOperationProperty.CACHE_CONNECTIONS_IN_DRIVER).getParsedValue();
+        this.preparedStatementCacheSize = Math.max(0,
+                params.get(YdbOperationProperty.PREPARED_STATEMENT_CACHE_SIZE).getParsedValue());
 
         this.scanQueryTxMode = params.get(YdbOperationProperty.SCAN_QUERY_TX_MODE).getParsedValue();
         this.schemeQueryTxMode = params.get(YdbOperationProperty.SCHEME_QUERY_TX_MODE).getParsedValue();
@@ -100,5 +103,9 @@ public class YdbOperationProperties {
 
     public boolean isCacheConnectionsInDriver() {
         return cacheConnectionsInDriver;
+    }
+
+    public int getPreparedStatementCacheSize() {
+        return preparedStatementCacheSize;
     }
 }

@@ -28,10 +28,12 @@ public class SqlQueries {
 
     private static final String SELECT = YdbLookup.stringFileReference("classpath:sql/select.sql");
 
-    private static final String SIMPLE_UPSERT_ALL = YdbLookup.stringFileReference("classpath:sql/upsert/simple.sql");
-    private static final String NAMED_UPSERT_ALL = YdbLookup.stringFileReference("classpath:sql/upsert/named.sql");
-    private static final String BATCHED_UPSERT_ALL = YdbLookup.stringFileReference("classpath:sql/upsert/batched.sql");
-    private static final String INDEXED_UPSERT_ALL = YdbLookup.stringFileReference("classpath:sql/upsert/types.sql");
+    private static final String SIMPLE_UPSERT = YdbLookup.stringFileReference("classpath:sql/upsert/simple.sql");
+    private static final String NAMED_UPSERT = YdbLookup.stringFileReference("classpath:sql/upsert/named.sql");
+    private static final String TYPED_UPSERT = YdbLookup.stringFileReference("classpath:sql/upsert/typed.sql");
+
+    private static final String NAMED_BATCH = YdbLookup.stringFileReference("classpath:sql/upsert/named_batch.sql");
+    private static final String TYPED_BATCH = YdbLookup.stringFileReference("classpath:sql/upsert/typed_batch.sql");
 
     private static final String SELECT_ALL = "select * from #tableName";
     private static final String DELETE_ALL = "delete from #tableName";
@@ -109,20 +111,24 @@ public class SqlQueries {
     public String namedUpsertAll(YqlQuery mode) {
         switch (mode) {
             case BATCHED:
-                return withTableName(BATCHED_UPSERT_ALL, tableName);
+                return withTableName(NAMED_BATCH, tableName);
             case SIMPLE:
             default:
-                return withTableName(NAMED_UPSERT_ALL, tableName);
+                return withTableName(NAMED_UPSERT, tableName);
 
         }
     }
 
-    public String simpleUpsertAllSQL() {
-        return withTableName(SIMPLE_UPSERT_ALL, tableName);
-    }
-
-    public String indexesUpsertAllSQL() {
-        return withTableName(INDEXED_UPSERT_ALL, tableName);
+    public String upsertAll(JdbcQuery mode) {
+        switch (mode) {
+            case BATCHED:
+                return withTableName(TYPED_BATCH, tableName);
+            case TYPED:
+                return withTableName(TYPED_UPSERT, tableName);
+            case STANDART:
+            default:
+                return withTableName(SIMPLE_UPSERT, tableName);
+        }
     }
 
     /**
