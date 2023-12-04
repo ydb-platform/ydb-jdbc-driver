@@ -90,4 +90,8 @@ public class YdbQueryBuilder {
     public void append(String string) {
         query.append(string);
     }
+
+    public YdbQuery build(YdbQueryOptions opts) {
+        return new YdbQuery(opts, this);
+    }
 }

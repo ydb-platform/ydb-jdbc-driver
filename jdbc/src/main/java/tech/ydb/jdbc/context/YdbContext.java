@@ -1,6 +1,8 @@
 package tech.ydb.jdbc.context;
 
+import java.sql.SQLDataException;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -10,9 +12,20 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import tech.ydb.core.Result;
+import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
+import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.YdbPrepareMode;
+import tech.ydb.jdbc.exception.ExceptionFactory;
+import tech.ydb.jdbc.query.JdbcParams;
+import tech.ydb.jdbc.query.JdbcQueryLexer;
+import tech.ydb.jdbc.query.YdbQuery;
+import tech.ydb.jdbc.query.YdbQueryBuilder;
 import tech.ydb.jdbc.query.YdbQueryOptions;
+import tech.ydb.jdbc.query.params.BatchedParams;
+import tech.ydb.jdbc.query.params.InMemoryParams;
+import tech.ydb.jdbc.query.params.PreparedParams;
 import tech.ydb.jdbc.settings.ParsedProperty;
 import tech.ydb.jdbc.settings.YdbClientProperties;
 import tech.ydb.jdbc.settings.YdbClientProperty;
@@ -24,8 +37,11 @@ import tech.ydb.table.SessionRetryContext;
 import tech.ydb.table.TableClient;
 import tech.ydb.table.description.TableDescription;
 import tech.ydb.table.impl.PooledTableClient;
+import tech.ydb.table.query.DataQuery;
 import tech.ydb.table.rpc.grpc.GrpcTableRpc;
 import tech.ydb.table.settings.DescribeTableSettings;
+import tech.ydb.table.settings.PrepareDataQuerySettings;
+import tech.ydb.table.settings.RequestSettings;
 
 /**
  *
@@ -61,6 +77,8 @@ public class YdbContext implements AutoCloseable {
         this.retryCtx = SessionRetryContext.create(tableClient).build();
     }
 
+
+
     public String getDatabase() {
         return grpcTransport.getDatabase();
     }
@@ -75,10 +93,6 @@ public class YdbContext implements AutoCloseable {
 
     public String getUrl() {
         return config.getUrl();
-    }
-
-    public YdbQueryOptions getQueryOptions() {
-        return queryOptions;
     }
 
     public int getConnectionsCount() {
@@ -198,7 +212,56 @@ public class YdbContext implements AutoCloseable {
         return false;
     }
 
+    public <T extends RequestSettings<?>> T withDefaultTimeout(T settings) {
+        Duration operation = config.getOperationProperties().getDeadlineTimeout();
+        if (!operation.isZero() && !operation.isNegative()) {
+            settings.setOperationTimeout(operation);
+            settings.setTimeout(operation.plusSeconds(1));
+        }
+        return settings;
+    }
+
     public CompletableFuture<Result<TableDescription>> describeTable(String tablePath, DescribeTableSettings settings) {
         return retryCtx.supplyResult(session -> session.describeTable(tablePath, settings));
+    }
+
+    public YdbQuery parseYdbQuery(String sql) throws SQLException {
+        YdbQueryBuilder builder = new YdbQueryBuilder(sql, queryOptions.getForcedQueryType());
+        JdbcQueryLexer.buildQuery(builder, queryOptions);
+        return builder.build(queryOptions);
+    }
+
+    public YdbQuery findOrParseYdbQuery(String sql) throws SQLException {
+        return parseYdbQuery(sql);
+    }
+
+    public JdbcParams findOrCreateJdbcParams(YdbQuery query, YdbPrepareMode mode) throws SQLException {
+        if (query.hasIndexesParameters()
+                || mode == YdbPrepareMode.IN_MEMORY
+                || !queryOptions.iPrepareDataQueries()) {
+            return new InMemoryParams(query.getIndexesParameters());
+        }
+
+        String yql = query.getYqlQuery(null);
+        PrepareDataQuerySettings settings = withDefaultTimeout(new PrepareDataQuerySettings());
+        try {
+            DataQuery prepared = retryCtx.supplyResult(session -> session.prepareDataQuery(yql, settings))
+                    .join().getValue();
+
+            boolean requireBatch = mode == YdbPrepareMode.DATA_QUERY_BATCH;
+            if (requireBatch || (mode == YdbPrepareMode.AUTO && queryOptions.isDetectBatchQueries())) {
+                BatchedParams params = BatchedParams.tryCreateBatched(prepared.types());
+                if (params != null) {
+                    return params;
+                }
+
+                if (requireBatch) {
+                    throw new SQLDataException(YdbConst.STATEMENT_IS_NOT_A_BATCH + query.originSQL());
+                }
+            }
+            return new PreparedParams(prepared.types());
+        } catch (UnexpectedResultException ex) {
+            throw ExceptionFactory.createException("Cannot prepare data query: " + ex.getMessage(), ex);
+        }
     }
 }

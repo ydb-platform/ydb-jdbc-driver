@@ -1346,7 +1346,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     @SuppressWarnings("null")
     private TableDescription describeTable(String table) throws SQLException {
-        DescribeTableSettings settings = connection.withDefaultTimeout(new DescribeTableSettings());
+        DescribeTableSettings settings = connection.getCtx().withDefaultTimeout(new DescribeTableSettings());
 
         String databaseWithSuffix = withSuffix(connection.getCtx().getDatabase());
 
