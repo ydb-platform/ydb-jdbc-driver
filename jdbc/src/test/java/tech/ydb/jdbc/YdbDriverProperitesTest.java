@@ -328,6 +328,7 @@ public class YdbDriverProperitesTest {
                 YdbOperationProperty.TRANSACTION_LEVEL.toDriverPropertyInfo("8"),
 
                 YdbOperationProperty.CACHE_CONNECTIONS_IN_DRIVER.toDriverPropertyInfo("true"),
+                YdbOperationProperty.PREPARED_STATEMENT_CACHE_SIZE.toDriverPropertyInfo("256"),
 
                 YdbOperationProperty.DISABLE_DETECT_SQL_OPERATIONS.toDriverPropertyInfo("false"),
                 YdbOperationProperty.DISABLE_PREPARE_DATAQUERY.toDriverPropertyInfo("false"),
@@ -368,6 +369,7 @@ public class YdbDriverProperitesTest {
         properties.setProperty("transactionLevel", "4");
 
         properties.setProperty("cacheConnectionsInDriver", "false");
+        properties.setProperty("preparedStatementCacheQueries", "100");
 
         properties.setProperty("disablePrepareDataQuery", "true");
         properties.setProperty("disableAutoPreparedBatches", "true");
@@ -408,6 +410,7 @@ public class YdbDriverProperitesTest {
                 YdbOperationProperty.TRANSACTION_LEVEL.toDriverPropertyInfo("4"),
 
                 YdbOperationProperty.CACHE_CONNECTIONS_IN_DRIVER.toDriverPropertyInfo("false"),
+                YdbOperationProperty.PREPARED_STATEMENT_CACHE_SIZE.toDriverPropertyInfo("100"),
 
                 YdbOperationProperty.DISABLE_DETECT_SQL_OPERATIONS.toDriverPropertyInfo("true"),
                 YdbOperationProperty.DISABLE_PREPARE_DATAQUERY.toDriverPropertyInfo("true"),

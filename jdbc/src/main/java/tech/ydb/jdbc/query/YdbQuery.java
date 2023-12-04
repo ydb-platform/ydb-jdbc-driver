@@ -23,7 +23,7 @@ public class YdbQuery {
     private final List<String> indexesArgsNames;
     private final List<YdbExpression> expressions;
 
-    private YdbQuery(YdbQueryOptions opts, YdbQueryBuilder builder) {
+    YdbQuery(YdbQueryOptions opts, YdbQueryBuilder builder) {
         this.opts = opts;
         this.originSQL = builder.getOriginSQL();
         this.yqlQuery = builder.buildYQL();
@@ -83,11 +83,5 @@ public class YdbQuery {
 
     public QueryType type() {
         return type;
-    }
-
-    public static YdbQuery from(YdbQueryOptions opts, String sql) throws SQLException {
-        YdbQueryBuilder builder = new YdbQueryBuilder(sql, opts.getForcedQueryType());
-        JdbcQueryLexer.buildQuery(builder, opts);
-        return new YdbQuery(opts, builder);
     }
 }

@@ -58,7 +58,7 @@ public class YdbDriver implements Driver {
             return new YdbConnectionImpl(getCachedContext(config));
         }
 
-        // create new context
+        // findOrCreateJdbcParams new context
         final YdbContext context = YdbContext.createContext(config);
         return new YdbConnectionImpl(context) {
             @Override

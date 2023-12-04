@@ -87,6 +87,13 @@ public class YdbOperationProperty<T> extends AbstractYdbProperty<T, Void> {
                     Boolean.class,
                     PropertyConverter.booleanValue());
 
+    public static final YdbOperationProperty<Integer> PREPARED_STATEMENT_CACHE_SIZE =
+            new YdbOperationProperty<>("preparedStatementCacheQueries",
+                    "Specifies the maximum number of entries in per-transport cache of prepared statements. "
+                            + "A value of {@code 0} disables the cache.",
+                    "256",
+                    Integer.class,
+                    PropertyConverter.integerValue());
 
     public static final YdbOperationProperty<Boolean> DISABLE_DETECT_SQL_OPERATIONS =
             new YdbOperationProperty<>("disableDetectSqlOperations",

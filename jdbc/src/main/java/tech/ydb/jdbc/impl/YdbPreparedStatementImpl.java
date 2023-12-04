@@ -1,5 +1,6 @@
 package tech.ydb.jdbc.impl;
 
+
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -36,14 +37,15 @@ import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Type;
 import tech.ydb.table.values.VoidType;
+import tech.ydb.jdbc.query.JdbcParams;
 
 public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPreparedStatement {
     private static final Logger LOGGER = Logger.getLogger(YdbPreparedStatementImpl.class.getName());
     private final YdbQuery query;
-    private final YdbJdbcParams params;
+    private final JdbcParams params;
     private final YdbTypes types;
 
-    public YdbPreparedStatementImpl(YdbConnection connection, YdbQuery query, YdbJdbcParams params, int resultSetType) {
+    public YdbPreparedStatementImpl(YdbConnection connection, YdbQuery query, JdbcParams params, int resultSetType) {
         super(LOGGER, connection, resultSetType, true); // is poolable by default
 
         this.query = Objects.requireNonNull(query);

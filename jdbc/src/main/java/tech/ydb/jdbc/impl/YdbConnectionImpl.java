@@ -1,5 +1,6 @@
 package tech.ydb.jdbc.impl;
 
+
 import java.sql.Array;
 import java.sql.Blob;
 import java.sql.CallableStatement;
@@ -36,12 +37,12 @@ import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbExecutor;
 import tech.ydb.jdbc.context.YdbTxState;
+import tech.ydb.jdbc.query.JdbcParams;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.settings.FakeTxMode;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.table.Session;
-import tech.ydb.table.query.DataQuery;
 import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.query.Params;
@@ -53,8 +54,6 @@ import tech.ydb.table.settings.ExecuteScanQuerySettings;
 import tech.ydb.table.settings.ExecuteSchemeQuerySettings;
 import tech.ydb.table.settings.ExplainDataQuerySettings;
 import tech.ydb.table.settings.KeepAliveSessionSettings;
-import tech.ydb.table.settings.PrepareDataQuerySettings;
-import tech.ydb.table.settings.RequestSettings;
 import tech.ydb.table.settings.RollbackTxSettings;
 
 public class YdbConnectionImpl implements YdbConnection {
@@ -81,15 +80,6 @@ public class YdbConnectionImpl implements YdbConnection {
         this.ctx.register();
     }
 
-    <T extends RequestSettings<?>> T withDefaultTimeout(T settings) {
-        Duration operation = ctx.getOperationProperties().getDeadlineTimeout();
-        if (!operation.isZero() && !operation.isNegative()) {
-            settings.setOperationTimeout(operation);
-            settings.setTimeout(operation.plusSeconds(1));
-        }
-        return settings;
-    }
-
     @Override
     public YdbStatement createStatement() throws SQLException {
         return createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY,
@@ -105,7 +95,7 @@ public class YdbConnectionImpl implements YdbConnection {
     @Override
     public String nativeSQL(String sql) {
         try {
-            return YdbQuery.from(ctx.getQueryOptions(), sql).getYqlQuery(null);
+            return ctx.parseYdbQuery(sql).getYqlQuery(null);
         } catch (SQLException ex) {
             return ex.getMessage();
         }
@@ -149,7 +139,7 @@ public class YdbConnectionImpl implements YdbConnection {
         }
 
         Session session = state.getSession(ctx, executor);
-        CommitTxSettings settings = withDefaultTimeout(new CommitTxSettings());
+        CommitTxSettings settings = ctx.withDefaultTimeout(new CommitTxSettings());
 
         try {
             executor.clearWarnings();
@@ -171,7 +161,7 @@ public class YdbConnectionImpl implements YdbConnection {
         }
 
         Session session = state.getSession(ctx, executor);
-        RollbackTxSettings settings = withDefaultTimeout(new RollbackTxSettings());
+        RollbackTxSettings settings = ctx.withDefaultTimeout(new RollbackTxSettings());
 
         try {
             executor.clearWarnings();
@@ -275,7 +265,7 @@ public class YdbConnectionImpl implements YdbConnection {
         }
 
         // Scheme query does not affect transactions or result sets
-        ExecuteSchemeQuerySettings settings = withDefaultTimeout(new ExecuteSchemeQuerySettings());
+        ExecuteSchemeQuerySettings settings = ctx.withDefaultTimeout(new ExecuteSchemeQuerySettings());
         final String yql = query.getYqlQuery(null);
 
         try (Session session = executor.createSession(ctx)) {
@@ -339,19 +329,10 @@ public class YdbConnectionImpl implements YdbConnection {
         ensureOpened();
 
         String yql = query.getYqlQuery(null);
-        ExplainDataQuerySettings settings = withDefaultTimeout(new ExplainDataQuerySettings());
+        ExplainDataQuerySettings settings = ctx.withDefaultTimeout(new ExplainDataQuerySettings());
         try (Session session = executor.createSession(ctx)) {
             String msg = QueryType.EXPLAIN_QUERY + " >>\n" + yql;
             return executor.call(msg, () -> session.explainDataQuery(yql, settings));
-        }
-    }
-
-    DataQuery prepareDataQuery(YdbQuery query) throws SQLException {
-        String yql = query.getYqlQuery(null);
-        PrepareDataQuerySettings settings = withDefaultTimeout(new PrepareDataQuerySettings());
-        try (Session session = executor.createSession(ctx)) {
-            String msg = "Preparing Query >>\n" + yql;
-            return executor.call(msg, () -> session.prepareDataQuery(yql, settings));
         }
     }
 
@@ -424,13 +405,13 @@ public class YdbConnectionImpl implements YdbConnection {
         ensureOpened();
         executor.clearWarnings();
 
-        YdbQuery query = YdbQuery.from(ctx.getQueryOptions(), sql);
+        YdbQuery query = ctx.findOrParseYdbQuery(sql);
 
         if (query.type() != QueryType.DATA_QUERY && query.type() != QueryType.SCAN_QUERY) {
             throw new SQLException(YdbConst.UNSUPPORTED_QUERY_TYPE_IN_PS + query.type());
         }
 
-        YdbJdbcParams params = YdbJdbcParams.create(this, query, mode);
+        JdbcParams params = ctx.findOrCreateJdbcParams(query, mode);
         return new YdbPreparedStatementImpl(this, query, params, resultSetType);
     }
 

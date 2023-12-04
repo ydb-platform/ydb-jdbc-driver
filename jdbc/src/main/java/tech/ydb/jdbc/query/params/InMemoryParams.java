@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.impl.params;
+package tech.ydb.jdbc.query.params;
 
 
 
@@ -10,17 +10,17 @@ import java.util.Map;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
-import tech.ydb.jdbc.impl.YdbJdbcParams;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Type;
 import tech.ydb.table.values.Value;
+import tech.ydb.jdbc.query.JdbcParams;
 
 
 /**
  *
  * @author Aleksandr Gorshenin
  */
-public class InMemoryParams implements YdbJdbcParams {
+public class InMemoryParams implements JdbcParams {
     private final String[] paramNames;
     private final Map<String, Value<?>> paramValues;
     private final List<Params> batchList;

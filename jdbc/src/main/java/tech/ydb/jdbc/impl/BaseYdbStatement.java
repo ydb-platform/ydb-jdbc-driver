@@ -20,7 +20,6 @@ import tech.ydb.jdbc.common.FixedResultSetFactory;
 import tech.ydb.jdbc.context.YdbExecutor;
 import tech.ydb.jdbc.query.YdbExpression;
 import tech.ydb.jdbc.query.YdbQuery;
-import tech.ydb.jdbc.query.YdbQueryOptions;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.ExplainDataQueryResult;
@@ -46,7 +45,6 @@ public abstract class BaseYdbStatement implements YdbStatement {
 
     private final YdbConnection connection;
     private final YdbExecutor executor;
-    private final YdbQueryOptions queryOptions;
     private final int resultSetType;
     private final int maxRows;
     private final boolean failOnTruncatedResult;
@@ -60,7 +58,6 @@ public abstract class BaseYdbStatement implements YdbStatement {
         this.connection = Objects.requireNonNull(connection);
         this.executor = new YdbExecutor(logger);
         this.resultSetType = resultSetType;
-        this.queryOptions = connection.getCtx().getQueryOptions();
         this.isPoolable = isPoolable;
 
         YdbOperationProperties props = connection.getCtx().getOperationProperties();
@@ -72,10 +69,6 @@ public abstract class BaseYdbStatement implements YdbStatement {
     @Override
     public YdbConnection getConnection() {
         return connection;
-    }
-
-    public YdbQuery createYdbQuery(String sql) throws SQLException {
-        return YdbQuery.from(queryOptions, sql);
     }
 
     @Override
