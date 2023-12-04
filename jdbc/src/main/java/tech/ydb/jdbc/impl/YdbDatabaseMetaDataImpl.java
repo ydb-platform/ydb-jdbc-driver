@@ -21,6 +21,7 @@ import javax.annotation.Nullable;
 
 import com.google.common.base.Strings;
 
+import tech.ydb.core.Result;
 import tech.ydb.core.StatusCode;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
@@ -33,7 +34,6 @@ import tech.ydb.jdbc.context.YdbExecutor;
 import tech.ydb.proto.scheme.SchemeOperationProtos;
 import tech.ydb.scheme.SchemeClient;
 import tech.ydb.scheme.description.ListDirectoryResult;
-import tech.ydb.table.Session;
 import tech.ydb.table.description.TableColumn;
 import tech.ydb.table.description.TableDescription;
 import tech.ydb.table.description.TableIndex;
@@ -1344,26 +1344,24 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         return tables;
     }
 
+    @SuppressWarnings("null")
     private TableDescription describeTable(String table) throws SQLException {
         DescribeTableSettings settings = connection.withDefaultTimeout(new DescribeTableSettings());
+
         String databaseWithSuffix = withSuffix(connection.getCtx().getDatabase());
 
-        try (Session session = executor.createSession(connection.getCtx())) {
-            try {
-                return executor.call("Describe table " + table,
-                        () -> session.describeTable(databaseWithSuffix + table, settings)
-                );
-            } catch (SQLException ex) {
-                if (ex.getErrorCode() != StatusCode.SCHEME_ERROR.getCode()) {// ignore scheme errors like path not found
-                    throw ex;
-                }
-                LOGGER.log(Level.WARNING, "Cannot describe table {0} -> {1}",
-                        new Object[]{ table, ex.getMessage() }
-                );
-
-                return null;
-            }
-        }
+        return executor.call("Describe table " + table, () -> connection.getCtx()
+                .describeTable(databaseWithSuffix + table, settings)
+                .thenApply(result -> {
+                    // ignore scheme errors like path not found
+                    if (result.getStatus().getCode() == StatusCode.SCHEME_ERROR) {
+                        LOGGER.log(Level.WARNING, "Cannot describe table {0} -> {1}",
+                                new Object[]{ table, result.getStatus() });
+                        return Result.success(null);
+                    }
+                    return result;
+                })
+        );
     }
 
     private ResultSet emptyResultSet(FixedResultSetFactory factory) {

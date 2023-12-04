@@ -3,11 +3,13 @@ package tech.ydb.jdbc.context;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import tech.ydb.core.Result;
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
 import tech.ydb.jdbc.query.YdbQueryOptions;
@@ -18,9 +20,12 @@ import tech.ydb.jdbc.settings.YdbConnectionProperties;
 import tech.ydb.jdbc.settings.YdbConnectionProperty;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.scheme.SchemeClient;
+import tech.ydb.table.SessionRetryContext;
 import tech.ydb.table.TableClient;
+import tech.ydb.table.description.TableDescription;
 import tech.ydb.table.impl.PooledTableClient;
 import tech.ydb.table.rpc.grpc.GrpcTableRpc;
+import tech.ydb.table.settings.DescribeTableSettings;
 
 /**
  *
@@ -41,6 +46,7 @@ public class YdbContext implements AutoCloseable {
     private final PooledTableClient tableClient;
     private final SchemeClient schemeClient;
     private final YdbQueryOptions queryOptions;
+    private final SessionRetryContext retryCtx;
 
     private final boolean autoResizeSessionPool;
     private final AtomicInteger connectionsCount = new AtomicInteger();
@@ -52,6 +58,7 @@ public class YdbContext implements AutoCloseable {
         this.schemeClient = SchemeClient.newClient(transport).build();
         this.queryOptions = YdbQueryOptions.createFrom(config.getOperationProperties());
         this.autoResizeSessionPool = autoResize;
+        this.retryCtx = SessionRetryContext.create(tableClient).build();
     }
 
     public String getDatabase() {
@@ -189,5 +196,9 @@ public class YdbContext implements AutoCloseable {
 
         builder.sessionPoolSize(minSize, maxSize);
         return false;
+    }
+
+    public CompletableFuture<Result<TableDescription>> describeTable(String tablePath, DescribeTableSettings settings) {
+        return retryCtx.supplyResult(session -> session.describeTable(tablePath, settings));
     }
 }
