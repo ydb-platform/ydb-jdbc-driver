@@ -16,6 +16,7 @@ public class YdbQueryBuilder {
     private final StringBuilder query;
     private final List<String> args = new ArrayList<>();
     private final QueryType forcedType;
+    private final List<YdbExpression> expressions = new ArrayList<>();
 
     private int argsCounter = 0;
     private QueryType currentType = null;
@@ -37,7 +38,9 @@ public class YdbQueryBuilder {
         }
     }
 
-    public void setQueryType(QueryType type) throws SQLException {
+    public void addExpression(QueryType type, YdbExpression expression) throws SQLException {
+        expressions.add(expression);
+
         if (forcedType != null) {
             return;
         }
@@ -58,6 +61,10 @@ public class YdbQueryBuilder {
         }
 
         return QueryType.DATA_QUERY;
+    }
+
+    public List<YdbExpression> getExpressions() {
+        return expressions;
     }
 
     public String getOriginSQL() {

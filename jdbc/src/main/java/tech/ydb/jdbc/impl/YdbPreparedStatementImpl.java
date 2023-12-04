@@ -21,6 +21,7 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.List;
 import java.util.Objects;
 import java.util.logging.Logger;
 
@@ -123,7 +124,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
         cleanState();
         clearBatch();
 
-        ResultState newState = EMPTY_STATE;
+        List<YdbResult> newState = null;
         switch (query.type()) {
             case DATA_QUERY:
                 newState = executeDataQuery(query, params.getCurrentParams());
@@ -142,7 +143,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
     @Override
     public YdbResultSet executeScanQuery() throws SQLException {
         cleanState();
-        ResultState state = executeScanQuery(query, params.getCurrentParams());
+        List<YdbResult> state = executeScanQuery(query, params.getCurrentParams());
         params.clearParameters();
         updateState(state);
         return getResultSet();
@@ -151,7 +152,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
     @Override
     public YdbResultSet executeExplainQuery() throws SQLException {
         cleanState();
-        ResultState state = executeExplainQuery(query);
+        List<YdbResult> state = executeExplainQuery(query);
         updateState(state);
         return getResultSet();
     }

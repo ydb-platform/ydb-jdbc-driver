@@ -21,6 +21,7 @@ public class YdbQuery {
     private final String yqlQuery;
     private final QueryType type;
     private final List<String> indexesArgsNames;
+    private final List<YdbExpression> expressions;
 
     private YdbQuery(YdbQueryOptions opts, YdbQueryBuilder builder) {
         this.opts = opts;
@@ -28,10 +29,15 @@ public class YdbQuery {
         this.yqlQuery = builder.buildYQL();
         this.indexesArgsNames = builder.getIndexedArgs();
         this.type = builder.getQueryType();
+        this.expressions = builder.getExpressions();
     }
 
     public String originSQL() {
         return originSQL;
+    }
+
+    public List<YdbExpression> getExpressions() {
+        return expressions;
     }
 
     public boolean hasIndexesParameters() {

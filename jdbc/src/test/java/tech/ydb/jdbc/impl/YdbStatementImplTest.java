@@ -360,10 +360,10 @@ public class YdbStatementImplTest {
     public void getResultSet() throws SQLException {
         Assertions.assertNull(statement.getResultSet());
 
-        statement.execute("select 2 + 2");
+        Assertions.assertTrue(statement.execute("select 2 + 2"));
         Assertions.assertNotNull(statement.getResultSet());
 
-        statement.execute(TEST_UPSERT1_SQL);
+        Assertions.assertFalse(statement.execute(TEST_UPSERT1_SQL));
         Assertions.assertNull(statement.getResultSet());
 
         jdbc.connection().commit();
@@ -373,7 +373,7 @@ public class YdbStatementImplTest {
     public void getUpdateCount() throws SQLException {
         Assertions.assertEquals(-1, statement.getUpdateCount());
 
-        statement.execute("select 2 + 2");
+        Assertions.assertTrue(statement.execute("select 2 + 2"));
         Assertions.assertEquals(-1, statement.getUpdateCount());
 
         statement.execute(TEST_UPSERT1_SQL);
@@ -384,9 +384,11 @@ public class YdbStatementImplTest {
         statement.execute(TEST_UPSERT1_SQL + ";\n" + TEST_UPSERT2_SQL + ";");
         Assertions.assertEquals(1, statement.getUpdateCount()); // just a single statement
         Assertions.assertFalse(statement.getMoreResults());
+        Assertions.assertEquals(1, statement.getUpdateCount());
+        Assertions.assertFalse(statement.getMoreResults());
         Assertions.assertEquals(-1, statement.getUpdateCount());
 
-        statement.execute("select 2 + 2");
+        Assertions.assertTrue(statement.execute("select 2 + 2"));
         Assertions.assertEquals(-1, statement.getUpdateCount());
 
         jdbc.connection().commit();
@@ -413,10 +415,45 @@ public class YdbStatementImplTest {
         Assertions.assertNotSame(rs0, rs1);
         Assertions.assertNotSame(rs0, rs2);
 
-
         Assertions.assertSame(rs0, statement.unwrap(YdbStatement.class).getResultSetAt(0));
         Assertions.assertSame(rs1, statement.unwrap(YdbStatement.class).getResultSetAt(1));
         Assertions.assertSame(rs2, statement.unwrap(YdbStatement.class).getResultSetAt(2));
+    }
+
+    @Test
+    public void testMixedStatements() throws SQLException {
+        Assertions.assertTrue(statement.execute("select 2 + 1; " + TEST_UPSERT1_SQL + ";" + "select 2 + 3;"));
+
+        Assertions.assertEquals(-1, statement.getUpdateCount());
+
+        ResultSet rs0 = statement.getResultSet();
+
+        Assertions.assertFalse(statement.getMoreResults());
+        Assertions.assertEquals(1, statement.getUpdateCount());
+
+        Assertions.assertTrue(statement.getMoreResults());
+        Assertions.assertEquals(-1, statement.getUpdateCount());
+
+        ResultSet rs1 = statement.getResultSet();
+        Assertions.assertNotSame(rs0, rs1);
+
+        Assertions.assertFalse(statement.getMoreResults());
+        Assertions.assertEquals(-1, statement.getUpdateCount());
+    }
+
+    @Test
+    public void testSchemeStatements() throws SQLException {
+        Assertions.assertFalse(statement.execute("CREATE TABLE tmp_table (id Int32, primary key (id))"));
+        Assertions.assertEquals(0, statement.getUpdateCount());
+
+        Assertions.assertFalse(statement.getMoreResults());
+        Assertions.assertEquals(-1, statement.getUpdateCount());
+
+        Assertions.assertFalse(statement.execute("DROP TABLE tmp_table"));
+        Assertions.assertEquals(0, statement.getUpdateCount());
+
+        Assertions.assertFalse(statement.getMoreResults());
+        Assertions.assertEquals(-1, statement.getUpdateCount());
     }
 
     @Test
