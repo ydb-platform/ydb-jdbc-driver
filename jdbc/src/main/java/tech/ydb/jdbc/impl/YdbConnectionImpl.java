@@ -1,5 +1,6 @@
 package tech.ydb.jdbc.impl;
 
+
 import java.sql.Array;
 import java.sql.Blob;
 import java.sql.CallableStatement;
@@ -36,6 +37,7 @@ import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbExecutor;
 import tech.ydb.jdbc.context.YdbTxState;
+import tech.ydb.jdbc.query.JdbcParams;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.settings.FakeTxMode;
@@ -346,7 +348,7 @@ public class YdbConnectionImpl implements YdbConnection {
         }
     }
 
-    DataQuery prepareDataQuery(YdbQuery query) throws SQLException {
+    public DataQuery prepareDataQuery(YdbQuery query) throws SQLException {
         String yql = query.getYqlQuery(null);
         PrepareDataQuerySettings settings = withDefaultTimeout(new PrepareDataQuerySettings());
         try (Session session = executor.createSession(ctx)) {
@@ -430,7 +432,7 @@ public class YdbConnectionImpl implements YdbConnection {
             throw new SQLException(YdbConst.UNSUPPORTED_QUERY_TYPE_IN_PS + query.type());
         }
 
-        YdbJdbcParams params = YdbJdbcParams.create(this, query, mode);
+        JdbcParams params = JdbcParams.create(this, query, mode);
         return new YdbPreparedStatementImpl(this, query, params, resultSetType);
     }
 

@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.impl.params;
+package tech.ydb.jdbc.query.params;
 
 
 import java.sql.SQLDataException;
@@ -15,7 +15,6 @@ import java.util.TreeSet;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
-import tech.ydb.jdbc.impl.YdbJdbcParams;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.ListType;
 import tech.ydb.table.values.ListValue;
@@ -23,12 +22,13 @@ import tech.ydb.table.values.StructType;
 import tech.ydb.table.values.StructValue;
 import tech.ydb.table.values.Type;
 import tech.ydb.table.values.Value;
+import tech.ydb.jdbc.query.JdbcParams;
 
 /**
  *
  * @author Aleksandr Gorshenin
  */
-public class BatchedParams implements YdbJdbcParams {
+public class BatchedParams implements JdbcParams {
     private final String batchParamName;
     private final Map<String, ParamDescription> paramsByName;
     private final ParamDescription[] params;

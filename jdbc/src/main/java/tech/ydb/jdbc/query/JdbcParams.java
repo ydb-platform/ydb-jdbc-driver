@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.impl;
+package tech.ydb.jdbc.query;
 
 import java.sql.SQLDataException;
 import java.sql.SQLException;
@@ -10,11 +10,10 @@ import javax.annotation.Nullable;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.common.TypeDescription;
-import tech.ydb.jdbc.impl.params.BatchedParams;
-import tech.ydb.jdbc.impl.params.InMemoryParams;
-import tech.ydb.jdbc.impl.params.PreparedParams;
-import tech.ydb.jdbc.query.YdbQuery;
-import tech.ydb.jdbc.query.YdbQueryOptions;
+import tech.ydb.jdbc.impl.YdbConnectionImpl;
+import tech.ydb.jdbc.query.params.BatchedParams;
+import tech.ydb.jdbc.query.params.InMemoryParams;
+import tech.ydb.jdbc.query.params.PreparedParams;
 import tech.ydb.table.query.DataQuery;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Type;
@@ -23,7 +22,7 @@ import tech.ydb.table.values.Type;
  *
  * @author Aleksandr Gorshenin
  */
-public interface YdbJdbcParams {
+public interface JdbcParams {
     void clearParameters();
 
     void setParam(int index, @Nullable Object obj, @Nonnull Type type) throws SQLException;
@@ -42,7 +41,7 @@ public interface YdbJdbcParams {
     List<Params> getBatchParams() throws SQLException;
     Params getCurrentParams() throws SQLException;
 
-    static YdbJdbcParams create(YdbConnectionImpl connection, YdbQuery query, YdbPrepareMode mode) throws SQLException {
+    static JdbcParams create(YdbConnectionImpl connection, YdbQuery query, YdbPrepareMode mode) throws SQLException {
         YdbQueryOptions opts = connection.getCtx().getQueryOptions();
 
         if (query.hasIndexesParameters()
