@@ -198,10 +198,15 @@ public abstract class BaseYdbStatement implements YdbStatement {
     }
 
     protected List<YdbResult> executeDataQuery(YdbQuery query, Params params) throws SQLException {
+        ExecuteDataQuerySettings settings = new ExecuteDataQuerySettings();
+
         int timeout = getQueryTimeout();
-        ExecuteDataQuerySettings settings = new ExecuteDataQuerySettings()
-                .setOperationTimeout(Duration.ofSeconds(timeout))
-                .setTimeout(Duration.ofSeconds(timeout + 1));
+        if (timeout > 0) {
+            settings = settings
+                    .setOperationTimeout(Duration.ofSeconds(timeout))
+                    .setTimeout(Duration.ofSeconds(timeout + 1));
+        }
+
         if (!isPoolable()) {
             settings = settings.disableQueryCache();
         }
