@@ -7,7 +7,7 @@
 
 ### Quickstart
 
-1) Drop in [JDBC driver](https://github.com/ydb-platform/ydb-jdbc-driver/releases) to classpath or pick this file in IDEA
+1) Drop in [JDBC driver](https://github.com/ydb-platform/ydb-jdbc-driver/releases) to classpath or pick this file in IDE
 2) Connect to YDB
    * Local or remote Docker (anonymous authentication):<br>`jdbc:ydb:grpc://localhost:2136/local`
    * Self-hosted cluster:<br>`jdbc:ydb:grpcs://<host>:2135/Root/testdb?secureConnectionCertificate=file:~/myca.cer`
@@ -25,14 +25,14 @@ Specify the YDB JDBC driver in the dependencies:
     <dependency>
         <groupId>tech.ydb.jdbc</groupId>
         <artifactId>ydb-jdbc-driver</artifactId>
-        <version>2.0.3</version>
+        <version>2.0.5</version>
     </dependency>
 
     <!-- Shaded version with included dependencies -->
     <dependency>
         <groupId>tech.ydb.jdbc</groupId>
         <artifactId>ydb-jdbc-driver-shaded</artifactId>
-        <version>2.0.3</version>
+        <version>2.0.5</version>
     </dependency>
 </dependencies>
 ```

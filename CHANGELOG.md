@@ -1,3 +1,15 @@
+## 2.0.5 ##
+
+* Extended usage of standard JDBC exception classes
+* Fixed too small default timeout
+
+## 2.0.4 ##
+
+* Fixed problem with prepareDataQuery for YQL-specific queries
+* Added prepared queries cache
+* Updated implementation of getUpdateCount() and getMoreResults()
+* Added usage of standard JDBC exception classes SQLRecoverableException and SQLTransientException
+
 ## 2.0.3 ##
 
 * Added SqlState info to YDB exceptions
