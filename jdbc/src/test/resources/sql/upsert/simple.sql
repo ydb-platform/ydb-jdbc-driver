@@ -32,8 +32,8 @@ UPSERT INTO #tableName (
     ?, -- key
     ?, -- c_Bool
 
-    CAST(? AS Int8),  -- c_Int8
-    CAST(? AS Int16), -- c_Int16
+    ?, -- c_Int8
+    ?, -- c_Int16
     ?, -- c_Int32
     ?, -- c_Int64
 
