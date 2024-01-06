@@ -126,20 +126,11 @@ public class JdbcQueryLexer {
     }
 
     private static int parseSingleQuotes(final char[] query, int offset) {
-        // treat backslashes as escape characters
-        while (++offset < query.length) {
-            switch (query[offset]) {
-                case '\\':
-                    ++offset;
-                    break;
-                case '\'':
-                    return offset;
-                default:
-                    break;
-            }
+        while (++offset < query.length && query[offset] != '\'') {
+            // do nothing
         }
 
-        return query.length;
+        return offset;
     }
 
     private static int parseDoubleQuotes(final char[] query, int offset) {

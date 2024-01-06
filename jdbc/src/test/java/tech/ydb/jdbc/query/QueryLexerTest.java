@@ -162,4 +162,17 @@ public class QueryLexerTest {
         ));
     }
 
+    @Test
+    public void detectJdbcParamsTest() throws SQLException {
+        YdbQueryOptions opts = new YdbQueryOptions(true, true, false, false, false, null);
+
+        YdbQueryBuilder queryBuilder = new YdbQueryBuilder("select b1_0.id,b1_0.author_id,b1_0.isbn10,b1_0.publication_date,b1_0.title" +
+                " from books b1_0 where b1_0.title like ? escape '\\' " +
+                "order by b1_0.publication_date limit ? offset ?]", null);
+
+        JdbcQueryLexer.buildQuery(queryBuilder, opts);
+
+        Assertions.assertEquals(3, queryBuilder.getIndexedArgs().size());
+        Assertions.assertEquals(QueryType.DATA_QUERY, queryBuilder.getQueryType());
+    }
 }
