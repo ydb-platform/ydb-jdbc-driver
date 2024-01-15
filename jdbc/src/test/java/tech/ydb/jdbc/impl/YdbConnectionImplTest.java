@@ -536,7 +536,7 @@ public class YdbConnectionImplTest {
         jdbc.connection().setReadOnly(true);
 
         Assertions.assertTrue(jdbc.connection().isReadOnly());
-        Assertions.assertEquals(Connection.TRANSACTION_REPEATABLE_READ, jdbc.connection().getTransactionIsolation());
+        Assertions.assertEquals(Connection.TRANSACTION_SERIALIZABLE, jdbc.connection().getTransactionIsolation());
 
         jdbc.connection().setReadOnly(false);
         Assertions.assertFalse(jdbc.connection().isReadOnly());
@@ -559,10 +559,10 @@ public class YdbConnectionImplTest {
 
     @ParameterizedTest(name = "Check supported isolation level {0}")
     @ValueSource(ints = {
-        YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE, // 8
-        YdbConst.ONLINE_CONSISTENT_READ_ONLY, // 4
-        YdbConst.ONLINE_INCONSISTENT_READ_ONLY, // 2
-        YdbConst.STALE_CONSISTENT_READ_ONLY // 3
+        Connection.TRANSACTION_SERIALIZABLE,    // 8
+        YdbConst.ONLINE_CONSISTENT_READ_ONLY,   // 16
+        YdbConst.ONLINE_INCONSISTENT_READ_ONLY, // 17
+        YdbConst.STALE_CONSISTENT_READ_ONLY     // 32
     })
     public void supportedTransactionIsolations(int level) throws SQLException {
         jdbc.connection().setTransactionIsolation(level);
@@ -574,7 +574,7 @@ public class YdbConnectionImplTest {
     }
 
     @ParameterizedTest(name = "Check supported isolation level {0}")
-    @ValueSource(ints = { 0, 1, /*2, 3, 4,*/ 5, 6, 7, /*8,*/ 9, 10 })
+    @ValueSource(ints = { 0, 1, 2, 3, 4, 5, 6, 7, /*8,*/ 9, 10 })
     public void unsupportedTransactionIsolations(int level) throws SQLException {
         ExceptionAssert.sqlException("Unsupported transaction level: " + level,
                 () -> jdbc.connection().setTransactionIsolation(level)
