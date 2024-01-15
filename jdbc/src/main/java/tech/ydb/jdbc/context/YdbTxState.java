@@ -1,5 +1,6 @@
 package tech.ydb.jdbc.context;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 
@@ -38,7 +39,7 @@ public class YdbTxState {
     }
 
     public boolean isReadOnly() {
-        return transactionLevel != YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE;
+        return transactionLevel != Connection.TRANSACTION_SERIALIZABLE;
     }
 
     public boolean isInsideTransaction() {
@@ -64,7 +65,7 @@ public class YdbTxState {
         if (readOnly) {
             return create(YdbConst.ONLINE_CONSISTENT_READ_ONLY, isAutoCommit());
         } else {
-            return create(YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE, isAutoCommit());
+            return create(Connection.TRANSACTION_SERIALIZABLE, isAutoCommit());
         }
     }
 
@@ -111,7 +112,7 @@ public class YdbTxState {
     private static YdbTxState create(Session session, String txId, int level, boolean autoCommit)
             throws SQLException {
         switch (level) {
-            case YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE:
+            case Connection.TRANSACTION_SERIALIZABLE:
                 if (txId != null) {
                     return new TransactionInProgress(txId, session, autoCommit);
                 } else {
@@ -134,7 +135,7 @@ public class YdbTxState {
 
     private static class EmptyTransaction extends YdbTxState {
         EmptyTransaction() {
-            super(TxControl.serializableRw().setCommitTx(false), YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE);
+            super(TxControl.serializableRw().setCommitTx(false), Connection.TRANSACTION_SERIALIZABLE);
         }
 
         @Override
@@ -158,7 +159,7 @@ public class YdbTxState {
         private final Session session;
 
         TransactionInProgress(String id, Session session, boolean autoCommit) {
-            super(TxControl.id(id).setCommitTx(autoCommit), YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE);
+            super(TxControl.id(id).setCommitTx(autoCommit), Connection.TRANSACTION_SERIALIZABLE);
             this.id = id;
             this.session = session;
         }

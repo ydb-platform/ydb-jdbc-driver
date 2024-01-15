@@ -1,5 +1,6 @@
 package tech.ydb.jdbc.impl;
 
+import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.RowIdLifetime;
 import java.sql.SQLException;
@@ -616,7 +617,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     @Override
     public int getDefaultTransactionIsolation() {
-        return YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE;
+        return Connection.TRANSACTION_SERIALIZABLE;
     }
 
     @Override
@@ -627,7 +628,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     @Override
     public boolean supportsTransactionIsolationLevel(int level) {
         switch (level) {
-            case YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE:
+            case Connection.TRANSACTION_SERIALIZABLE:
             case YdbConst.ONLINE_CONSISTENT_READ_ONLY:
             case YdbConst.ONLINE_INCONSISTENT_READ_ONLY:
             case YdbConst.STALE_CONSISTENT_READ_ONLY:
