@@ -1,7 +1,5 @@
 package tech.ydb.jdbc;
 
-import java.sql.Connection;
-
 public final class YdbConst {
 
     // SQL types
@@ -107,33 +105,25 @@ public final class YdbConst {
     public static final String MISSING_REQUIRED_VALUE = "Missing required value for parameter: ";
     public static final String INVALID_PARAMETER_TYPE = "Cannot cast parameter [%s] from [%s] to [%s]";
 
-    // Transaction levels
-    // See details in https://cloud.yandex.ru/docs/ydb/concepts/transactions
+    // Custom transaction levels
+    // See details in https://ydb.tech/docs/en/concepts/transactions#modes
 
-    // Please note:
-    // Serializable transaction (RW) always uses "for-share" row-level locks before filter stage!
-
-    /**
-     * All transactions are serialized one-by-one. If the DB detects a write collision among
-     * several concurrent transactions, only the first one is committed.
-     * This is the strongest level. And the only level at which data changes are possible.
-     */
-    public static final int TRANSACTION_SERIALIZABLE_READ_WRITE = Connection.TRANSACTION_SERIALIZABLE;
     /**
      * The most recent consistent state of the database. Read only.
      */
-    public static final int ONLINE_CONSISTENT_READ_ONLY = Connection.TRANSACTION_REPEATABLE_READ;
+    public static final int ONLINE_CONSISTENT_READ_ONLY = 16;
     /**
      * The most recent inconsistent state of the database. Read only.
      * A phantom read may occurs when, in the course of a transaction, some new rows are added
      * by another transaction to the records being read. This is the weakest level.
      */
-    public static final int ONLINE_INCONSISTENT_READ_ONLY = Connection.TRANSACTION_READ_COMMITTED;
+    public static final int ONLINE_INCONSISTENT_READ_ONLY = ONLINE_CONSISTENT_READ_ONLY + 1;
+
     /**
      * An <em>almost</em> recent consistent state of the database. Read only.
      * This level is faster then {@code ONLINE_CONSISTENT_READ_ONLY}, but may return stale data.
      */
-    public static final int STALE_CONSISTENT_READ_ONLY = 3; // TODO: verify if we can do that
+    public static final int STALE_CONSISTENT_READ_ONLY = 32;
 
     // Processing queries
     public static final String EXPLAIN_COLUMN_AST = "AST";
