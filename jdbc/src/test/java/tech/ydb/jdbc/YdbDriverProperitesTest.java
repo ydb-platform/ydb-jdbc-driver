@@ -366,7 +366,7 @@ public class YdbDriverProperitesTest {
         properties.setProperty("sessionTimeout", "6s");
         properties.setProperty("deadlineTimeout", "1s");
         properties.setProperty("autoCommit", "true");
-        properties.setProperty("transactionLevel", "4");
+        properties.setProperty("transactionLevel", "16");
 
         properties.setProperty("cacheConnectionsInDriver", "false");
         properties.setProperty("preparedStatementCacheQueries", "100");
@@ -407,7 +407,7 @@ public class YdbDriverProperitesTest {
                 YdbOperationProperty.SESSION_TIMEOUT.toDriverPropertyInfo("6s"),
                 YdbOperationProperty.DEADLINE_TIMEOUT.toDriverPropertyInfo("1s"),
                 YdbOperationProperty.AUTOCOMMIT.toDriverPropertyInfo("true"),
-                YdbOperationProperty.TRANSACTION_LEVEL.toDriverPropertyInfo("4"),
+                YdbOperationProperty.TRANSACTION_LEVEL.toDriverPropertyInfo("16"),
 
                 YdbOperationProperty.CACHE_CONNECTIONS_IN_DRIVER.toDriverPropertyInfo("false"),
                 YdbOperationProperty.PREPARED_STATEMENT_CACHE_SIZE.toDriverPropertyInfo("100"),

@@ -1,5 +1,6 @@
 package tech.ydb.jdbc.context;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 
@@ -12,21 +13,37 @@ import tech.ydb.table.transaction.TxControl;
  * @author Aleksandr Gorshenin
  */
 public class YdbTxState {
-    private final TxControl<?> txControl;
-    protected final int transactionLevel;
+    private final int transactionLevel;
+    private final boolean isReadOnly;
+    private final boolean isAutoCommit;
 
-    protected YdbTxState(TxControl<?> tx, int level) {
-        this.txControl = tx;
+    private final TxControl<?> txControl;
+
+    protected YdbTxState(TxControl<?> txControl, int level, boolean isReadOnly, boolean isAutoCommit) {
         this.transactionLevel = level;
+        this.isReadOnly = isReadOnly;
+        this.isAutoCommit = isAutoCommit;
+        this.txControl = txControl;
+    }
+
+    protected YdbTxState(TxControl<?> txControl, YdbTxState other) {
+        this.transactionLevel = other.transactionLevel;
+        this.isReadOnly = other.isReadOnly;
+        this.isAutoCommit = other.isAutoCommit;
+        this.txControl = txControl;
     }
 
     @Override
     public String toString() {
-        return "NoTx" + transactionLevel;
+        return "NoTx";
     }
 
     public String txID() {
         return null;
+    }
+
+    public boolean isInsideTransaction() {
+        return false;
     }
 
     public TxControl<?> txControl() {
@@ -34,46 +51,52 @@ public class YdbTxState {
     }
 
     public boolean isAutoCommit() {
-        return txControl.isCommitTx();
+        return isAutoCommit;
     }
 
     public boolean isReadOnly() {
-        return transactionLevel != YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE;
+        return isReadOnly;
     }
 
-    public boolean isInsideTransaction() {
-        return false;
-    }
-
-    public int transactionLevel() throws SQLException {
+    public int transactionLevel() {
         return transactionLevel;
     }
 
     public YdbTxState withAutoCommit(boolean newAutoCommit) throws SQLException {
-        if (newAutoCommit == isAutoCommit()) {
+        if (newAutoCommit == isAutoCommit) {
             return this;
         }
-        return create(transactionLevel(), newAutoCommit);
+
+        if (isInsideTransaction()) {
+            throw new SQLFeatureNotSupportedException(YdbConst.CHANGE_ISOLATION_INSIDE_TX);
+        }
+
+        return emptyTx(transactionLevel, isReadOnly, newAutoCommit);
     }
 
-    public YdbTxState withReadOnly(boolean readOnly) throws SQLException {
-        if (readOnly == isReadOnly()) {
+    public YdbTxState withReadOnly(boolean newReadOnly) throws SQLException {
+        if (newReadOnly == isReadOnly()) {
             return this;
         }
 
-        if (readOnly) {
-            return create(YdbConst.ONLINE_CONSISTENT_READ_ONLY, isAutoCommit());
-        } else {
-            return create(YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE, isAutoCommit());
+        if (isInsideTransaction()) {
+            throw new SQLFeatureNotSupportedException(YdbConst.READONLY_INSIDE_TRANSACTION);
         }
+
+        return emptyTx(transactionLevel, newReadOnly, isAutoCommit);
     }
 
     public YdbTxState withTransactionLevel(int newTransactionLevel) throws SQLException {
-        if (newTransactionLevel == transactionLevel()) {
+        if (newTransactionLevel == transactionLevel) {
             return this;
         }
 
-        return create(newTransactionLevel, isAutoCommit());
+        if (isInsideTransaction()) {
+            throw new SQLFeatureNotSupportedException(YdbConst.CHANGE_ISOLATION_INSIDE_TX);
+        }
+
+        boolean newReadOnly = isReadOnly || newTransactionLevel != Connection.TRANSACTION_SERIALIZABLE;
+        return emptyTx(newTransactionLevel, newReadOnly, isAutoCommit);
     }
 
     public YdbTxState withCommit(Session session) {
@@ -93,7 +116,7 @@ public class YdbTxState {
 
     public YdbTxState withDataQuery(Session session, String txID) {
         if (txID != null && !txID.isEmpty()) {
-            return new TransactionInProgress(txID, session, isAutoCommit());
+            return new TransactionInProgress(txID, session, this);
         }
 
         session.close();
@@ -104,88 +127,59 @@ public class YdbTxState {
         return executor.createSession(ctx);
     }
 
-    public static YdbTxState create(int level, boolean autoCommit) throws SQLException {
-        return create(null, null, level, autoCommit);
-    }
+    private static TxControl<?> txControl(int level, boolean isReadOnly, boolean isAutoCommit) throws SQLException {
+        if (!isReadOnly) {
+            // YDB support only one RW mode
+            if (level != Connection.TRANSACTION_SERIALIZABLE) {
+                throw new SQLException(YdbConst.UNSUPPORTED_TRANSACTION_LEVEL + level);
+            }
 
-    private static YdbTxState create(Session session, String txId, int level, boolean autoCommit)
-            throws SQLException {
+            return TxControl.serializableRw().setCommitTx(isAutoCommit);
+        }
+
         switch (level) {
-            case YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE:
-                if (txId != null) {
-                    return new TransactionInProgress(txId, session, autoCommit);
-                } else {
-                    if (autoCommit) {
-                        return new YdbTxState(TxControl.serializableRw(), level);
-                    } else {
-                        return new EmptyTransaction();
-                    }
-                }
+            case Connection.TRANSACTION_SERIALIZABLE:
+                return TxControl.snapshotRo().setCommitTx(isAutoCommit);
             case YdbConst.ONLINE_CONSISTENT_READ_ONLY:
-                return new YdbTxState(TxControl.onlineRo(), level);
-            case YdbConst.STALE_CONSISTENT_READ_ONLY:
-                return new YdbTxState(TxControl.staleRo(), level);
+                return TxControl.onlineRo().setAllowInconsistentReads(false).setCommitTx(isAutoCommit);
             case YdbConst.ONLINE_INCONSISTENT_READ_ONLY:
-                return new YdbTxState(TxControl.onlineRo().setAllowInconsistentReads(true), level);
+                return TxControl.onlineRo().setAllowInconsistentReads(true).setCommitTx(isAutoCommit);
+            case YdbConst.STALE_CONSISTENT_READ_ONLY:
+                return TxControl.staleRo().setCommitTx(isAutoCommit);
             default:
                 throw new SQLException(YdbConst.UNSUPPORTED_TRANSACTION_LEVEL + level);
         }
     }
 
-    private static class EmptyTransaction extends YdbTxState {
-        EmptyTransaction() {
-            super(TxControl.serializableRw().setCommitTx(false), YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE);
-        }
+    private static YdbTxState emptyTx(int level, boolean isReadOnly, boolean isAutoCommit) throws SQLException {
+        TxControl<?> tx = txControl(level, isReadOnly, isAutoCommit);
+        return new YdbTxState(tx, level, isReadOnly, isAutoCommit);
+    }
 
-        @Override
-        public String toString() {
-            return "EmptyTx" + transactionLevel;
-        }
-
-        @Override
-        public YdbTxState withDataQuery(Session session, String txID) {
-            if (txID != null && !txID.isEmpty()) {
-                return new TransactionInProgress(txID, session, isAutoCommit());
-            }
-
-            session.close();
-            return this;
-        }
+    public static YdbTxState create(int level, boolean isAutoCommit) throws SQLException {
+        return emptyTx(level, level != Connection.TRANSACTION_SERIALIZABLE, isAutoCommit);
     }
 
     private static class TransactionInProgress extends YdbTxState {
-        private final String id;
+        private final String txID;
         private final Session session;
+        private final YdbTxState previos;
 
-        TransactionInProgress(String id, Session session, boolean autoCommit) {
-            super(TxControl.id(id).setCommitTx(autoCommit), YdbConst.TRANSACTION_SERIALIZABLE_READ_WRITE);
-            this.id = id;
+        TransactionInProgress(String id, Session session, YdbTxState previosState) {
+            super(TxControl.id(id).setCommitTx(previosState.isAutoCommit), previosState);
+            this.txID = id;
             this.session = session;
+            this.previos = previosState;
         }
 
         @Override
         public String toString() {
-            return "InTx" + transactionLevel + "[" + id + "]";
+            return "InTx" + transactionLevel() + "[" + txID + "]";
         }
 
         @Override
         public String txID() {
-            return id;
-        }
-
-        @Override
-        public YdbTxState withAutoCommit(boolean newAutoCommit) throws SQLException {
-            throw new SQLFeatureNotSupportedException(YdbConst.CHANGE_ISOLATION_INSIDE_TX);
-        }
-
-        @Override
-        public YdbTxState withTransactionLevel(int newTransactionLevel) throws SQLException {
-            throw new SQLFeatureNotSupportedException(YdbConst.CHANGE_ISOLATION_INSIDE_TX);
-        }
-
-        @Override
-        public YdbTxState withReadOnly(boolean readOnly) throws SQLException {
-            throw new SQLFeatureNotSupportedException(YdbConst.READONLY_INSIDE_TRANSACTION);
+            return txID;
         }
 
         @Override
@@ -201,13 +195,13 @@ public class YdbTxState {
         @Override
         public YdbTxState withCommit(Session session) {
             session.close();
-            return new EmptyTransaction();
+            return previos;
         }
 
         @Override
         public YdbTxState withRollback(Session session) {
             session.close();
-            return new EmptyTransaction();
+            return previos;
         }
 
         @Override
@@ -222,15 +216,15 @@ public class YdbTxState {
                     session.close();
                 }
                 this.session.close();
-                return new EmptyTransaction();
+                return previos;
             }
 
-            if (this.id.equals(txID)) {
+            if (txID.equals(txID())) {
                 if (this.session == session) {
                     return this;
                 }
                 this.session.close();
-                return new TransactionInProgress(txID, session, isAutoCommit());
+                return new TransactionInProgress(txID, session, previos);
             }
 
             session.close();

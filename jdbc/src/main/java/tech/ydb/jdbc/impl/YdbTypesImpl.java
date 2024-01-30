@@ -55,8 +55,8 @@ public class YdbTypesImpl implements YdbTypes {
         typeBySqlType = new IntObjectHashMap<>(16);
         typeBySqlType.put(Types.VARCHAR, PrimitiveType.Text);
         typeBySqlType.put(Types.BIGINT, PrimitiveType.Int64);
-        typeBySqlType.put(Types.TINYINT, PrimitiveType.Int32);
-        typeBySqlType.put(Types.SMALLINT, PrimitiveType.Int32);
+        typeBySqlType.put(Types.TINYINT, PrimitiveType.Int8);
+        typeBySqlType.put(Types.SMALLINT, PrimitiveType.Int16);
         typeBySqlType.put(Types.INTEGER, PrimitiveType.Int32);
         typeBySqlType.put(Types.REAL, PrimitiveType.Float);
         typeBySqlType.put(Types.FLOAT, PrimitiveType.Float);
@@ -77,10 +77,10 @@ public class YdbTypesImpl implements YdbTypes {
         typeByClass.put(long.class, PrimitiveType.Int64);
         typeByClass.put(Long.class, PrimitiveType.Int64);
         typeByClass.put(BigInteger.class, PrimitiveType.Int64);
-        typeByClass.put(byte.class, PrimitiveType.Int32);
-        typeByClass.put(Byte.class, PrimitiveType.Int32);
-        typeByClass.put(short.class, PrimitiveType.Int32);
-        typeByClass.put(Short.class, PrimitiveType.Int32);
+        typeByClass.put(byte.class, PrimitiveType.Int8);
+        typeByClass.put(Byte.class, PrimitiveType.Int8);
+        typeByClass.put(short.class, PrimitiveType.Int16);
+        typeByClass.put(Short.class, PrimitiveType.Int16);
         typeByClass.put(int.class, PrimitiveType.Int32);
         typeByClass.put(Integer.class, PrimitiveType.Int32);
         typeByClass.put(float.class, PrimitiveType.Float);
