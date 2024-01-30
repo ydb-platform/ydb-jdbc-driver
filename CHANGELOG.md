@@ -1,3 +1,9 @@
+## 2.0.6 ##
+
+* Upgraded Java SDK version
+* Fixed Int6/Int16 auto detecting
+* Fixed standard transaction levels
+
 ## 2.0.5 ##
 
 * Extended usage of standard JDBC exception classes
