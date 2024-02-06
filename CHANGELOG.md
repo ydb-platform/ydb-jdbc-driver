@@ -1,3 +1,7 @@
+## 2.0.7 ##
+
+* Added getter for GrpcTransport to YdbContext
+
 ## 2.0.6 ##
 
 * Upgraded Java SDK version
