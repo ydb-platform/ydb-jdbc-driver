@@ -92,7 +92,14 @@ public class YdbContext implements AutoCloseable {
         }
     }
 
-
+    /**
+     * Grpc Transport for other API YDB server clients
+     *
+     * @return grpcTransport for YDB
+     */
+    public GrpcTransport getGrpcTransport() {
+        return grpcTransport;
+    }
 
     public String getDatabase() {
         return grpcTransport.getDatabase();
