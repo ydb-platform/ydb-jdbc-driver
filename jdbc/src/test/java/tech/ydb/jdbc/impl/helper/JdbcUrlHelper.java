@@ -43,10 +43,10 @@ public class JdbcUrlHelper {
         return new JdbcUrlHelper(ydb, newExtra, authority, disableToken);
     }
 
-    public JdbcUrlHelper withAutority(String username, String password) {
+    public JdbcUrlHelper withAuthority(String username, String password) {
         StringBuilder newAuthority = new StringBuilder(encode(username));
         if (password != null && !password.isEmpty()) {
-            newAuthority = newAuthority.append(":").append(encode(password));
+            newAuthority.append(":").append(encode(password));
         }
         return new JdbcUrlHelper(ydb, extra, newAuthority.append("@").toString(), disableToken);
     }
