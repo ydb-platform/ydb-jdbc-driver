@@ -5,7 +5,6 @@ import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -14,7 +13,6 @@ import java.util.logging.Logger;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
-import tech.ydb.core.Result;
 import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
@@ -38,10 +36,8 @@ import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.scheme.SchemeClient;
 import tech.ydb.table.SessionRetryContext;
 import tech.ydb.table.TableClient;
-import tech.ydb.table.description.TableDescription;
 import tech.ydb.table.impl.PooledTableClient;
 import tech.ydb.table.rpc.grpc.GrpcTableRpc;
-import tech.ydb.table.settings.DescribeTableSettings;
 import tech.ydb.table.settings.PrepareDataQuerySettings;
 import tech.ydb.table.settings.RequestSettings;
 import tech.ydb.table.values.Type;
@@ -241,10 +237,6 @@ public class YdbContext implements AutoCloseable {
             settings.setTimeout(operation.plusSeconds(1));
         }
         return settings;
-    }
-
-    public CompletableFuture<Result<TableDescription>> describeTable(String tablePath, DescribeTableSettings settings) {
-        return retryCtx.supplyResult(session -> session.describeTable(tablePath, settings));
     }
 
     public YdbQuery parseYdbQuery(String sql) throws SQLException {
