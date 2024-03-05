@@ -4,6 +4,8 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.query.QueryType;
@@ -11,6 +13,7 @@ import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.Session;
 import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.Params;
+import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.settings.CommitTxSettings;
 import tech.ydb.table.settings.ExecuteDataQuerySettings;
 import tech.ydb.table.settings.KeepAliveSessionSettings;
@@ -149,7 +152,7 @@ public class TableExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    public DataQueryResult executeDataQuery(
+    public List<ResultSetReader> executeDataQuery(
             YdbContext ctx, YdbValidator validator, YdbQuery query, int timeout, boolean keepInCache, Params params
     ) throws SQLException {
         ensureOpened();
@@ -162,7 +165,13 @@ public class TableExecutor extends BaseYdbExecutor {
                     () -> session.executeDataQuery(yql, tx.txControl(), params, dataQuerySettings(timeout, keepInCache))
             );
             updateState(tx.withDataQuery(session, result.getTxId()));
-            return result;
+
+            List<ResultSetReader> readers = new ArrayList<>();
+            for (int idx = 0; idx < result.getResultSetCount(); idx += 1) {
+                readers.add(result.getResultSet(idx));
+            }
+
+            return readers;
         } catch (SQLException | RuntimeException ex) {
             updateState(tx.withRollback(session));
             throw ex;
