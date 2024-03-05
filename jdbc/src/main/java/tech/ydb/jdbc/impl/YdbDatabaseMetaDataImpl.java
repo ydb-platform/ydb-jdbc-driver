@@ -31,9 +31,9 @@ import tech.ydb.jdbc.YdbDriverInfo;
 import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.common.FixedResultSetFactory;
 import tech.ydb.jdbc.common.YdbFunctions;
-import tech.ydb.jdbc.context.YdbExecutor;
+import tech.ydb.jdbc.context.SchemeExecutor;
+import tech.ydb.jdbc.context.YdbValidator;
 import tech.ydb.proto.scheme.SchemeOperationProtos;
-import tech.ydb.scheme.SchemeClient;
 import tech.ydb.scheme.description.ListDirectoryResult;
 import tech.ydb.table.description.TableColumn;
 import tech.ydb.table.description.TableDescription;
@@ -51,13 +51,15 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     static final String SYSTEM_TABLE = "SYSTEM TABLE";
 
     private final YdbConnection connection;
+    private final YdbValidator validator;
+    private final SchemeExecutor executor;
     private final YdbTypes types;
-    private final YdbExecutor executor;
 
     public YdbDatabaseMetaDataImpl(YdbConnection connection) {
         this.connection = Objects.requireNonNull(connection);
         this.types = connection.getYdbTypes();
-        this.executor = new YdbExecutor(LOGGER);
+        this.executor = new SchemeExecutor(connection.getCtx());
+        this.validator = new YdbValidator(LOGGER);
     }
 
     @Override
@@ -1320,8 +1322,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     }
 
     private List<String> tables(String databasePrefix, String path, Predicate<String> filter) throws SQLException {
-        SchemeClient client = connection.getCtx().getSchemeClient();
-        ListDirectoryResult result = executor.call("List tables from " + path, () -> client.listDirectory(path));
+        ListDirectoryResult result = validator.call("List tables from " + path, () -> executor.listDirectory(path));
 
         List<String> tables = new ArrayList<>();
         String pathPrefix = withSuffix(path);
@@ -1353,7 +1354,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
         String databaseWithSuffix = withSuffix(connection.getCtx().getDatabase());
 
-        return executor.call("Describe table " + table, () -> connection.getCtx()
+        return validator.call("Describe table " + table, () -> executor
                 .describeTable(databaseWithSuffix + table, settings)
                 .thenApply(result -> {
                     // ignore scheme errors like path not found

@@ -1,117 +1,53 @@
 package tech.ydb.jdbc.context;
 
 import java.sql.SQLException;
-import java.sql.SQLWarning;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
-import com.google.common.base.Stopwatch;
-
-import tech.ydb.core.Issue;
-import tech.ydb.core.Result;
-import tech.ydb.core.Status;
-import tech.ydb.core.UnexpectedResultException;
-import tech.ydb.jdbc.exception.ExceptionFactory;
-import tech.ydb.table.Session;
+import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.query.YdbQuery;
+import tech.ydb.table.query.DataQueryResult;
+import tech.ydb.table.query.ExplainDataQueryResult;
+import tech.ydb.table.query.Params;
+import tech.ydb.table.result.ResultSetReader;
 
 /**
  *
  * @author Aleksandr Gorshenin
  */
-public class YdbExecutor {
-    @SuppressWarnings("NonConstantLogger")
-    private final Logger logger;
-    private final boolean isDebug;
-    private final List<Issue> issues = new ArrayList<>();
-
-    public YdbExecutor(Logger logger) {
-        this.logger = logger;
-        this.isDebug = logger.isLoggable(Level.FINE);
-    }
-
-    public void clearWarnings() {
-        this.issues.clear();
-    }
-
-    public SQLWarning toSQLWarnings() {
-        SQLWarning firstWarning = null;
-        SQLWarning warning = null;
-        for (Issue issue : issues) {
-            SQLWarning nextWarning = new SQLWarning(issue.toString(), null, issue.getCode());
-            if (firstWarning == null) {
-                firstWarning = nextWarning;
-            }
-            if (warning != null) {
-                warning.setNextWarning(nextWarning);
-            }
-            warning = nextWarning;
-        }
-        return firstWarning;
-    }
-
-    public Session createSession(YdbContext ctx) throws SQLException {
-        Duration timeout = ctx.getOperationProperties().getSessionTimeout();
-        return call("create session", () -> ctx.getTableClient().createSession(timeout));
-    }
-
-    public void execute(String msg, Supplier<CompletableFuture<Status>> runnableSupplier) throws SQLException {
-        if (!isDebug) {
-            simpleExecute(msg, runnableSupplier);
-            return;
-        }
-
-        logger.finest(msg);
-        Stopwatch sw = Stopwatch.createStarted();
-
-        try {
-            simpleExecute(msg, runnableSupplier);
-            logger.log(Level.FINEST, "[{0}] OK ", sw.stop());
-        } catch (SQLException | RuntimeException ex) {
-            logger.log(Level.FINE, "[{0}] {1} ", new Object[] {sw.stop(), ex.getMessage()});
-            throw ex;
+public interface YdbExecutor {
+    default void ensureOpened() throws SQLException {
+        if (isClosed()) {
+            throw new SQLException(YdbConst.CLOSED_CONNECTION);
         }
     }
 
-    public <T> T call(String msg, Supplier<CompletableFuture<Result<T>>> callSupplier) throws SQLException {
-        if (!isDebug) {
-            return simpleCall(msg, callSupplier);
-        }
+    boolean isClosed();
 
-        logger.finest(msg);
-        Stopwatch sw = Stopwatch.createStarted();
+    String txID();
+    int transactionLevel() throws SQLException;
 
-        try {
-            T value = simpleCall(msg, callSupplier);
-            logger.log(Level.FINEST, "[{0}] OK ", sw.stop());
-            return value;
-        } catch (SQLException | RuntimeException ex) {
-            logger.log(Level.FINE, "[{0}] {1} ", new Object[] {sw.stop(), ex.getMessage()});
-            throw ex;
-        }
-    }
+    boolean isInsideTransaction() throws SQLException;
+    boolean isAutoCommit() throws SQLException;
+    boolean isReadOnly() throws SQLException;
 
-    private <T> T simpleCall(String msg, Supplier<CompletableFuture<Result<T>>> supplier) throws SQLException {
-        try {
-            Result<T> result = supplier.get().join();
-            issues.addAll(Arrays.asList(result.getStatus().getIssues()));
-            return result.getValue();
-        } catch (UnexpectedResultException ex) {
-            throw ExceptionFactory.createException("Cannot call '" + msg + "' with " + ex.getStatus(), ex);
-        }
-    }
+    void setTransactionLevel(int level) throws SQLException;
+    void setReadOnly(boolean readOnly) throws SQLException;
+    void setAutoCommit(boolean autoCommit) throws SQLException;
 
-    private void simpleExecute(String msg, Supplier<CompletableFuture<Status>> supplier) throws SQLException {
-        Status status = supplier.get().join();
-        issues.addAll(Arrays.asList(status.getIssues()));
-        if (!status.isSuccess()) {
-            throw ExceptionFactory.createException("Cannot execute '" + msg + "' with " + status,
-                    new UnexpectedResultException("Unexpected status", status));
-        }
-    }
+    void executeSchemeQuery(YdbContext ctx, YdbValidator validator, YdbQuery query) throws SQLException;
+
+    DataQueryResult executeDataQuery(YdbContext ctx, YdbValidator validator, YdbQuery query,
+            int timeout, boolean poolable, Params params) throws SQLException;
+
+    ResultSetReader executeScanQuery(YdbContext ctx, YdbValidator validator, YdbQuery query,
+            Duration timeout, Params params) throws SQLException;
+
+    ExplainDataQueryResult executeExplainQuery(YdbContext ctx, YdbValidator validator, YdbQuery query) throws SQLException;
+
+    void commit(YdbContext ctx, YdbValidator validator) throws SQLException;
+    void rollback(YdbContext ctx, YdbValidator validator) throws SQLException;
+
+    boolean isValid(YdbValidator validator, int timeout) throws SQLException;
+
+    void close();
 }

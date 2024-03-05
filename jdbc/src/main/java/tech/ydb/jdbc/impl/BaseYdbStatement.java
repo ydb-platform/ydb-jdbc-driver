@@ -5,7 +5,6 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -17,7 +16,7 @@ import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.common.FixedResultSetFactory;
-import tech.ydb.jdbc.context.YdbExecutor;
+import tech.ydb.jdbc.context.YdbValidator;
 import tech.ydb.jdbc.query.YdbExpression;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
@@ -25,7 +24,6 @@ import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
-import tech.ydb.table.settings.ExecuteDataQuerySettings;
 
 /**
  *
@@ -44,7 +42,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
             .build();
 
     private final YdbConnection connection;
-    private final YdbExecutor executor;
+    private final YdbValidator validator;
     private final int resultSetType;
     private final int maxRows;
     private final boolean failOnTruncatedResult;
@@ -56,7 +54,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
 
     public BaseYdbStatement(Logger logger, YdbConnection connection, int resultSetType, boolean isPoolable) {
         this.connection = Objects.requireNonNull(connection);
-        this.executor = new YdbExecutor(logger);
+        this.validator = new YdbValidator(logger);
         this.resultSetType = resultSetType;
         this.isPoolable = isPoolable;
 
@@ -88,12 +86,12 @@ public abstract class BaseYdbStatement implements YdbStatement {
 
     @Override
     public SQLWarning getWarnings() {
-        return executor.toSQLWarnings();
+        return validator.toSQLWarnings();
     }
 
     @Override
     public void clearWarnings() {
-        executor.clearWarnings();
+        validator.clearWarnings();
     }
 
     @Override
@@ -169,7 +167,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
     }
 
     protected List<YdbResult> executeSchemeQuery(YdbQuery query) throws SQLException {
-        connection.executeSchemeQuery(query, executor);
+        connection.executeSchemeQuery(query, validator);
 
         int expressionsCount = query.getExpressions().isEmpty() ? 1 : query.getExpressions().size();
         List<YdbResult> results = new ArrayList<>();
@@ -180,7 +178,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
     }
 
     protected List<YdbResult> executeExplainQuery(YdbQuery query) throws SQLException {
-        ExplainDataQueryResult explainDataQuery = connection.executeExplainQuery(query, executor);
+        ExplainDataQueryResult explainDataQuery = connection.executeExplainQuery(query, validator);
 
         ResultSetReader result = EXPLAIN_RS_FACTORY.createResultSet()
                 .newRow()
@@ -193,25 +191,12 @@ public abstract class BaseYdbStatement implements YdbStatement {
     }
 
     protected List<YdbResult> executeScanQuery(YdbQuery query, Params params) throws SQLException {
-        ResultSetReader result = connection.executeScanQuery(query, executor, params);
+        ResultSetReader result = connection.executeScanQuery(query, validator, params);
         return Collections.singletonList(new YdbResult(new YdbResultSetImpl(this, result)));
     }
 
     protected List<YdbResult> executeDataQuery(YdbQuery query, Params params) throws SQLException {
-        ExecuteDataQuerySettings settings = new ExecuteDataQuerySettings();
-
-        int timeout = getQueryTimeout();
-        if (timeout > 0) {
-            settings = settings
-                    .setOperationTimeout(Duration.ofSeconds(timeout))
-                    .setTimeout(Duration.ofSeconds(timeout + 1));
-        }
-
-        if (!isPoolable()) {
-            settings = settings.disableQueryCache();
-        }
-
-        DataQueryResult result = connection.executeDataQuery(query, executor, settings, params);
+        DataQueryResult result = connection.executeDataQuery(query, validator, getQueryTimeout(), isPoolable(), params);
 
         List<YdbResult> results = new ArrayList<>();
         int idx = 0;
