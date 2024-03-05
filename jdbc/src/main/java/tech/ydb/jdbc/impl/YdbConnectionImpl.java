@@ -16,6 +16,7 @@ import java.sql.Statement;
 import java.sql.Struct;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
@@ -38,7 +39,6 @@ import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.settings.FakeTxMode;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
-import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
@@ -211,7 +211,7 @@ public class YdbConnectionImpl implements YdbConnection {
     }
 
     @Override
-    public DataQueryResult executeDataQuery(YdbQuery query, YdbValidator validator,
+    public List<ResultSetReader> executeDataQuery(YdbQuery query, YdbValidator validator,
             int timeout, boolean poolable, Params params) throws SQLException {
         return executor.executeDataQuery(ctx, validator, query, timeout, poolable, params);
     }

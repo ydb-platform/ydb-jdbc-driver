@@ -2,13 +2,13 @@ package tech.ydb.jdbc;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.List;
 
 import javax.annotation.Nullable;
 
 import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbValidator;
 import tech.ydb.jdbc.query.YdbQuery;
-import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.query.Params;
 
@@ -52,8 +52,8 @@ public interface YdbConnection extends Connection {
      * @return list of result set
      * @throws SQLException if query cannot be executed
      */
-    DataQueryResult executeDataQuery(YdbQuery query, YdbValidator validator, int timeout, boolean keepInCache,
-            Params params) throws SQLException;
+    List<ResultSetReader> executeDataQuery(YdbQuery query, YdbValidator validator,
+            int timeout, boolean keepInCache, Params params) throws SQLException;
 
     /**
      * Explicitly execute query as a scan query

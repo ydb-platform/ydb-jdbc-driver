@@ -2,10 +2,10 @@ package tech.ydb.jdbc.context;
 
 import java.sql.SQLException;
 import java.time.Duration;
+import java.util.List;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.query.YdbQuery;
-import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
@@ -36,7 +36,7 @@ public interface YdbExecutor {
 
     void executeSchemeQuery(YdbContext ctx, YdbValidator validator, YdbQuery query) throws SQLException;
 
-    DataQueryResult executeDataQuery(YdbContext ctx, YdbValidator validator, YdbQuery query,
+    List<ResultSetReader> executeDataQuery(YdbContext ctx, YdbValidator validator, YdbQuery query,
             int timeout, boolean poolable, Params params) throws SQLException;
 
     ResultSetReader executeScanQuery(YdbContext ctx, YdbValidator validator, YdbQuery query,

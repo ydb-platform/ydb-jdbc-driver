@@ -20,7 +20,6 @@ import tech.ydb.jdbc.context.YdbValidator;
 import tech.ydb.jdbc.query.YdbExpression;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
-import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
@@ -196,7 +195,8 @@ public abstract class BaseYdbStatement implements YdbStatement {
     }
 
     protected List<YdbResult> executeDataQuery(YdbQuery query, Params params) throws SQLException {
-        DataQueryResult result = connection.executeDataQuery(query, validator, getQueryTimeout(), isPoolable(), params);
+        List<ResultSetReader> resultSets = connection
+                .executeDataQuery(query, validator, getQueryTimeout(), isPoolable(), params);
 
         List<YdbResult> results = new ArrayList<>();
         int idx = 0;
@@ -210,8 +210,8 @@ public abstract class BaseYdbStatement implements YdbStatement {
                 continue;
             }
 
-            if (idx < result.getResultSetCount())  {
-                ResultSetReader rs = result.getResultSet(idx);
+            if (idx < resultSets.size())  {
+                ResultSetReader rs = resultSets.get(idx);
                 if (failOnTruncatedResult && rs.isTruncated()) {
                     String msg = String.format(YdbConst.RESULT_IS_TRUNCATED, idx, rs.getRowCount());
                     throw new SQLException(msg);
@@ -221,8 +221,8 @@ public abstract class BaseYdbStatement implements YdbStatement {
             }
         }
 
-        while (idx < result.getResultSetCount())  {
-            ResultSetReader rs = result.getResultSet(idx);
+        while (idx < resultSets.size())  {
+            ResultSetReader rs = resultSets.get(idx);
             if (failOnTruncatedResult && rs.isTruncated()) {
                 String msg = String.format(YdbConst.RESULT_IS_TRUNCATED, idx, rs.getRowCount());
                 throw new SQLException(msg);
