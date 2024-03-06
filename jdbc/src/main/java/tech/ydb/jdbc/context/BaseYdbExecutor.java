@@ -67,7 +67,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
     }
 
     @Override
-    public ResultSetReader executeScanQuery(YdbContext ctx, YdbValidator validator, YdbQuery query, Duration timeout, Params params) throws SQLException {
+    public ResultSetReader executeScanQuery(YdbContext ctx, YdbValidator validator, YdbQuery query, Params params) throws SQLException {
         ensureOpened();
 
         String yql = query.getYqlQuery(params);
