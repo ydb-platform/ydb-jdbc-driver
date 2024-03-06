@@ -137,7 +137,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         }
     }
 
-    private ExecuteDataQuerySettings dataQuerySettings(int timeout, boolean keepInCache) {
+    private ExecuteDataQuerySettings dataQuerySettings(long timeout, boolean keepInCache) {
         ExecuteDataQuerySettings settings = new ExecuteDataQuerySettings();
         if (timeout > 0) {
             settings = settings
@@ -153,7 +153,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public List<ResultSetReader> executeDataQuery(
-            YdbContext ctx, YdbValidator validator, YdbQuery query, int timeout, boolean keepInCache, Params params
+            YdbContext ctx, YdbValidator validator, YdbQuery query, long timeout, boolean keepInCache, Params params
     ) throws SQLException {
         ensureOpened();
 

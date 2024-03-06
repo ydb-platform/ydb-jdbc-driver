@@ -60,6 +60,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         if (this.tx == newTx || this.tx == null) {
             return;
         }
+
         this.tx = newTx;
     }
 
@@ -160,18 +161,18 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public List<ResultSetReader> executeDataQuery(
-            YdbContext ctx, YdbValidator validator, YdbQuery query, int timeout, boolean keepInCache, Params params
+            YdbContext ctx, YdbValidator validator, YdbQuery query, long timeout, boolean keepInCache, Params params
     ) throws SQLException {
         ensureOpened();
 
         final String yql = query.getYqlQuery(params);
-        final QuerySession session = tx.getSession(validator);
         ExecuteQuerySettings.Builder builder = ExecuteQuerySettings.newBuilder();
         if (timeout > 0) {
             builder = builder.withRequestTimeout(timeout, TimeUnit.SECONDS);
         }
         final ExecuteQuerySettings settings = builder.build();
 
+        final QuerySession session = tx.getSession(validator);
         try {
             QueryDataReader result = validator.call(
                     QueryType.DATA_QUERY + " >>\n" + yql,
@@ -190,6 +191,27 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             throw ex;
         }
     }
+
+    @Override
+    public void executeSchemeQuery(YdbContext ctx, YdbValidator validator, YdbQuery query) throws SQLException {
+        // Scheme query does not affect transactions or result sets
+        ExecuteQuerySettings settings = ctx.withRequestTimeout(ExecuteQuerySettings.newBuilder()).build();
+        final String yql = query.getYqlQuery(null);
+
+        try (QuerySession session = createNewQuerySession(validator)) {
+            validator.execute(QueryType.SCHEME_QUERY + " >>\n" + yql,
+                    () -> session.executeQuery(yql, QueryTx.noTx(), Params.empty(), settings).start(part -> {}));
+        }
+    }
+
+//    @Override
+//    public ResultSetReader executeScanQuery(YdbContext ctx, YdbValidator validator, YdbQuery query, Params params) throws SQLException {
+//        ensureOpened();
+//
+//        long scanQueryTimeout = ctx.getOperationProperties().getScanQueryTimeout().get(ChronoUnit.SECONDS);
+//        List<ResultSetReader> list = executeDataQuery(ctx, validator, query, scanQueryTimeout, false, params);
+//        return list.get(0);
+//    }
 
     @Override
     public boolean isValid(YdbValidator validator, int timeout) throws SQLException {

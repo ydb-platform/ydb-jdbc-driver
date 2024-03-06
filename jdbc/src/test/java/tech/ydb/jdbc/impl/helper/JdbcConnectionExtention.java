@@ -32,14 +32,24 @@ public class JdbcConnectionExtention implements ExecutionCondition,
     private final Map<ExtensionContext, Connection> map = new HashMap<>();
     private final Stack<Connection> stack = new Stack<>();
 
+    private JdbcConnectionExtention(JdbcUrlHelper jdbcURL) {
+        this.jdbcURL = jdbcURL;
+    }
+
     public JdbcConnectionExtention(YdbHelperExtension ydb, boolean autoCommit) {
-        this.jdbcURL = new JdbcUrlHelper(ydb)
+        this(new JdbcUrlHelper(ydb)
                 .withArg("failOnTruncatedResult", "true")
-                .withArg("autoCommit", String.valueOf(autoCommit));
+                .withArg("autoCommit", String.valueOf(autoCommit))
+//                .withArg("useQueryService", "true")
+        );
     }
 
     public JdbcConnectionExtention(YdbHelperExtension ydb) {
         this(ydb, true);
+    }
+
+    public JdbcConnectionExtention withArg(String key, String value) {
+        return new JdbcConnectionExtention(jdbcURL.withArg(key, value));
     }
 
     private void register(ExtensionContext ctx) throws SQLException {

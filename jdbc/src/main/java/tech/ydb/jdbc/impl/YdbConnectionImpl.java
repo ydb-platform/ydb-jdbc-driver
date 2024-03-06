@@ -14,7 +14,6 @@ import java.sql.SQLXML;
 import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -236,8 +235,7 @@ public class YdbConnectionImpl implements YdbConnection {
             }
         }
 
-        Duration scanQueryTimeout = ctx.getOperationProperties().getScanQueryTimeout();
-        return executor.executeScanQuery(ctx, validator, query, scanQueryTimeout, params);
+        return executor.executeScanQuery(ctx, validator, query, params);
     }
 
     @Override

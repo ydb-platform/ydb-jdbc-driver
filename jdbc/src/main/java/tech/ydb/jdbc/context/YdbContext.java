@@ -15,6 +15,7 @@ import com.google.common.cache.CacheBuilder;
 import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
+import tech.ydb.core.settings.BaseRequestSettings;
 import tech.ydb.core.settings.OperationSettings;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbPrepareMode;
@@ -220,6 +221,15 @@ public class YdbContext implements AutoCloseable {
             settings.setTimeout(operation.plusSeconds(1));
         }
         return settings;
+    }
+
+    public <T extends BaseRequestSettings.BaseBuilder<T>> T withRequestTimeout(T builder) {
+        Duration operation = config.getOperationProperties().getDeadlineTimeout();
+        if (operation.isNegative() || operation.isZero()) {
+            return builder;
+        }
+
+        return builder.withRequestTimeout(operation.plusSeconds(1));
     }
 
     public <T extends OperationSettings.OperationBuilder<T>> T withOperationTimeout(T builder) {
