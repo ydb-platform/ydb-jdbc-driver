@@ -16,6 +16,7 @@ import com.google.common.cache.CacheBuilder;
 import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
+import tech.ydb.core.settings.OperationSettings;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.exception.ExceptionFactory;
@@ -33,6 +34,8 @@ import tech.ydb.jdbc.settings.YdbClientProperty;
 import tech.ydb.jdbc.settings.YdbConnectionProperties;
 import tech.ydb.jdbc.settings.YdbConnectionProperty;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
+import tech.ydb.query.QueryClient;
+import tech.ydb.query.impl.QueryClientImpl;
 import tech.ydb.scheme.SchemeClient;
 import tech.ydb.table.SessionRetryContext;
 import tech.ydb.table.TableClient;
@@ -59,6 +62,7 @@ public class YdbContext implements AutoCloseable {
 
     private final GrpcTransport grpcTransport;
     private final PooledTableClient tableClient;
+    private final QueryClientImpl queryClient;
     private final SchemeClient schemeClient;
     private final YdbQueryOptions queryOptions;
     private final SessionRetryContext retryCtx;
@@ -69,10 +73,12 @@ public class YdbContext implements AutoCloseable {
     private final boolean autoResizeSessionPool;
     private final AtomicInteger connectionsCount = new AtomicInteger();
 
-    private YdbContext(YdbConfig config, GrpcTransport transport, PooledTableClient tableClient, boolean autoResize) {
+    private YdbContext(YdbConfig config, GrpcTransport transport,
+            PooledTableClient tableClient, QueryClientImpl queryClient, boolean autoResize) {
         this.config = config;
         this.grpcTransport = Objects.requireNonNull(transport);
         this.tableClient = Objects.requireNonNull(tableClient);
+        this.queryClient = Objects.requireNonNull(queryClient);
         this.schemeClient = SchemeClient.newClient(transport).build();
         this.queryOptions = YdbQueryOptions.createFrom(config.getOperationProperties());
         this.autoResizeSessionPool = autoResize;
@@ -107,6 +113,10 @@ public class YdbContext implements AutoCloseable {
 
     public TableClient getTableClient() {
         return tableClient;
+    }
+
+    public QueryClient getQueryClient() {
+        return queryClient;
     }
 
     public String getUrl() {
@@ -167,9 +177,11 @@ public class YdbContext implements AutoCloseable {
             PooledTableClient.Builder tableClient = PooledTableClient.newClient(
                     GrpcTableRpc.useTransport(grpcTransport)
             );
-            boolean autoResize = buildTableClient(tableClient, clientProps);
+            QueryClientImpl.Builder queryClient = QueryClientImpl.newClient(grpcTransport);
 
-            return new YdbContext(config, grpcTransport, tableClient.build(), autoResize);
+            boolean autoResize = buildTableClient(tableClient, queryClient, clientProps);
+
+            return new YdbContext(config, grpcTransport, tableClient.build(), queryClient.build(), autoResize);
         } catch (RuntimeException ex) {
             throw new SQLException("Cannot connect to YDB: " + ex.getMessage(), ex);
         }
@@ -201,10 +213,10 @@ public class YdbContext implements AutoCloseable {
         return builder.build();
     }
 
-    private static boolean buildTableClient(TableClient.Builder builder, YdbClientProperties props) {
+    private static boolean buildTableClient(TableClient.Builder table, QueryClient.Builder query, YdbClientProperties props) {
         for (Map.Entry<YdbClientProperty<?>, ParsedProperty> entry : props.getParams().entrySet()) {
             if (entry.getValue() != null) {
-                entry.getKey().getSetter().accept(builder, entry.getValue().getParsedValue());
+                entry.getKey().getSetter().accept(table, entry.getValue().getParsedValue());
             }
         }
 
@@ -226,7 +238,8 @@ public class YdbContext implements AutoCloseable {
             maxSize = Math.max(minSize + 1, maxSizeConfig.getParsedValue());
         }
 
-        builder.sessionPoolSize(minSize, maxSize);
+        table.sessionPoolSize(minSize, maxSize);
+        query.sessionPoolMinSize(minSize).sessionPoolMaxSize(maxSize);
         return false;
     }
 
@@ -237,6 +250,15 @@ public class YdbContext implements AutoCloseable {
             settings.setTimeout(operation.plusSeconds(1));
         }
         return settings;
+    }
+
+    public <T extends OperationSettings.OperationBuilder<T>> T withOperationTimeout(T builder) {
+        Duration operation = config.getOperationProperties().getDeadlineTimeout();
+        if (operation.isNegative() || operation.isZero()) {
+            return builder;
+        }
+
+        return builder.withOperationTimeout(operation).withRequestTimeout(operation.plusSeconds(1));
     }
 
     public YdbQuery parseYdbQuery(String sql) throws SQLException {
