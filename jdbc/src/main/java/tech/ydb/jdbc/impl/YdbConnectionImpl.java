@@ -30,6 +30,7 @@ import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTypes;
+import tech.ydb.jdbc.context.QueryServiceExecutor;
 import tech.ydb.jdbc.context.TableServiceExecutor;
 import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbExecutor;
@@ -61,7 +62,9 @@ public class YdbConnectionImpl implements YdbConnection {
         this.schemeQueryTxMode = props.getSchemeQueryTxMode();
 
         this.validator = new YdbValidator(LOGGER);
-        this.executor = new TableServiceExecutor(ctx, props.getTransactionLevel(), props.isAutoCommit());
+        this.executor = ctx.getOperationProperties().isUseQueryService()
+                ? new QueryServiceExecutor(ctx, props.getTransactionLevel(), props.isAutoCommit())
+                : new TableServiceExecutor(ctx, props.getTransactionLevel(), props.isAutoCommit());
 
         this.ctx.register();
     }

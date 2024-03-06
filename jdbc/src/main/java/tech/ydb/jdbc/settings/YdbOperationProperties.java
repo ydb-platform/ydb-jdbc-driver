@@ -46,6 +46,10 @@ public class YdbOperationProperties {
             FakeTxMode.ERROR
     );
 
+    static final YdbProperty<Boolean> USE_QUERY_SERVICE = YdbProperty.bool("useQueryService",
+            "Use QueryService intead of TableService"
+    );
+
     private static final int MAX_ROWS = 1000; // TODO: how to figure out the max rows of current connection?
 
     private final YdbValue<Duration> joinDuration;
@@ -59,6 +63,8 @@ public class YdbOperationProperties {
 
     private final YdbValue<FakeTxMode> scanQueryTxMode;
     private final YdbValue<FakeTxMode> schemeQueryTxMode;
+
+    private final YdbValue<Boolean> useQueryService;
 
     public YdbOperationProperties(YdbConfig config) throws SQLException {
         Properties props = config.getProperties();
@@ -74,6 +80,8 @@ public class YdbOperationProperties {
 
         this.scanQueryTxMode = SCAN_QUERY_TX_MODE.readValue(props);
         this.schemeQueryTxMode = SCHEME_QUERY_TX_MODE.readValue(props);
+
+        this.useQueryService = USE_QUERY_SERVICE.readValue(props);
     }
 
     public Duration getJoinDuration() {
@@ -118,5 +126,9 @@ public class YdbOperationProperties {
 
     public int getMaxRows() {
         return MAX_ROWS;
+    }
+
+    public boolean isUseQueryService() {
+        return useQueryService.hasValue() && useQueryService.getValue();
     }
 }
