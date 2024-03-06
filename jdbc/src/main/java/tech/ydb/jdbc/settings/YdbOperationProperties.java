@@ -25,6 +25,7 @@ public class YdbOperationProperties {
     private final FakeTxMode scanQueryTxMode;
     private final FakeTxMode schemeQueryTxMode;
     private final QueryType forcedQueryType;
+    private final boolean useQueryService;
 
     public YdbOperationProperties(Map<YdbOperationProperty<?>, ParsedProperty> params) {
         this.params = Objects.requireNonNull(params);
@@ -47,6 +48,8 @@ public class YdbOperationProperties {
 
         ParsedProperty forcedType = params.get(YdbOperationProperty.FORCE_QUERY_MODE);
         this.forcedQueryType = forcedType != null ? forcedType.getParsedValue() : null;
+
+        this.useQueryService = params.get(YdbOperationProperty.USE_QUERY_SERVICE).getParsedValue();
     }
 
     public Map<YdbOperationProperty<?>, ParsedProperty> getParams() {
@@ -107,5 +110,9 @@ public class YdbOperationProperties {
 
     public int getPreparedStatementCacheSize() {
         return preparedStatementCacheSize;
+    }
+
+    public boolean isUseQueryService() {
+        return useQueryService;
     }
 }

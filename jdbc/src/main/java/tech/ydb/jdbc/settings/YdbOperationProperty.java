@@ -155,6 +155,13 @@ public class YdbOperationProperty<T> extends AbstractYdbProperty<T, Void> {
                     QueryType.class,
                     PropertyConverter.enumValue(QueryType.class));
 
+    public static final YdbOperationProperty<Boolean> USE_QUERY_SERVICE =
+            new YdbOperationProperty<>("useQueryService",
+                    "use query service",
+                    "false",
+                    Boolean.class,
+                    PropertyConverter.booleanValue());
+
     protected YdbOperationProperty(String name,
                                    String description,
                                    @Nullable String defaultValue,

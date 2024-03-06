@@ -339,6 +339,8 @@ public class YdbDriverProperitesTest {
                 YdbOperationProperty.SCAN_QUERY_TX_MODE.toDriverPropertyInfo("ERROR"),
                 YdbOperationProperty.SCHEME_QUERY_TX_MODE.toDriverPropertyInfo("ERROR"),
                 YdbOperationProperty.FORCE_QUERY_MODE.toDriverPropertyInfo(null),
+
+                YdbOperationProperty.USE_QUERY_SERVICE.toDriverPropertyInfo("false"),
         };
     }
 
@@ -381,6 +383,7 @@ public class YdbDriverProperitesTest {
         properties.setProperty("schemeQueryTxMode", "SHADOW_COMMIT");
 
         properties.setProperty("forceQueryMode", "SCAN_QUERY");
+        properties.setProperty("useQueryService", "true");
         return properties;
     }
 
@@ -421,6 +424,7 @@ public class YdbDriverProperitesTest {
                 YdbOperationProperty.SCAN_QUERY_TX_MODE.toDriverPropertyInfo("FAKE_TX"),
                 YdbOperationProperty.SCHEME_QUERY_TX_MODE.toDriverPropertyInfo("SHADOW_COMMIT"),
                 YdbOperationProperty.FORCE_QUERY_MODE.toDriverPropertyInfo("SCAN_QUERY"),
+                YdbOperationProperty.USE_QUERY_SERVICE.toDriverPropertyInfo("true"),
         };
     }
 
