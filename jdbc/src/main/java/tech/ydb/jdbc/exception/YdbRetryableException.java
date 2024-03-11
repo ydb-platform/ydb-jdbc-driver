@@ -5,7 +5,7 @@ import java.sql.SQLRecoverableException;
 import tech.ydb.core.Status;
 import tech.ydb.core.UnexpectedResultException;
 
-public class YdbRetryableException extends SQLRecoverableException {
+public class YdbRetryableException extends SQLRecoverableException implements YdbStatusable {
     private static final long serialVersionUID = -7171306648623023924L;
     private final Status status;
 
@@ -14,6 +14,7 @@ public class YdbRetryableException extends SQLRecoverableException {
         this.status = cause.getStatus();
     }
 
+    @Override
     public Status getStatus() {
         return status;
     }

@@ -5,7 +5,7 @@ import java.sql.SQLTransientException;
 import tech.ydb.core.Status;
 import tech.ydb.core.UnexpectedResultException;
 
-public class YdbConditionallyRetryableException extends SQLTransientException {
+public class YdbConditionallyRetryableException extends SQLTransientException implements YdbStatusable {
     private static final long serialVersionUID = 2155728765762467203L;
     private final Status status;
 
@@ -14,6 +14,7 @@ public class YdbConditionallyRetryableException extends SQLTransientException {
         this.status = cause.getStatus();
     }
 
+    @Override
     public Status getStatus() {
         return status;
     }

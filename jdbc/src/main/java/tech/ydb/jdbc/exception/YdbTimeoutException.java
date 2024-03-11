@@ -9,7 +9,7 @@ import tech.ydb.core.UnexpectedResultException;
  *
  * @author Aleksandr Gorshenin
  */
-public class YdbTimeoutException extends SQLTimeoutException {
+public class YdbTimeoutException extends SQLTimeoutException implements YdbStatusable {
     private static final long serialVersionUID = -6309565506198809222L;
 
     private final Status status;
@@ -19,6 +19,7 @@ public class YdbTimeoutException extends SQLTimeoutException {
         this.status = cause.getStatus();
     }
 
+    @Override
     public Status getStatus() {
         return status;
     }

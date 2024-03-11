@@ -5,7 +5,7 @@ import java.sql.SQLException;
 import tech.ydb.core.Status;
 import tech.ydb.core.UnexpectedResultException;
 
-public class YdbSQLException extends SQLException {
+public class YdbSQLException extends SQLException implements YdbStatusable {
     private static final long serialVersionUID = 6204553083196091739L;
 
     private final Status status;
@@ -15,6 +15,7 @@ public class YdbSQLException extends SQLException {
         this.status = cause.getStatus();
     }
 
+    @Override
     public Status getStatus() {
         return status;
     }
