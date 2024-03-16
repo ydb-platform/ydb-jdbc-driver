@@ -410,6 +410,10 @@ public class YdbPreparedStatementImplTest {
                 TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
                         .nextRow(1, "value-1")
                         .noNextRows();
+
+                select.setInt("key", 2);
+                TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
+                        .noNextRows();
             }
         } finally {
             jdbc.connection().setAutoCommit(true);
