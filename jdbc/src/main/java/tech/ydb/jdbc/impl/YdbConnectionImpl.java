@@ -1,6 +1,5 @@
 package tech.ydb.jdbc.impl;
 
-
 import java.sql.Array;
 import java.sql.Blob;
 import java.sql.CallableStatement;

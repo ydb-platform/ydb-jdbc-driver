@@ -16,12 +16,12 @@ import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.query.QueryClient;
 import tech.ydb.query.QuerySession;
+import tech.ydb.query.QueryTransaction;
 import tech.ydb.query.QueryTx;
-import tech.ydb.query.impl.TxImpl;
 import tech.ydb.query.settings.CommitTransactionSettings;
 import tech.ydb.query.settings.ExecuteQuerySettings;
 import tech.ydb.query.settings.RollbackTransactionSettings;
-import tech.ydb.query.tools.QueryDataReader;
+import tech.ydb.query.tools.QueryReader;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
 
@@ -32,13 +32,25 @@ import tech.ydb.table.result.ResultSetReader;
 public class QueryServiceExecutor extends BaseYdbExecutor {
     private final Duration sessionTimeout;
     private final QueryClient queryClient;
-    private volatile TxState tx;
+
+    private int transactionLevel;
+    private boolean isReadOnly;
+    private boolean isAutoCommit;
+    private QueryTx txMode;
+
+    private QueryTransaction tx;
+    private boolean isClosed;
 
     public QueryServiceExecutor(YdbContext ctx, int transactionLevel, boolean autoCommit) throws SQLException {
         super(ctx);
         this.sessionTimeout = ctx.getOperationProperties().getSessionTimeout();
         this.queryClient = ctx.getQueryClient();
-        this.tx = createTx(transactionLevel, autoCommit);
+        this.transactionLevel = transactionLevel;
+        this.isReadOnly = transactionLevel != Connection.TRANSACTION_SERIALIZABLE;
+        this.isAutoCommit = autoCommit;
+        this.txMode = txMode(transactionLevel, isReadOnly);
+        this.tx = null;
+        this.isClosed = false;
     }
 
     protected QuerySession createNewQuerySession(YdbValidator validator) throws SQLException {
@@ -53,86 +65,107 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public void close() {
-        tx = null;
+        cleanTx();
+        isClosed = true;
     }
 
-    private void updateState(TxState newTx) {
-        if (this.tx == newTx || this.tx == null) {
-            return;
+    private void cleanTx() {
+        if (tx != null) {
+            tx.getSession().close();
+            tx = null;
         }
-
-        this.tx = newTx;
     }
 
     @Override
     public void setTransactionLevel(int level) throws SQLException {
-        updateState(tx.withTransactionLevel(level));
+        if (level == transactionLevel) {
+            return;
+        }
+
+        if (tx != null && tx.isActive()) {
+            throw new SQLFeatureNotSupportedException(YdbConst.CHANGE_ISOLATION_INSIDE_TX);
+        }
+
+        isReadOnly = isReadOnly || level != Connection.TRANSACTION_SERIALIZABLE;
+        transactionLevel = level;
+        txMode = txMode(transactionLevel, isReadOnly);
     }
 
     @Override
     public void setReadOnly(boolean readOnly) throws SQLException {
-        updateState(tx.withReadOnly(readOnly));
+        if (readOnly == isReadOnly) {
+            return;
+        }
+
+        if (tx != null && tx.isActive()) {
+            throw new SQLFeatureNotSupportedException(YdbConst.READONLY_INSIDE_TRANSACTION);
+        }
+
+        isReadOnly = readOnly;
+        txMode = txMode(transactionLevel, isReadOnly);
     }
 
     @Override
     public void setAutoCommit(boolean autoCommit) throws SQLException {
-        updateState(tx.withAutoCommit(autoCommit));
+        if (autoCommit == isAutoCommit) {
+            return;
+        }
+
+        if (tx != null && tx.isActive()) {
+            throw new SQLFeatureNotSupportedException(YdbConst.CHANGE_ISOLATION_INSIDE_TX);
+        }
+
+        isAutoCommit = autoCommit;
     }
 
     @Override
     public boolean isClosed() {
-        return tx == null;
+        return isClosed;
     }
 
     @Override
     public String txID() {
-        return tx != null ? tx.txID() : null;
+        return tx != null ? tx.getId(): null;
     }
 
     @Override
     public boolean isInsideTransaction() throws SQLException {
         ensureOpened();
-        return tx.isInsideTransaction();
+        return tx != null && tx.isActive();
     }
 
     @Override
     public boolean isAutoCommit() throws SQLException {
         ensureOpened();
-        return tx.isAutoCommit();
+        return isAutoCommit;
     }
 
     @Override
     public boolean isReadOnly() throws SQLException {
         ensureOpened();
-        return tx.isReadOnly();
+        return isReadOnly;
     }
 
     @Override
     public int transactionLevel() throws SQLException {
         ensureOpened();
-        return tx.transactionLevel();
+        return transactionLevel;
     }
 
     @Override
     public void commit(YdbContext ctx, YdbValidator validator) throws SQLException {
         ensureOpened();
 
-        if (!isInsideTransaction()) {
+        if (tx == null || !tx.isActive()) {
             return;
         }
 
-        QuerySession session = tx.getSession(validator);
-        CommitTransactionSettings settings = ctx.withOperationTimeout(CommitTransactionSettings.newBuilder())
-                .build();
-
+        CommitTransactionSettings settings = ctx.withOperationTimeout(CommitTransactionSettings.newBuilder()).build();
         try {
             validator.clearWarnings();
-            validator.execute(
-                    "Commit TxId: " + tx.txID(),
-                    () -> session.commitTransaction(tx.txCtrlID(), settings)
-            );
+            validator.call("Commit TxId: " + tx.getId(), () -> tx.commit(settings));
         } finally {
-            updateState(tx.withCommit(session));
+            cleanTx();
         }
     }
 
@@ -140,22 +173,18 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     public void rollback(YdbContext ctx, YdbValidator validator) throws SQLException {
         ensureOpened();
 
-        if (!isInsideTransaction()) {
+        if (tx == null || !tx.isActive()) {
             return;
         }
 
-        QuerySession session = tx.getSession(validator);
         RollbackTransactionSettings settings = ctx.withOperationTimeout(RollbackTransactionSettings.newBuilder())
                 .build();
 
         try {
             validator.clearWarnings();
-            validator.execute(
-                    "Rollback TxId: " + tx.txID(),
-                    () -> session.rollbackTransaction(tx.txCtrlID(), settings)
-            );
+            validator.execute("Rollback TxId: " + tx.getId(), () -> tx.rollback(settings));
         } finally {
-            updateState(tx.withRollback(session));
+            cleanTx();
         }
     }
 
@@ -172,23 +201,22 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         }
         final ExecuteQuerySettings settings = builder.build();
 
-        final QuerySession session = tx.getSession(validator);
+        if (tx == null) {
+            tx = createNewQuerySession(validator).createNewTransaction(txMode);
+        }
+
         try {
-            QueryDataReader result = validator.call(
-                    QueryType.DATA_QUERY + " >>\n" + yql,
-                    () -> QueryDataReader.readFrom(session.executeQuery(yql, tx.txCtrl(), params, settings))
+            QueryReader result = validator.call(QueryType.DATA_QUERY + " >>\n" + yql,
+                    () -> QueryReader.readFrom(tx.createQuery(yql, isAutoCommit, params, settings))
             );
-            updateState(tx.withTxID(session, result.txId()));
 
             List<ResultSetReader> readers = new ArrayList<>();
-            for (int idx = 0; idx < result.getResultSetCount(); idx += 1) {
-                readers.add(result.getResultSet(idx));
-            }
-
+            result.forEach(readers::add);
             return readers;
-        } catch (SQLException | RuntimeException ex) {
-            updateState(tx.withRollback(session));
-            throw ex;
+        } finally {
+            if (!tx.isActive()) {
+                cleanTx();
+            }
         }
     }
 
@@ -199,19 +227,11 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         final String yql = query.getYqlQuery(null);
 
         try (QuerySession session = createNewQuerySession(validator)) {
-            validator.execute(QueryType.SCHEME_QUERY + " >>\n" + yql,
-                    () -> session.executeQuery(yql, QueryTx.noTx(), Params.empty(), settings).start(part -> {}));
+            validator.call(QueryType.SCHEME_QUERY + " >>\n" + yql,
+                    () -> session.createQuery(yql, QueryTx.NONE, Params.empty(), settings).execute()
+            );
         }
     }
-
-//    @Override
-//    public ResultSetReader executeScanQuery(YdbContext ctx, YdbValidator validator, YdbQuery query, Params params) throws SQLException {
-//        ensureOpened();
-//
-//        long scanQueryTimeout = ctx.getOperationProperties().getScanQueryTimeout().get(ChronoUnit.SECONDS);
-//        List<ResultSetReader> list = executeDataQuery(ctx, validator, query, scanQueryTimeout, false, params);
-//        return list.get(0);
-//    }
 
     @Override
     public boolean isValid(YdbValidator validator, int timeout) throws SQLException {
@@ -219,231 +239,25 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         return true;
     }
 
-    private class TxState {
-        private final int transactionLevel;
-        private final boolean isReadOnly;
-        private final boolean isAutoCommit;
-
-        private final QueryTx txCtrl;
-
-        protected TxState(QueryTx txCtrl, int level, boolean isReadOnly, boolean isAutoCommit) {
-            this.transactionLevel = level;
-            this.isReadOnly = isReadOnly;
-            this.isAutoCommit = isAutoCommit;
-            this.txCtrl = txCtrl;
-        }
-
-        protected TxState(QueryTx txCtrl, TxState other) {
-            this.transactionLevel = other.transactionLevel;
-            this.isReadOnly = other.isReadOnly;
-            this.isAutoCommit = other.isAutoCommit;
-            this.txCtrl = txCtrl;
-        }
-
-        @Override
-        public String toString() {
-            return "NoTx";
-        }
-
-        public String txID() {
-            return null;
-        }
-
-        public QueryTx txCtrl() {
-            return txCtrl;
-        }
-
-        public QueryTx.Id txCtrlID() {
-            return null;
-        }
-
-        public boolean isInsideTransaction() {
-            return false;
-        }
-
-        public boolean isAutoCommit() {
-            return isAutoCommit;
-        }
-
-        public boolean isReadOnly() {
-            return isReadOnly;
-        }
-
-        public int transactionLevel() {
-            return transactionLevel;
-        }
-
-        public TxState withAutoCommit(boolean newAutoCommit) throws SQLException {
-            if (newAutoCommit == isAutoCommit) {
-                return this;
-            }
-
-            if (isInsideTransaction()) {
-                throw new SQLFeatureNotSupportedException(YdbConst.CHANGE_ISOLATION_INSIDE_TX);
-            }
-
-            return emptyTx(transactionLevel, isReadOnly, newAutoCommit);
-        }
-
-        public TxState withReadOnly(boolean newReadOnly) throws SQLException {
-            if (newReadOnly == isReadOnly()) {
-                return this;
-            }
-
-            if (isInsideTransaction()) {
-                throw new SQLFeatureNotSupportedException(YdbConst.READONLY_INSIDE_TRANSACTION);
-            }
-
-            return emptyTx(transactionLevel, newReadOnly, isAutoCommit);
-        }
-
-        public TxState withTransactionLevel(int newTransactionLevel) throws SQLException {
-            if (newTransactionLevel == transactionLevel) {
-                return this;
-            }
-
-            if (isInsideTransaction()) {
-                throw new SQLFeatureNotSupportedException(YdbConst.CHANGE_ISOLATION_INSIDE_TX);
-            }
-
-            boolean newReadOnly = isReadOnly || newTransactionLevel != Connection.TRANSACTION_SERIALIZABLE;
-            return emptyTx(newTransactionLevel, newReadOnly, isAutoCommit);
-        }
-
-        public TxState withCommit(QuerySession session) {
-            session.close();
-            return this;
-        }
-
-        public TxState withRollback(QuerySession session) {
-            session.close();
-            return this;
-        }
-
-        public TxState withKeepAlive(QuerySession session) {
-            session.close();
-            return this;
-        }
-
-        public TxState withTxID(QuerySession session, QueryTx.Id txID) {
-            if (txID != null) {
-                return new TransactionInProgress(txID, session, this);
-            }
-
-            session.close();
-            return this;
-        }
-
-        public QuerySession getSession(YdbValidator validator) throws SQLException {
-            return createNewQuerySession(validator);
-        }
-    }
-
-    private class TransactionInProgress extends TxState {
-        private final QueryTx.Id tx;
-        private final QuerySession session;
-        private final TxState previos;
-
-        TransactionInProgress(QueryTx.Id tx, QuerySession session, TxState previosState) {
-            super(tx, previosState);
-            this.tx = tx;
-            this.session = session;
-            this.previos = previosState;
-        }
-
-        @Override
-        public String toString() {
-            return "InTx" + transactionLevel() + "[" + tx.txId() + "]";
-        }
-
-        @Override
-        public String txID() {
-            return tx.txId();
-        }
-
-        @Override
-        public QueryTx.Id txCtrlID() {
-            return tx;
-        }
-
-        @Override
-        public boolean isInsideTransaction() {
-            return true;
-        }
-
-        @Override
-        public QuerySession getSession(YdbValidator validator) throws SQLException {
-            return session;
-        }
-
-        @Override
-        public TxState withCommit(QuerySession session) {
-            session.close();
-            return previos;
-        }
-
-        @Override
-        public TxState withRollback(QuerySession session) {
-            session.close();
-            return previos;
-        }
-
-        @Override
-        public TxState withKeepAlive(QuerySession session) {
-            return this;
-        }
-
-        @Override
-        public TxState withTxID(QuerySession session, QueryTx.Id txID) {
-            if (txID == null) {
-                if (this.session != session) {
-                    session.close();
-                }
-                this.session.close();
-                return previos;
-            }
-
-            if (txID.txId().equals(tx.txId())) {
-                if (this.session == session) {
-                    return this;
-                }
-                this.session.close();
-                return new TransactionInProgress(txID, session, previos);
-            }
-
-            session.close();
-            return this;
-        }
-    }
-
-    private TxState emptyTx(int level, boolean isReadOnly, boolean isAutoCommit) throws SQLException {
-        QueryTx.Mode txCtrl = txMode(level, isReadOnly, isAutoCommit);
-        return new TxState(txCtrl, level, isReadOnly, isAutoCommit);
-    }
-
-    private TxState createTx(int level, boolean isAutoCommit) throws SQLException {
-        return emptyTx(level, level != Connection.TRANSACTION_SERIALIZABLE, isAutoCommit);
-    }
-
-    private static QueryTx.Mode txMode(int level, boolean isReadOnly, boolean isAutoCommit) throws SQLException {
+    private static QueryTx txMode(int level, boolean isReadOnly) throws SQLException {
         if (!isReadOnly) {
             // YDB support only one RW mode
             if (level != Connection.TRANSACTION_SERIALIZABLE) {
                 throw new SQLException(YdbConst.UNSUPPORTED_TRANSACTION_LEVEL + level);
             }
 
-            return QueryTx.serializableRw().setCommitTx(isAutoCommit);
+            return QueryTx.SERIALIZABLE_RW;
         }
 
         switch (level) {
             case Connection.TRANSACTION_SERIALIZABLE:
-                return QueryTx.snapshotRo().setCommitTx(isAutoCommit);
+                return QueryTx.SNAPSHOT_RO;
             case YdbConst.ONLINE_CONSISTENT_READ_ONLY:
-                return TxImpl.onlineRo().setAllowInconsistentReads(false).setCommitTx(isAutoCommit);
+                return QueryTx.ONLINE_RO;
             case YdbConst.ONLINE_INCONSISTENT_READ_ONLY:
-                return TxImpl.onlineRo().setAllowInconsistentReads(true).setCommitTx(isAutoCommit);
+                return QueryTx.ONLINE_INCONSISTENT_RO;
             case YdbConst.STALE_CONSISTENT_READ_ONLY:
-                return QueryTx.staleRo().setCommitTx(isAutoCommit);
+                return QueryTx.STALE_RO;
             default:
                 throw new SQLException(YdbConst.UNSUPPORTED_TRANSACTION_LEVEL + level);
         }
