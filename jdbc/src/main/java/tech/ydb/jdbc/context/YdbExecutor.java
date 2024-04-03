@@ -38,9 +38,11 @@ public interface YdbExecutor {
     List<ResultSetReader> executeDataQuery(YdbContext ctx, YdbValidator validator, YdbQuery query,
             long timeout, boolean poolable, Params params) throws SQLException;
 
-    ResultSetReader executeScanQuery(YdbContext ctx, YdbValidator validator, YdbQuery query, Params params) throws SQLException;
+    ResultSetReader executeScanQuery(YdbContext ctx, YdbValidator validator, YdbQuery query, Params params)
+            throws SQLException;
 
-    ExplainDataQueryResult executeExplainQuery(YdbContext ctx, YdbValidator validator, YdbQuery query) throws SQLException;
+    ExplainDataQueryResult executeExplainQuery(YdbContext ctx, YdbValidator validator, YdbQuery query)
+            throws SQLException;
 
     void commit(YdbContext ctx, YdbValidator validator) throws SQLException;
     void rollback(YdbContext ctx, YdbValidator validator) throws SQLException;

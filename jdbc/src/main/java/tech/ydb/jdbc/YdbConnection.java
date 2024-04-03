@@ -11,6 +11,7 @@ import tech.ydb.jdbc.context.YdbValidator;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.query.Params;
+import tech.ydb.table.result.ResultSetReader;
 
 public interface YdbConnection extends Connection {
 

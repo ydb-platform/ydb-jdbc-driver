@@ -55,7 +55,8 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
     }
 
     @Override
-    public ExplainDataQueryResult executeExplainQuery(YdbContext ctx, YdbValidator validator, YdbQuery query) throws SQLException {
+    public ExplainDataQueryResult executeExplainQuery(YdbContext ctx, YdbValidator validator, YdbQuery query)
+            throws SQLException {
         ensureOpened();
 
         String yql = query.getYqlQuery(null);
@@ -67,7 +68,8 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
     }
 
     @Override
-    public ResultSetReader executeScanQuery(YdbContext ctx, YdbValidator validator, YdbQuery query, Params params) throws SQLException {
+    public ResultSetReader executeScanQuery(YdbContext ctx, YdbValidator validator, YdbQuery query, Params params)
+            throws SQLException {
         ensureOpened();
 
         String yql = query.getYqlQuery(params);

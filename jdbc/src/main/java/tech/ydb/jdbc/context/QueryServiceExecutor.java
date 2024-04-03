@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import tech.ydb.common.transaction.TxMode;
 import tech.ydb.core.Result;
 import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.jdbc.YdbConst;
@@ -17,7 +18,6 @@ import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.query.QueryClient;
 import tech.ydb.query.QuerySession;
 import tech.ydb.query.QueryTransaction;
-import tech.ydb.query.QueryTx;
 import tech.ydb.query.settings.CommitTransactionSettings;
 import tech.ydb.query.settings.ExecuteQuerySettings;
 import tech.ydb.query.settings.RollbackTransactionSettings;
@@ -36,7 +36,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     private int transactionLevel;
     private boolean isReadOnly;
     private boolean isAutoCommit;
-    private QueryTx txMode;
+    private TxMode txMode;
 
     private QueryTransaction tx;
     private boolean isClosed;
@@ -125,7 +125,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public String txID() {
-        return tx != null ? tx.getId(): null;
+        return tx != null ? tx.getId() : null;
     }
 
     @Override
@@ -228,7 +228,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
         try (QuerySession session = createNewQuerySession(validator)) {
             validator.call(QueryType.SCHEME_QUERY + " >>\n" + yql,
-                    () -> session.createQuery(yql, QueryTx.NONE, Params.empty(), settings).execute()
+                    () -> session.createQuery(yql, TxMode.NONE, Params.empty(), settings).execute()
             );
         }
     }
@@ -239,25 +239,25 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         return true;
     }
 
-    private static QueryTx txMode(int level, boolean isReadOnly) throws SQLException {
+    private static TxMode txMode(int level, boolean isReadOnly) throws SQLException {
         if (!isReadOnly) {
             // YDB support only one RW mode
             if (level != Connection.TRANSACTION_SERIALIZABLE) {
                 throw new SQLException(YdbConst.UNSUPPORTED_TRANSACTION_LEVEL + level);
             }
 
-            return QueryTx.SERIALIZABLE_RW;
+            return TxMode.SERIALIZABLE_RW;
         }
 
         switch (level) {
             case Connection.TRANSACTION_SERIALIZABLE:
-                return QueryTx.SNAPSHOT_RO;
+                return TxMode.SNAPSHOT_RO;
             case YdbConst.ONLINE_CONSISTENT_READ_ONLY:
-                return QueryTx.ONLINE_RO;
+                return TxMode.ONLINE_RO;
             case YdbConst.ONLINE_INCONSISTENT_READ_ONLY:
-                return QueryTx.ONLINE_INCONSISTENT_RO;
+                return TxMode.ONLINE_INCONSISTENT_RO;
             case YdbConst.STALE_CONSISTENT_READ_ONLY:
-                return QueryTx.STALE_RO;
+                return TxMode.STALE_RO;
             default:
                 throw new SQLException(YdbConst.UNSUPPORTED_TRANSACTION_LEVEL + level);
         }

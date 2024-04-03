@@ -304,6 +304,7 @@ public class YdbDriverProperitesTest {
         return new DriverPropertyInfo[]{
             new DriverPropertyInfo("cacheConnectionsInDriver", "true"),
             new DriverPropertyInfo("preparedStatementCacheQueries", "256"),
+            new DriverPropertyInfo("useQueryService", "false"),
             new DriverPropertyInfo("localDatacenter", localDatacenter),
             new DriverPropertyInfo("secureConnection", ""),
             new DriverPropertyInfo("secureConnectionCertificate", ""),
@@ -340,6 +341,7 @@ public class YdbDriverProperitesTest {
         return new DriverPropertyInfo[]{
             new DriverPropertyInfo("cacheConnectionsInDriver", "false"),
             new DriverPropertyInfo("preparedStatementCacheQueries", "100"),
+            new DriverPropertyInfo("useQueryService", "true"),
             new DriverPropertyInfo("localDatacenter", "sas"),
             new DriverPropertyInfo("secureConnection", "true"),
             new DriverPropertyInfo("secureConnectionCertificate", "classpath:data/certificate.txt"),
