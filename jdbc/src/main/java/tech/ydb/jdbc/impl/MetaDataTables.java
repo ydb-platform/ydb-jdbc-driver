@@ -12,7 +12,7 @@ public class MetaDataTables {
     /**
      * @see DatabaseMetaData#getProcedures(java.lang.String, java.lang.String, java.lang.String)
      */
-    public final static FixedResultSetFactory PROCEDURES = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory PROCEDURES = FixedResultSetFactory.newBuilder()
             .addTextColumn("PROCEDURE_CAT")
             .addTextColumn("PROCEDURE_SCHEM")
             .addTextColumn("PROCEDURE_NAME")
@@ -27,7 +27,7 @@ public class MetaDataTables {
     /**
      * @see DatabaseMetaData#getProcedureColumns(java.lang.String, java.lang.String, java.lang.String, java.lang.String)
      */
-    public final static FixedResultSetFactory PROCEDURE_COLUMNS = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory PROCEDURE_COLUMNS = FixedResultSetFactory.newBuilder()
             .addTextColumn("PROCEDURE_CAT")
             .addTextColumn("PROCEDURE_SCHEM")
             .addTextColumn("PROCEDURE_NAME")
@@ -53,7 +53,7 @@ public class MetaDataTables {
     /**
      * @see DatabaseMetaData#getTables(java.lang.String, java.lang.String, java.lang.String, java.lang.String[])
      */
-    public final static FixedResultSetFactory TABLES = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory TABLES = FixedResultSetFactory.newBuilder()
             .addTextColumn("TABLE_CAT")
             .addTextColumn("TABLE_SCHEM")
             .addTextColumn("TABLE_NAME")
@@ -69,21 +69,21 @@ public class MetaDataTables {
     /**
      * @see DatabaseMetaData#getCatalogs()
      */
-    public final static FixedResultSetFactory CATALOGS = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory CATALOGS = FixedResultSetFactory.newBuilder()
             .addTextColumn("TABLE_CAT")
             .build();
 
     /**
      * @see DatabaseMetaData#getTableTypes()
      */
-    public final static FixedResultSetFactory TABLE_TYPES = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory TABLE_TYPES = FixedResultSetFactory.newBuilder()
             .addTextColumn("TABLE_TYPE")
             .build();
 
     /**
      * @see DatabaseMetaData#getColumns(java.lang.String, java.lang.String, java.lang.String, java.lang.String)
      */
-    public final static FixedResultSetFactory COLUMNS = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory COLUMNS = FixedResultSetFactory.newBuilder()
             .addTextColumn("TABLE_CAT")
             .addTextColumn("TABLE_SCHEM")
             .addTextColumn("TABLE_NAME")
@@ -113,7 +113,7 @@ public class MetaDataTables {
     /**
      * @see DatabaseMetaData#getColumnPrivileges(java.lang.String, java.lang.String, java.lang.String, java.lang.String)
      */
-    public final static FixedResultSetFactory COLUMN_PRIVILEGES = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory COLUMN_PRIVILEGES = FixedResultSetFactory.newBuilder()
             .addTextColumn("TABLE_CAT")
             .addTextColumn("TABLE_SCHEM")
             .addTextColumn("TABLE_NAME")
@@ -127,7 +127,7 @@ public class MetaDataTables {
     /**
      * @see DatabaseMetaData#getTablePrivileges(java.lang.String, java.lang.String, java.lang.String)
      */
-    public final static FixedResultSetFactory TABLE_PRIVILEGES = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory TABLE_PRIVILEGES = FixedResultSetFactory.newBuilder()
             .addTextColumn("TABLE_CAT")
             .addTextColumn("TABLE_SCHEM")
             .addTextColumn("TABLE_NAME")
@@ -140,7 +140,7 @@ public class MetaDataTables {
     /**
      * @see DatabaseMetaData#getBestRowIdentifier(java.lang.String, java.lang.String, java.lang.String, int, boolean)
      */
-    public final static FixedResultSetFactory BEST_ROW_IDENTIFIERS = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory BEST_ROW_IDENTIFIERS = FixedResultSetFactory.newBuilder()
             .addShortColumn("SCOPE")
             .addTextColumn("COLUMN_NAME")
             .addIntColumn("DATA_TYPE")
@@ -154,7 +154,7 @@ public class MetaDataTables {
     /**
      * @see DatabaseMetaData#getVersionColumns(java.lang.String, java.lang.String, java.lang.String)
      */
-    public final static FixedResultSetFactory VERSION_COLUMNS = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory VERSION_COLUMNS = FixedResultSetFactory.newBuilder()
             .addShortColumn("SCOPE")
             .addTextColumn("COLUMN_NAME")
             .addIntColumn("DATA_TYPE")
@@ -168,7 +168,7 @@ public class MetaDataTables {
     /**
      * @see DatabaseMetaData#getPrimaryKeys(java.lang.String, java.lang.String, java.lang.String)
      */
-    public final static FixedResultSetFactory PRIMARY_KEYS = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory PRIMARY_KEYS = FixedResultSetFactory.newBuilder()
             .addTextColumn("TABLE_CAT")
             .addTextColumn("TABLE_SCHEM")
             .addTextColumn("TABLE_NAME")
@@ -180,7 +180,7 @@ public class MetaDataTables {
     /**
      * @see DatabaseMetaData#getImportedKeys(java.lang.String, java.lang.String, java.lang.String)
      */
-    public final static FixedResultSetFactory IMPORTED_KEYS = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory IMPORTED_KEYS = FixedResultSetFactory.newBuilder()
             .addTextColumn("PKTABLE_CAT")
             .addTextColumn("PKTABLE_SCHEM")
             .addTextColumn("PKTABLE_NAME")
@@ -200,7 +200,7 @@ public class MetaDataTables {
     /**
      * @see DatabaseMetaData#getExportedKeys(java.lang.String, java.lang.String, java.lang.String)
      */
-    public final static FixedResultSetFactory EXPORTED_KEYS = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory EXPORTED_KEYS = FixedResultSetFactory.newBuilder()
             .addTextColumn("PKTABLE_CAT")
             .addTextColumn("PKTABLE_SCHEM")
             .addTextColumn("PKTABLE_NAME")
@@ -221,7 +221,7 @@ public class MetaDataTables {
      * @see DatabaseMetaData#getCrossReference(java.lang.String, java.lang.String, java.lang.String, java.lang.String,
      * java.lang.String, java.lang.String)
      */
-    public final static FixedResultSetFactory CROSS_REFERENCES = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory CROSS_REFERENCES = FixedResultSetFactory.newBuilder()
             .addTextColumn("PKTABLE_CAT")
             .addTextColumn("PKTABLE_SCHEM")
             .addTextColumn("PKTABLE_NAME")
@@ -241,7 +241,7 @@ public class MetaDataTables {
     /**
      * @see DatabaseMetaData#getTypeInfo()
      */
-    public final static FixedResultSetFactory TYPE_INFOS = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory TYPE_INFOS = FixedResultSetFactory.newBuilder()
             .addTextColumn("TYPE_NAME")
             .addIntColumn("DATA_TYPE")
             .addIntColumn("PRECISION")
@@ -265,7 +265,7 @@ public class MetaDataTables {
     /**
      * @see DatabaseMetaData#getIndexInfo(java.lang.String, java.lang.String, java.lang.String, boolean, boolean)
      */
-    public final static FixedResultSetFactory INDEX_INFOS = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory INDEX_INFOS = FixedResultSetFactory.newBuilder()
             .addTextColumn("TABLE_CAT")
             .addTextColumn("TABLE_SCHEM")
             .addTextColumn("TABLE_NAME")
@@ -284,7 +284,7 @@ public class MetaDataTables {
     /**
      * @see DatabaseMetaData#getUDTs(java.lang.String, java.lang.String, java.lang.String, int[])
      */
-    public final static FixedResultSetFactory UDTS = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory UDTS = FixedResultSetFactory.newBuilder()
             .addTextColumn("TABLE_CAT")
             .addTextColumn("TABLE_SCHEM")
             .addTextColumn("TABLE_NAME")
@@ -297,7 +297,7 @@ public class MetaDataTables {
     /**
      * @see DatabaseMetaData#getSuperTypes(java.lang.String, java.lang.String, java.lang.String)
      */
-    public final static FixedResultSetFactory SUPER_TYPES = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory SUPER_TYPES = FixedResultSetFactory.newBuilder()
             .addTextColumn("TYPE_CAT")
             .addTextColumn("TYPE_SCHEM")
             .addTextColumn("TYPE_NAME")
@@ -309,7 +309,7 @@ public class MetaDataTables {
     /**
      * @see DatabaseMetaData#getSuperTables(java.lang.String, java.lang.String, java.lang.String)
      */
-    public final static FixedResultSetFactory SUPER_TABLES = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory SUPER_TABLES = FixedResultSetFactory.newBuilder()
             .addTextColumn("TABLE_CAT")
             .addTextColumn("TABLE_SCHEM")
             .addTextColumn("TABLE_NAME")
@@ -319,7 +319,7 @@ public class MetaDataTables {
     /**
      * @see DatabaseMetaData#getAttributes(java.lang.String, java.lang.String, java.lang.String, java.lang.String)
      */
-    public final static FixedResultSetFactory ATTRIBUTES = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory ATTRIBUTES = FixedResultSetFactory.newBuilder()
             .addTextColumn("TYPE_CAT")
             .addTextColumn("TYPE_SCHEM")
             .addTextColumn("TYPE_NAME")
@@ -346,7 +346,7 @@ public class MetaDataTables {
     /**
      * @see DatabaseMetaData#getSchemas(java.lang.String, java.lang.String)
      */
-    public final static FixedResultSetFactory SCHEMAS = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory SCHEMAS = FixedResultSetFactory.newBuilder()
             .addTextColumn("TABLE_SCHEM")
             .addTextColumn("TABLE_CATALOG")
             .build();
@@ -354,7 +354,7 @@ public class MetaDataTables {
     /**
      * @see DatabaseMetaData#getClientInfoProperties()
      */
-    public final static FixedResultSetFactory CLIENT_INFO_PROPERTIES = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory CLIENT_INFO_PROPERTIES = FixedResultSetFactory.newBuilder()
             .addTextColumn("NAME")
             .addIntColumn("MAX_LEN")
             .addTextColumn("DEFAULT_VALUE")
@@ -364,7 +364,7 @@ public class MetaDataTables {
     /**
      * @see DatabaseMetaData#getFunctions(java.lang.String, java.lang.String, java.lang.String)
      */
-    public final static FixedResultSetFactory FUNCTIONS = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory FUNCTIONS = FixedResultSetFactory.newBuilder()
             .addTextColumn("FUNCTION_CAT")
             .addTextColumn("FUNCTION_SCHEM")
             .addTextColumn("FUNCTION_NAME")
@@ -376,7 +376,7 @@ public class MetaDataTables {
     /**
      * @see DatabaseMetaData#getFunctionColumns(java.lang.String, java.lang.String, java.lang.String, java.lang.String)
      */
-    public final static FixedResultSetFactory FUNCTION_COLUMNS = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory FUNCTION_COLUMNS = FixedResultSetFactory.newBuilder()
             .addTextColumn("FUNCTION_CAT")
             .addTextColumn("FUNCTION_SCHEM")
             .addTextColumn("FUNCTION_NAME")
@@ -399,7 +399,7 @@ public class MetaDataTables {
     /**
      * @see DatabaseMetaData#getPseudoColumns(java.lang.String, java.lang.String, java.lang.String, java.lang.String)
      */
-    public final static FixedResultSetFactory PSEUDO_COLUMNS = FixedResultSetFactory.newBuilder()
+    public static final FixedResultSetFactory PSEUDO_COLUMNS = FixedResultSetFactory.newBuilder()
             .addTextColumn("TABLE_CAT")
             .addTextColumn("TABLE_SCHEM")
             .addTextColumn("TABLE_NAME")
@@ -413,4 +413,6 @@ public class MetaDataTables {
             .addIntColumn("CHAR_OCTET_LENGTH")
             .addTextColumn("IS_NULLABLE")
             .build();
+
+    private MetaDataTables() { }
 }

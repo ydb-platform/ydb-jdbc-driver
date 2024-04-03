@@ -55,7 +55,7 @@ class YdbProperty<T> {
                 T typed = clazz.cast(value);
                 return new YdbValue<>(true, typed.toString(), typed);
             } else {
-                throw new SQLException("Invalid object property " + name +", must be " + clazz +
+                throw new SQLException("Invalid object property " + name + ", must be " + clazz +
                         ", got " + value.getClass());
             }
         }

@@ -32,12 +32,12 @@ public class JdbcDriverVersion {
     }
 
     public static JdbcDriverVersion getInstance() {
-        return Holder.instance;
+        return Holder.INSTANCE;
     }
 
     private static class Holder {
-        private final static String PROPERTIES_PATH = "/ydb_jdbc.properties";
-        private final static JdbcDriverVersion instance;
+        private static final String PROPERTIES_PATH = "/ydb_jdbc.properties";
+        private static final JdbcDriverVersion INSTANCE;
 
         static {
             int major = -1;
@@ -60,7 +60,7 @@ public class JdbcDriverVersion {
                 } catch (RuntimeException e) { }
             }
 
-            instance = new JdbcDriverVersion(version, major, minor);
+            INSTANCE = new JdbcDriverVersion(version, major, minor);
         }
     }
 }

@@ -34,13 +34,15 @@ public class YdbOperationProperties {
     static final YdbProperty<FakeTxMode> SCAN_QUERY_TX_MODE = YdbProperty.enums(
             "scanQueryTxMode",
             FakeTxMode.class,
-            "Mode of execution scan query inside transaction. Possible values - ERROR(by default), FAKE_TX and SHADOW_COMMIT",
+            "Mode of execution scan query inside transaction. Possible values - "
+                    + "ERROR(by default), FAKE_TX and SHADOW_COMMIT",
             FakeTxMode.ERROR
     );
 
     static final YdbProperty<FakeTxMode> SCHEME_QUERY_TX_MODE = YdbProperty.enums("schemeQueryTxMode",
             FakeTxMode.class,
-            "Mode of execution scheme query inside transaction. Possible values - ERROR(by default), FAKE_TX and SHADOW_COMMIT",
+            "Mode of execution scheme query inside transaction. Possible values - "
+                    + "ERROR(by default), FAKE_TX and SHADOW_COMMIT",
             FakeTxMode.ERROR
     );
 

@@ -48,8 +48,8 @@ public class YdbTypesImpl implements YdbTypes {
         typeByTypeName.put(DEFAULT_DECIMAL_TYPE.toString(), DEFAULT_DECIMAL_TYPE);
 
         // Add deprecated type names
-        typeByTypeName.put("String" , PrimitiveType.Bytes);
-        typeByTypeName.put("Utf8" , PrimitiveType.Text);
+        typeByTypeName.put("String", PrimitiveType.Bytes);
+        typeByTypeName.put("Utf8", PrimitiveType.Text);
 
 
         typeBySqlType = new IntObjectHashMap<>(16);

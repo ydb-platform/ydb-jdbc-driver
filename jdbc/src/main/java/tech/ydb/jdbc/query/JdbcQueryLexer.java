@@ -1,9 +1,9 @@
 package tech.ydb.jdbc.query;
 
 
-import tech.ydb.jdbc.settings.YdbQueryProperties;
-
 import java.sql.SQLException;
+
+import tech.ydb.jdbc.settings.YdbQueryProperties;
 
 
 /**
@@ -11,6 +11,8 @@ import java.sql.SQLException;
  * @author Aleksandr Gorshenin
  */
 public class JdbcQueryLexer {
+    private JdbcQueryLexer() { }
+
     /**
      * Parses JDBC query to replace all ? to YQL parameters.
      *
@@ -144,6 +146,7 @@ public class JdbcQueryLexer {
         return query.length;
     }
 
+    @SuppressWarnings("EmptyBlock")
     private static int parseDoubleQuotes(final char[] query, int offset) {
         while (++offset < query.length && query[offset] != '"') {
             // do nothing

@@ -11,6 +11,15 @@ import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.table.values.Type;
 
 public class TypeDescription {
+    private static final Map<Type, TypeDescription> TYPES = new ConcurrentHashMap<>();
+
+    static {
+        ofInternal(DecimalType.of(DecimalType.MAX_PRECISION)); // max
+        ofInternal(DecimalType.of(22, 9)); // default for database
+        for (PrimitiveType type : PrimitiveType.values()) {
+            ofInternal(type); // All primitive values
+        }
+    }
 
     private final Type type;
     private final boolean optional;
@@ -56,16 +65,6 @@ public class TypeDescription {
 
     public Type ydbType() {
         return type;
-    }
-
-    private static final Map<Type, TypeDescription> TYPES = new ConcurrentHashMap<>();
-
-    static {
-        ofInternal(DecimalType.of(DecimalType.MAX_PRECISION)); // max
-        ofInternal(DecimalType.of(22, 9)); // default for database
-        for (PrimitiveType type : PrimitiveType.values()) {
-            ofInternal(type); // All primitive values
-        }
     }
 
     private static void ofInternal(Type type) {

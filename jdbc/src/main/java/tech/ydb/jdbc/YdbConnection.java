@@ -5,9 +5,9 @@ import java.sql.SQLException;
 
 import javax.annotation.Nullable;
 
-import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbExecutor;
+import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.query.Params;
@@ -53,7 +53,8 @@ public interface YdbConnection extends Connection {
      * @return list of result set
      * @throws SQLException if query cannot be executed
      */
-    DataQueryResult executeDataQuery(YdbQuery query, YdbExecutor executor, ExecuteDataQuerySettings settings, Params params) throws SQLException;
+    DataQueryResult executeDataQuery(YdbQuery query, YdbExecutor executor, ExecuteDataQuerySettings settings,
+            Params params) throws SQLException;
 
     /**
      * Explicitly execute query as a scan query

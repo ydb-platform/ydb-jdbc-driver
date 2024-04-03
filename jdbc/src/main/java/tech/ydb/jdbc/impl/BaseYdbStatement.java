@@ -38,7 +38,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
     // TODO: YDB doesn't return the count of affected rows, so we use little hach to return always 1
     private static final YdbResult HAS_UPDATED = new YdbResult(1);
 
-    private static FixedResultSetFactory EXPLAIN_RS_FACTORY = FixedResultSetFactory.newBuilder()
+    private static final FixedResultSetFactory EXPLAIN_RS_FACTORY = FixedResultSetFactory.newBuilder()
             .addTextColumn(YdbConst.EXPLAIN_COLUMN_AST)
             .addTextColumn(YdbConst.EXPLAIN_COLUMN_PLAN)
             .build();

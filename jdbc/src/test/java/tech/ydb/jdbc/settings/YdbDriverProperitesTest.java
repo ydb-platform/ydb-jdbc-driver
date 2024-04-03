@@ -2,6 +2,7 @@ package tech.ydb.jdbc.settings;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.sql.DriverPropertyInfo;
@@ -130,12 +131,19 @@ public class YdbDriverProperitesTest {
         Assertions.assertEquals("grpc://ydb-demo.testhost.org:2135/test/db", config.getConnectionString());
     }
 
+    private static String urlEncode(String value) {
+        try {
+            return URLEncoder.encode(value, StandardCharsets.UTF_8.name());
+        } catch (UnsupportedEncodingException ex) {
+            return value;
+        }
+    }
+
     @Test
     public void getPropertyInfoAllFromUrl() throws SQLException {
-        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/db?" +
-                Stream.of(customizedPropertyInfo())
-                        .map(e -> e.name + "=" + URLEncoder.encode(e.value, StandardCharsets.UTF_8))
-                        .collect(Collectors.joining("&"));
+        Stream<String> params = Stream.of(customizedPropertyInfo())
+                .map(e -> e.name + "=" + urlEncode(e.value));
+        String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/db?" + params.collect(Collectors.joining("&"));
 
         DriverPropertyInfo[] propertyInfo = driver.getPropertyInfo(url, null);
 

@@ -21,6 +21,8 @@ public class YdbLookup {
     private static final String HOME_REF = "~";
     private static final String FILE_HOME_REF = FILE_REF + HOME_REF;
 
+    private YdbLookup() { }
+
     public static String stringFileReference(String ref) {
         Optional<URL> urlOpt = resolvePath(ref);
         if (urlOpt.isPresent()) {

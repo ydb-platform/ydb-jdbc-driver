@@ -21,11 +21,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import com.google.common.base.Suppliers;
 
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
@@ -61,15 +58,14 @@ public class YdbConnectionImpl implements YdbConnection {
 
     private final YdbContext ctx;
     private final YdbExecutor executor;
-    private final Supplier<YdbDatabaseMetaData> metaDataSupplier;
     private final FakeTxMode scanQueryTxMode;
     private final FakeTxMode schemeQueryTxMode;
+    private final YdbDatabaseMetaData metaData = new YdbDatabaseMetaDataImpl(this);
 
     private volatile YdbTxState state;
 
     public YdbConnectionImpl(YdbContext context) throws SQLException {
         this.ctx = context;
-        this.metaDataSupplier = Suppliers.memoize(() -> new YdbDatabaseMetaDataImpl(this))::get;
         this.executor = new YdbExecutor(LOGGER);
 
         YdbOperationProperties props = ctx.getOperationProperties();
@@ -106,7 +102,7 @@ public class YdbConnectionImpl implements YdbConnection {
             return;
         }
 
-        LOGGER.log(Level.FINE, "update tx state: {0} -> {1}", new Object[] { state, newState });
+        LOGGER.log(Level.FINE, "update tx state: {0} -> {1}", new Object[] {state, newState});
         this.state = newState;
     }
 
@@ -193,7 +189,7 @@ public class YdbConnectionImpl implements YdbConnection {
 
     @Override
     public YdbDatabaseMetaData getMetaData() {
-        return metaDataSupplier.get();
+        return metaData;
     }
 
     @Override
@@ -342,7 +338,8 @@ public class YdbConnectionImpl implements YdbConnection {
     }
 
     @Override
-    public YdbPreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
+    public YdbPreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency)
+            throws SQLException {
         return prepareStatement(sql, resultSetType, resultSetConcurrency, ResultSet.HOLD_CURSORS_OVER_COMMIT);
     }
 
@@ -401,7 +398,8 @@ public class YdbConnectionImpl implements YdbConnection {
                 ResultSet.HOLD_CURSORS_OVER_COMMIT);
     }
 
-    private YdbPreparedStatement prepareStatement(String sql, int resultSetType, YdbPrepareMode mode) throws SQLException {
+    private YdbPreparedStatement prepareStatement(String sql, int resultSetType, YdbPrepareMode mode)
+            throws SQLException {
         ensureOpened();
         executor.clearWarnings();
 

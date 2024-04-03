@@ -55,7 +55,8 @@ public class YdbQueryProperties {
 
         this.isDetectQueryType = !disableSqlOperationsDetect;
         this.isDetectJdbcParameters = !disableSqlOperationsDetect && !disableJdbcParametersParse;
-        this.isDeclareJdbcParameters = !disableSqlOperationsDetect && !disableJdbcParametersParse && !disableJdbcParametersDeclare;
+        this.isDeclareJdbcParameters = !disableSqlOperationsDetect && !disableJdbcParametersParse
+                && !disableJdbcParametersDeclare;
 
         this.forcedType = FORCE_QUERY_MODE.readValue(props).getValue();
     }

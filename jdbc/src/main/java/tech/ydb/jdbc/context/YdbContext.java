@@ -179,9 +179,10 @@ public class YdbContext implements AutoCloseable {
             GrpcTransportBuilder builder = GrpcTransport.forConnectionString(config.getConnectionString());
             connProps.applyToGrpcTransport(builder);
 
-            // Use custom single thread scheduler because JDBC driver doesn't need to execute retries except for DISCOERY
+            // Use custom single thread scheduler
+            // because JDBC driver doesn't need to execute retries except for DISCOVERY
             builder.withSchedulerFactory(() -> {
-                final String namePrefix = "ydb-jdbc-scheduler[" + config.hashCode() +"]-thread-";
+                final String namePrefix = "ydb-jdbc-scheduler[" + config.hashCode() + "]-thread-";
                 final AtomicInteger threadNumber = new AtomicInteger(1);
                 return Executors.newScheduledThreadPool(1, (Runnable r) -> {
                     Thread t = new Thread(r, namePrefix + threadNumber.getAndIncrement());

@@ -15,6 +15,7 @@ import java.util.TreeSet;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
+import tech.ydb.jdbc.query.JdbcParams;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.ListType;
 import tech.ydb.table.values.ListValue;
@@ -22,7 +23,6 @@ import tech.ydb.table.values.StructType;
 import tech.ydb.table.values.StructValue;
 import tech.ydb.table.values.Type;
 import tech.ydb.table.values.Value;
-import tech.ydb.jdbc.query.JdbcParams;
 
 /**
  *
@@ -199,7 +199,7 @@ public class BatchedParams implements JdbcParams {
             return null;
         }
 
-        StructType itemType = (StructType)innerType;
+        StructType itemType = (StructType) innerType;
         return new BatchedParams(listName, itemType);
     }
 }
