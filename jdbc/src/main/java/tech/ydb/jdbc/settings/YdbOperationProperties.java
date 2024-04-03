@@ -46,17 +46,17 @@ public class YdbOperationProperties {
 
     private static final int MAX_ROWS = 1000; // TODO: how to figure out the max rows of current connection?
 
-    private final YdbPropertyValue<Duration> joinDuration;
-    private final YdbPropertyValue<Duration> queryTimeout;
-    private final YdbPropertyValue<Duration> scanQueryTimeout;
-    private final YdbPropertyValue<Boolean> failOnTruncatedResult;
-    private final YdbPropertyValue<Duration> sessionTimeout;
-    private final YdbPropertyValue<Duration> deadlineTimeout;
-    private final YdbPropertyValue<Boolean> autoCommit;
-    private final YdbPropertyValue<Integer> transactionLevel;
+    private final YdbValue<Duration> joinDuration;
+    private final YdbValue<Duration> queryTimeout;
+    private final YdbValue<Duration> scanQueryTimeout;
+    private final YdbValue<Boolean> failOnTruncatedResult;
+    private final YdbValue<Duration> sessionTimeout;
+    private final YdbValue<Duration> deadlineTimeout;
+    private final YdbValue<Boolean> autoCommit;
+    private final YdbValue<Integer> transactionLevel;
 
-    private final YdbPropertyValue<FakeTxMode> scanQueryTxMode;
-    private final YdbPropertyValue<FakeTxMode> schemeQueryTxMode;
+    private final YdbValue<FakeTxMode> scanQueryTxMode;
+    private final YdbValue<FakeTxMode> schemeQueryTxMode;
 
     public YdbOperationProperties(YdbConfig config) throws SQLException {
         Properties props = config.getProperties();

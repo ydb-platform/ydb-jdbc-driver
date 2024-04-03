@@ -2,12 +2,12 @@ package tech.ydb.jdbc.settings;
 
 import java.util.Objects;
 
-public class YdbPropertyValue<T> {
+class YdbValue<T> {
     private final boolean isPresent;
     private final String rawValue;
     private final T value;
 
-    YdbPropertyValue(boolean isPresent, String rawValue, T value) {
+    YdbValue(boolean isPresent, String rawValue, T value) {
         this.isPresent = isPresent;
         this.rawValue = Objects.requireNonNull(rawValue);
         this.value = value;

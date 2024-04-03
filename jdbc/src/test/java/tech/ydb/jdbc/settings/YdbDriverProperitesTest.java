@@ -2,6 +2,8 @@ package tech.ydb.jdbc.settings;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
@@ -132,7 +134,7 @@ public class YdbDriverProperitesTest {
     public void getPropertyInfoAllFromUrl() throws SQLException {
         String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/db?" +
                 Stream.of(customizedPropertyInfo())
-                        .map(e -> e.name + "=" + e.value)
+                        .map(e -> e.name + "=" + URLEncoder.encode(e.value, StandardCharsets.UTF_8))
                         .collect(Collectors.joining("&"));
 
         DriverPropertyInfo[] propertyInfo = driver.getPropertyInfo(url, null);
@@ -292,79 +294,73 @@ public class YdbDriverProperitesTest {
 
     static DriverPropertyInfo[] defaultPropertyInfo(@Nullable String localDatacenter) {
         return new DriverPropertyInfo[]{
-                new DriverPropertyInfo("cacheConnectionsInDriver", "true"),
-                new DriverPropertyInfo("preparedStatementCacheQueries", "256"),
-
-                new DriverPropertyInfo("localDatacenter", localDatacenter),
-                new DriverPropertyInfo("secureConnection", ""),
-                new DriverPropertyInfo("secureConnectionCertificate", ""),
-                new DriverPropertyInfo("token", ""),
-
-                new DriverPropertyInfo("saFile", ""),
-                new DriverPropertyInfo("useMetadata", ""),
-
-                new DriverPropertyInfo("keepQueryText", ""),
-                new DriverPropertyInfo("sessionKeepAliveTime", ""),
-                new DriverPropertyInfo("sessionMaxIdleTime", ""),
-                new DriverPropertyInfo("sessionPoolSizeMin", ""),
-                new DriverPropertyInfo("sessionPoolSizeMax", ""),
-
-                new DriverPropertyInfo("joinDuration", "5m"),
-                new DriverPropertyInfo("queryTimeout", "0s"),
-                new DriverPropertyInfo("scanQueryTimeout", "5m"),
-                new DriverPropertyInfo("failOnTruncatedResult", "false"),
-                new DriverPropertyInfo("sessionTimeout", "5s"),
-                new DriverPropertyInfo("deadlineTimeout", "0s"),
-                new DriverPropertyInfo("autoCommit", "true"),
-                new DriverPropertyInfo("transactionLevel", "8"),
-                new DriverPropertyInfo("schemeQueryTxMode", "ERROR"),
-                new DriverPropertyInfo("scanQueryTxMode", "ERROR"),
-
-                new DriverPropertyInfo("disablePrepareDataQuery", "false"),
-                new DriverPropertyInfo("disableAutoPreparedBatches", "false"),
-                new DriverPropertyInfo("disableDetectSqlOperations", "false"),
-                new DriverPropertyInfo("disableJdbcParameters", "false"),
-                new DriverPropertyInfo("disableJdbcParameterDeclare", "false"),
-                new DriverPropertyInfo("forceQueryMode", ""),
+            new DriverPropertyInfo("cacheConnectionsInDriver", "true"),
+            new DriverPropertyInfo("preparedStatementCacheQueries", "256"),
+            new DriverPropertyInfo("localDatacenter", localDatacenter),
+            new DriverPropertyInfo("secureConnection", ""),
+            new DriverPropertyInfo("secureConnectionCertificate", ""),
+            new DriverPropertyInfo("token", ""),
+            new DriverPropertyInfo("saFile", ""),
+            new DriverPropertyInfo("useMetadata", ""),
+            new DriverPropertyInfo("iamEndpoint", ""),
+            new DriverPropertyInfo("metadataURL", ""),
+            new DriverPropertyInfo("keepQueryText", ""),
+            new DriverPropertyInfo("sessionKeepAliveTime", ""),
+            new DriverPropertyInfo("sessionMaxIdleTime", ""),
+            new DriverPropertyInfo("sessionPoolSizeMin", ""),
+            new DriverPropertyInfo("sessionPoolSizeMax", ""),
+            new DriverPropertyInfo("joinDuration", "5m"),
+            new DriverPropertyInfo("queryTimeout", "0s"),
+            new DriverPropertyInfo("scanQueryTimeout", "5m"),
+            new DriverPropertyInfo("failOnTruncatedResult", "false"),
+            new DriverPropertyInfo("sessionTimeout", "5s"),
+            new DriverPropertyInfo("deadlineTimeout", "0s"),
+            new DriverPropertyInfo("autoCommit", "true"),
+            new DriverPropertyInfo("transactionLevel", "8"),
+            new DriverPropertyInfo("schemeQueryTxMode", "ERROR"),
+            new DriverPropertyInfo("scanQueryTxMode", "ERROR"),
+            new DriverPropertyInfo("disablePrepareDataQuery", "false"),
+            new DriverPropertyInfo("disableAutoPreparedBatches", "false"),
+            new DriverPropertyInfo("disableDetectSqlOperations", "false"),
+            new DriverPropertyInfo("disableJdbcParameters", "false"),
+            new DriverPropertyInfo("disableJdbcParameterDeclare", "false"),
+            new DriverPropertyInfo("forceQueryMode", ""),
         };
     }
 
     static DriverPropertyInfo[] customizedPropertyInfo() {
         return new DriverPropertyInfo[]{
-                new DriverPropertyInfo("cacheConnectionsInDriver", "false"),
-                new DriverPropertyInfo("preparedStatementCacheQueries", "100"),
-
-                new DriverPropertyInfo("localDatacenter", "sas"),
-                new DriverPropertyInfo("secureConnection", "true"),
-                new DriverPropertyInfo("secureConnectionCertificate", "classpath:data/certificate.txt"),
-                new DriverPropertyInfo("token", "x-secured-token"),
-
-                new DriverPropertyInfo("saFile", "x-secured-json"),
-                new DriverPropertyInfo("useMetadata", "true"),
-
-                new DriverPropertyInfo("keepQueryText", "true"),
-                new DriverPropertyInfo("sessionKeepAliveTime", "15m"),
-                new DriverPropertyInfo("sessionMaxIdleTime", "5m"),
-                new DriverPropertyInfo("sessionPoolSizeMin", "3"),
-                new DriverPropertyInfo("sessionPoolSizeMax", "4"),
-
-                new DriverPropertyInfo("joinDuration", "6m"),
-                new DriverPropertyInfo("queryTimeout", "2m"),
-                new DriverPropertyInfo("scanQueryTimeout", "3m"),
-                new DriverPropertyInfo("failOnTruncatedResult", "false"),
-                new DriverPropertyInfo("sessionTimeout", "6s"),
-                new DriverPropertyInfo("deadlineTimeout", "1s"),
-                new DriverPropertyInfo("autoCommit", "true"),
-                new DriverPropertyInfo("transactionLevel", "16"),
-                new DriverPropertyInfo("schemeQueryTxMode", "SHADOW_COMMIT"),
-                new DriverPropertyInfo("scanQueryTxMode", "FAKE_TX"),
-
-                new DriverPropertyInfo("disablePrepareDataQuery", "true"),
-                new DriverPropertyInfo("disableAutoPreparedBatches", "true"),
-                new DriverPropertyInfo("disableDetectSqlOperations", "true"),
-                new DriverPropertyInfo("disableJdbcParameters", "true"),
-                new DriverPropertyInfo("disableJdbcParameterDeclare", "true"),
-                new DriverPropertyInfo("forceQueryMode", "SCAN_QUERY"),
+            new DriverPropertyInfo("cacheConnectionsInDriver", "false"),
+            new DriverPropertyInfo("preparedStatementCacheQueries", "100"),
+            new DriverPropertyInfo("localDatacenter", "sas"),
+            new DriverPropertyInfo("secureConnection", "true"),
+            new DriverPropertyInfo("secureConnectionCertificate", "classpath:data/certificate.txt"),
+            new DriverPropertyInfo("token", "x-secured-token"),
+            new DriverPropertyInfo("saFile", "x-secured-json"),
+            new DriverPropertyInfo("useMetadata", "true"),
+            new DriverPropertyInfo("iamEndpoint", "iam.endpoint.com"),
+            new DriverPropertyInfo("metadataURL", "https://metadata.com"),
+            new DriverPropertyInfo("keepQueryText", "true"),
+            new DriverPropertyInfo("sessionKeepAliveTime", "15m"),
+            new DriverPropertyInfo("sessionMaxIdleTime", "5m"),
+            new DriverPropertyInfo("sessionPoolSizeMin", "3"),
+            new DriverPropertyInfo("sessionPoolSizeMax", "4"),
+            new DriverPropertyInfo("joinDuration", "6m"),
+            new DriverPropertyInfo("queryTimeout", "2m"),
+            new DriverPropertyInfo("scanQueryTimeout", "3m"),
+            new DriverPropertyInfo("failOnTruncatedResult", "false"),
+            new DriverPropertyInfo("sessionTimeout", "6s"),
+            new DriverPropertyInfo("deadlineTimeout", "1s"),
+            new DriverPropertyInfo("autoCommit", "true"),
+            new DriverPropertyInfo("transactionLevel", "16"),
+            new DriverPropertyInfo("schemeQueryTxMode", "SHADOW_COMMIT"),
+            new DriverPropertyInfo("scanQueryTxMode", "FAKE_TX"),
+            new DriverPropertyInfo("disablePrepareDataQuery", "true"),
+            new DriverPropertyInfo("disableAutoPreparedBatches", "true"),
+            new DriverPropertyInfo("disableDetectSqlOperations", "true"),
+            new DriverPropertyInfo("disableJdbcParameters", "true"),
+            new DriverPropertyInfo("disableJdbcParameterDeclare", "true"),
+            new DriverPropertyInfo("forceQueryMode", "SCAN_QUERY"),
         };
     }
 

@@ -31,11 +31,11 @@ public class YdbClientProperties {
             "sessionPoolSizeMax", "Session pool max size (with with sessionPoolSizeMin)"
     );
 
-    private final YdbPropertyValue<Boolean> keepQueryText;
-    private final YdbPropertyValue<Duration> sessionKeepAliveTime;
-    private final YdbPropertyValue<Duration> sessionMaxIdleTime;
-    private final YdbPropertyValue<Integer> sessionPoolMinSize;
-    private final YdbPropertyValue<Integer> sessionPoolMaxSize;
+    private final YdbValue<Boolean> keepQueryText;
+    private final YdbValue<Duration> sessionKeepAliveTime;
+    private final YdbValue<Duration> sessionMaxIdleTime;
+    private final YdbValue<Integer> sessionPoolMinSize;
+    private final YdbValue<Integer> sessionPoolMaxSize;
 
     public YdbClientProperties(YdbConfig config) throws SQLException {
         Properties props = config.getProperties();

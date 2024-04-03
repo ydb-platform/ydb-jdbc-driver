@@ -5,6 +5,7 @@ import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -15,6 +16,7 @@ import com.google.common.cache.CacheBuilder;
 import tech.ydb.core.Result;
 import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.core.grpc.GrpcTransport;
+import tech.ydb.core.grpc.GrpcTransportBuilder;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.exception.ExceptionFactory;
@@ -174,9 +176,21 @@ public class YdbContext implements AutoCloseable {
             YdbOperationProperties operationProps = new YdbOperationProperties(config);
             YdbQueryProperties queryProps = new YdbQueryProperties(config);
 
-            GrpcTransport grpcTransport = connProps.applyToGrpcTransport(
-                    GrpcTransport.forConnectionString(config.getConnectionString())
-            ).build();
+            GrpcTransportBuilder builder = GrpcTransport.forConnectionString(config.getConnectionString());
+            connProps.applyToGrpcTransport(builder);
+
+            // Use custom single thread scheduler because JDBC driver doesn't need to execute retries except for DISCOERY
+            builder.withSchedulerFactory(() -> {
+                final String namePrefix = "ydb-jdbc-scheduler[" + config.hashCode() +"]-thread-";
+                final AtomicInteger threadNumber = new AtomicInteger(1);
+                return Executors.newScheduledThreadPool(1, (Runnable r) -> {
+                    Thread t = new Thread(r, namePrefix + threadNumber.getAndIncrement());
+                    t.setDaemon(true);
+                    return t;
+                });
+            });
+
+            GrpcTransport grpcTransport = builder.build();
 
             PooledTableClient.Builder tableClient = PooledTableClient.newClient(
                     GrpcTableRpc.useTransport(grpcTransport)

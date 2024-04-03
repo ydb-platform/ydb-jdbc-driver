@@ -15,7 +15,6 @@ import javax.annotation.Nullable;
 import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.impl.YdbConnectionImpl;
 import tech.ydb.jdbc.settings.YdbConfig;
-import tech.ydb.jdbc.settings.YdbProperty;
 import tech.ydb.scheme.SchemeClient;
 import tech.ydb.table.TableClient;
 
@@ -93,7 +92,7 @@ public class YdbDriver implements Driver {
     @Override
     public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) throws SQLException {
         YdbConfig config = YdbConfig.from(url, info);
-        return YdbProperty.getPropertyInfo(config);
+        return config.toPropertyInfo();
     }
 
     @Override

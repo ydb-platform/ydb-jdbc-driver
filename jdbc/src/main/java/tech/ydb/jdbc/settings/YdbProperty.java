@@ -10,7 +10,7 @@ import java.util.Properties;
 
 
 
-public class YdbProperty<T> {
+class YdbProperty<T> {
     private interface Parser<T> {
         T parse(String value) throws SQLException;
     }
@@ -33,32 +33,40 @@ public class YdbProperty<T> {
         return name;
     }
 
-    public YdbPropertyValue<T> readValue(Properties props) throws SQLException {
+    public YdbValue<T> readValue(Properties props) throws SQLException {
         Object value = props.get(name);
         if (value == null) {
             if (defaultValue == null || defaultValue.isEmpty()) {
-                return new YdbPropertyValue<>(false, "", null);
+                return new YdbValue<>(false, "", null);
             } else {
-                return new YdbPropertyValue<>(false, defaultValue, parser.parse(defaultValue));
+                return new YdbValue<>(false, defaultValue, parser.parse(defaultValue));
             }
         }
 
         if (value instanceof String) {
             try {
                 String stringValue = (String) value;
-                return new YdbPropertyValue<>(true, stringValue, parser.parse(stringValue));
+                return new YdbValue<>(true, stringValue, parser.parse(stringValue));
             } catch (RuntimeException e) {
                 throw new SQLException("Unable to convert property " + name + ": " + e.getMessage(), e);
             }
         } else {
             if (clazz.isAssignableFrom(value.getClass())) {
                 T typed = clazz.cast(value);
-                return new YdbPropertyValue<>(true, typed.toString(), typed);
+                return new YdbValue<>(true, typed.toString(), typed);
             } else {
                 throw new SQLException("Invalid object property " + name +", must be " + clazz +
                         ", got " + value.getClass());
             }
         }
+    }
+
+    DriverPropertyInfo toInfo(Properties values) throws SQLException {
+        YdbValue<?> value = readValue(values);
+        DriverPropertyInfo info = new DriverPropertyInfo(name, value.rawValue());
+        info.description = description;
+        info.required = false;
+        return info;
     }
 
     public static YdbProperty<String> string(String name, String description) {
@@ -141,52 +149,5 @@ public class YdbProperty<T> {
 
     public static YdbProperty<String> content(String name, String description) {
         return new YdbProperty<>(name, description, null, String.class, YdbLookup::stringFileReference);
-    }
-
-    public static DriverPropertyInfo[] getPropertyInfo(YdbConfig config) throws SQLException {
-        Properties values = config.getProperties();
-        return new DriverPropertyInfo[] {
-            info(values, YdbConfig.CACHE_CONNECTIONS_IN_DRIVER),
-            info(values, YdbConfig.PREPARED_STATEMENT_CACHE_SIZE),
-
-            info(values, YdbConnectionProperties.LOCAL_DATACENTER),
-            info(values, YdbConnectionProperties.USE_SECURE_CONNECTION),
-            info(values, YdbConnectionProperties.SECURE_CONNECTION_CERTIFICATE),
-            info(values, YdbConnectionProperties.TOKEN),
-            info(values, YdbConnectionProperties.SERVICE_ACCOUNT_FILE),
-            info(values, YdbConnectionProperties.USE_METADATA),
-
-            info(values, YdbClientProperties.KEEP_QUERY_TEXT),
-            info(values, YdbClientProperties.SESSION_KEEP_ALIVE_TIME),
-            info(values, YdbClientProperties.SESSION_MAX_IDLE_TIME),
-            info(values, YdbClientProperties.SESSION_POOL_SIZE_MIN),
-            info(values, YdbClientProperties.SESSION_POOL_SIZE_MAX),
-
-            info(values, YdbOperationProperties.JOIN_DURATION),
-            info(values, YdbOperationProperties.QUERY_TIMEOUT),
-            info(values, YdbOperationProperties.SCAN_QUERY_TIMEOUT),
-            info(values, YdbOperationProperties.FAIL_ON_TRUNCATED_RESULT),
-            info(values, YdbOperationProperties.SESSION_TIMEOUT),
-            info(values, YdbOperationProperties.DEADLINE_TIMEOUT),
-            info(values, YdbOperationProperties.AUTOCOMMIT),
-            info(values, YdbOperationProperties.TRANSACTION_LEVEL),
-            info(values, YdbOperationProperties.SCHEME_QUERY_TX_MODE),
-            info(values, YdbOperationProperties.SCAN_QUERY_TX_MODE),
-
-            info(values, YdbQueryProperties.DISABLE_PREPARE_DATAQUERY),
-            info(values, YdbQueryProperties.DISABLE_AUTO_PREPARED_BATCHES),
-            info(values, YdbQueryProperties.DISABLE_DETECT_SQL_OPERATIONS),
-            info(values, YdbQueryProperties.DISABLE_JDBC_PARAMETERS),
-            info(values, YdbQueryProperties.DISABLE_JDBC_PARAMETERS_DECLARE),
-            info(values, YdbQueryProperties.FORCE_QUERY_MODE),
-        };
-    }
-
-    private static DriverPropertyInfo info(Properties values, YdbProperty<?> property) throws SQLException {
-        YdbPropertyValue<?> value = property.readValue(values);
-        DriverPropertyInfo info = new DriverPropertyInfo(property.name, value.rawValue());
-        info.description = property.description;
-        info.required = false;
-        return info;
     }
 }

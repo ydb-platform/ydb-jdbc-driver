@@ -4,6 +4,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
+import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
@@ -12,6 +13,7 @@ import java.util.Properties;
 
 import tech.ydb.core.utils.URITools;
 import tech.ydb.jdbc.YdbConst;
+
 
 /**
  *
@@ -121,6 +123,46 @@ public class YdbConfig {
 
     Properties getProperties() {
         return properties;
+    }
+
+    public DriverPropertyInfo[] toPropertyInfo() throws SQLException {
+        return new DriverPropertyInfo[] {
+            YdbConfig.CACHE_CONNECTIONS_IN_DRIVER.toInfo(properties),
+            YdbConfig.PREPARED_STATEMENT_CACHE_SIZE.toInfo(properties),
+
+            YdbConnectionProperties.LOCAL_DATACENTER.toInfo(properties),
+            YdbConnectionProperties.USE_SECURE_CONNECTION.toInfo(properties),
+            YdbConnectionProperties.SECURE_CONNECTION_CERTIFICATE.toInfo(properties),
+            YdbConnectionProperties.TOKEN.toInfo(properties),
+            YdbConnectionProperties.SERVICE_ACCOUNT_FILE.toInfo(properties),
+            YdbConnectionProperties.USE_METADATA.toInfo(properties),
+            YdbConnectionProperties.IAM_ENDPOINT.toInfo(properties),
+            YdbConnectionProperties.METADATA_URL.toInfo(properties),
+
+            YdbClientProperties.KEEP_QUERY_TEXT.toInfo(properties),
+            YdbClientProperties.SESSION_KEEP_ALIVE_TIME.toInfo(properties),
+            YdbClientProperties.SESSION_MAX_IDLE_TIME.toInfo(properties),
+            YdbClientProperties.SESSION_POOL_SIZE_MIN.toInfo(properties),
+            YdbClientProperties.SESSION_POOL_SIZE_MAX.toInfo(properties),
+
+            YdbOperationProperties.JOIN_DURATION.toInfo(properties),
+            YdbOperationProperties.QUERY_TIMEOUT.toInfo(properties),
+            YdbOperationProperties.SCAN_QUERY_TIMEOUT.toInfo(properties),
+            YdbOperationProperties.FAIL_ON_TRUNCATED_RESULT.toInfo(properties),
+            YdbOperationProperties.SESSION_TIMEOUT.toInfo(properties),
+            YdbOperationProperties.DEADLINE_TIMEOUT.toInfo(properties),
+            YdbOperationProperties.AUTOCOMMIT.toInfo(properties),
+            YdbOperationProperties.TRANSACTION_LEVEL.toInfo(properties),
+            YdbOperationProperties.SCHEME_QUERY_TX_MODE.toInfo(properties),
+            YdbOperationProperties.SCAN_QUERY_TX_MODE.toInfo(properties),
+
+            YdbQueryProperties.DISABLE_PREPARE_DATAQUERY.toInfo(properties),
+            YdbQueryProperties.DISABLE_AUTO_PREPARED_BATCHES.toInfo(properties),
+            YdbQueryProperties.DISABLE_DETECT_SQL_OPERATIONS.toInfo(properties),
+            YdbQueryProperties.DISABLE_JDBC_PARAMETERS.toInfo(properties),
+            YdbQueryProperties.DISABLE_JDBC_PARAMETERS_DECLARE.toInfo(properties),
+            YdbQueryProperties.FORCE_QUERY_MODE.toInfo(properties),
+        };
     }
 
     public static boolean isYdb(String url) {
