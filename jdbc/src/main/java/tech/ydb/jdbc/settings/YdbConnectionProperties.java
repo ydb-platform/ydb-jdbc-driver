@@ -1,51 +1,113 @@
 package tech.ydb.jdbc.settings;
 
-import java.util.Map;
-import java.util.Objects;
+import java.sql.SQLException;
+import java.util.Properties;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import javax.annotation.Nullable;
-
+import tech.ydb.auth.TokenAuthProvider;
+import tech.ydb.auth.iam.CloudAuthHelper;
 import tech.ydb.core.auth.StaticCredentials;
+import tech.ydb.core.grpc.BalancingSettings;
+import tech.ydb.core.grpc.GrpcTransportBuilder;
 
 
 public class YdbConnectionProperties {
-    private final String safeURL;
-    private final String connectionString;
+    static final YdbProperty<String> TOKEN = YdbProperty.content(YdbConfig.TOKEN_KEY, "Authentication token");
+
+    static final YdbProperty<String> LOCAL_DATACENTER = YdbProperty.string("localDatacenter",
+            "Local Datacenter");
+
+    static final YdbProperty<Boolean> USE_SECURE_CONNECTION = YdbProperty.bool("secureConnection",
+            "Use TLS connection");
+
+    static final YdbProperty<byte[]> SECURE_CONNECTION_CERTIFICATE = YdbProperty.bytes("secureConnectionCertificate",
+            "Use TLS connection with certificate from provided path");
+
+    static final YdbProperty<String> SERVICE_ACCOUNT_FILE = YdbProperty.content("saFile",
+            "Service account file based authentication");
+
+    static final YdbProperty<Boolean> USE_METADATA = YdbProperty.bool("useMetadata",
+            "Use metadata service for authentication");
+
     private final String username;
     private final String password;
-    private final Map<YdbConnectionProperty<?>, ParsedProperty> params;
 
-    public YdbConnectionProperties(String safeURL, String connectionString, String username, String password,
-                                   Map<YdbConnectionProperty<?>, ParsedProperty> params) {
-        this.safeURL = safeURL;
-        this.connectionString = Objects.requireNonNull(connectionString);
-        this.username = username;
-        this.password = password;
-        this.params = Objects.requireNonNull(params);
+    private final YdbPropertyValue<String> localDatacenter;
+    private final YdbPropertyValue<Boolean> useSecureConnection;
+    private final YdbPropertyValue<byte[]> secureConnectionCertificate;
+    private final YdbPropertyValue<String> token;
+    private final YdbPropertyValue<String> serviceAccountFile;
+    private final YdbPropertyValue<Boolean> useMetadata;
+
+    public YdbConnectionProperties(YdbConfig config) throws SQLException {
+        this.username = config.getUsername();
+        this.password = config.getPassword();
+
+        Properties props = config.getProperties();
+
+        this.localDatacenter = LOCAL_DATACENTER.readValue(props);
+        this.useSecureConnection = USE_SECURE_CONNECTION.readValue(props);
+        this.secureConnectionCertificate = SECURE_CONNECTION_CERTIFICATE.readValue(props);
+        this.token = TOKEN.readValue(props);
+        this.serviceAccountFile = SERVICE_ACCOUNT_FILE.readValue(props);
+        this.useMetadata = USE_METADATA.readValue(props);
     }
 
-    public String getSafeUrl() {
-        return safeURL;
+    String getLocalDataCenter() {
+        return localDatacenter.getValue();
     }
 
-    public String getConnectionString() {
-        return connectionString;
+    String getToken() {
+        return token.getValue();
     }
 
-    @Nullable
-    public ParsedProperty getProperty(YdbConnectionProperty<?> property) {
-        return params.get(property);
+    byte[] getSecureConnectionCert() {
+        return secureConnectionCertificate.getValue();
     }
 
-    public Map<YdbConnectionProperty<?>, ParsedProperty> getParams() {
-        return params;
-    }
+    public GrpcTransportBuilder applyToGrpcTransport(GrpcTransportBuilder builder) {
+        if (localDatacenter.hasValue()) {
+            builder = builder.withBalancingSettings(BalancingSettings.fromLocation(localDatacenter.getValue()));
+        }
 
-    public boolean hasStaticCredentials() {
-        return username != null && !username.isEmpty();
-    }
+        if (useSecureConnection.hasValue() && useSecureConnection.getValue()) {
+            builder = builder.withSecureConnection();
+        }
 
-    public StaticCredentials getStaticCredentials() {
-        return new StaticCredentials(username, password);
+        if (secureConnectionCertificate.hasValue()) {
+            builder = builder.withSecureConnection(secureConnectionCertificate.getValue());
+        }
+
+        if (token.hasValue()) {
+            builder = builder.withAuthProvider(new TokenAuthProvider(token.getValue()));
+        }
+
+        if (serviceAccountFile.hasValue()) {
+            builder = builder.withAuthProvider(
+                    CloudAuthHelper.getServiceAccountJsonAuthProvider(serviceAccountFile.getValue())
+            );
+        }
+
+        if (useMetadata.hasValue()) {
+            builder = builder.withAuthProvider(CloudAuthHelper.getMetadataAuthProvider());
+        }
+
+        if (username != null && !username.isEmpty()) {
+            builder = builder.withAuthProvider(new StaticCredentials(username, password));
+        }
+
+        // Use custom single thread scheduler because JDBC driver doesn't need to execute retries except for DISCOERY
+        builder.withSchedulerFactory(() -> {
+            final String namePrefix = "ydb-jdbc-scheduler[" + this.hashCode() +"]-thread-";
+            final AtomicInteger threadNumber = new AtomicInteger(1);
+            return Executors.newScheduledThreadPool(1, (Runnable r) -> {
+                Thread t = new Thread(r, namePrefix + threadNumber.getAndIncrement());
+                t.setDaemon(true);
+                return t;
+            });
+        });
+
+        return builder;
     }
 }

@@ -1,111 +1,120 @@
 package tech.ydb.jdbc.settings;
 
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.time.Duration;
-import java.util.Map;
-import java.util.Objects;
+import java.util.Properties;
 
-import tech.ydb.jdbc.query.QueryType;
 
 public class YdbOperationProperties {
-    public static final int MAX_ROWS = 1000; // TODO: how to figure out the max rows of current connection?
+    static final YdbProperty<Duration> JOIN_DURATION = YdbProperty
+            .duration("joinDuration", "Default timeout for all YDB operations", "5m");
 
-    private final Map<YdbOperationProperty<?>, ParsedProperty> params;
-    private final Duration joinDuration;
-    private final Duration queryTimeout;
-    private final Duration scanQueryTimeout;
-    private final boolean failOnTruncatedResult;
-    private final Duration sessionTimeout;
-    private final Duration deadlineTimeout;
-    private final boolean autoCommit;
-    private final int transactionLevel;
-    private final int maxRows;
-    private final boolean cacheConnectionsInDriver;
-    private final int preparedStatementCacheSize;
+    static final YdbProperty<Duration> QUERY_TIMEOUT = YdbProperty
+            .duration("queryTimeout", "Default timeout for all YDB data queries, scheme and explain operations", "0s");
 
-    private final FakeTxMode scanQueryTxMode;
-    private final FakeTxMode schemeQueryTxMode;
-    private final QueryType forcedQueryType;
+    static final YdbProperty<Duration> SCAN_QUERY_TIMEOUT = YdbProperty
+            .duration("scanQueryTimeout", "Default timeout for all YDB scan queries", "5m");
 
-    public YdbOperationProperties(Map<YdbOperationProperty<?>, ParsedProperty> params) {
-        this.params = Objects.requireNonNull(params);
+    static final YdbProperty<Boolean> FAIL_ON_TRUNCATED_RESULT = YdbProperty
+            .bool("failOnTruncatedResult", "Throw an exception when received truncated result", false);
 
-        this.joinDuration = params.get(YdbOperationProperty.JOIN_DURATION).getParsedValue();
-        this.queryTimeout = params.get(YdbOperationProperty.QUERY_TIMEOUT).getParsedValue();
-        this.scanQueryTimeout = params.get(YdbOperationProperty.SCAN_QUERY_TIMEOUT).getParsedValue();
-        this.failOnTruncatedResult = params.get(YdbOperationProperty.FAIL_ON_TRUNCATED_RESULT).getParsedValue();
-        this.sessionTimeout = params.get(YdbOperationProperty.SESSION_TIMEOUT).getParsedValue();
-        this.deadlineTimeout = params.get(YdbOperationProperty.DEADLINE_TIMEOUT).getParsedValue();
-        this.autoCommit = params.get(YdbOperationProperty.AUTOCOMMIT).getParsedValue();
-        this.transactionLevel = params.get(YdbOperationProperty.TRANSACTION_LEVEL).getParsedValue();
-        this.maxRows = MAX_ROWS;
-        this.cacheConnectionsInDriver = params.get(YdbOperationProperty.CACHE_CONNECTIONS_IN_DRIVER).getParsedValue();
-        this.preparedStatementCacheSize = Math.max(0,
-                params.get(YdbOperationProperty.PREPARED_STATEMENT_CACHE_SIZE).getParsedValue());
+    static final YdbProperty<Duration> SESSION_TIMEOUT = YdbProperty
+            .duration("sessionTimeout", "Default timeout to create a session", "5s");
 
-        this.scanQueryTxMode = params.get(YdbOperationProperty.SCAN_QUERY_TX_MODE).getParsedValue();
-        this.schemeQueryTxMode = params.get(YdbOperationProperty.SCHEME_QUERY_TX_MODE).getParsedValue();
+    static final YdbProperty<Duration> DEADLINE_TIMEOUT = YdbProperty
+            .duration("deadlineTimeout", "Deadline timeout for all operations", "0s");
 
-        ParsedProperty forcedType = params.get(YdbOperationProperty.FORCE_QUERY_MODE);
-        this.forcedQueryType = forcedType != null ? forcedType.getParsedValue() : null;
-    }
+    static final YdbProperty<Boolean> AUTOCOMMIT = YdbProperty
+            .bool("autoCommit", "Auto commit all operations", true);
 
-    public Map<YdbOperationProperty<?>, ParsedProperty> getParams() {
-        return params;
+    static final YdbProperty<Integer> TRANSACTION_LEVEL = YdbProperty
+            .integer("transactionLevel", "Default transaction isolation level", Connection.TRANSACTION_SERIALIZABLE);
+
+    static final YdbProperty<FakeTxMode> SCAN_QUERY_TX_MODE = YdbProperty.enums(
+            "scanQueryTxMode",
+            FakeTxMode.class,
+            "Mode of execution scan query inside transaction. Possible values - ERROR(by default), FAKE_TX and SHADOW_COMMIT",
+            FakeTxMode.ERROR
+    );
+
+    static final YdbProperty<FakeTxMode> SCHEME_QUERY_TX_MODE = YdbProperty.enums("schemeQueryTxMode",
+            FakeTxMode.class,
+            "Mode of execution scheme query inside transaction. Possible values - ERROR(by default), FAKE_TX and SHADOW_COMMIT",
+            FakeTxMode.ERROR
+    );
+
+    private static final int MAX_ROWS = 1000; // TODO: how to figure out the max rows of current connection?
+
+    private final YdbPropertyValue<Duration> joinDuration;
+    private final YdbPropertyValue<Duration> queryTimeout;
+    private final YdbPropertyValue<Duration> scanQueryTimeout;
+    private final YdbPropertyValue<Boolean> failOnTruncatedResult;
+    private final YdbPropertyValue<Duration> sessionTimeout;
+    private final YdbPropertyValue<Duration> deadlineTimeout;
+    private final YdbPropertyValue<Boolean> autoCommit;
+    private final YdbPropertyValue<Integer> transactionLevel;
+
+    private final YdbPropertyValue<FakeTxMode> scanQueryTxMode;
+    private final YdbPropertyValue<FakeTxMode> schemeQueryTxMode;
+
+    public YdbOperationProperties(YdbConfig config) throws SQLException {
+        Properties props = config.getProperties();
+
+        this.joinDuration = JOIN_DURATION.readValue(props);
+        this.queryTimeout = QUERY_TIMEOUT.readValue(props);
+        this.scanQueryTimeout = SCAN_QUERY_TIMEOUT.readValue(props);
+        this.failOnTruncatedResult = FAIL_ON_TRUNCATED_RESULT.readValue(props);
+        this.sessionTimeout = SESSION_TIMEOUT.readValue(props);
+        this.deadlineTimeout = DEADLINE_TIMEOUT.readValue(props);
+        this.autoCommit = AUTOCOMMIT.readValue(props);
+        this.transactionLevel = TRANSACTION_LEVEL.readValue(props);
+
+        this.scanQueryTxMode = SCAN_QUERY_TX_MODE.readValue(props);
+        this.schemeQueryTxMode = SCHEME_QUERY_TX_MODE.readValue(props);
     }
 
     public Duration getJoinDuration() {
-        return joinDuration;
+        return joinDuration.getValue();
     }
 
     public Duration getQueryTimeout() {
-        return queryTimeout;
+        return queryTimeout.getValue();
     }
 
     public Duration getScanQueryTimeout() {
-        return scanQueryTimeout;
+        return scanQueryTimeout.getValue();
     }
 
     public boolean isFailOnTruncatedResult() {
-        return failOnTruncatedResult;
+        return failOnTruncatedResult.getValue();
     }
 
     public FakeTxMode getScanQueryTxMode() {
-        return scanQueryTxMode;
+        return scanQueryTxMode.getValue();
     }
 
     public FakeTxMode getSchemeQueryTxMode() {
-        return schemeQueryTxMode;
-    }
-
-    public QueryType getForcedQueryType() {
-        return forcedQueryType;
+        return schemeQueryTxMode.getValue();
     }
 
     public Duration getSessionTimeout() {
-        return sessionTimeout;
+        return sessionTimeout.getValue();
     }
 
     public Duration getDeadlineTimeout() {
-        return deadlineTimeout;
+        return deadlineTimeout.getValue();
     }
 
     public boolean isAutoCommit() {
-        return autoCommit;
+        return autoCommit.getValue();
     }
 
     public int getTransactionLevel() {
-        return transactionLevel;
+        return transactionLevel.getValue();
     }
 
     public int getMaxRows() {
-        return maxRows;
-    }
-
-    public boolean isCacheConnectionsInDriver() {
-        return cacheConnectionsInDriver;
-    }
-
-    public int getPreparedStatementCacheSize() {
-        return preparedStatementCacheSize;
+        return MAX_ROWS;
     }
 }

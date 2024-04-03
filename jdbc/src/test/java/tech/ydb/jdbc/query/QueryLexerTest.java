@@ -2,9 +2,13 @@ package tech.ydb.jdbc.query;
 
 
 import java.sql.SQLException;
+import java.util.Properties;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import tech.ydb.jdbc.settings.YdbConfig;
+import tech.ydb.jdbc.settings.YdbQueryProperties;
 
 
 
@@ -13,17 +17,31 @@ import org.junit.jupiter.api.Test;
  * @author Aleksandr Gorshenin
  */
 public class QueryLexerTest {
-    private static YdbQuery parseQuery(YdbQueryOptions opts, String sql) throws SQLException {
+    private class ParamsBuilder {
+        private final Properties props = new Properties();
+
+        ParamsBuilder with(String name, String value) {
+            props.put(name, value);
+            return this;
+        }
+
+        YdbQueryProperties build() throws SQLException {
+            YdbConfig config = YdbConfig.from("jdbc:ydb:localhost:2136/local", props);
+            return new YdbQueryProperties(config);
+        }
+    }
+
+    private static YdbQuery parseQuery(YdbQueryProperties opts, String sql) throws SQLException {
         YdbQueryBuilder builder = new YdbQueryBuilder(sql, opts.getForcedQueryType());
         JdbcQueryLexer.buildQuery(builder, opts);
         return builder.build(opts);
     }
 
-    private static QueryType parsedQueryType(YdbQueryOptions opts, String sql) throws SQLException {
+    private static QueryType parsedQueryType(YdbQueryProperties opts, String sql) throws SQLException {
         return parseQuery(opts, sql).type();
     }
 
-    private void assertMixType(YdbQueryOptions opts, String types, String sql) {
+    private void assertMixType(YdbQueryProperties opts, String types, String sql) {
         SQLException ex = Assertions.assertThrows(SQLException.class, () -> {
             YdbQueryBuilder builder = new YdbQueryBuilder(sql, null);
             JdbcQueryLexer.buildQuery(builder, opts);
@@ -33,7 +51,7 @@ public class QueryLexerTest {
 
     @Test
     public void queryTypesTest() throws SQLException {
-        YdbQueryOptions opts = new YdbQueryOptions(true, false, false, false, false, null);
+        YdbQueryProperties opts = new ParamsBuilder().build();
 
         Assertions.assertEquals(QueryType.SCHEME_QUERY, parsedQueryType(opts,
                 "CREATE TABLE test_table (id int, value text)"
@@ -79,7 +97,7 @@ public class QueryLexerTest {
 
     @Test
     public void mixQueryExceptionTest() throws SQLException {
-        YdbQueryOptions opts = new YdbQueryOptions(true, false, false, false, false, null);
+        YdbQueryProperties opts = new ParamsBuilder().build();
 
         assertMixType(opts, "SCHEME_QUERY, DATA_QUERY",
                 "CREATE TABLE test_table (id int, value text);" +
@@ -101,7 +119,9 @@ public class QueryLexerTest {
 
     @Test
     public void forsedTypeTest() throws SQLException {
-        YdbQueryOptions opts = new YdbQueryOptions(true, false, false, false, false, QueryType.SCHEME_QUERY);
+        YdbQueryProperties opts = new ParamsBuilder()
+                .with("forceQueryMode", "SCHEME_QUERY")
+                .build();
 
         Assertions.assertEquals(QueryType.SCHEME_QUERY, parsedQueryType(opts,
                 "CREATE TABLE test_table (id int, value text)"

@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.settings.YdbQueryProperties;
 
 /**
  *
@@ -91,7 +92,7 @@ public class YdbQueryBuilder {
         query.append(string);
     }
 
-    public YdbQuery build(YdbQueryOptions opts) {
+    public YdbQuery build(YdbQueryProperties opts) {
         return new YdbQuery(opts, this);
     }
 }

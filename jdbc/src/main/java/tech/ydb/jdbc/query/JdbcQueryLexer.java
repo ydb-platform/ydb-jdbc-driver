@@ -1,6 +1,8 @@
 package tech.ydb.jdbc.query;
 
 
+import tech.ydb.jdbc.settings.YdbQueryProperties;
+
 import java.sql.SQLException;
 
 
@@ -16,7 +18,7 @@ public class JdbcQueryLexer {
      * @param options Options of parsing
      * @throws java.sql.SQLException if query contains mix of query types
      */
-    public static void buildQuery(YdbQueryBuilder builder, YdbQueryOptions options) throws SQLException {
+    public static void buildQuery(YdbQueryBuilder builder, YdbQueryProperties options) throws SQLException {
         int fragmentStart = 0;
 
         boolean nextExpression = true;
