@@ -3,12 +3,16 @@ package tech.ydb.jdbc.query;
 
 import java.sql.SQLException;
 
+import tech.ydb.jdbc.settings.YdbQueryProperties;
+
 
 /**
  *
  * @author Aleksandr Gorshenin
  */
 public class JdbcQueryLexer {
+    private JdbcQueryLexer() { }
+
     /**
      * Parses JDBC query to replace all ? to YQL parameters.
      *
@@ -16,7 +20,7 @@ public class JdbcQueryLexer {
      * @param options Options of parsing
      * @throws java.sql.SQLException if query contains mix of query types
      */
-    public static void buildQuery(YdbQueryBuilder builder, YdbQueryOptions options) throws SQLException {
+    public static void buildQuery(YdbQueryBuilder builder, YdbQueryProperties options) throws SQLException {
         int fragmentStart = 0;
 
         boolean nextExpression = true;
@@ -142,6 +146,7 @@ public class JdbcQueryLexer {
         return query.length;
     }
 
+    @SuppressWarnings("EmptyBlock")
     private static int parseDoubleQuotes(final char[] query, int offset) {
         while (++offset < query.length && query[offset] != '"') {
             // do nothing

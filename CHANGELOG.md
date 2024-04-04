@@ -1,3 +1,9 @@
+## 2.1.0 ##
+
+* Added support for QueryService
+* Added configs for custom iam enpoint and metadata URL
+* Upgraded to YDB Java SDK 2.2.0
+
 ## 2.0.7 ##
 
 * Added getter for GrpcTransport to YdbContext

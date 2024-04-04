@@ -12,14 +12,12 @@ import java.util.logging.Logger;
 
 import javax.annotation.Nullable;
 
-import tech.ydb.jdbc.context.YdbConfig;
-import tech.ydb.jdbc.impl.YdbConnectionImpl;
 import tech.ydb.jdbc.context.YdbContext;
-import tech.ydb.jdbc.settings.YdbJdbcTools;
+import tech.ydb.jdbc.impl.YdbConnectionImpl;
+import tech.ydb.jdbc.settings.YdbConfig;
 import tech.ydb.scheme.SchemeClient;
 import tech.ydb.table.TableClient;
 
-import static tech.ydb.jdbc.YdbConst.JDBC_YDB_PREFIX;
 
 /**
  * YDB JDBC driver, basic implementation supporting {@link TableClient} and {@link SchemeClient}
@@ -48,13 +46,13 @@ public class YdbDriver implements Driver {
             return null;
         }
 
-        YdbConfig config = new YdbConfig(url, info);
+        YdbConfig config = YdbConfig.from(url, info);
         LOGGER.log(Level.FINE, "About to connect to [{0}] using properties {1}", new Object[] {
             config.getSafeUrl(),
             config.getSafeProps()
         });
 
-        if (config.getOperationProperties().isCacheConnectionsInDriver()) {
+        if (config.isCacheConnectionsInDriver()) {
             return new YdbConnectionImpl(getCachedContext(config));
         }
 
@@ -74,7 +72,7 @@ public class YdbDriver implements Driver {
         // Was fixed in Java 9+
         YdbContext context = cache.get(config);
         if (context != null) {
-            LOGGER.log(Level.FINE, "Reusing YDB connection to {0}", config.getConnectionProperties());
+            LOGGER.log(Level.FINE, "Reusing YDB connection to {0}", config.getSafeUrl());
             return context;
         }
 
@@ -88,13 +86,13 @@ public class YdbDriver implements Driver {
 
     @Override
     public boolean acceptsURL(String url) {
-        return YdbJdbcTools.isYdb(url);
+        return YdbConfig.isYdb(url);
     }
 
     @Override
     public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) throws SQLException {
-        String targetUrl = acceptsURL(url) ? url : JDBC_YDB_PREFIX;
-        return YdbJdbcTools.from(targetUrl, info).toDriverProperties();
+        YdbConfig config = YdbConfig.from(url, info);
+        return config.toPropertyInfo();
     }
 
     @Override

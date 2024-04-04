@@ -8,6 +8,34 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public final class YdbFunctions {
+    public static final String STRING_FUNCTIONS = Stream.of(
+            Udf.Hyperscans.functions(),
+            Udf.Pires.functions(),
+            Udf.Re2s.functions(),
+            Udf.Strings.functions(),
+            Udf.Unicodes.functions(),
+            Udf.Urls.functions(),
+            Udf.Ips.functions(),
+            Udf.Digests.functions(),
+            Udf.Ysons.functions(),
+            Builtin.Strings.functions()
+    ).flatMap(Collection::stream).collect(Collectors.joining(","));
+
+    public static final String NUMERIC_FUNCTIONS = Stream.of(
+            Udf.Maths.functions(),
+            Builtin.Numerics.functions()
+    ).flatMap(Collection::stream).collect(Collectors.joining(","));
+
+    public static final String SYSTEM_FUNCTIONS = Stream.of(
+            Builtin.Systems.functions()
+    ).flatMap(Collection::stream).collect(Collectors.joining(","));
+
+    public static final String DATETIME_FUNCTIONS = Stream.of(
+            Udf.DateTimes.functions(),
+            Builtin.Dates.functions()
+    ).flatMap(Collection::stream).collect(Collectors.joining(","));
+
+    private YdbFunctions() { }
 
     public static final class Builtin {
         public static final class Strings {
@@ -311,9 +339,6 @@ public final class YdbFunctions {
             }
         }
 
-        private Builtin() {
-        }
-
         private static final List<String> ALL_FUNCTIONS = Collections.unmodifiableList(Stream.of(
                 Strings.functions(),
                 Systems.functions(),
@@ -321,6 +346,8 @@ public final class YdbFunctions {
                 Dates.functions())
                 .flatMap(Collection::stream)
                 .collect(Collectors.toList()));
+
+        private Builtin() { }
 
         public static List<String> allFunctions() {
             return ALL_FUNCTIONS;
@@ -341,8 +368,7 @@ public final class YdbFunctions {
                     Arrays.asList(GREP, MATCH, BACKTRACKING_GREP, BACKTRACKING_MATCH, MULTI_GREP, MULTI_MATCH,
                             CAPTURE, REPLACE));
 
-            private Hyperscans() {
-            }
+            private Hyperscans() { }
 
             public static List<String> functions() {
                 return FUNCTIONS;
@@ -359,8 +385,7 @@ public final class YdbFunctions {
             private static final List<String> FUNCTIONS = Collections.unmodifiableList(
                     Arrays.asList(GREP, MATCH, MULTI_GREP, MULTI_MATCH, CAPTURE, REPLACE));
 
-            private Pires() {
-            }
+            private Pires() { }
 
             public static List<String> functions() {
                 return FUNCTIONS;
@@ -378,8 +403,7 @@ public final class YdbFunctions {
             private static final List<String> FUNCTIONS = Collections.unmodifiableList(
                     Arrays.asList(GREP, MATCH, CAPTURE, FIND_AND_CONSUME, REPLACE, COUNT, OPTIONS));
 
-            private Re2s() {
-            }
+            private Re2s() { }
 
             public static List<String> functions() {
                 return FUNCTIONS;
@@ -458,8 +482,7 @@ public final class YdbFunctions {
                             LEVENSTEIN_DISTANCE, LEFT_PAD, RIGHT_PAD, HEX, S_HEX, BIN, S_BIN, HEX_TEXT, BIN_TEXT,
                             HUMAN_READABLE_DURATION, HUMAN_READABLE_QUANTITY, HUMAN_READABLE_BYTES, PREC, REVERSE));
 
-            private Strings() {
-            }
+            private Strings() { }
 
             public static List<String> functions() {
                 return FUNCTIONS;
@@ -499,8 +522,7 @@ public final class YdbFunctions {
                             FROM_CODE_POINT_LIST, REVERSE, TO_LOWER, TO_UPPER, TO_TITLE, SPLIT_TO_LIST,
                             JOIN_FROM_LIST));
 
-            private Unicodes() {
-            }
+            private Unicodes() { }
 
             public static List<String> functions() {
                 return FUNCTIONS;
@@ -564,19 +586,18 @@ public final class YdbFunctions {
             public static final String PARSE_X509 = "DateTime::ParseX509";
             private static final List<String> FUNCTIONS = Collections.unmodifiableList(
                     Arrays.asList(SPLIT, MAKE_DATE, MAKE_DATETIME, MAKE_TIMESTAMP, MAKE_TZ_DATE, MAKE_TZ_DATETIME,
-                            MAKE_TZ_TIMESTAMP, GET_YEAR, GET_DAY_OF_YEAR, GET_MONTH, GET_MONTH_NAME, GET_WEEK_OF_YEAR
-                            , GET_DAY_OF_MONTH, GET_DAY_OF_WEEK, GET_DAY_OF_WEEK_NAME, GET_HOUR, GET_MINUTE,
+                            MAKE_TZ_TIMESTAMP, GET_YEAR, GET_DAY_OF_YEAR, GET_MONTH, GET_MONTH_NAME, GET_WEEK_OF_YEAR,
+                            GET_DAY_OF_MONTH, GET_DAY_OF_WEEK, GET_DAY_OF_WEEK_NAME, GET_HOUR, GET_MINUTE,
                             GET_SECOND, GET_MILLISECOND_OF_SECOND, GET_MICROSECOND_OF_SECOND, GET_TIMEZONE_ID,
-                            GET_TIMEZONE_NAME, UPDATE, FROM_SECONDS, FROM_MILLISECONDS, FROM_MICROSECONDS, TO_SECONDS
-                            , TO_MILLISECONDS, TO_MICROSECONDS, TO_DAYS, TO_HOURS, TO_MINUTES, INTERVAL_FROM_DAYS,
+                            GET_TIMEZONE_NAME, UPDATE, FROM_SECONDS, FROM_MILLISECONDS, FROM_MICROSECONDS, TO_SECONDS,
+                            TO_MILLISECONDS, TO_MICROSECONDS, TO_DAYS, TO_HOURS, TO_MINUTES, INTERVAL_FROM_DAYS,
                             INTERVAL_FROM_HOURS, INTERVAL_FROM_MINUTES, INTERVAL_FROM_SECONDS,
                             INTERVAL_FROM_MILLISECONDS, INTERVAL_FROM_MICROSECONDS, START_OF_YEAR, START_OF_QUARTER,
                             START_OF_MONTH, START_OF_WEEK, START_OF_DAY, START_OF, TIME_OF_DAY, SHIFT_YEARS,
                             SHIFT_QUARTERS, SHIFT_MONTHS, FORMAT, PARSE, PARSE_RFC822, PARSE_ISO8601, PARSE_HTTP,
                             PARSE_X509));
 
-            private DateTimes() {
-            }
+            private DateTimes() { }
 
             public static List<String> functions() {
                 return FUNCTIONS;
@@ -625,8 +646,7 @@ public final class YdbFunctions {
                             FORCE_HOST_NAME_TO_PUNYCODE, PUNYCODE_TO_HOST_NAME, FORCE_PUNYCODE_TO_HOST_NAME,
                             CAN_BE_PUNYCODE_HOST_NAME, IS_ALLOWED_BY_ROBOTS_TXT));
 
-            private Urls() {
-            }
+            private Urls() { }
 
             public static List<String> functions() {
                 return FUNCTIONS;
@@ -645,8 +665,7 @@ public final class YdbFunctions {
                     Arrays.asList(FROM_STRING, TO_STRING, IS_IPV4, IS_IPV6, IS_EMBEDDED_IPV4, CONVERT_TO_IPV6,
                             GET_SUBNET));
 
-            private Ips() {
-            }
+            private Ips() { }
 
             public static List<String> functions() {
                 return FUNCTIONS;
@@ -724,8 +743,7 @@ public final class YdbFunctions {
                             Y_PATH_STRING, Y_PATH_DICT, Y_PATH_LIST, ATTRIBUTES, SERIALIZE, SERIALIZE_TEXT,
                             SERIALIZE_PRETTY, SERIALIZE_JSON, OPTIONS));
 
-            private Ysons() {
-            }
+            private Ysons() { }
 
             public static List<String> functions() {
                 return FUNCTIONS;
@@ -763,8 +781,7 @@ public final class YdbFunctions {
                             FARM_HASH_FINGERPRINT32, FARM_HASH_FINGERPRINT64, FARM_HASH_FINGERPRINT128,
                             SUPER_FAST_HASH, SHA1, SHA256, INT_HASH64, XXH3, XXH3_128));
 
-            private Digests() {
-            }
+            private Digests() { }
 
             public static List<String> functions() {
                 return FUNCTIONS;
@@ -818,8 +835,7 @@ public final class YdbFunctions {
                             TGAMMA, TRUNC, LOG, LOG2, LOG10, ATAN2, FMOD, HYPOT, POW, REMAINDER, FUZZY_EQUALS, MOD,
                             REM));
 
-            private Maths() {
-            }
+            private Maths() { }
 
             public static List<String> functions() {
                 return FUNCTIONS;
@@ -843,15 +859,11 @@ public final class YdbFunctions {
                             GET_SUM_BELOW_BOUND, GET_SUM_IN_RANGE, CALC_UPPER_BOUND, CALC_LOWER_BOUND,
                             CALC_UPPER_BOUND_SAFE, CALC_LOWER_BOUND_SAFE));
 
-            private Histograms() {
-            }
+            private Histograms() { }
 
             public static List<String> functions() {
                 return FUNCTIONS;
             }
-        }
-
-        private Udf() {
         }
 
         private static final List<String> ALL_FUNCTIONS = Collections.unmodifiableList(Stream.of(
@@ -870,35 +882,10 @@ public final class YdbFunctions {
                 .flatMap(Collection::stream)
                 .collect(Collectors.toList()));
 
+        private Udf() { }
+
         public static List<String> allFunctions() {
             return ALL_FUNCTIONS;
         }
     }
-
-    public static final String STRING_FUNCTIONS = Stream.of(
-            Udf.Hyperscans.functions(),
-            Udf.Pires.functions(),
-            Udf.Re2s.functions(),
-            Udf.Strings.functions(),
-            Udf.Unicodes.functions(),
-            Udf.Urls.functions(),
-            Udf.Ips.functions(),
-            Udf.Digests.functions(),
-            Udf.Ysons.functions(),
-            Builtin.Strings.functions()
-    ).flatMap(Collection::stream).collect(Collectors.joining(","));
-
-    public static final String NUMERIC_FUNCTIONS = Stream.of(
-            Udf.Maths.functions(),
-            Builtin.Numerics.functions()
-    ).flatMap(Collection::stream).collect(Collectors.joining(","));
-
-    public static final String SYSTEM_FUNCTIONS = Stream.of(
-            Builtin.Systems.functions()
-    ).flatMap(Collection::stream).collect(Collectors.joining(","));
-
-    public static final String DATETIME_FUNCTIONS = Stream.of(
-            Udf.DateTimes.functions(),
-            Builtin.Dates.functions()
-    ).flatMap(Collection::stream).collect(Collectors.joining(","));
 }

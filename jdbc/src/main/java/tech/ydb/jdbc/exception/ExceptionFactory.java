@@ -10,6 +10,8 @@ import tech.ydb.core.UnexpectedResultException;
  * @author Aleksandr Gorshenin
  */
 public class ExceptionFactory {
+    private ExceptionFactory() { }
+
     static String getSQLState(StatusCode status) {
         // TODO: Add SQLSTATE message with order with https://en.wikipedia.org/wiki/SQLSTATE
         return null;

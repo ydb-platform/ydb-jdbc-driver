@@ -31,9 +31,9 @@ import tech.ydb.jdbc.YdbDriverInfo;
 import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.common.FixedResultSetFactory;
 import tech.ydb.jdbc.common.YdbFunctions;
-import tech.ydb.jdbc.context.YdbExecutor;
+import tech.ydb.jdbc.context.SchemeExecutor;
+import tech.ydb.jdbc.context.YdbValidator;
 import tech.ydb.proto.scheme.SchemeOperationProtos;
-import tech.ydb.scheme.SchemeClient;
 import tech.ydb.scheme.description.ListDirectoryResult;
 import tech.ydb.table.description.TableColumn;
 import tech.ydb.table.description.TableDescription;
@@ -50,14 +50,16 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     static final String TABLE = "TABLE";
     static final String SYSTEM_TABLE = "SYSTEM TABLE";
 
-    private final YdbConnectionImpl connection;
+    private final YdbConnection connection;
+    private final YdbValidator validator;
+    private final SchemeExecutor executor;
     private final YdbTypes types;
-    private final YdbExecutor executor;
 
-    public YdbDatabaseMetaDataImpl(YdbConnectionImpl connection) {
+    public YdbDatabaseMetaDataImpl(YdbConnection connection) {
         this.connection = Objects.requireNonNull(connection);
         this.types = connection.getYdbTypes();
-        this.executor = new YdbExecutor(LOGGER);
+        this.executor = new SchemeExecutor(connection.getCtx());
+        this.validator = new YdbValidator(LOGGER);
     }
 
     @Override
@@ -720,7 +722,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         private final boolean isSystem;
         private final String name;
 
-        public TableRecord(String name) {
+        TableRecord(String name) {
             this.name = name;
             this.isSystem = name.startsWith(".sys/")
                     || name.startsWith(".sys_health/")
@@ -881,14 +883,14 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
             int decimalDigits = type.getKind() == Type.Kind.DECIMAL ? YdbConst.SQL_DECIMAL_DEFAULT_PRECISION : 0;
 
             rs.newRow()
-                    .withShortValue("SCOPE", (short)scope)
+                    .withShortValue("SCOPE", (short) scope)
                     .withTextValue("COLUMN_NAME", key)
                     .withIntValue("DATA_TYPE", types.toSqlType(type))
                     .withTextValue("TYPE_NAME", type.toString())
                     .withIntValue("COLUMN_SIZE", 0)
                     .withIntValue("BUFFER_LENGTH", 0)
                     .withShortValue("DECIMAL_DIGITS", (short) decimalDigits)
-                    .withShortValue("PSEUDO_COLUMN", (short)bestRowNotPseudo)
+                    .withShortValue("PSEUDO_COLUMN", (short) bestRowNotPseudo)
                     .build();
         }
 
@@ -969,14 +971,14 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
                     .withIntValue("PRECISION", types.getSqlPrecision(type))
                     .withTextValue("LITERAL_PREFIX", literal)
                     .withTextValue("LITERAL_SUFFIX", literal)
-                    .withShortValue("NULLABLE", (short)typeNullable)
+                    .withShortValue("NULLABLE", (short) typeNullable)
                     .withBoolValue("CASE_SENSITIVE", true)
                     .withShortValue("SEARCHABLE", getSearchable(type))
                     .withBoolValue("UNSIGNED_ATTRIBUTE", getUnsigned(type))
                     .withBoolValue("FIXED_PREC_SCALE", type.getKind() == Type.Kind.DECIMAL)
                     .withBoolValue("AUTO_INCREMENT", false) // no auto-increments
-                    .withShortValue("MINIMUM_SCALE", (short)scale)
-                    .withShortValue("MAXIMUM_SCALE", (short)scale)
+                    .withShortValue("MINIMUM_SCALE", (short) scale)
+                    .withShortValue("MAXIMUM_SCALE", (short) scale)
                     .withIntValue("SQL_DATA_TYPE", 0)
                     .withIntValue("SQL_DATETIME_SUB", 0)
                     .withIntValue("NUM_PREC_RADIX", 10)
@@ -1029,6 +1031,8 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
                 case JsonDocument:
                 case Yson:
                     return "'";
+                default:
+                    return null;
             }
         }
         return null;
@@ -1318,8 +1322,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     }
 
     private List<String> tables(String databasePrefix, String path, Predicate<String> filter) throws SQLException {
-        SchemeClient client = connection.getCtx().getSchemeClient();
-        ListDirectoryResult result = executor.call("List tables from " + path, () -> client.listDirectory(path));
+        ListDirectoryResult result = validator.call("List tables from " + path, () -> executor.listDirectory(path));
 
         List<String> tables = new ArrayList<>();
         String pathPrefix = withSuffix(path);
@@ -1351,13 +1354,14 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
         String databaseWithSuffix = withSuffix(connection.getCtx().getDatabase());
 
-        return executor.call("Describe table " + table, () -> connection.getCtx()
+        return validator.call("Describe table " + table, () -> executor
                 .describeTable(databaseWithSuffix + table, settings)
                 .thenApply(result -> {
                     // ignore scheme errors like path not found
                     if (result.getStatus().getCode() == StatusCode.SCHEME_ERROR) {
                         LOGGER.log(Level.WARNING, "Cannot describe table {0} -> {1}",
-                                new Object[]{ table, result.getStatus() });
+                                new Object[]{table, result.getStatus()}
+                        );
                         return Result.success(null);
                     }
                     return result;

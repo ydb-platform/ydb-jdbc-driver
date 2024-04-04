@@ -37,6 +37,7 @@ import static tech.ydb.jdbc.YdbConst.CANNOT_LOAD_DATA_FROM_READER;
 import static tech.ydb.jdbc.YdbConst.UNABLE_TO_CAST;
 
 public class MappingSetters {
+    private MappingSetters() { }
 
     static Setters buildSetters(Type type) {
         return buildToValueImpl(type);

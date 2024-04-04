@@ -25,14 +25,14 @@ Specify the YDB JDBC driver in the dependencies:
     <dependency>
         <groupId>tech.ydb.jdbc</groupId>
         <artifactId>ydb-jdbc-driver</artifactId>
-        <version>2.0.7</version>
+        <version>2.1.0</version>
     </dependency>
 
     <!-- Shaded version with included dependencies -->
     <dependency>
         <groupId>tech.ydb.jdbc</groupId>
         <artifactId>ydb-jdbc-driver-shaded</artifactId>
-        <version>2.0.7</version>
+        <version>2.1.0</version>
     </dependency>
 </dependencies>
 ```
@@ -50,8 +50,10 @@ YDB JDBC Driver supports the following [authentication modes](https://ydb.tech/e
 
 Driver supports the following configuration properties, which can be specified in the URL or passed via extra properties:
 * `saFile` - service account key for authentication, can be passed either as literal JSON value or as a file reference;
+* `iamEndpoint` - custom IAM endpoint for authentication via service account key;
 * `token` - token value for authentication, can be passed either as literal value or as a file reference;
 * `useMetadata` - boolean value, true if metadata authentication should be used, false otherwise (and default);
+* `metadataURL` - custom metadata endpoint;
 * `localDatacenter` - name of the datacenter local to the application being connected;
 * `secureConnection` - boolean value, true if TLS should be enforced (normally configured via `grpc://` or `grpcs://` scheme in the JDBC URL);
 * `secureConnectionCertificate` - custom CA certificate for TLS connections, can be passed either as literal value or as a file reference.

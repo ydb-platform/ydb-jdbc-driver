@@ -10,10 +10,10 @@ import java.util.Map;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
+import tech.ydb.jdbc.query.JdbcParams;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Type;
 import tech.ydb.table.values.Value;
-import tech.ydb.jdbc.query.JdbcParams;
 
 
 /**
@@ -97,7 +97,7 @@ public class InMemoryParams implements JdbcParams {
     @Override
     public void setParam(String name, Object obj, Type type) throws SQLException {
         if (obj instanceof Value<?>) {
-            paramValues.put(name, (Value<?>)obj);
+            paramValues.put(name, (Value<?>) obj);
             return;
         }
 

@@ -11,4 +11,6 @@ public final class YdbDriverInfo {
     public static final String DRIVER_FULL_NAME = DRIVER_NAME + " " + DRIVER_VERSION;
     public static final int JDBC_MAJOR_VERSION = 4;
     public static final int JDBC_MINOR_VERSION = 2;
+
+    private YdbDriverInfo() { }
 }

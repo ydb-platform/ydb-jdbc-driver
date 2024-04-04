@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.settings.YdbQueryProperties;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Value;
 
@@ -16,14 +17,14 @@ import tech.ydb.table.values.Value;
  * @author Aleksandr Gorshenin
  */
 public class YdbQuery {
-    private final YdbQueryOptions opts;
+    private final YdbQueryProperties opts;
     private final String originSQL;
     private final String yqlQuery;
     private final QueryType type;
     private final List<String> indexesArgsNames;
     private final List<YdbExpression> expressions;
 
-    YdbQuery(YdbQueryOptions opts, YdbQueryBuilder builder) {
+    YdbQuery(YdbQueryProperties opts, YdbQueryBuilder builder) {
         this.opts = opts;
         this.originSQL = builder.getOriginSQL();
         this.yqlQuery = builder.buildYQL();

@@ -2,17 +2,16 @@ package tech.ydb.jdbc;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.List;
 
 import javax.annotation.Nullable;
 
-import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.context.YdbContext;
-import tech.ydb.jdbc.context.YdbExecutor;
-import tech.ydb.table.query.DataQueryResult;
+import tech.ydb.jdbc.context.YdbValidator;
+import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
-import tech.ydb.table.settings.ExecuteDataQuerySettings;
 
 public interface YdbConnection extends Connection {
 
@@ -38,44 +37,46 @@ public interface YdbConnection extends Connection {
      * Explicitly execute query as a schema query
      *
      * @param query query (DDL) to execute
-     * @param executor executor for logging and warnings
+     * @param validator handler for logging and warnings
      * @throws SQLException if query cannot be executed
      */
-    void executeSchemeQuery(YdbQuery query, YdbExecutor executor) throws SQLException;
+    void executeSchemeQuery(YdbQuery query, YdbValidator validator) throws SQLException;
 
     /**
      * Explicitly execute query as a data query
      *
      * @param query query to execute
      * @param params parameters for query
-     * @param settings settings of execution
-     * @param executor executor for logging and warnings
+     * @param timeout timeout of operation
+     * @param keepInCache flag to store query in server-side cache
+     * @param validator handler for logging and warnings
      * @return list of result set
      * @throws SQLException if query cannot be executed
      */
-    DataQueryResult executeDataQuery(YdbQuery query, YdbExecutor executor, ExecuteDataQuerySettings settings, Params params) throws SQLException;
+    List<ResultSetReader> executeDataQuery(YdbQuery query, YdbValidator validator,
+            int timeout, boolean keepInCache, Params params) throws SQLException;
 
     /**
      * Explicitly execute query as a scan query
      *
      * @param query query to execute
      * @param params parameters for query
-     * @param executor executor for logging and warnings
+     * @param validator handler for logging and warnings
      * @return single result set with rows
      * @throws SQLException if query cannot be executed
      */
-    ResultSetReader executeScanQuery(YdbQuery query, YdbExecutor executor, Params params) throws SQLException;
+    ResultSetReader executeScanQuery(YdbQuery query, YdbValidator validator, Params params) throws SQLException;
 
     /**
      * Explicitly explain this query
      *
      * @param query query to explain
-     * @param executor executor for logging and warnings
+     * @param validator handler for logging and warnings
      * @return list of result set of two string columns: {@link YdbConst#EXPLAIN_COLUMN_AST}
      * and {@link YdbConst#EXPLAIN_COLUMN_PLAN}
      * @throws SQLException if query cannot be explained
      */
-    ExplainDataQueryResult executeExplainQuery(YdbQuery query, YdbExecutor executor) throws SQLException;
+    ExplainDataQueryResult executeExplainQuery(YdbQuery query, YdbValidator validator) throws SQLException;
 
     @Override
     YdbDatabaseMetaData getMetaData() throws SQLException;

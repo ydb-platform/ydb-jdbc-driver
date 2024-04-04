@@ -127,7 +127,7 @@ public class FixedResultSetFactory {
         private final List<Map<Column, ValueReader>> rows;
         private int rowIndex = 0;
 
-        public FixedResultSet(List<Map<Column, ValueReader>> rows) {
+        FixedResultSet(List<Map<Column, ValueReader>> rows) {
             this.rows = rows;
         }
 
@@ -190,7 +190,7 @@ public class FixedResultSetFactory {
         private final String name;
         private final Type type;
 
-        public Column(String name, Type type) {
+        Column(String name, Type type) {
             this.name = name;
             this.type = type;
         }
@@ -237,7 +237,7 @@ public class FixedResultSetFactory {
         private final PrimitiveValue value;
         private final Type type;
 
-        public FixedValueReader(PrimitiveValue value, Type type) {
+        FixedValueReader(PrimitiveValue value, Type type) {
             this.value = value;
             this.type = type;
         }

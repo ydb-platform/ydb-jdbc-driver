@@ -6,11 +6,9 @@ import java.sql.ParameterMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 
+import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbParameterMetaData;
 import tech.ydb.jdbc.common.TypeDescription;
-
-import static tech.ydb.jdbc.YdbConst.CANNOT_UNWRAP_TO;
-
 import tech.ydb.jdbc.query.JdbcParams;
 
 public class YdbParameterMetaDataImpl implements YdbParameterMetaData {
@@ -91,7 +89,7 @@ public class YdbParameterMetaDataImpl implements YdbParameterMetaData {
         if (iface.isAssignableFrom(getClass())) {
             return iface.cast(this);
         }
-        throw new SQLException(CANNOT_UNWRAP_TO + iface);
+        throw new SQLException(YdbConst.CANNOT_UNWRAP_TO + iface);
     }
 
     @Override

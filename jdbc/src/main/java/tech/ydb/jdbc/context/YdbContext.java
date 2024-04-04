@@ -4,8 +4,6 @@ import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -14,10 +12,10 @@ import java.util.logging.Logger;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
-import tech.ydb.core.Result;
 import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
+import tech.ydb.core.settings.BaseRequestSettings;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.exception.ExceptionFactory;
@@ -25,23 +23,21 @@ import tech.ydb.jdbc.query.JdbcParams;
 import tech.ydb.jdbc.query.JdbcQueryLexer;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.query.YdbQueryBuilder;
-import tech.ydb.jdbc.query.YdbQueryOptions;
 import tech.ydb.jdbc.query.params.BatchedParams;
 import tech.ydb.jdbc.query.params.InMemoryParams;
 import tech.ydb.jdbc.query.params.PreparedParams;
-import tech.ydb.jdbc.settings.ParsedProperty;
 import tech.ydb.jdbc.settings.YdbClientProperties;
-import tech.ydb.jdbc.settings.YdbClientProperty;
+import tech.ydb.jdbc.settings.YdbConfig;
 import tech.ydb.jdbc.settings.YdbConnectionProperties;
-import tech.ydb.jdbc.settings.YdbConnectionProperty;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
+import tech.ydb.jdbc.settings.YdbQueryProperties;
+import tech.ydb.query.QueryClient;
+import tech.ydb.query.impl.QueryClientImpl;
 import tech.ydb.scheme.SchemeClient;
 import tech.ydb.table.SessionRetryContext;
 import tech.ydb.table.TableClient;
-import tech.ydb.table.description.TableDescription;
 import tech.ydb.table.impl.PooledTableClient;
 import tech.ydb.table.rpc.grpc.GrpcTableRpc;
-import tech.ydb.table.settings.DescribeTableSettings;
 import tech.ydb.table.settings.PrepareDataQuerySettings;
 import tech.ydb.table.settings.RequestSettings;
 import tech.ydb.table.values.Type;
@@ -54,17 +50,18 @@ import tech.ydb.table.values.Type;
 public class YdbContext implements AutoCloseable {
     private static final Logger LOGGER = Logger.getLogger(YdbContext.class.getName());
 
-    private static final int SESSION_POOL_DEFAULT_MIN_SIZE = 0;
-    private static final int SESSION_POOL_DEFAULT_MAX_SIZE = 50;
     private static final int SESSION_POOL_RESIZE_STEP = 50;
     private static final int SESSION_POOL_RESIZE_THRESHOLD = 10;
 
     private final YdbConfig config;
 
+    private final YdbOperationProperties operationProps;
+    private final YdbQueryProperties queryOptions;
+
     private final GrpcTransport grpcTransport;
     private final PooledTableClient tableClient;
+    private final QueryClientImpl queryClient;
     private final SchemeClient schemeClient;
-    private final YdbQueryOptions queryOptions;
     private final SessionRetryContext retryCtx;
 
     private final Cache<String, YdbQuery> queriesCache;
@@ -73,16 +70,28 @@ public class YdbContext implements AutoCloseable {
     private final boolean autoResizeSessionPool;
     private final AtomicInteger connectionsCount = new AtomicInteger();
 
-    private YdbContext(YdbConfig config, GrpcTransport transport, PooledTableClient tableClient, boolean autoResize) {
+    private YdbContext(
+            YdbConfig config,
+            YdbOperationProperties operationProperties,
+            YdbQueryProperties queryProperties,
+            GrpcTransport transport,
+            PooledTableClient tableClient,
+            QueryClientImpl queryClient,
+            boolean autoResize
+    ) {
         this.config = config;
-        this.grpcTransport = Objects.requireNonNull(transport);
-        this.tableClient = Objects.requireNonNull(tableClient);
-        this.schemeClient = SchemeClient.newClient(transport).build();
-        this.queryOptions = YdbQueryOptions.createFrom(config.getOperationProperties());
+
+        this.operationProps = operationProperties;
+        this.queryOptions = queryProperties;
         this.autoResizeSessionPool = autoResize;
+
+        this.grpcTransport = transport;
+        this.tableClient = tableClient;
+        this.queryClient = queryClient;
+        this.schemeClient = SchemeClient.newClient(transport).build();
         this.retryCtx = SessionRetryContext.create(tableClient).build();
 
-        int cacheSize = config.getOperationProperties().getPreparedStatementCacheSize();
+        int cacheSize = config.getPreparedStatementsCachecSize();
         if (cacheSize > 0) {
             queriesCache = CacheBuilder.newBuilder().maximumSize(cacheSize).build();
             queryParamsCache = CacheBuilder.newBuilder().maximumSize(cacheSize).build();
@@ -113,8 +122,20 @@ public class YdbContext implements AutoCloseable {
         return tableClient;
     }
 
+    public QueryClient getQueryClient() {
+        return queryClient;
+    }
+
     public String getUrl() {
         return config.getUrl();
+    }
+
+    public YdbExecutor createExecutor() throws SQLException {
+        if (config.isUseQueryService()) {
+            return new QueryServiceExecutor(this, operationProps.getTransactionLevel(), operationProps.isAutoCommit());
+        } else {
+            return new TableServiceExecutor(this, operationProps.getTransactionLevel(), operationProps.isAutoCommit());
+        }
     }
 
     public int getConnectionsCount() {
@@ -122,7 +143,7 @@ public class YdbContext implements AutoCloseable {
     }
 
     public YdbOperationProperties getOperationProperties() {
-        return config.getOperationProperties();
+        return operationProps;
     }
 
     @Override
@@ -162,80 +183,46 @@ public class YdbContext implements AutoCloseable {
 
     public static YdbContext createContext(YdbConfig config) throws SQLException {
         try {
-            YdbConnectionProperties connProps = config.getConnectionProperties();
-            YdbClientProperties clientProps = config.getClientProperties();
+            LOGGER.log(Level.INFO, "Creating new YDB connection to {0}", config.getConnectionString());
 
-            LOGGER.log(Level.INFO, "Creating new YDB connection to {0}", connProps.getConnectionString());
+            YdbConnectionProperties connProps = new YdbConnectionProperties(config);
+            YdbClientProperties clientProps = new YdbClientProperties(config);
+            YdbOperationProperties operationProps = new YdbOperationProperties(config);
+            YdbQueryProperties queryProps = new YdbQueryProperties(config);
 
-            GrpcTransport grpcTransport = buildGrpcTransport(connProps);
+            GrpcTransportBuilder builder = GrpcTransport.forConnectionString(config.getConnectionString());
+            connProps.applyToGrpcTransport(builder);
+
+            // Use custom single thread scheduler
+            // because JDBC driver doesn't need to execute retries except for DISCOVERY
+            builder.withSchedulerFactory(() -> {
+                final String namePrefix = "ydb-jdbc-scheduler[" + config.hashCode() + "]-thread-";
+                final AtomicInteger threadNumber = new AtomicInteger(1);
+                return Executors.newScheduledThreadPool(1, (Runnable r) -> {
+                    Thread t = new Thread(r, namePrefix + threadNumber.getAndIncrement());
+                    t.setDaemon(true);
+                    return t;
+                });
+            });
+
+            GrpcTransport grpcTransport = builder.build();
+
             PooledTableClient.Builder tableClient = PooledTableClient.newClient(
                     GrpcTableRpc.useTransport(grpcTransport)
             );
-            boolean autoResize = buildTableClient(tableClient, clientProps);
+            QueryClientImpl.Builder queryClient = QueryClientImpl.newClient(grpcTransport);
 
-            return new YdbContext(config, grpcTransport, tableClient.build(), autoResize);
+            boolean autoResize = clientProps.applyToTableClient(tableClient, queryClient);
+
+            return new YdbContext(config, operationProps, queryProps, grpcTransport,
+                    tableClient.build(), queryClient.build(), autoResize);
         } catch (RuntimeException ex) {
             throw new SQLException("Cannot connect to YDB: " + ex.getMessage(), ex);
         }
     }
 
-    public static GrpcTransport buildGrpcTransport(YdbConnectionProperties props) {
-        GrpcTransportBuilder builder = GrpcTransport.forConnectionString(props.getConnectionString());
-        for (Map.Entry<YdbConnectionProperty<?>, ParsedProperty> entry : props.getParams().entrySet()) {
-            if (entry.getValue() != null) {
-                entry.getKey().getSetter().accept(builder, entry.getValue().getParsedValue());
-            }
-        }
-
-        if (props.hasStaticCredentials()) {
-            builder = builder.withAuthProvider(props.getStaticCredentials());
-        }
-
-        // Use custom single thread scheduler because JDBC driver doesn't need to execute retries except for DISCOERY
-        builder.withSchedulerFactory(() -> {
-            final String namePrefix = "ydb-jdbc-scheduler[" + props.hashCode() +"]-thread-";
-            final AtomicInteger threadNumber = new AtomicInteger(1);
-            return Executors.newScheduledThreadPool(1, (Runnable r) -> {
-                Thread t = new Thread(r, namePrefix + threadNumber.getAndIncrement());
-                t.setDaemon(true);
-                return t;
-            });
-        });
-
-        return builder.build();
-    }
-
-    private static boolean buildTableClient(TableClient.Builder builder, YdbClientProperties props) {
-        for (Map.Entry<YdbClientProperty<?>, ParsedProperty> entry : props.getParams().entrySet()) {
-            if (entry.getValue() != null) {
-                entry.getKey().getSetter().accept(builder, entry.getValue().getParsedValue());
-            }
-        }
-
-        ParsedProperty minSizeConfig = props.getProperty(YdbClientProperty.SESSION_POOL_SIZE_MIN);
-        ParsedProperty maxSizeConfig = props.getProperty(YdbClientProperty.SESSION_POOL_SIZE_MAX);
-
-        if (minSizeConfig == null && maxSizeConfig == null) {
-            return true;
-        }
-
-        int minSize = SESSION_POOL_DEFAULT_MIN_SIZE;
-        int maxSize = SESSION_POOL_DEFAULT_MAX_SIZE;
-
-        if (minSizeConfig != null) {
-            minSize = Math.max(0, minSizeConfig.getParsedValue());
-            maxSize = Math.max(maxSize, minSize);
-        }
-        if (maxSizeConfig != null) {
-            maxSize = Math.max(minSize + 1, maxSizeConfig.getParsedValue());
-        }
-
-        builder.sessionPoolSize(minSize, maxSize);
-        return false;
-    }
-
     public <T extends RequestSettings<?>> T withDefaultTimeout(T settings) {
-        Duration operation = config.getOperationProperties().getDeadlineTimeout();
+        Duration operation = operationProps.getDeadlineTimeout();
         if (!operation.isZero() && !operation.isNegative()) {
             settings.setOperationTimeout(operation);
             settings.setTimeout(operation.plusSeconds(1));
@@ -243,8 +230,13 @@ public class YdbContext implements AutoCloseable {
         return settings;
     }
 
-    public CompletableFuture<Result<TableDescription>> describeTable(String tablePath, DescribeTableSettings settings) {
-        return retryCtx.supplyResult(session -> session.describeTable(tablePath, settings));
+    public <T extends BaseRequestSettings.BaseBuilder<T>> T withRequestTimeout(T builder) {
+        Duration operation = operationProps.getDeadlineTimeout();
+        if (operation.isNegative() || operation.isZero()) {
+            return builder;
+        }
+
+        return builder.withRequestTimeout(operation);
     }
 
     public YdbQuery parseYdbQuery(String sql) throws SQLException {

@@ -76,49 +76,49 @@ public class YdbResultSetImpl implements YdbResultSet {
         if (state.nullValue) {
             return null; // getString supports all types, it's safe to check nullability here
         }
-        return state.description.getters().toString.fromValue(state.value);
+        return state.description.getters().readString(state.value);
     }
 
     @Override
     public boolean getBoolean(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        return state.description.getters().toBoolean.fromValue(state.value);
+        return state.description.getters().readBoolean(state.value);
     }
 
     @Override
     public byte getByte(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        return state.description.getters().toByte.fromValue(state.value);
+        return state.description.getters().readByte(state.value);
     }
 
     @Override
     public short getShort(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        return state.description.getters().toShort.fromValue(state.value);
+        return state.description.getters().readShort(state.value);
     }
 
     @Override
     public int getInt(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        return state.description.getters().toInt.fromValue(state.value);
+        return state.description.getters().readInt(state.value);
     }
 
     @Override
     public long getLong(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        return state.description.getters().toLong.fromValue(state.value);
+        return state.description.getters().readLong(state.value);
     }
 
     @Override
     public float getFloat(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        return state.description.getters().toFloat.fromValue(state.value);
+        return state.description.getters().readFloat(state.value);
     }
 
     @Override
     public double getDouble(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        return state.description.getters().toDouble.fromValue(state.value);
+        return state.description.getters().readDouble(state.value);
     }
 
     @Deprecated
@@ -135,7 +135,7 @@ public class YdbResultSetImpl implements YdbResultSet {
     @Override
     public byte[] getBytes(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        byte[] copy = state.description.getters().toBytes.fromValue(state.value);
+        byte[] copy = state.description.getters().readBytes(state.value);
         if (state.nullValue) { // TODO: do not parse empty value when optional and no value present
             return null;
         }
@@ -271,7 +271,7 @@ public class YdbResultSetImpl implements YdbResultSet {
         if (state.nullValue) {
             return null; // getObject supports all types, it's safe to check nullability here
         }
-        return state.description.getters().toObject.fromValue(state.value);
+        return state.description.getters().readObject(state.value);
     }
 
     @Override
@@ -287,7 +287,7 @@ public class YdbResultSetImpl implements YdbResultSet {
     @Override
     public Reader getCharacterStream(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        Reader copy = state.description.getters().toReader.fromValue(state.value);
+        Reader copy = state.description.getters().readReader(state.value);
         if (state.nullValue) {
             return null;
         }
@@ -302,7 +302,7 @@ public class YdbResultSetImpl implements YdbResultSet {
     @Override
     public BigDecimal getBigDecimal(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        BigDecimal copy = state.description.getters().toBigDecimal.fromValue(state.value);
+        BigDecimal copy = state.description.getters().readBigDecimal(state.value);
         if (state.nullValue) {
             return null;
         }
@@ -466,7 +466,7 @@ public class YdbResultSetImpl implements YdbResultSet {
     @Override
     public URL getURL(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        String copy = state.description.getters().toURL.fromValue(state.value);
+        String copy = state.description.getters().readURL(state.value);
         if (state.nullValue) {
             return null;
         }
@@ -495,7 +495,7 @@ public class YdbResultSetImpl implements YdbResultSet {
     @Override
     public String getNString(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        String copy = state.description.getters().toNString.fromValue(state.value);
+        String copy = state.description.getters().readNString(state.value);
         if (state.nullValue) {
             return null;
         }
@@ -548,7 +548,7 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     private <T> T getDateImpl(int columnIndex, LongFunction<T> fromMillis) throws SQLException {
         initValueReader(columnIndex);
-        long longValue = state.description.getters().toDateMillis.fromValue(state.value);
+        long longValue = state.description.getters().readDateMillis(state.value);
         if (state.nullValue) {
             return null;
         }
