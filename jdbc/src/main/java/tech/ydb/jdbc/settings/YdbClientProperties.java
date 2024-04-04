@@ -4,6 +4,7 @@ import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Properties;
 
+import tech.ydb.query.QueryClient;
 import tech.ydb.table.TableClient;
 
 
@@ -47,17 +48,18 @@ public class YdbClientProperties {
         this.sessionPoolMaxSize = SESSION_POOL_SIZE_MAX.readValue(props);
     }
 
-    public boolean applyToTableClient(TableClient.Builder builder) {
+    public boolean applyToTableClient(TableClient.Builder table, QueryClient.Builder query) {
         if (keepQueryText.hasValue()) {
-            builder.keepQueryText(keepQueryText.getValue());
+            table.keepQueryText(keepQueryText.getValue());
         }
 
         if (sessionKeepAliveTime.hasValue()) {
-            builder.sessionKeepAliveTime(sessionKeepAliveTime.getValue());
+            table.sessionKeepAliveTime(sessionKeepAliveTime.getValue());
         }
 
         if (sessionMaxIdleTime.hasValue()) {
-            builder.sessionMaxIdleTime(sessionMaxIdleTime.getValue());
+            table.sessionMaxIdleTime(sessionMaxIdleTime.getValue());
+            query.sessionMaxIdleTime(sessionMaxIdleTime.getValue());
         }
 
         if (!sessionPoolMinSize.hasValue() && !sessionPoolMaxSize.hasValue()) {
@@ -75,7 +77,8 @@ public class YdbClientProperties {
             maxSize = Math.max(minSize + 1, sessionPoolMaxSize.getValue());
         }
 
-        builder.sessionPoolSize(minSize, maxSize);
+        table.sessionPoolSize(minSize, maxSize);
+        query.sessionPoolMaxSize(maxSize).sessionPoolMinSize(minSize);
         return false;
     }
 

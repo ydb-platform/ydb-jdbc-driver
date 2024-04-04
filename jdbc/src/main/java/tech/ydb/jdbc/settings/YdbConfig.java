@@ -15,6 +15,8 @@ import tech.ydb.core.utils.URITools;
 import tech.ydb.jdbc.YdbConst;
 
 
+
+
 /**
  *
  * @author Aleksandr Gorshenin
@@ -35,6 +37,10 @@ public class YdbConfig {
             "Specifies the maximum number of entries in per-transport cache of prepared statements. A value of "
                     + "{@code 0} disables the cache.", 256
     );
+    static final YdbProperty<Boolean> USE_QUERY_SERVICE = YdbProperty.bool("useQueryService",
+            "Use QueryService intead of TableService", false
+    );
+
 
     private final String url;
     private final String username;
@@ -46,6 +52,7 @@ public class YdbConfig {
     private final Properties properties;
     private final boolean isCacheConnectionsInDriver;
     private final int preparedStatementsCacheSize;
+    private final boolean useQueryService;
 
     private YdbConfig(
             String url, String safeUrl, String connectionString, String username, String password, Properties props
@@ -58,6 +65,7 @@ public class YdbConfig {
         this.properties = props;
         this.isCacheConnectionsInDriver = CACHE_CONNECTIONS_IN_DRIVER.readValue(props).getValue();
         this.preparedStatementsCacheSize = Math.max(0, PREPARED_STATEMENT_CACHE_SIZE.readValue(props).getValue());
+        this.useQueryService = USE_QUERY_SERVICE.readValue(props).getValue();
     }
 
     public Properties getSafeProps() {
@@ -82,6 +90,10 @@ public class YdbConfig {
 
     public int getPreparedStatementsCachecSize() {
         return this.preparedStatementsCacheSize;
+    }
+
+    public boolean isUseQueryService() {
+        return this.useQueryService;
     }
 
     static boolean isSensetive(String key) {
@@ -129,6 +141,7 @@ public class YdbConfig {
         return new DriverPropertyInfo[] {
             YdbConfig.CACHE_CONNECTIONS_IN_DRIVER.toInfo(properties),
             YdbConfig.PREPARED_STATEMENT_CACHE_SIZE.toInfo(properties),
+            YdbConfig.USE_QUERY_SERVICE.toInfo(properties),
 
             YdbConnectionProperties.LOCAL_DATACENTER.toInfo(properties),
             YdbConnectionProperties.USE_SECURE_CONNECTION.toInfo(properties),

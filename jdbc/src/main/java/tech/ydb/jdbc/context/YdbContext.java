@@ -4,7 +4,6 @@ import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -13,10 +12,11 @@ import java.util.logging.Logger;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
-import tech.ydb.core.Result;
 import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
+import tech.ydb.core.settings.BaseRequestSettings;
+import tech.ydb.core.settings.OperationSettings;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.exception.ExceptionFactory;
@@ -32,13 +32,13 @@ import tech.ydb.jdbc.settings.YdbConfig;
 import tech.ydb.jdbc.settings.YdbConnectionProperties;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.jdbc.settings.YdbQueryProperties;
+import tech.ydb.query.QueryClient;
+import tech.ydb.query.impl.QueryClientImpl;
 import tech.ydb.scheme.SchemeClient;
 import tech.ydb.table.SessionRetryContext;
 import tech.ydb.table.TableClient;
-import tech.ydb.table.description.TableDescription;
 import tech.ydb.table.impl.PooledTableClient;
 import tech.ydb.table.rpc.grpc.GrpcTableRpc;
-import tech.ydb.table.settings.DescribeTableSettings;
 import tech.ydb.table.settings.PrepareDataQuerySettings;
 import tech.ydb.table.settings.RequestSettings;
 import tech.ydb.table.values.Type;
@@ -56,11 +56,12 @@ public class YdbContext implements AutoCloseable {
 
     private final YdbConfig config;
 
-    private final YdbOperationProperties operationProperties;
+    private final YdbOperationProperties operationProps;
     private final YdbQueryProperties queryOptions;
 
     private final GrpcTransport grpcTransport;
     private final PooledTableClient tableClient;
+    private final QueryClientImpl queryClient;
     private final SchemeClient schemeClient;
     private final SessionRetryContext retryCtx;
 
@@ -76,16 +77,18 @@ public class YdbContext implements AutoCloseable {
             YdbQueryProperties queryProperties,
             GrpcTransport transport,
             PooledTableClient tableClient,
+            QueryClientImpl queryClient,
             boolean autoResize
     ) {
         this.config = config;
 
-        this.operationProperties = operationProperties;
+        this.operationProps = operationProperties;
         this.queryOptions = queryProperties;
         this.autoResizeSessionPool = autoResize;
 
         this.grpcTransport = transport;
         this.tableClient = tableClient;
+        this.queryClient = queryClient;
         this.schemeClient = SchemeClient.newClient(transport).build();
         this.retryCtx = SessionRetryContext.create(tableClient).build();
 
@@ -120,8 +123,20 @@ public class YdbContext implements AutoCloseable {
         return tableClient;
     }
 
+    public QueryClient getQueryClient() {
+        return queryClient;
+    }
+
     public String getUrl() {
         return config.getUrl();
+    }
+
+    public YdbExecutor createExecutor() throws SQLException {
+        if (config.isUseQueryService()) {
+            return new QueryServiceExecutor(this, operationProps.getTransactionLevel(), operationProps.isAutoCommit());
+        } else {
+            return new TableServiceExecutor(this, operationProps.getTransactionLevel(), operationProps.isAutoCommit());
+        }
     }
 
     public int getConnectionsCount() {
@@ -129,7 +144,7 @@ public class YdbContext implements AutoCloseable {
     }
 
     public YdbOperationProperties getOperationProperties() {
-        return operationProperties;
+        return operationProps;
     }
 
     @Override
@@ -196,16 +211,19 @@ public class YdbContext implements AutoCloseable {
             PooledTableClient.Builder tableClient = PooledTableClient.newClient(
                     GrpcTableRpc.useTransport(grpcTransport)
             );
-            boolean autoResize = clientProps.applyToTableClient(tableClient);
+            QueryClientImpl.Builder queryClient = QueryClientImpl.newClient(grpcTransport);
 
-            return new YdbContext(config, operationProps, queryProps, grpcTransport, tableClient.build(), autoResize);
+            boolean autoResize = clientProps.applyToTableClient(tableClient, queryClient);
+
+            return new YdbContext(config, operationProps, queryProps, grpcTransport,
+                    tableClient.build(), queryClient.build(), autoResize);
         } catch (RuntimeException ex) {
             throw new SQLException("Cannot connect to YDB: " + ex.getMessage(), ex);
         }
     }
 
     public <T extends RequestSettings<?>> T withDefaultTimeout(T settings) {
-        Duration operation = operationProperties.getDeadlineTimeout();
+        Duration operation = operationProps.getDeadlineTimeout();
         if (!operation.isZero() && !operation.isNegative()) {
             settings.setOperationTimeout(operation);
             settings.setTimeout(operation.plusSeconds(1));
@@ -213,8 +231,22 @@ public class YdbContext implements AutoCloseable {
         return settings;
     }
 
-    public CompletableFuture<Result<TableDescription>> describeTable(String tablePath, DescribeTableSettings settings) {
-        return retryCtx.supplyResult(session -> session.describeTable(tablePath, settings));
+    public <T extends BaseRequestSettings.BaseBuilder<T>> T withRequestTimeout(T builder) {
+        Duration operation = operationProps.getDeadlineTimeout();
+        if (operation.isNegative() || operation.isZero()) {
+            return builder;
+        }
+
+        return builder.withRequestTimeout(operation.plusSeconds(1));
+    }
+
+    public <T extends OperationSettings.OperationBuilder<T>> T withOperationTimeout(T builder) {
+        Duration operation = operationProps.getDeadlineTimeout();
+        if (operation.isNegative() || operation.isZero()) {
+            return builder;
+        }
+
+        return builder.withOperationTimeout(operation).withRequestTimeout(operation.plusSeconds(1));
     }
 
     public YdbQuery parseYdbQuery(String sql) throws SQLException {

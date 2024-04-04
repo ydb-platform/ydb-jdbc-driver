@@ -9,7 +9,7 @@ import tech.ydb.core.UnexpectedResultException;
  *
  * @author Aleksandr Gorshenin
  */
-public class YdbUnavailbaleException extends SQLTransientConnectionException {
+public class YdbUnavailbaleException extends SQLTransientConnectionException implements YdbStatusable {
     private static final long serialVersionUID = 7162301155514557562L;
 
     private final Status status;
@@ -19,6 +19,7 @@ public class YdbUnavailbaleException extends SQLTransientConnectionException {
         this.status = cause.getStatus();
     }
 
+    @Override
     public Status getStatus() {
         return status;
     }
