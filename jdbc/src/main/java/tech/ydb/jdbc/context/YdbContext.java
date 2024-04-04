@@ -16,7 +16,6 @@ import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
 import tech.ydb.core.settings.BaseRequestSettings;
-import tech.ydb.core.settings.OperationSettings;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.exception.ExceptionFactory;
@@ -237,16 +236,7 @@ public class YdbContext implements AutoCloseable {
             return builder;
         }
 
-        return builder.withRequestTimeout(operation.plusSeconds(1));
-    }
-
-    public <T extends OperationSettings.OperationBuilder<T>> T withOperationTimeout(T builder) {
-        Duration operation = operationProps.getDeadlineTimeout();
-        if (operation.isNegative() || operation.isZero()) {
-            return builder;
-        }
-
-        return builder.withOperationTimeout(operation).withRequestTimeout(operation.plusSeconds(1));
+        return builder.withRequestTimeout(operation);
     }
 
     public YdbQuery parseYdbQuery(String sql) throws SQLException {

@@ -160,7 +160,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             return;
         }
 
-        CommitTransactionSettings settings = ctx.withOperationTimeout(CommitTransactionSettings.newBuilder()).build();
+        CommitTransactionSettings settings = ctx.withRequestTimeout(CommitTransactionSettings.newBuilder()).build();
         try {
             validator.clearWarnings();
             validator.call("Commit TxId: " + tx.getId(), () -> tx.commit(settings));
@@ -177,7 +177,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             return;
         }
 
-        RollbackTransactionSettings settings = ctx.withOperationTimeout(RollbackTransactionSettings.newBuilder())
+        RollbackTransactionSettings settings = ctx.withRequestTimeout(RollbackTransactionSettings.newBuilder())
                 .build();
 
         try {
