@@ -1,3 +1,9 @@
+## 2.1.1 ##
+
+* Fixed a race on the YDB context creating
+* Fixed leak of YDB context on closing
+* Upgraded to YDB Java SDK 2.2.2
+
 ## 2.1.0 ##
 
 * Added support for QueryService
