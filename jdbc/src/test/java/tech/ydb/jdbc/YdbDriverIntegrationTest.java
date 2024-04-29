@@ -43,15 +43,13 @@ public class YdbDriverIntegrationTest {
 
     @Test
     public void testContextCache() throws SQLException {
-        YdbContext ctx;
-        try (Connection conn1 = DriverManager.getConnection(jdbcURL.build())) {
-            Assertions.assertTrue(conn1.isValid(5000));
+        Connection firstConnection = DriverManager.getConnection(jdbcURL.build());
+        Assertions.assertTrue(firstConnection.isValid(5000));
 
-            YdbConnection unwrapped = conn1.unwrap(YdbConnection.class);
-            Assertions.assertNotNull(unwrapped.getCtx());
+        YdbConnection first = firstConnection.unwrap(YdbConnection.class);
+        Assertions.assertNotNull(first.getCtx());
 
-            ctx = unwrapped.getCtx();
-        }
+        YdbContext ctx = first.getCtx();
 
         try (Connection conn2 = DriverManager.getConnection(jdbcURL.build())) {
             Assertions.assertTrue(conn2.isValid(5000));
@@ -87,10 +85,7 @@ public class YdbDriverIntegrationTest {
             Assertions.assertNotSame(ctx, unwrapped.getCtx());
         }
 
-        if (YdbDriver.isRegistered()) {
-            YdbDriver.deregister();
-            YdbDriver.register();
-        }
+        firstConnection.close();
 
         try (Connection conn6 = DriverManager.getConnection(jdbcURL.build())) {
             Assertions.assertTrue(conn6.isValid(5000));
@@ -103,24 +98,27 @@ public class YdbDriverIntegrationTest {
 
     @Test
     public void testContextCacheConncurrent() throws SQLException {
-        List<CompletableFuture<YdbContext>> list = new ArrayList<>();
+        List<CompletableFuture<YdbConnection>> list = new ArrayList<>();
 
         for (int idx = 0; idx < 20; idx++) {
             list.add(CompletableFuture.supplyAsync(() -> {
-                try (Connection conn1 = DriverManager.getConnection(jdbcURL.build())) {
-                    YdbConnection unwrapped = conn1.unwrap(YdbConnection.class);
-                    Assertions.assertNotNull(unwrapped.getCtx());
-                    return unwrapped.getCtx();
+                try {
+                    Connection connection = DriverManager.getConnection(jdbcURL.build());
+                    return connection.unwrap(YdbConnection.class);
                 } catch (SQLException ex) {
                     throw new RuntimeException("Cannot connect", ex);
                 }
             }));
         }
 
-        YdbContext first = list.get(0).join();
+        YdbContext first = list.get(0).join().getCtx();
 
-        for (CompletableFuture<YdbContext> future: list) {
-            Assertions.assertEquals(first, future.join());
+        for (CompletableFuture<YdbConnection> future: list) {
+            Assertions.assertEquals(first, future.join().getCtx());
+        }
+
+        for (CompletableFuture<YdbConnection> future: list) {
+            future.join().close();
         }
     }
 

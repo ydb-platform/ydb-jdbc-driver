@@ -52,17 +52,25 @@ public class YdbDriver implements Driver {
             config.getSafeProps()
         });
 
-        if (config.isCacheConnectionsInDriver()) {
-            return new YdbConnectionImpl(getCachedContext(config));
+        if (!config.isCacheConnectionsInDriver()) {
+            final YdbContext context = YdbContext.createContext(config);
+            return new YdbConnectionImpl(context) {
+                @Override
+                public void close() throws SQLException {
+                    super.close();
+                    context.close();
+                }
+            };
         }
 
-        // findOrCreateJdbcParams new context
-        final YdbContext context = YdbContext.createContext(config);
-        return new YdbConnectionImpl(context) {
+        YdbContext cached = getCachedContext(config);
+        return new YdbConnectionImpl(cached) {
             @Override
             public void close() throws SQLException {
                 super.close();
-                context.close();
+                if (!cached.hasConnections() && cache.remove(config, cached)) {
+                    cached.close();
+                }
             }
         };
     }

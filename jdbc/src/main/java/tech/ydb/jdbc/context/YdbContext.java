@@ -161,6 +161,10 @@ public class YdbContext implements AutoCloseable {
         }
     }
 
+    public boolean hasConnections() {
+        return connectionsCount.get() > 0;
+    }
+
     public void register() {
         int actual = connectionsCount.incrementAndGet();
         int maxSize = tableClient.sessionPoolStats().getMaxSize();
