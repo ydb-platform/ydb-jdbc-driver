@@ -202,7 +202,7 @@ public class YdbContext implements AutoCloseable {
             builder.withSchedulerFactory(() -> {
                 final String namePrefix = "ydb-jdbc-scheduler[" + config.hashCode() + "]-thread-";
                 final AtomicInteger threadNumber = new AtomicInteger(1);
-                return Executors.newScheduledThreadPool(1, (Runnable r) -> {
+                return Executors.newScheduledThreadPool(2, (Runnable r) -> {
                     Thread t = new Thread(r, namePrefix + threadNumber.getAndIncrement());
                     t.setDaemon(true);
                     return t;
@@ -221,7 +221,13 @@ public class YdbContext implements AutoCloseable {
             return new YdbContext(config, operationProps, queryProps, grpcTransport,
                     tableClient.build(), queryClient.build(), autoResize);
         } catch (RuntimeException ex) {
-            throw new SQLException("Cannot connect to YDB: " + ex.getMessage(), ex);
+            StringBuilder sb = new StringBuilder("Cannot connect to YDB: ").append(ex.getMessage());
+            Throwable cause = ex.getCause();
+            while (cause != null) {
+                sb.append(", ").append(cause.getMessage());
+                cause = cause.getCause();
+            }
+            throw new SQLException(sb.toString(), ex);
         }
     }
 
