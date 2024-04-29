@@ -46,7 +46,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ydb-platform/ydb-java-sdk
-          ref: develop
+          ref: master
           path: ydb-java-sdk
 
       - name: Build YDB Java SDK
@@ -63,7 +63,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ydb-platform/ydb-java-yc
-          ref: develop
+          ref: master
           path: yc
 
       - name: Build YC Auth provider
@@ -115,7 +115,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ydb-platform/ydb-java-sdk
-          ref: develop
+          ref: master
           path: ydb-java-sdk
 
       - name: Build YDB Java SDK
@@ -132,7 +132,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ydb-platform/ydb-java-yc
-          ref: develop
+          ref: master
           path: yc
 
       - name: Build YC Auth provider
