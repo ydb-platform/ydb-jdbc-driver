@@ -7,6 +7,7 @@ import java.sql.Statement;
 import java.util.Properties;
 
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -64,8 +65,9 @@ public class YdbDriverStaticCredsTest {
         return () -> DriverManager.getConnection(jdbcURL.disableToken().withAutority(username, password).build());
     }
 
-    private void testConnection(ConnectionSupplier connectionSupplier) throws SQLException {
+    private void testConnection(ConnectionSupplier connectionSupplier, String userName) throws SQLException {
         try (Connection connection = connectionSupplier.get()) {
+            Assertions.assertEquals(userName, connection.getMetaData().getUserName());
             try (Statement statement = connection.createStatement()) {
                 statement.execute("SELECT 1;");
             }
@@ -75,22 +77,22 @@ public class YdbDriverStaticCredsTest {
     private void wrongConnection(ConnectionSupplier connectionSupplier) {
         ExceptionAssert.sqlException("Cannot connect to YDB: gRPC error: (INTERNAL) get token exception: "
                 + "Can't login, code: UNAUTHORIZED, issues: [#400020 Invalid password (S_FATAL)]",
-                () -> testConnection(connectionSupplier));
+                () -> testConnection(connectionSupplier, null));
     }
 
     @Test
     public void connectOK() throws SQLException {
-        testConnection(connectByProperties("user1", ""));
-        testConnection(connectByAuthority("user1", ""));
+        testConnection(connectByProperties("user1", ""), "user1");
+        testConnection(connectByAuthority("user1", ""), "user1");
 
-        testConnection(connectByProperties("user1", null));
-        testConnection(connectByAuthority("user1", null));
+        testConnection(connectByProperties("user1", null), "user1");
+        testConnection(connectByAuthority("user1", null), "user1");
 
-        testConnection(connectByProperties("user2", "pwss"));
-        testConnection(connectByAuthority("user2", "pwss"));
+        testConnection(connectByProperties("user2", "pwss"), "user2");
+        testConnection(connectByAuthority("user2", "pwss"), "user2");
 
-        testConnection(connectByProperties("user3", "pw :ss;"));
-        testConnection(connectByAuthority("user3", "pw :ss;"));
+        testConnection(connectByProperties("user3", "pw :ss;"), "user3");
+        testConnection(connectByAuthority("user3", "pw :ss;"), "user3");
     }
 
     @Test

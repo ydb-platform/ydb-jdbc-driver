@@ -130,6 +130,10 @@ public class YdbContext implements AutoCloseable {
         return config.getUrl();
     }
 
+    public String getUsername() {
+        return config.getUsername();
+    }
+
     public YdbExecutor createExecutor() throws SQLException {
         if (config.isUseQueryService()) {
             return new QueryServiceExecutor(this, operationProps.getTransactionLevel(), operationProps.isAutoCommit());

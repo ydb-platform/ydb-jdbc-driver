@@ -79,7 +79,8 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     @Override
     public String getUserName() {
-        return "";
+        String username = connection.getCtx().getUsername();
+        return username != null ? username : "";
     }
 
     @Override

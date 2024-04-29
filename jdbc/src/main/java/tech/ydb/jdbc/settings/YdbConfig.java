@@ -125,7 +125,7 @@ public class YdbConfig {
         return safeUrl;
     }
 
-    String getUsername() {
+    public String getUsername() {
         return username;
     }
 
