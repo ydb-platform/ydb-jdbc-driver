@@ -4,8 +4,11 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -95,6 +98,29 @@ public class YdbDriverIntegrationTest {
             YdbConnection unwrapped = conn6.unwrap(YdbConnection.class);
             Assertions.assertNotNull(unwrapped.getCtx());
             Assertions.assertNotSame(ctx, unwrapped.getCtx());
+        }
+    }
+
+    @Test
+    public void testContextCacheConncurrent() throws SQLException {
+        List<CompletableFuture<YdbContext>> list = new ArrayList<>();
+
+        for (int idx = 0; idx < 20; idx++) {
+            list.add(CompletableFuture.supplyAsync(() -> {
+                try (Connection conn1 = DriverManager.getConnection(jdbcURL.build())) {
+                    YdbConnection unwrapped = conn1.unwrap(YdbConnection.class);
+                    Assertions.assertNotNull(unwrapped.getCtx());
+                    return unwrapped.getCtx();
+                } catch (SQLException ex) {
+                    throw new RuntimeException("Cannot connect", ex);
+                }
+            }));
+        }
+
+        YdbContext first = list.get(0).join();
+
+        for (CompletableFuture<YdbContext> future: list) {
+            Assertions.assertEquals(first, future.join());
         }
     }
 

@@ -77,9 +77,10 @@ public class YdbDriver implements Driver {
         }
 
         context = YdbContext.createContext(config);
-        YdbContext old = cache.put(config, context);
+        YdbContext old = cache.putIfAbsent(config, context);
         if (old != null) {
-            old.close();
+            context.close();
+            return old;
         }
         return context;
     }
