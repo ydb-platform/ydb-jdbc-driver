@@ -348,7 +348,7 @@ public class JdbcQueryLexer {
                 && (query[offset + 3] | 32) == 'l'
                 && (query[offset + 4] | 32) == 'a'
                 && (query[offset + 5] | 32) == 'c'
-                && (query[offset + 8] | 32) == 'e'
+                && (query[offset + 6] | 32) == 'e'
                 && isSpace(query[offset + 7]);
     }
 }
