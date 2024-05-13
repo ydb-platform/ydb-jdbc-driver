@@ -1,3 +1,7 @@
+## 2.1.2 ##
+
+* Fixed SQL query parser
+
 ## 2.1.1 ##
 
 * Fixed a race on the YDB context creating
