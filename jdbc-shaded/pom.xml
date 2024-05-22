@@ -102,10 +102,14 @@
                                 <exclude>**/module-info.class</exclude>
                                 <exclude>.netbeans_automatic_build</exclude>
 
+                                <exclude>google/**/*.proto</exclude>
+                                <exclude>grpc/**/*.proto</exclude>
+
                                 <exclude>META-INF/DEPENDENCIES</exclude>
                                 <exclude>META-INF/MANIFEST.MF</exclude>
                                 <exclude>META-INF/maven/**</exclude>
                                 <exclude>META-INF/native-image/**</exclude>
+                                <exclude>META-INF/native/**</exclude>
                                 <exclude>META-INF/services/java.security.Provider</exclude>
                                 <exclude>META-INF/*.xml</exclude>
                                 <exclude>META-INF/*.SF</exclude>
@@ -114,6 +118,37 @@
                             </excludes>
                         </filter>
                     </filters>
+
+                    <relocations>
+                        <relocation>
+                            <pattern>android.annotation</pattern>
+                            <shadedPattern>tech.ydb.shaded.android.annotation</shadedPattern>
+                        </relocation>
+                        <relocation>
+                            <pattern>javax.annotation</pattern>
+                            <shadedPattern>tech.ydb.shaded.javax.annotation</shadedPattern>
+                        </relocation>
+                        <relocation>
+                            <pattern>io.jsonwebtoken</pattern>
+                            <shadedPattern>tech.ydb.shaded.io.jsonwebtoken</shadedPattern>
+                        </relocation>
+                        <relocation>
+                            <pattern>io.perfmark</pattern>
+                            <shadedPattern>tech.ydb.shaded.io.perfmark</shadedPattern>
+                        </relocation>
+                        <relocation>
+                            <pattern>com.google</pattern>
+                            <shadedPattern>tech.ydb.shaded.google</shadedPattern>
+                        </relocation>
+                        <relocation>
+                            <pattern>com.fasterxml.jackson</pattern>
+                            <shadedPattern>tech.ydb.shaded.jackson</shadedPattern>
+                        </relocation>
+                        <relocation>
+                            <pattern>io.grpc</pattern>
+                            <shadedPattern>tech.ydb.shaded.grpc</shadedPattern>
+                        </relocation>
+                    </relocations>
                 </configuration>
                 <executions>
                     <execution>
