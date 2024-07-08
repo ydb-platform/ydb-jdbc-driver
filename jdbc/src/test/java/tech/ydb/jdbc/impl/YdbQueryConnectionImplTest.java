@@ -7,7 +7,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -17,7 +16,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -31,10 +29,6 @@ import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.SqlQueries;
 import tech.ydb.jdbc.impl.helper.TableAssert;
-import tech.ydb.table.values.ListType;
-import tech.ydb.table.values.ListValue;
-import tech.ydb.table.values.PrimitiveType;
-import tech.ydb.table.values.PrimitiveValue;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
 public class YdbQueryConnectionImplTest {
@@ -667,39 +661,30 @@ public class YdbQueryConnectionImplTest {
     }
 
     @Test
-    @Disabled
-    public void testWarningInIndexUsage() throws SQLException {
+    public void testWarningsInQuery() throws SQLException {
+        String createTempTable = QUERIES.withTableName(
+                "CREATE TABLE #tableName_idx(id Int32, value Int32, PRIMARY KEY(id), INDEX idx_value GLOBAL ON(value))"
+        );
+        String dropTempTable = QUERIES.withTableName("DROP TABLE #tableName_idx");
+
         try (Statement statement = jdbc.connection().createStatement()) {
-            statement.execute("" +
-                    "create table unit_0_indexed (" +
-                    "id Int32, value Int32, " +
-                    "primary key (id), " +
-                    "index idx_value global on (value))");
+            statement.execute(createTempTable);
 
-            String query = "--!syntax_v1\n" +
-                    "declare $list as List<Int32>;\n" +
-                    "select * from unit_0_indexed view idx_value where value in $list;";
+            try {
+                String query = QUERIES.withTableName("SELECT * FROM #tableName_idx VIEW idx_value WHERE id = 1;");
+                try (ResultSet rs = statement.executeQuery(query)) {
+                    Assertions.assertFalse(rs.next());
 
-            ListValue value = ListType.of(PrimitiveType.Int32).newValue(
-                    Arrays.asList(PrimitiveValue.newInt32(1), PrimitiveValue.newInt32(2)));
-            try (PreparedStatement ps = jdbc.connection().prepareStatement(query)) {
-                ps.setObject(1, value);
+                    SQLWarning warnings = statement.getWarnings();
+                    Assertions.assertNotNull(warnings);
 
-                ResultSet rs = ps.executeQuery();
-                Assertions.assertFalse(rs.next());
-
-                SQLWarning warnings = ps.getWarnings();
-                Assertions.assertNotNull(warnings);
-
-                Assertions.assertEquals("#1030 Type annotation (S_WARNING)\n"
-                        + "  1:3 - 1:3: At function: RemovePrefixMembers, At function: RemoveSystemMembers, "
-                        + "At function: PersistableRepr, At function: SqlProject (S_WARNING)\n"
-                        + "  35:3 - 35:3: At function: Filter, At function: Coalesce (S_WARNING)\n"
-                        + "  51:3 - 51:3: At function: SqlIn (S_WARNING)\n"
-                        + "  51:3 - 51:3: #1108 IN may produce unexpected result when used with nullable arguments. "
-                        + "Consider adding 'PRAGMA AnsiInForEmptyOrNullableItemsCollections;' (S_WARNING)",
-                        warnings.getMessage());
-                Assertions.assertNull(warnings.getNextWarning());
+                    Assertions.assertEquals("#1060 Execution (S_WARNING)\n  "
+                            + "1:1 - 1:1: #2503 Given predicate is not suitable for used index: idx_value (S_WARNING)",
+                            warnings.getMessage());
+                    Assertions.assertNull(warnings.getNextWarning());
+                }
+            } finally {
+                statement.execute(dropTempTable);
             }
         }
     }
