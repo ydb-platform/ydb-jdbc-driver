@@ -1,3 +1,14 @@
+## 2.1.4 ##
+
+* Added support of null and void types
+* Upgraded to YDB Java SDK 2.2.6
+* Added reading of query service warning issues
+* Updated relocations for shaded JAR
+
+## 2.1.3 ##
+
+* Added relocations for shaded JAR
+
 ## 2.1.2 ##
 
 * Fixed SQL query parser
