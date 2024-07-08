@@ -17,6 +17,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbDatabaseMetaData;
@@ -31,6 +33,8 @@ import tech.ydb.jdbc.impl.helper.TableAssert;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
 public class YdbDatabaseMetaDataImplTest {
+    private static final Logger logger = LoggerFactory.getLogger(YdbDatabaseMetaDataImplTest.class);
+
     @RegisterExtension
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
@@ -610,6 +614,19 @@ public class YdbDatabaseMetaDataImplTest {
         rs.nextRow(columnName.eq("c_JsonDocument"), dataType.eq(Types.VARCHAR), typeName.eq("JsonDocument"),
                 columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq(16)).assertAll();
         rs.assertNoRows();
+    }
+
+    @Test
+    public void getAllColumnsTest() throws SQLException {
+        // Get all columns from all tables, include system tables. Test checks if jdbc driver reads it all successfully
+        ResultSet rs = metaData.getColumns(null, null, null, null);
+        Assertions.assertTrue(rs.next());
+        do {
+            logger.info("read column {} [{}] -> {}[{}]",
+                    rs.getString("TABLE_NAME"), rs.getString("COLUMN_NAME"),
+                    rs.getString("TYPE_NAME"), rs.getInt("DATA_TYPE"));
+        } while (rs.next());
+        rs.close();
     }
 
     @Test
