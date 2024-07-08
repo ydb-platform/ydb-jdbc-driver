@@ -1,3 +1,7 @@
+## 2.1.5 ##
+
+* Fixed issue processing for scheme queries
+
 ## 2.1.4 ##
 
 * Added support of null and void types

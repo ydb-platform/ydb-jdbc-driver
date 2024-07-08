@@ -5,10 +5,12 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import tech.ydb.common.transaction.TxMode;
+import tech.ydb.core.Issue;
 import tech.ydb.core.Result;
 import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.jdbc.YdbConst;
@@ -17,7 +19,9 @@ import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.query.QueryClient;
 import tech.ydb.query.QuerySession;
+import tech.ydb.query.QueryStream;
 import tech.ydb.query.QueryTransaction;
+import tech.ydb.query.result.QueryResultPart;
 import tech.ydb.query.settings.CommitTransactionSettings;
 import tech.ydb.query.settings.ExecuteQuerySettings;
 import tech.ydb.query.settings.RollbackTransactionSettings;
@@ -228,9 +232,28 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         final String yql = query.getYqlQuery(null);
 
         try (QuerySession session = createNewQuerySession(validator)) {
-            validator.call(QueryType.SCHEME_QUERY + " >>\n" + yql,
-                    () -> session.createQuery(yql, TxMode.NONE, Params.empty(), settings).execute()
+            validator.call(QueryType.SCHEME_QUERY + " >>\n" + yql, () -> session
+                    .createQuery(yql, TxMode.NONE, Params.empty(), settings)
+                    .execute(new IssueHandler(validator))
             );
+        }
+    }
+
+    private class IssueHandler implements QueryStream.PartsHandler {
+        private final YdbValidator validator;
+
+        IssueHandler(YdbValidator validator) {
+            this.validator = validator;
+        }
+
+        @Override
+        public void onIssues(Issue[] issues) {
+            validator.addStatusIssues(Arrays.asList(issues));
+        }
+
+        @Override
+        public void onNextPart(QueryResultPart part) {
+            // nothing
         }
     }
 
