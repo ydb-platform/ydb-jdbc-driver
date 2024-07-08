@@ -209,6 +209,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             QueryReader result = validator.call(QueryType.DATA_QUERY + " >>\n" + yql,
                     () -> QueryReader.readFrom(tx.createQuery(yql, isAutoCommit, params, settings))
             );
+            validator.addStatusIssues(result.getIssueList());
 
             List<ResultSetReader> readers = new ArrayList<>();
             result.forEach(readers::add);

@@ -50,7 +50,11 @@ public class YdbValidator {
     }
 
     public void addStatusIssues(Status status) {
-        issues.addAll(Arrays.asList(status.getIssues()));
+        this.issues.addAll(Arrays.asList(status.getIssues()));
+    }
+
+    public void addStatusIssues(List<Issue> issues) {
+        this.issues.addAll(issues);
     }
 
     public void clearWarnings() {
