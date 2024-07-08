@@ -557,7 +557,7 @@ public class YdbResultSetImpl implements YdbResultSet {
 
 
     private boolean isNullValue(TypeDescription description, ValueReader value) {
-        return description.isOptional() && !value.isOptionalItemPresent();
+        return description.isNullType() || (description.isOptional() && !value.isOptionalItemPresent());
     }
 
     private void initValueReader(int columnIndex) throws SQLException {

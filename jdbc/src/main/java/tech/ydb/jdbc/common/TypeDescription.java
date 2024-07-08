@@ -43,6 +43,10 @@ public class TypeDescription {
         this.sqlType = Objects.requireNonNull(sqlType);
     }
 
+    public boolean isNullType() {
+        return type.getKind() == Type.Kind.NULL || type.getKind() == Type.Kind.VOID;
+    }
+
     public boolean isOptional() {
         return optional;
     }

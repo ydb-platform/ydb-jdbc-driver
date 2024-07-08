@@ -16,6 +16,7 @@ import java.time.ZonedDateTime;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
+import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.impl.YdbTypesImpl;
 import tech.ydb.table.result.PrimitiveReader;
 import tech.ydb.table.result.ValueReader;
@@ -24,8 +25,6 @@ import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.table.values.Type;
 import tech.ydb.table.values.Value;
 
-import static tech.ydb.jdbc.YdbConst.UNABLE_TO_CAST;
-import static tech.ydb.jdbc.YdbConst.UNABLE_TO_CONVERT;
 import static tech.ydb.table.values.PrimitiveType.Bool;
 import static tech.ydb.table.values.PrimitiveType.Bytes;
 import static tech.ydb.table.values.PrimitiveType.Date;
@@ -95,6 +94,25 @@ public class MappingGetters {
                         castToUrlNotSupported(clazz),
                         value -> value.getDecimal().toBigDecimal(),
                         castToReaderNotSupported(clazz)
+                );
+            case VOID:
+            case NULL:
+                return new Getters(
+                        value -> null,
+                        value -> false,
+                        value -> 0,
+                        value -> 0,
+                        value -> 0,
+                        value -> 0,
+                        value -> 0,
+                        value -> 0,
+                        value -> null,
+                        value -> null,
+                        value -> 0,
+                        value -> null,
+                        value -> null,
+                        value -> null,
+                        value -> null
                 );
             default:
                 return new Getters(
@@ -675,88 +693,88 @@ public class MappingGetters {
     }
 
     private static SQLException cannotConvert(PrimitiveType type, Class<?> javaType, Object value) {
-        return new SQLException(String.format(UNABLE_TO_CONVERT, type, value, javaType));
+        return new SQLException(String.format(YdbConst.UNABLE_TO_CONVERT, type, value, javaType));
     }
 
     private static SQLException dataTypeNotSupported(PrimitiveType type, Class<?> javaType) {
-        return new SQLException(String.format(UNABLE_TO_CAST, type, javaType));
+        return new SQLException(String.format(YdbConst.UNABLE_TO_CAST, type, javaType));
     }
 
     private static ValueToBoolean castToBooleanNotSupported(String type) {
         return value -> {
-            throw new SQLException(String.format(UNABLE_TO_CAST, type, boolean.class));
+            throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, type, boolean.class));
         };
     }
 
     private static ValueToByte castToByteNotSupported(String type) {
         return value -> {
-            throw new SQLException(String.format(UNABLE_TO_CAST, type, byte.class));
+            throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, type, byte.class));
         };
     }
 
     private static ValueToShort castToShortNotSupported(String type) {
         return value -> {
-            throw new SQLException(String.format(UNABLE_TO_CAST, type, short.class));
+            throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, type, short.class));
         };
     }
 
     private static ValueToInt castToIntNotSupported(String type) {
         return value -> {
-            throw new SQLException(String.format(UNABLE_TO_CAST, type, int.class));
+            throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, type, int.class));
         };
     }
 
     private static ValueToLong castToLongNotSupported(String type) {
         return value -> {
-            throw new SQLException(String.format(UNABLE_TO_CAST, type, long.class));
+            throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, type, long.class));
         };
     }
 
     private static ValueToFloat castToFloatNotSupported(String type) {
         return value -> {
-            throw new SQLException(String.format(UNABLE_TO_CAST, type, float.class));
+            throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, type, float.class));
         };
     }
 
     private static ValueToDouble castToDoubleNotSupported(String type) {
         return value -> {
-            throw new SQLException(String.format(UNABLE_TO_CAST, type, double.class));
+            throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, type, double.class));
         };
     }
 
     private static ValueToBytes castToBytesNotSupported(String type) {
         return value -> {
-            throw new SQLException(String.format(UNABLE_TO_CAST, type, byte[].class));
+            throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, type, byte[].class));
         };
     }
 
     private static ValueToDateMillis castToDateMillisNotSupported(String type) {
         return value -> {
-            throw new SQLException(String.format(UNABLE_TO_CAST, type, long.class));
+            throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, type, long.class));
         };
     }
 
     private static ValueToNString castToNStringNotSupported(String type) {
         return value -> {
-            throw new SQLException(String.format(UNABLE_TO_CAST, type, String.class));
+            throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, type, String.class));
         };
     }
 
     private static ValueToURL castToUrlNotSupported(String type) {
         return value -> {
-            throw new SQLException(String.format(UNABLE_TO_CAST, type, URL.class));
+            throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, type, URL.class));
         };
     }
 
     private static ValueToBigDecimal castToBigDecimalNotSupported(String type) {
         return value -> {
-            throw new SQLException(String.format(UNABLE_TO_CAST, type, BigDecimal.class));
+            throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, type, BigDecimal.class));
         };
     }
 
     private static ValueToReader castToReaderNotSupported(String type) {
         return value -> {
-            throw new SQLException(String.format(UNABLE_TO_CAST, type, Reader.class));
+            throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, type, Reader.class));
         };
     }
 

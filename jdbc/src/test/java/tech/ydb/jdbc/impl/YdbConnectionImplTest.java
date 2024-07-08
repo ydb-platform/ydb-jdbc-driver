@@ -689,6 +689,39 @@ public class YdbConnectionImplTest {
     }
 
     @Test
+    public void testLiteralQuery() throws SQLException {
+        try (Statement statement = jdbc.connection().createStatement()) {
+            String query = "SELECT '1' AS p1, 123 AS p2, NULL AS p3";
+            try (ResultSet rs = statement.executeQuery(query)) {
+                Assertions.assertTrue(rs.next());
+
+                Assertions.assertEquals("1", rs.getString("p1"));
+                Assertions.assertArrayEquals(new byte[] { '1' }, rs.getBytes("p1"));
+                Assertions.assertFalse(rs.wasNull());
+
+                Assertions.assertEquals(123, rs.getByte("p2"));
+                Assertions.assertEquals(123, rs.getShort("p2"));
+                Assertions.assertEquals(123, rs.getInt("p2"));
+                Assertions.assertEquals(123, rs.getLong("p2"));
+                Assertions.assertFalse(rs.wasNull());
+
+                Assertions.assertNull(rs.getObject("p3"));
+                Assertions.assertNull(rs.getString("p3"));
+                Assertions.assertNull(rs.getBytes("p3"));
+
+                Assertions.assertEquals(0, rs.getByte("p3"));
+                Assertions.assertEquals(0, rs.getShort("p3"));
+                Assertions.assertEquals(0, rs.getInt("p3"));
+                Assertions.assertEquals(0, rs.getLong("p3"));
+
+                Assertions.assertTrue(rs.wasNull());
+
+                Assertions.assertFalse(rs.next());
+            }
+        }
+    }
+
+    @Test
     public void testAnsiLexer() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement()) {
             ResultSet rs = statement.executeQuery("--!ansi_lexer\n" +
