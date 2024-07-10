@@ -8,8 +8,8 @@ import javax.annotation.Nullable;
 
 import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbValidator;
+import tech.ydb.jdbc.query.ExplainedQuery;
 import tech.ydb.jdbc.query.YdbQuery;
-import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
 
@@ -76,7 +76,7 @@ public interface YdbConnection extends Connection {
      * and {@link YdbConst#EXPLAIN_COLUMN_PLAN}
      * @throws SQLException if query cannot be explained
      */
-    ExplainDataQueryResult executeExplainQuery(YdbQuery query, YdbValidator validator) throws SQLException;
+    ExplainedQuery executeExplainQuery(YdbQuery query, YdbValidator validator) throws SQLException;
 
     @Override
     YdbDatabaseMetaData getMetaData() throws SQLException;

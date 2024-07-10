@@ -31,12 +31,12 @@ import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbExecutor;
 import tech.ydb.jdbc.context.YdbValidator;
+import tech.ydb.jdbc.query.ExplainedQuery;
 import tech.ydb.jdbc.query.JdbcParams;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.settings.FakeTxMode;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
-import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
 
@@ -232,7 +232,7 @@ public class YdbConnectionImpl implements YdbConnection {
     }
 
     @Override
-    public ExplainDataQueryResult executeExplainQuery(YdbQuery query, YdbValidator validator) throws SQLException {
+    public ExplainedQuery executeExplainQuery(YdbQuery query, YdbValidator validator) throws SQLException {
         return executor.executeExplainQuery(ctx, validator, query);
     }
 

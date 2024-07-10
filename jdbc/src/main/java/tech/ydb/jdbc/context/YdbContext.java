@@ -154,6 +154,7 @@ public class YdbContext implements AutoCloseable {
     public void close() {
         try {
             schemeClient.close();
+            queryClient.close();
             tableClient.close();
             grpcTransport.close();
         } catch (Exception e) {
