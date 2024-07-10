@@ -1,3 +1,8 @@
+## 2.1.6 ##
+
+* Fixed QueryClient leaks
+* Added support of query explaining for useQueryService mode
+
 ## 2.1.5 ##
 
 * Fixed issue processing for scheme queries
