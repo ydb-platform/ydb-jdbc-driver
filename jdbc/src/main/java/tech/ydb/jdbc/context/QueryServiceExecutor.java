@@ -15,15 +15,18 @@ import tech.ydb.core.Result;
 import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.exception.ExceptionFactory;
+import tech.ydb.jdbc.query.ExplainedQuery;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.query.QueryClient;
 import tech.ydb.query.QuerySession;
 import tech.ydb.query.QueryStream;
 import tech.ydb.query.QueryTransaction;
+import tech.ydb.query.result.QueryInfo;
 import tech.ydb.query.result.QueryResultPart;
 import tech.ydb.query.settings.CommitTransactionSettings;
 import tech.ydb.query.settings.ExecuteQuerySettings;
+import tech.ydb.query.settings.QueryExecMode;
 import tech.ydb.query.settings.RollbackTransactionSettings;
 import tech.ydb.query.tools.QueryReader;
 import tech.ydb.table.query.Params;
@@ -227,6 +230,8 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public void executeSchemeQuery(YdbContext ctx, YdbValidator validator, YdbQuery query) throws SQLException {
+        ensureOpened();
+
         // Scheme query does not affect transactions or result sets
         ExecuteQuerySettings settings = ctx.withRequestTimeout(ExecuteQuerySettings.newBuilder()).build();
         final String yql = query.getYqlQuery(null);
@@ -236,6 +241,30 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
                     .createQuery(yql, TxMode.NONE, Params.empty(), settings)
                     .execute(new IssueHandler(validator))
             );
+        }
+    }
+
+    @Override
+    public ExplainedQuery executeExplainQuery(YdbContext ctx, YdbValidator validator, YdbQuery query)
+            throws SQLException {
+        ensureOpened();
+
+        // Scheme query does not affect transactions or result sets
+        ExecuteQuerySettings settings = ctx.withRequestTimeout(ExecuteQuerySettings.newBuilder())
+                .withExecMode(QueryExecMode.EXPLAIN)
+                .build();
+        final String yql = query.getYqlQuery(null);
+
+        try (QuerySession session = createNewQuerySession(validator)) {
+            QueryInfo res = validator.call(QueryType.EXPLAIN_QUERY + " >>\n" + yql, () -> session
+                    .createQuery(yql, TxMode.NONE, Params.empty(), settings)
+                    .execute(new IssueHandler(validator))
+            );
+
+            if (!res.hasStats()) {
+                throw new SQLException("No explain data");
+            }
+            return new ExplainedQuery(res.getStats().getQueryAst(), res.getStats().getQueryPlan());
         }
     }
 

@@ -4,8 +4,8 @@ import java.sql.SQLException;
 import java.util.List;
 
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.query.ExplainedQuery;
 import tech.ydb.jdbc.query.YdbQuery;
-import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
 
@@ -41,7 +41,7 @@ public interface YdbExecutor {
     ResultSetReader executeScanQuery(YdbContext ctx, YdbValidator validator, YdbQuery query, Params params)
             throws SQLException;
 
-    ExplainDataQueryResult executeExplainQuery(YdbContext ctx, YdbValidator validator, YdbQuery query)
+    ExplainedQuery executeExplainQuery(YdbContext ctx, YdbValidator validator, YdbQuery query)
             throws SQLException;
 
     void commit(YdbContext ctx, YdbValidator validator) throws SQLException;

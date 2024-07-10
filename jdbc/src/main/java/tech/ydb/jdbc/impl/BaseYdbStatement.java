@@ -17,10 +17,10 @@ import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.common.FixedResultSetFactory;
 import tech.ydb.jdbc.context.YdbValidator;
+import tech.ydb.jdbc.query.ExplainedQuery;
 import tech.ydb.jdbc.query.YdbExpression;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
-import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
 
@@ -177,12 +177,12 @@ public abstract class BaseYdbStatement implements YdbStatement {
     }
 
     protected List<YdbResult> executeExplainQuery(YdbQuery query) throws SQLException {
-        ExplainDataQueryResult explainDataQuery = connection.executeExplainQuery(query, validator);
+        ExplainedQuery explainedQuery = connection.executeExplainQuery(query, validator);
 
         ResultSetReader result = EXPLAIN_RS_FACTORY.createResultSet()
                 .newRow()
-                .withTextValue(YdbConst.EXPLAIN_COLUMN_AST, explainDataQuery.getQueryAst())
-                .withTextValue(YdbConst.EXPLAIN_COLUMN_PLAN, explainDataQuery.getQueryPlan())
+                .withTextValue(YdbConst.EXPLAIN_COLUMN_AST, explainedQuery.getAst())
+                .withTextValue(YdbConst.EXPLAIN_COLUMN_PLAN, explainedQuery.getPlan())
                 .build()
                 .build();
 

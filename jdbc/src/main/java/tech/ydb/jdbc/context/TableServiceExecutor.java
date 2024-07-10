@@ -8,14 +8,17 @@ import java.util.ArrayList;
 import java.util.List;
 
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.query.ExplainedQuery;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.Session;
 import tech.ydb.table.query.DataQueryResult;
+import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.settings.CommitTxSettings;
 import tech.ydb.table.settings.ExecuteDataQuerySettings;
+import tech.ydb.table.settings.ExplainDataQuerySettings;
 import tech.ydb.table.settings.KeepAliveSessionSettings;
 import tech.ydb.table.settings.RollbackTxSettings;
 import tech.ydb.table.transaction.TxControl;
@@ -149,6 +152,20 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         }
 
         return settings;
+    }
+
+    @Override
+    public ExplainedQuery executeExplainQuery(YdbContext ctx, YdbValidator validator, YdbQuery query)
+            throws SQLException {
+        ensureOpened();
+
+        String yql = query.getYqlQuery(null);
+        ExplainDataQuerySettings settings = ctx.withDefaultTimeout(new ExplainDataQuerySettings());
+        try (Session session = createNewTableSession(validator)) {
+            String msg = QueryType.EXPLAIN_QUERY + " >>\n" + yql;
+            ExplainDataQueryResult res = validator.call(msg, () -> session.explainDataQuery(yql, settings));
+            return new ExplainedQuery(res.getQueryAst(), res.getQueryPlan());
+        }
     }
 
     @Override

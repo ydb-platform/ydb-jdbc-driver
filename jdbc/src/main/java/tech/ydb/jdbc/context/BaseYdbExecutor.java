@@ -12,13 +12,11 @@ import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.Session;
 import tech.ydb.table.TableClient;
-import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.result.impl.ProtoValueReaders;
 import tech.ydb.table.settings.ExecuteScanQuerySettings;
 import tech.ydb.table.settings.ExecuteSchemeQuerySettings;
-import tech.ydb.table.settings.ExplainDataQuerySettings;
 
 /**
  *
@@ -51,19 +49,6 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
 
         try (Session session = createNewTableSession(validator)) {
             validator.execute(QueryType.SCHEME_QUERY + " >>\n" + yql, () -> session.executeSchemeQuery(yql, settings));
-        }
-    }
-
-    @Override
-    public ExplainDataQueryResult executeExplainQuery(YdbContext ctx, YdbValidator validator, YdbQuery query)
-            throws SQLException {
-        ensureOpened();
-
-        String yql = query.getYqlQuery(null);
-        ExplainDataQuerySettings settings = ctx.withDefaultTimeout(new ExplainDataQuerySettings());
-        try (Session session = createNewTableSession(validator)) {
-            String msg = QueryType.EXPLAIN_QUERY + " >>\n" + yql;
-            return validator.call(msg, () -> session.explainDataQuery(yql, settings));
         }
     }
 
