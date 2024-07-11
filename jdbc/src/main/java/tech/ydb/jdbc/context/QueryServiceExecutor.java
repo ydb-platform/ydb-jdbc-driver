@@ -201,7 +201,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     ) throws SQLException {
         ensureOpened();
 
-        final String yql = query.getYqlQuery(params);
+        final String yql = query.withParams(params);
         ExecuteQuerySettings.Builder builder = ExecuteQuerySettings.newBuilder();
         if (timeout > 0) {
             builder = builder.withRequestTimeout(timeout, TimeUnit.SECONDS);
@@ -234,7 +234,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
         // Scheme query does not affect transactions or result sets
         ExecuteQuerySettings settings = ctx.withRequestTimeout(ExecuteQuerySettings.newBuilder()).build();
-        final String yql = query.getYqlQuery(null);
+        final String yql = query.withParams(null);
 
         try (QuerySession session = createNewQuerySession(validator)) {
             validator.call(QueryType.SCHEME_QUERY + " >>\n" + yql, () -> session
@@ -253,7 +253,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         ExecuteQuerySettings settings = ctx.withRequestTimeout(ExecuteQuerySettings.newBuilder())
                 .withExecMode(QueryExecMode.EXPLAIN)
                 .build();
-        final String yql = query.getYqlQuery(null);
+        final String yql = query.withParams(null);
 
         try (QuerySession session = createNewQuerySession(validator)) {
             QueryInfo res = validator.call(QueryType.EXPLAIN_QUERY + " >>\n" + yql, () -> session

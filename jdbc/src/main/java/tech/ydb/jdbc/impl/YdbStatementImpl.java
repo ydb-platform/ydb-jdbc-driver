@@ -81,7 +81,7 @@ public class YdbStatementImpl extends BaseYdbStatement {
 
         YdbQuery query = getConnection().getCtx().parseYdbQuery(sql);
         List<YdbResult> newState = null;
-        switch (query.type()) {
+        switch (query.getType()) {
             case SCHEME_QUERY:
                 newState = executeSchemeQuery(query);
                 break;
@@ -95,7 +95,7 @@ public class YdbStatementImpl extends BaseYdbStatement {
                 newState = executeExplainQuery(query);
                 break;
             default:
-                throw new IllegalStateException("Internal error. Unsupported query type " + query.type());
+                throw new IllegalStateException("Internal error. Unsupported query type " + query.getType());
         }
 
         return updateState(newState);

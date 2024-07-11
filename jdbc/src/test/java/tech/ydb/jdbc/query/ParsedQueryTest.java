@@ -16,7 +16,7 @@ import tech.ydb.jdbc.settings.YdbQueryProperties;
  *
  * @author Aleksandr Gorshenin
  */
-public class QueryLexerTest {
+public class ParsedQueryTest {
     private class ParamsBuilder {
         private final Properties props = new Properties();
 
@@ -31,21 +31,15 @@ public class QueryLexerTest {
         }
     }
 
-    private static YdbQuery parseQuery(YdbQueryProperties opts, String sql) throws SQLException {
-        YdbQueryBuilder builder = new YdbQueryBuilder(sql, opts.getForcedQueryType());
-        JdbcQueryLexer.buildQuery(builder, opts);
-        return builder.build(opts);
-    }
-
     private static QueryType parsedQueryType(YdbQueryProperties opts, String sql) throws SQLException {
-        return parseQuery(opts, sql).type();
+        return YdbQuery.parseQuery(sql, opts).getType();
     }
 
     private void assertMixType(YdbQueryProperties opts, String types, String sql) {
-        SQLException ex = Assertions.assertThrows(SQLException.class, () -> {
-            YdbQueryBuilder builder = new YdbQueryBuilder(sql, null);
-            JdbcQueryLexer.buildQuery(builder, opts);
-        }, "Mix type query must throw SQLException");
+        SQLException ex = Assertions.assertThrows(SQLException.class,
+                () -> YdbQuery.parseQuery(sql, opts),
+                "Mix type query must throw SQLException"
+        );
         Assertions.assertEquals("Query cannot contain expressions with different types: " + types, ex.getMessage());
     }
 

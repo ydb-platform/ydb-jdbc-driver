@@ -45,7 +45,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
     public void executeSchemeQuery(YdbContext ctx, YdbValidator validator, YdbQuery query) throws SQLException {
         // Scheme query does not affect transactions or result sets
         ExecuteSchemeQuerySettings settings = ctx.withDefaultTimeout(new ExecuteSchemeQuerySettings());
-        final String yql = query.getYqlQuery(null);
+        final String yql = query.withParams(null);
 
         try (Session session = createNewTableSession(validator)) {
             validator.execute(QueryType.SCHEME_QUERY + " >>\n" + yql, () -> session.executeSchemeQuery(yql, settings));
@@ -57,7 +57,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
             throws SQLException {
         ensureOpened();
 
-        String yql = query.getYqlQuery(params);
+        String yql = query.withParams(params);
         Collection<ResultSetReader> resultSets = new LinkedBlockingQueue<>();
         Duration scanQueryTimeout = ctx.getOperationProperties().getScanQueryTimeout();
         ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()

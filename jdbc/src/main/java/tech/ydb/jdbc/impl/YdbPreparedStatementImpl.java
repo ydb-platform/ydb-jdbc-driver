@@ -55,7 +55,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
 
     @Override
     public String getQuery() {
-        return query.originSQL();
+        return query.getOriginSQL();
     }
 
     @Override
@@ -127,7 +127,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
         clearBatch();
 
         List<YdbResult> newState = null;
-        switch (query.type()) {
+        switch (query.getType()) {
             case DATA_QUERY:
                 newState = executeDataQuery(query, params.getCurrentParams());
                 break;
@@ -135,7 +135,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
                 newState = executeScanQuery(query, params.getCurrentParams());
                 break;
             default:
-                throw new IllegalStateException("Internal error. Unsupported query type " + query.type());
+                throw new IllegalStateException("Internal error. Unsupported query type " + query.getType());
         }
         params.clearParameters();
 

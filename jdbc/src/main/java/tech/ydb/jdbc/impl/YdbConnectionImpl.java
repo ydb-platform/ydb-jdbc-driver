@@ -76,7 +76,7 @@ public class YdbConnectionImpl implements YdbConnection {
     @Override
     public String nativeSQL(String sql) {
         try {
-            return ctx.parseYdbQuery(sql).getYqlQuery(null);
+            return ctx.parseYdbQuery(sql).withParams(null);
         } catch (SQLException ex) {
             return ex.getMessage();
         }
@@ -307,8 +307,8 @@ public class YdbConnectionImpl implements YdbConnection {
 
         YdbQuery query = ctx.findOrParseYdbQuery(sql);
 
-        if (query.type() != QueryType.DATA_QUERY && query.type() != QueryType.SCAN_QUERY) {
-            throw new SQLException(YdbConst.UNSUPPORTED_QUERY_TYPE_IN_PS + query.type());
+        if (query.getType() != QueryType.DATA_QUERY && query.getType() != QueryType.SCAN_QUERY) {
+            throw new SQLException(YdbConst.UNSUPPORTED_QUERY_TYPE_IN_PS + query.getType());
         }
 
         JdbcParams params = ctx.findOrCreateJdbcParams(query, mode);

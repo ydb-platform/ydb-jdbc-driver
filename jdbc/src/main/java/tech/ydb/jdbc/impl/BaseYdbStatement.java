@@ -18,7 +18,7 @@ import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.common.FixedResultSetFactory;
 import tech.ydb.jdbc.context.YdbValidator;
 import tech.ydb.jdbc.query.ExplainedQuery;
-import tech.ydb.jdbc.query.YdbExpression;
+import tech.ydb.jdbc.query.QueryExpression;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.table.query.Params;
@@ -200,12 +200,12 @@ public abstract class BaseYdbStatement implements YdbStatement {
 
         List<YdbResult> results = new ArrayList<>();
         int idx = 0;
-        for (YdbExpression exp: query.getExpressions()) {
+        for (QueryExpression exp: query.getExpressions()) {
             if (exp.isDDL()) {
                 results.add(NO_UPDATED);
                 continue;
             }
-            if (!exp.isSelect()) {
+            if (!exp.hasResults()) {
                 results.add(HAS_UPDATED);
                 continue;
             }

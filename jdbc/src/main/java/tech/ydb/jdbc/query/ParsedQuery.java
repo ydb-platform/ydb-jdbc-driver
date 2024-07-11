@@ -2,7 +2,10 @@ package tech.ydb.jdbc.query;
 
 
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
+import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.settings.YdbQueryProperties;
 
 
@@ -10,23 +13,40 @@ import tech.ydb.jdbc.settings.YdbQueryProperties;
  *
  * @author Aleksandr Gorshenin
  */
-public class JdbcQueryLexer {
-    private JdbcQueryLexer() { }
+public class ParsedQuery {
+    private final String origin;
+    private final String parsed;
+    private final List<QueryExpression> expressions;
 
-    /**
-     * Parses JDBC query to replace all ? to YQL parameters.
-     *
-     * @param builder Ydb query builder
-     * @param options Options of parsing
-     * @throws java.sql.SQLException if query contains mix of query types
-     */
-    public static void buildQuery(YdbQueryBuilder builder, YdbQueryProperties options) throws SQLException {
+    private ParsedQuery(String origin, String parsed, List<QueryExpression> expressions) {
+        this.origin = origin;
+        this.parsed = parsed;
+        this.expressions = expressions;
+    }
+
+    public String getOriginSQL() {
+        return this.origin;
+    }
+
+    public String getPreparedYQL() {
+        return this.parsed;
+    }
+
+    public List<QueryExpression> getExpressions() {
+        return this.expressions;
+    }
+
+    static ParsedQuery parse(String origin, YdbQueryProperties options) throws SQLException {
         int fragmentStart = 0;
 
-        boolean nextExpression = true;
+        QueryExpression expression = null;
         boolean detectJdbcArgs = false;
 
-        char[] chars = builder.getOriginSQL().toCharArray();
+        char[] chars = origin.toCharArray();
+
+        StringBuilder parsed = new StringBuilder(origin.length() + 10);
+        ArgNameGenerator argNameGenerator = new ArgNameGenerator();
+        List<QueryExpression> expressions = new ArrayList<>();
 
         for (int i = 0; i < chars.length; ++i) {
             char ch = chars[i];
@@ -47,44 +67,46 @@ public class JdbcQueryLexer {
                     i = parseBlockComment(chars, i);
                     break;
                 case ';': // next chars will be new expression
-                    nextExpression = true;
+                    expression = null;
                     detectJdbcArgs = false;
                     break;
                 case '?':
-                    if (detectJdbcArgs) {
-                        builder.append(chars, fragmentStart, i - fragmentStart);
+                    if (detectJdbcArgs && expression != null) {
+                        parsed.append(chars, fragmentStart, i - fragmentStart);
                         if (i + 1 < chars.length && chars[i + 1] == '?') /* replace ?? with ? */ {
-                            builder.append('?');
+                            parsed.append('?');
                             i++; // make sure the coming ? is not treated as a bind
                         } else {
-                            String binded = builder.createNextArgName();
-                            builder.append(binded);
+                            String binded = argNameGenerator.createArgName(origin);
+                            expression.addParamName(binded);
+                            parsed.append(binded);
                         }
                         fragmentStart = i + 1;
                     }
                     break;
                 default:
-                    if (nextExpression && Character.isJavaIdentifierStart(ch)) {
-                        nextExpression = false;
-
-                        if (!options.isDetectQueryType()) {
+                    if (expression == null && Character.isJavaIdentifierStart(ch)) {
+                        // Detect data query expression - starts with SELECT, UPDATE, INSERT, UPSERT, DELETE, REPLACE
+                        if (parseSelectKeyword(chars, i)) {
+                            expression = new QueryExpression(QueryType.DATA_QUERY, QueryCmd.SELECT);
+                            expressions.add(expression);
+                            detectJdbcArgs = options.isDetectJdbcParameters();
                             break;
                         }
 
-                        // Detect data query expression - starts with SELECT, UPDATE, INSERT, UPSERT, DELETE, REPLACE
-                        if (parseSelectKeyword(chars, i)) {
-                            builder.addExpression(QueryType.DATA_QUERY, YdbExpression.SELECT);
+                        if (parseInsertKeyword(chars, i)
+                                || parseUpsertKeyword(chars, i)) {
+                            expression = new QueryExpression(QueryType.DATA_QUERY, QueryCmd.INSERT_UPSERT);
+                            expressions.add(expression);
                             detectJdbcArgs = options.isDetectJdbcParameters();
                             break;
                         }
 
                         if (parseUpdateKeyword(chars, i)
-                                || parseInsertKeyword(chars, i)
-                                || parseUpsertKeyword(chars, i)
                                 || parseDeleteKeyword(chars, i)
-                                || parseReplaceKeyword(chars, i)
-                                ) {
-                            builder.addExpression(QueryType.DATA_QUERY, YdbExpression.OTHER_DML);
+                                || parseReplaceKeyword(chars, i)) {
+                            expression = new QueryExpression(QueryType.DATA_QUERY, QueryCmd.UPDATE_REPLACE_REMOVE);
+                            expressions.add(expression);
                             detectJdbcArgs = options.isDetectJdbcParameters();
                             break;
                         }
@@ -93,39 +115,59 @@ public class JdbcQueryLexer {
                         if (parseAlterKeyword(chars, i)
                                 || parseCreateKeyword(chars, i)
                                 || parseDropKeyword(chars, i)) {
-                            builder.addExpression(QueryType.SCHEME_QUERY, YdbExpression.DDL);
+                            expression = new QueryExpression(QueryType.SCHEME_QUERY, QueryCmd.CREATE_ALTER_DROP);
+                            expressions.add(expression);
                             break;
                         }
 
-                        // Detect scan expression - starts with SCAN
-                        if (parseScanKeyword(chars, i)) {
-                            builder.addExpression(QueryType.SCAN_QUERY, YdbExpression.SELECT);
-                            detectJdbcArgs = options.isDetectJdbcParameters();
+                        if (options.isDetectQueryType()) {
+                            // Detect scan expression - starts with SCAN
+                            if (parseScanKeyword(chars, i)) {
+                                expression = new QueryExpression(QueryType.SCAN_QUERY, QueryCmd.SELECT);
+                                expressions.add(expression);
+                                detectJdbcArgs = options.isDetectJdbcParameters();
 
-                            // Skip SCAN prefix
-                            builder.append(chars, fragmentStart, i - fragmentStart);
-                            fragmentStart = i + 5;
-                            break;
-                        }
+                                // Skip SCAN prefix
+                                parsed.append(chars, fragmentStart, i - fragmentStart);
+                                fragmentStart = i + 5;
+                                break;
+                            }
 
-                        // Detect explain expression - starts with EXPLAIN
-                        if (parseExplainKeyword(chars, i)) {
-                            builder.addExpression(QueryType.EXPLAIN_QUERY, YdbExpression.SELECT);
-                            detectJdbcArgs = options.isDetectJdbcParameters();
+                            // Detect explain expression - starts with EXPLAIN
+                            if (parseExplainKeyword(chars, i)) {
+                                expression = new QueryExpression(QueryType.EXPLAIN_QUERY, QueryCmd.SELECT);
+                                expressions.add(expression);
+                                detectJdbcArgs = options.isDetectJdbcParameters();
 
-                            // Skip EXPLAIN prefix
-                            builder.append(chars, fragmentStart, i - fragmentStart);
-                            fragmentStart = i + 8;
-                            break;
+                                // Skip EXPLAIN prefix
+                                parsed.append(chars, fragmentStart, i - fragmentStart);
+                                fragmentStart = i + 8;
+                                break;
+                            }
                         }
                     }
                     break;
             }
         }
 
-
         if (fragmentStart < chars.length) {
-            builder.append(chars, fragmentStart, chars.length - fragmentStart);
+            parsed.append(chars, fragmentStart, chars.length - fragmentStart);
+        }
+
+        return new ParsedQuery(origin, parsed.toString(), expressions);
+    }
+
+    private static class ArgNameGenerator {
+        private int index = 0;
+
+        public String createArgName(String origin) {
+            while (true) {
+                index += 1;
+                String name = YdbConst.AUTO_GENERATED_PARAMETER_PREFIX + index;
+                if (!origin.contains(name)) {
+                    return name;
+                }
+            }
         }
     }
 

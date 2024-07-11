@@ -159,7 +159,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
             throws SQLException {
         ensureOpened();
 
-        String yql = query.getYqlQuery(null);
+        String yql = query.withParams(null);
         ExplainDataQuerySettings settings = ctx.withDefaultTimeout(new ExplainDataQuerySettings());
         try (Session session = createNewTableSession(validator)) {
             String msg = QueryType.EXPLAIN_QUERY + " >>\n" + yql;
@@ -174,7 +174,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
     ) throws SQLException {
         ensureOpened();
 
-        final String yql = query.getYqlQuery(params);
+        final String yql = query.withParams(params);
         final Session session = tx.getSession(validator);
         try {
             DataQueryResult result = validator.call(

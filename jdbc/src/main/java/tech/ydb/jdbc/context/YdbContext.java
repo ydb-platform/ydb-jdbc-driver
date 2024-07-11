@@ -20,9 +20,7 @@ import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.exception.ExceptionFactory;
 import tech.ydb.jdbc.query.JdbcParams;
-import tech.ydb.jdbc.query.JdbcQueryLexer;
 import tech.ydb.jdbc.query.YdbQuery;
-import tech.ydb.jdbc.query.YdbQueryBuilder;
 import tech.ydb.jdbc.query.params.BatchedParams;
 import tech.ydb.jdbc.query.params.InMemoryParams;
 import tech.ydb.jdbc.query.params.PreparedParams;
@@ -255,9 +253,7 @@ public class YdbContext implements AutoCloseable {
     }
 
     public YdbQuery parseYdbQuery(String sql) throws SQLException {
-        YdbQueryBuilder builder = new YdbQueryBuilder(sql, queryOptions.getForcedQueryType());
-        JdbcQueryLexer.buildQuery(builder, queryOptions);
-        return builder.build(queryOptions);
+        return YdbQuery.parseQuery(sql, queryOptions);
     }
 
     public YdbQuery findOrParseYdbQuery(String sql) throws SQLException {
@@ -275,22 +271,22 @@ public class YdbContext implements AutoCloseable {
     }
 
     public JdbcParams findOrCreateJdbcParams(YdbQuery query, YdbPrepareMode mode) throws SQLException {
-        if (query.hasIndexesParameters()
+        if (query.hasFreeParams()
                 || mode == YdbPrepareMode.IN_MEMORY
                 || !queryOptions.iPrepareDataQueries()) {
-            return new InMemoryParams(query.getIndexesParameters());
+            return new InMemoryParams(query.getFreeParams());
         }
 
-        String yql = query.getYqlQuery(null);
+        String yql = query.withParams(null);
         PrepareDataQuerySettings settings = withDefaultTimeout(new PrepareDataQuerySettings());
         try {
-            Map<String, Type> types = queryParamsCache.getIfPresent(query.originSQL());
+            Map<String, Type> types = queryParamsCache.getIfPresent(query.getOriginSQL());
             if (types == null) {
                 types = retryCtx.supplyResult(session -> session.prepareDataQuery(yql, settings))
                         .join()
                         .getValue()
                         .types();
-                queryParamsCache.put(query.originSQL(), types);
+                queryParamsCache.put(query.getOriginSQL(), types);
             }
 
             boolean requireBatch = mode == YdbPrepareMode.DATA_QUERY_BATCH;
@@ -301,7 +297,7 @@ public class YdbContext implements AutoCloseable {
                 }
 
                 if (requireBatch) {
-                    throw new SQLDataException(YdbConst.STATEMENT_IS_NOT_A_BATCH + query.originSQL());
+                    throw new SQLDataException(YdbConst.STATEMENT_IS_NOT_A_BATCH + query.getOriginSQL());
                 }
             }
             return new PreparedParams(types);
