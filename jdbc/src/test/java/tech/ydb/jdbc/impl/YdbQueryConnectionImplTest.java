@@ -16,6 +16,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -682,6 +683,102 @@ public class YdbQueryConnectionImplTest {
                     "Query cannot contain expressions with different types: SCHEME_QUERY, DATA_QUERY",
                     () -> statement.execute(mixedQuery)
             );
+        }
+    }
+
+    @Test
+    @Disabled // https://github.com/ydb-platform/ydb/issues/6699
+    public void testReturingStatements() throws SQLException {
+        String returningQuery = QUERIES.withTableName(""
+                + "INSERT INTO #tableName (key, c_Text) VALUES (1, '123') RETURNING key;\n"
+                + "INSERT INTO #tableName (key, c_Text) VALUES (2, '234');\n"
+                + "UPDATE #tableName SET c_Text = '100' WHERE key = 1 RETURNING c_Text;\n"
+                + "UPDATE #tableName SET c_Text = '200' WHERE key = 2;\n"
+                + "UPSERT INTO #tableName (key, c_Text) VALUES (1, '321') RETURNING key, c_Text;\n"
+                + "UPSERT INTO #tableName (key, c_Text) VALUES (2, '222');\n"
+                + "REPLACE INTO #tableName (key, c_Text) VALUES (1, '111') RETURNING c_Text, key;\n"
+                + "REPLACE INTO #tableName (key, c_Text) VALUES (2, '333');\n"
+                + "DELETE FROM #tableName WHERE key = 1 RETURNING c_Text;\n"
+                + "DELETE FROM #tableName WHERE key = 2;\n"
+        );
+
+        try (Statement statement = jdbc.connection().createStatement()) {
+            // INSERT with returning
+            Assertions.assertTrue(statement.execute(returningQuery));
+            Assertions.assertEquals(-1, statement.getUpdateCount());
+            try (ResultSet rs = statement.getResultSet()) {
+                Assertions.assertTrue(rs.next());
+                Assertions.assertEquals(1, rs.getInt("key"));
+                Assertions.assertFalse(rs.next());
+            }
+
+            // simple INSERT
+            Assertions.assertFalse(statement.getMoreResults());
+            Assertions.assertNull(statement.getResultSet());
+            Assertions.assertEquals(1, statement.getUpdateCount());
+
+            // UPDATE with returning
+            Assertions.assertTrue(statement.getMoreResults());
+            Assertions.assertEquals(-1, statement.getUpdateCount());
+            try (ResultSet rs = statement.getResultSet()) {
+                Assertions.assertTrue(rs.next());
+                Assertions.assertEquals("100", rs.getString("c_Text"));
+                Assertions.assertFalse(rs.next());
+            }
+
+            // simple UPDATE
+            Assertions.assertFalse(statement.getMoreResults());
+            Assertions.assertNull(statement.getResultSet());
+            Assertions.assertEquals(1, statement.getUpdateCount());
+
+            // UPSERT with returning
+            Assertions.assertTrue(statement.getMoreResults());
+            Assertions.assertEquals(-1, statement.getUpdateCount());
+            try (ResultSet rs = statement.getResultSet()) {
+                Assertions.assertTrue(rs.next());
+                Assertions.assertEquals(1, rs.getInt("key"));
+                Assertions.assertEquals("321", rs.getString("c_Text"));
+                Assertions.assertFalse(rs.next());
+            }
+
+            // simple UPSERT
+            Assertions.assertFalse(statement.getMoreResults());
+            Assertions.assertNull(statement.getResultSet());
+            Assertions.assertEquals(1, statement.getUpdateCount());
+
+            // REPLACE with returning
+            Assertions.assertTrue(statement.getMoreResults());
+            Assertions.assertEquals(-1, statement.getUpdateCount());
+            try (ResultSet rs = statement.getResultSet()) {
+                Assertions.assertTrue(rs.next());
+                Assertions.assertEquals(1, rs.getInt("key"));
+                Assertions.assertEquals("111", rs.getString("c_Text"));
+                Assertions.assertFalse(rs.next());
+            }
+
+            // simple REPLACE
+            Assertions.assertFalse(statement.getMoreResults());
+            Assertions.assertNull(statement.getResultSet());
+            Assertions.assertEquals(1, statement.getUpdateCount());
+
+            // DELETE with returning
+            Assertions.assertTrue(statement.getMoreResults());
+            Assertions.assertEquals(-1, statement.getUpdateCount());
+            try (ResultSet rs = statement.getResultSet()) {
+                Assertions.assertTrue(rs.next());
+                Assertions.assertEquals("111", rs.getString("c_Text"));
+                Assertions.assertFalse(rs.next());
+            }
+
+            // simple DELETE
+            Assertions.assertFalse(statement.getMoreResults());
+            Assertions.assertNull(statement.getResultSet());
+            Assertions.assertEquals(1, statement.getUpdateCount());
+
+            // no more results
+            Assertions.assertFalse(statement.getMoreResults());
+            Assertions.assertNull(statement.getResultSet());
+            Assertions.assertEquals(-1, statement.getUpdateCount());
         }
     }
 

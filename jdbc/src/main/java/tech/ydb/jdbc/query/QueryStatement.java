@@ -35,11 +35,11 @@ public class QueryStatement {
     }
 
     public boolean hasUpdateCount() {
-        return (command == QueryCmd.INSERT_UPSERT || command == QueryCmd.UPDATE_REPLACE_DELETE); // && !hasReturinng;
+        return (command == QueryCmd.INSERT_UPSERT || command == QueryCmd.UPDATE_REPLACE_DELETE) && !hasReturinng;
     }
 
     public boolean hasResults() {
-        return command == QueryCmd.SELECT; // || hasReturinng;
+        return command == QueryCmd.SELECT || hasReturinng;
     }
 
     public boolean isDDL() {

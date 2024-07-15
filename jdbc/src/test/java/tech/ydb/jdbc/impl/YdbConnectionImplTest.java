@@ -16,7 +16,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -686,7 +685,6 @@ public class YdbConnectionImplTest {
     }
 
     @Test
-    @Disabled
     public void testReturingStatements() throws SQLException {
         String returningQuery = QUERIES.withTableName(""
                 + "INSERT INTO #tableName (key, c_Text) VALUES (1, '123') RETURNING key;\n"
@@ -702,6 +700,7 @@ public class YdbConnectionImplTest {
         );
 
         try (Statement statement = jdbc.connection().createStatement()) {
+            // INSERT with returning
             Assertions.assertTrue(statement.execute(returningQuery));
             Assertions.assertEquals(-1, statement.getUpdateCount());
             try (ResultSet rs = statement.getResultSet()) {
@@ -710,7 +709,73 @@ public class YdbConnectionImplTest {
                 Assertions.assertFalse(rs.next());
             }
 
+            // simple INSERT
             Assertions.assertFalse(statement.getMoreResults());
+            Assertions.assertNull(statement.getResultSet());
+            Assertions.assertEquals(1, statement.getUpdateCount());
+
+            // UPDATE with returning
+            Assertions.assertTrue(statement.getMoreResults());
+            Assertions.assertEquals(-1, statement.getUpdateCount());
+            try (ResultSet rs = statement.getResultSet()) {
+                Assertions.assertTrue(rs.next());
+                Assertions.assertEquals("100", rs.getString("c_Text"));
+                Assertions.assertFalse(rs.next());
+            }
+
+            // simple UPDATE
+            Assertions.assertFalse(statement.getMoreResults());
+            Assertions.assertNull(statement.getResultSet());
+            Assertions.assertEquals(1, statement.getUpdateCount());
+
+            // UPSERT with returning
+            Assertions.assertTrue(statement.getMoreResults());
+            Assertions.assertEquals(-1, statement.getUpdateCount());
+            try (ResultSet rs = statement.getResultSet()) {
+                Assertions.assertTrue(rs.next());
+                Assertions.assertEquals(1, rs.getInt("key"));
+                Assertions.assertEquals("321", rs.getString("c_Text"));
+                Assertions.assertFalse(rs.next());
+            }
+
+            // simple UPSERT
+            Assertions.assertFalse(statement.getMoreResults());
+            Assertions.assertNull(statement.getResultSet());
+            Assertions.assertEquals(1, statement.getUpdateCount());
+
+            // REPLACE with returning
+            Assertions.assertTrue(statement.getMoreResults());
+            Assertions.assertEquals(-1, statement.getUpdateCount());
+            try (ResultSet rs = statement.getResultSet()) {
+                Assertions.assertTrue(rs.next());
+                Assertions.assertEquals(1, rs.getInt("key"));
+                Assertions.assertEquals("111", rs.getString("c_Text"));
+                Assertions.assertFalse(rs.next());
+            }
+
+            // simple REPLACE
+            Assertions.assertFalse(statement.getMoreResults());
+            Assertions.assertNull(statement.getResultSet());
+            Assertions.assertEquals(1, statement.getUpdateCount());
+
+            // DELETE with returning
+            Assertions.assertTrue(statement.getMoreResults());
+            Assertions.assertEquals(-1, statement.getUpdateCount());
+            try (ResultSet rs = statement.getResultSet()) {
+                Assertions.assertTrue(rs.next());
+                Assertions.assertEquals("111", rs.getString("c_Text"));
+                Assertions.assertFalse(rs.next());
+            }
+
+            // simple DELETE
+            Assertions.assertFalse(statement.getMoreResults());
+            Assertions.assertNull(statement.getResultSet());
+            Assertions.assertEquals(1, statement.getUpdateCount());
+
+            // no more results
+            Assertions.assertFalse(statement.getMoreResults());
+            Assertions.assertNull(statement.getResultSet());
+            Assertions.assertEquals(-1, statement.getUpdateCount());
         }
     }
 
