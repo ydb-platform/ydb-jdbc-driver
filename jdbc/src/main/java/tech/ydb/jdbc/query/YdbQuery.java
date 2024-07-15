@@ -4,7 +4,6 @@ package tech.ydb.jdbc.query;
 
 import java.sql.SQLDataException;
 import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -19,16 +18,22 @@ import tech.ydb.table.values.Value;
  * @author Aleksandr Gorshenin
  */
 public class YdbQuery {
-    private final ParsedQuery query;
+    private final String originSQL;
+    private final String preparedYQL;
+    private final List<QueryStatement> statements;
+
     private final QueryType type;
     private final boolean isAutoDeclare;
     private final List<String> paramNames = new ArrayList<>();
 
-    YdbQuery(ParsedQuery query, QueryType type, boolean isAutoDeclare) {
-        this.query = query;
+    YdbQuery(String originSQL, String preparedYQL, List<QueryStatement> stats, QueryType type, boolean isAutoDeclare) {
+        this.originSQL = originSQL;
+        this.preparedYQL = preparedYQL;
+        this.statements = stats;
         this.type = type;
         this.isAutoDeclare = isAutoDeclare;
-        for (QueryExpression expression : query.getExpressions()) {
+
+        for (QueryStatement expression : stats) {
             paramNames.addAll(expression.getParamNames());
         }
     }
@@ -38,11 +43,11 @@ public class YdbQuery {
     }
 
     public String getOriginSQL() {
-        return query.getOriginSQL();
+        return originSQL;
     }
 
-    public List<QueryExpression> getExpressions() {
-        return query.getExpressions();
+    public List<QueryStatement> getStatements() {
+        return statements;
     }
 
     public boolean hasFreeParams() {
@@ -55,15 +60,15 @@ public class YdbQuery {
 
     public String withParams(Params params) throws SQLException {
         if (paramNames.isEmpty()) {
-            return query.getPreparedYQL();
+            return preparedYQL;
         }
 
         if (params == null) {
             if (!paramNames.isEmpty() && isAutoDeclare) {
                 // Comment in place where must be declare section
-                return "-- DECLARE " + paramNames.size() + " PARAMETERS\n" + query.getPreparedYQL();
+                return "-- DECLARE " + paramNames.size() + " PARAMETERS\n" + preparedYQL;
             }
-            return query.getPreparedYQL();
+            return preparedYQL;
         }
 
         StringBuilder yql = new StringBuilder();
@@ -84,30 +89,19 @@ public class YdbQuery {
             }
         }
 
-        yql.append(query.getPreparedYQL());
+        yql.append(preparedYQL);
         return yql.toString();
     }
 
-    public static YdbQuery parseQuery(String queryText, YdbQueryProperties opts) throws SQLException {
-        ParsedQuery query = ParsedQuery.parse(queryText, opts);
+    public static YdbQuery parseQuery(String query, YdbQueryProperties opts) throws SQLException {
+        YdbQueryParser parser = new YdbQueryParser(opts.isDetectQueryType(), opts.isDetectJdbcParameters());
+        String preparedYQL = parser.parseSQL(query);
+
         QueryType type = opts.getForcedQueryType();
-        if (type != null) {
-            return new YdbQuery(query, type, opts.isDeclareJdbcParameters());
-        }
-        for (QueryExpression exp: query.getExpressions()) {
-            if (type == null) {
-                type = exp.getType();
-            } else {
-                if (type != exp.getType()) {
-                    throw new SQLFeatureNotSupportedException(
-                            YdbConst.MULTI_TYPES_IN_ONE_QUERY + type + ", " + exp.getType()
-                    );
-                }
-            }
-        }
         if (type == null) {
-            type = QueryType.DATA_QUERY;
+            type = parser.detectQueryType();
         }
-        return new YdbQuery(query, type, opts.isDeclareJdbcParameters());
+
+        return new YdbQuery(query, preparedYQL, parser.getStatements(), type, opts.isDeclareJdbcParameters());
     }
 }

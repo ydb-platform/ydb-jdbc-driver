@@ -2,55 +2,81 @@ package tech.ydb.jdbc.query;
 
 
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
 import java.util.List;
 
 import tech.ydb.jdbc.YdbConst;
-import tech.ydb.jdbc.settings.YdbQueryProperties;
 
 
 /**
  *
  * @author Aleksandr Gorshenin
  */
-public class ParsedQuery {
-    private final String origin;
-    private final String parsed;
-    private final List<QueryExpression> expressions;
+public class YdbQueryParser {
+    private final boolean isDetectQueryType;
+    private final boolean isDetectJdbcParameters;
 
-    private ParsedQuery(String origin, String parsed, List<QueryExpression> expressions) {
-        this.origin = origin;
-        this.parsed = parsed;
-        this.expressions = expressions;
+    private final List<QueryStatement> statements = new ArrayList<>();
+
+    public YdbQueryParser(boolean isDetectQueryType, boolean isDetectJdbcParameters) {
+        this.isDetectQueryType = isDetectQueryType;
+        this.isDetectJdbcParameters = isDetectJdbcParameters;
     }
 
-    public String getOriginSQL() {
-        return this.origin;
+    public List<QueryStatement> getStatements() {
+        return this.statements;
     }
 
-    public String getPreparedYQL() {
-        return this.parsed;
+    public QueryType detectQueryType() throws SQLException {
+        QueryType type = null;
+        for (QueryStatement st: statements) {
+            if (st.getType() == QueryType.UNKNOWN) {
+                continue;
+            }
+
+            if (type == null) {
+                type = st.getType();
+            } else {
+                if (type != st.getType()) {
+                    String msg = YdbConst.MULTI_TYPES_IN_ONE_QUERY + type + ", " + st.getType();
+                    throw new SQLFeatureNotSupportedException(msg);
+                }
+            }
+        }
+
+        return type != null ? type : QueryType.DATA_QUERY;
     }
 
-    public List<QueryExpression> getExpressions() {
-        return this.expressions;
-    }
+    public String parseSQL(String origin) throws SQLException {
+        this.statements.clear();
 
-    static ParsedQuery parse(String origin, YdbQueryProperties options) throws SQLException {
         int fragmentStart = 0;
 
-        QueryExpression expression = null;
         boolean detectJdbcArgs = false;
+
+        QueryStatement currStatement = null;
+
+        int parenLevel = 0;
+        int keywordStart = -1;
 
         char[] chars = origin.toCharArray();
 
         StringBuilder parsed = new StringBuilder(origin.length() + 10);
         ArgNameGenerator argNameGenerator = new ArgNameGenerator();
-        List<QueryExpression> expressions = new ArrayList<>();
 
         for (int i = 0; i < chars.length; ++i) {
             char ch = chars[i];
+            boolean isInsideKeyword = false;
             switch (ch) {
+                case '(':
+                    parenLevel++;
+                    break;
+
+                case ')':
+                    parenLevel--;
+                    break;
+
                 case '\'': // single-quotes
                     i = parseSingleQuotes(chars, i);
                     break;
@@ -66,87 +92,103 @@ public class ParsedQuery {
                 case '/': // possibly /* */ style comment
                     i = parseBlockComment(chars, i);
                     break;
-                case ';': // next chars will be new expression
-                    expression = null;
-                    detectJdbcArgs = false;
-                    break;
                 case '?':
-                    if (detectJdbcArgs && expression != null) {
+                    if (detectJdbcArgs && currStatement != null) {
                         parsed.append(chars, fragmentStart, i - fragmentStart);
                         if (i + 1 < chars.length && chars[i + 1] == '?') /* replace ?? with ? */ {
                             parsed.append('?');
                             i++; // make sure the coming ? is not treated as a bind
                         } else {
                             String binded = argNameGenerator.createArgName(origin);
-                            expression.addParamName(binded);
+                            currStatement.addParamName(binded);
                             parsed.append(binded);
                         }
                         fragmentStart = i + 1;
                     }
                     break;
                 default:
-                    if (expression == null && Character.isJavaIdentifierStart(ch)) {
-                        // Detect data query expression - starts with SELECT, UPDATE, INSERT, UPSERT, DELETE, REPLACE
-                        if (parseSelectKeyword(chars, i)) {
-                            expression = new QueryExpression(QueryType.DATA_QUERY, QueryCmd.SELECT);
-                            expressions.add(expression);
-                            detectJdbcArgs = options.isDetectJdbcParameters();
-                            break;
-                        }
-
-                        if (parseInsertKeyword(chars, i)
-                                || parseUpsertKeyword(chars, i)) {
-                            expression = new QueryExpression(QueryType.DATA_QUERY, QueryCmd.INSERT_UPSERT);
-                            expressions.add(expression);
-                            detectJdbcArgs = options.isDetectJdbcParameters();
-                            break;
-                        }
-
-                        if (parseUpdateKeyword(chars, i)
-                                || parseDeleteKeyword(chars, i)
-                                || parseReplaceKeyword(chars, i)) {
-                            expression = new QueryExpression(QueryType.DATA_QUERY, QueryCmd.UPDATE_REPLACE_REMOVE);
-                            expressions.add(expression);
-                            detectJdbcArgs = options.isDetectJdbcParameters();
-                            break;
-                        }
-
-                        // Detect scheme expression - starts with ALTER, DROP, CREATE
-                        if (parseAlterKeyword(chars, i)
-                                || parseCreateKeyword(chars, i)
-                                || parseDropKeyword(chars, i)) {
-                            expression = new QueryExpression(QueryType.SCHEME_QUERY, QueryCmd.CREATE_ALTER_DROP);
-                            expressions.add(expression);
-                            break;
-                        }
-
-                        if (options.isDetectQueryType()) {
-                            // Detect scan expression - starts with SCAN
-                            if (parseScanKeyword(chars, i)) {
-                                expression = new QueryExpression(QueryType.SCAN_QUERY, QueryCmd.SELECT);
-                                expressions.add(expression);
-                                detectJdbcArgs = options.isDetectJdbcParameters();
-
-                                // Skip SCAN prefix
-                                parsed.append(chars, fragmentStart, i - fragmentStart);
-                                fragmentStart = i + 5;
-                                break;
-                            }
-
-                            // Detect explain expression - starts with EXPLAIN
-                            if (parseExplainKeyword(chars, i)) {
-                                expression = new QueryExpression(QueryType.EXPLAIN_QUERY, QueryCmd.SELECT);
-                                expressions.add(expression);
-                                detectJdbcArgs = options.isDetectJdbcParameters();
-
-                                // Skip EXPLAIN prefix
-                                parsed.append(chars, fragmentStart, i - fragmentStart);
-                                fragmentStart = i + 8;
-                                break;
-                            }
-                        }
+                    if (keywordStart >= 0) {
+                        isInsideKeyword = Character.isJavaIdentifierPart(ch);
+                        break;
+                    }
+                    // Not in keyword, so just detect next keyword start
+                    isInsideKeyword = Character.isJavaIdentifierStart(ch);
+                    if (isInsideKeyword) {
+                        keywordStart = i;
                     }
                     break;
+            }
+
+            if (keywordStart >= 0 && (!isInsideKeyword || (i == chars.length - 1))) {
+
+                if (currStatement != null) {
+                    // Detect RETURNING keyword
+                    if (parenLevel == 0 && parseReturningKeyword(chars, keywordStart)) {
+                        currStatement.setHasReturning(true);
+                    }
+                } else {
+                    // Detecting type of statement by the first keyword
+                    currStatement = new QueryStatement(QueryType.UNKNOWN, QueryCmd.UNKNOWN);
+                    // Detect data query expression - starts with SELECT, , UPSERT, DELETE, REPLACE
+                    // starts with SELECT
+                    if (parseSelectKeyword(chars, keywordStart)) {
+                        currStatement = new QueryStatement(QueryType.DATA_QUERY, QueryCmd.SELECT);
+                    }
+                    // starts with INSERT, UPSERT
+                    if (parseInsertKeyword(chars, keywordStart)
+                            || parseUpsertKeyword(chars, keywordStart)) {
+                        currStatement = new QueryStatement(QueryType.DATA_QUERY, QueryCmd.INSERT_UPSERT);
+                    }
+                    // starts with UPDATE, REPLACE, DELETE
+                    if (parseUpdateKeyword(chars, keywordStart)
+                            || parseDeleteKeyword(chars, keywordStart)
+                            || parseReplaceKeyword(chars, keywordStart)) {
+                        currStatement = new QueryStatement(QueryType.DATA_QUERY, QueryCmd.UPDATE_REPLACE_DELETE);
+                    }
+
+                    // Detect scheme expression - starts with ALTER, DROP, CREATE
+                    if (parseAlterKeyword(chars, keywordStart)
+                            || parseCreateKeyword(chars, keywordStart)
+                            || parseDropKeyword(chars, keywordStart)) {
+                        currStatement = new QueryStatement(QueryType.SCHEME_QUERY, QueryCmd.CREATE_ALTER_DROP);
+                    }
+                    if (isDetectQueryType) {
+                        // Detect scan expression - starts with SCAN
+                        if (parseScanKeyword(chars, keywordStart)) {
+                            currStatement = new QueryStatement(QueryType.SCAN_QUERY, QueryCmd.SELECT);
+                            // Skip SCAN prefix
+                            parsed.append(chars, fragmentStart, keywordStart - fragmentStart);
+                            fragmentStart = isInsideKeyword ? i + 1 : i;
+                        }
+                        // Detect explain expression - starts with EXPLAIN
+                        if (parseExplainKeyword(chars, keywordStart)) {
+                            currStatement = new QueryStatement(QueryType.EXPLAIN_QUERY, QueryCmd.SELECT);
+                            // Skip EXPLAIN prefix
+                            parsed.append(chars, fragmentStart, keywordStart - fragmentStart);
+                            fragmentStart = isInsideKeyword ? i + 1 : i;
+                        }
+                    }
+
+                    statements.add(currStatement);
+                    detectJdbcArgs = currStatement.getType() != QueryType.SCHEME_QUERY
+                            && currStatement.getType() != QueryType.UNKNOWN
+                            && isDetectJdbcParameters;
+
+                    if (parseAlterKeyword(chars, i)
+                            || parseCreateKeyword(chars, i)
+                            || parseDropKeyword(chars, i)) {
+                        currStatement = new QueryStatement(QueryType.SCHEME_QUERY, QueryCmd.CREATE_ALTER_DROP);
+                        statements.add(currStatement);
+                        break;
+                    }
+                }
+
+                keywordStart = -1;
+            }
+
+            if (ch == ';' && parenLevel == 0) {
+                currStatement = null;
+                detectJdbcArgs = false;
             }
         }
 
@@ -154,7 +196,7 @@ public class ParsedQuery {
             parsed.append(chars, fragmentStart, chars.length - fragmentStart);
         }
 
-        return new ParsedQuery(origin, parsed.toString(), expressions);
+        return parsed.toString();
     }
 
     private static class ArgNameGenerator {
@@ -257,7 +299,7 @@ public class ParsedQuery {
     }
 
     private static boolean parseCreateKeyword(char[] query, int offset) {
-        if (query.length < (offset + 7)) {
+        if (query.length < (offset + 6)) {
             return false;
         }
 
@@ -266,36 +308,33 @@ public class ParsedQuery {
                 && (query[offset + 2] | 32) == 'e'
                 && (query[offset + 3] | 32) == 'a'
                 && (query[offset + 4] | 32) == 't'
-                && (query[offset + 5] | 32) == 'e'
-                && isSpace(query[offset + 6]);
+                && (query[offset + 5] | 32) == 'e';
     }
 
     private static boolean parseDropKeyword(char[] query, int offset) {
-        if (query.length < (offset + 5)) {
+        if (query.length < (offset + 4)) {
             return false;
         }
 
         return (query[offset] | 32) == 'd'
                 && (query[offset + 1] | 32) == 'r'
                 && (query[offset + 2] | 32) == 'o'
-                && (query[offset + 3] | 32) == 'p'
-                && isSpace(query[offset + 4]);
+                && (query[offset + 3] | 32) == 'p';
     }
 
     private static boolean parseScanKeyword(char[] query, int offset) {
-        if (query.length < (offset + 5)) {
+        if (query.length < (offset + 4)) {
             return false;
         }
 
         return (query[offset] | 32) == 's'
                 && (query[offset + 1] | 32) == 'c'
                 && (query[offset + 2] | 32) == 'a'
-                && (query[offset + 3] | 32) == 'n'
-                && isSpace(query[offset + 4]);
+                && (query[offset + 3] | 32) == 'n';
     }
 
     private static boolean parseExplainKeyword(char[] query, int offset) {
-        if (query.length < (offset + 8)) {
+        if (query.length < (offset + 7)) {
             return false;
         }
 
@@ -305,12 +344,11 @@ public class ParsedQuery {
                 && (query[offset + 3] | 32) == 'l'
                 && (query[offset + 4] | 32) == 'a'
                 && (query[offset + 5] | 32) == 'i'
-                && (query[offset + 6] | 32) == 'n'
-                && isSpace(query[offset + 7]);
+                && (query[offset + 6] | 32) == 'n';
     }
 
     private static boolean parseSelectKeyword(char[] query, int offset) {
-        if (query.length < (offset + 7)) {
+        if (query.length < (offset + 6)) {
             return false;
         }
 
@@ -319,12 +357,11 @@ public class ParsedQuery {
                 && (query[offset + 2] | 32) == 'l'
                 && (query[offset + 3] | 32) == 'e'
                 && (query[offset + 4] | 32) == 'c'
-                && (query[offset + 5] | 32) == 't'
-                && isSpace(query[offset + 6]);
+                && (query[offset + 5] | 32) == 't';
     }
 
     private static boolean parseUpdateKeyword(char[] query, int offset) {
-        if (query.length < (offset + 7)) {
+        if (query.length < (offset + 6)) {
             return false;
         }
 
@@ -333,12 +370,11 @@ public class ParsedQuery {
                 && (query[offset + 2] | 32) == 'd'
                 && (query[offset + 3] | 32) == 'a'
                 && (query[offset + 4] | 32) == 't'
-                && (query[offset + 5] | 32) == 'e'
-                && isSpace(query[offset + 6]);
+                && (query[offset + 5] | 32) == 'e';
     }
 
     private static boolean parseUpsertKeyword(char[] query, int offset) {
-        if (query.length < (offset + 7)) {
+        if (query.length < (offset + 6)) {
             return false;
         }
 
@@ -347,12 +383,11 @@ public class ParsedQuery {
                 && (query[offset + 2] | 32) == 's'
                 && (query[offset + 3] | 32) == 'e'
                 && (query[offset + 4] | 32) == 'r'
-                && (query[offset + 5] | 32) == 't'
-                && isSpace(query[offset + 6]);
+                && (query[offset + 5] | 32) == 't';
     }
 
     private static boolean parseInsertKeyword(char[] query, int offset) {
-        if (query.length < (offset + 7)) {
+        if (query.length < (offset + 6)) {
             return false;
         }
 
@@ -361,12 +396,11 @@ public class ParsedQuery {
                 && (query[offset + 2] | 32) == 's'
                 && (query[offset + 3] | 32) == 'e'
                 && (query[offset + 4] | 32) == 'r'
-                && (query[offset + 5] | 32) == 't'
-                && isSpace(query[offset + 6]);
+                && (query[offset + 5] | 32) == 't';
     }
 
     private static boolean parseDeleteKeyword(char[] query, int offset) {
-        if (query.length < (offset + 7)) {
+        if (query.length < (offset + 6)) {
             return false;
         }
 
@@ -375,12 +409,11 @@ public class ParsedQuery {
                 && (query[offset + 2] | 32) == 'l'
                 && (query[offset + 3] | 32) == 'e'
                 && (query[offset + 4] | 32) == 't'
-                && (query[offset + 5] | 32) == 'e'
-                && isSpace(query[offset + 6]);
+                && (query[offset + 5] | 32) == 'e';
     }
 
     private static boolean parseReplaceKeyword(char[] query, int offset) {
-        if (query.length < (offset + 8)) {
+        if (query.length < (offset + 7)) {
             return false;
         }
 
@@ -390,7 +423,22 @@ public class ParsedQuery {
                 && (query[offset + 3] | 32) == 'l'
                 && (query[offset + 4] | 32) == 'a'
                 && (query[offset + 5] | 32) == 'c'
-                && (query[offset + 6] | 32) == 'e'
-                && isSpace(query[offset + 7]);
+                && (query[offset + 6] | 32) == 'e';
+    }
+
+    private static boolean parseReturningKeyword(char[] query, int offset) {
+        if (query.length < (offset + 9)) {
+            return false;
+        }
+
+        return (query[offset] | 32) == 'r'
+                && (query[offset + 1] | 32) == 'e'
+                && (query[offset + 2] | 32) == 't'
+                && (query[offset + 3] | 32) == 'u'
+                && (query[offset + 4] | 32) == 'r'
+                && (query[offset + 5] | 32) == 'n'
+                && (query[offset + 6] | 32) == 'i'
+                && (query[offset + 7] | 32) == 'n'
+                && (query[offset + 8] | 32) == 'g';
     }
 }

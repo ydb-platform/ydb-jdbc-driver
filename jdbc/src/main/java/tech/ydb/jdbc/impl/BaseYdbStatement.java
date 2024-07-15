@@ -18,7 +18,7 @@ import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.common.FixedResultSetFactory;
 import tech.ydb.jdbc.context.YdbValidator;
 import tech.ydb.jdbc.query.ExplainedQuery;
-import tech.ydb.jdbc.query.QueryExpression;
+import tech.ydb.jdbc.query.QueryStatement;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.table.query.Params;
@@ -168,7 +168,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
     protected List<YdbResult> executeSchemeQuery(YdbQuery query) throws SQLException {
         connection.executeSchemeQuery(query, validator);
 
-        int expressionsCount = query.getExpressions().isEmpty() ? 1 : query.getExpressions().size();
+        int expressionsCount = query.getStatements().isEmpty() ? 1 : query.getStatements().size();
         List<YdbResult> results = new ArrayList<>();
         for (int i = 0; i < expressionsCount; i++) {
             results.add(NO_UPDATED);
@@ -200,17 +200,17 @@ public abstract class BaseYdbStatement implements YdbStatement {
 
         List<YdbResult> results = new ArrayList<>();
         int idx = 0;
-        for (QueryExpression exp: query.getExpressions()) {
+        for (QueryStatement exp: query.getStatements()) {
             if (exp.isDDL()) {
                 results.add(NO_UPDATED);
                 continue;
             }
-            if (!exp.hasResults()) {
+            if (exp.hasUpdateCount()) {
                 results.add(HAS_UPDATED);
                 continue;
             }
 
-            if (idx < resultSets.size())  {
+            if (exp.hasResults() && idx < resultSets.size()) {
                 ResultSetReader rs = resultSets.get(idx);
                 if (failOnTruncatedResult && rs.isTruncated()) {
                     String msg = String.format(YdbConst.RESULT_IS_TRUNCATED, idx, rs.getRowCount());

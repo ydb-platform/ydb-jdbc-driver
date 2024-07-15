@@ -16,7 +16,7 @@ import tech.ydb.jdbc.settings.YdbQueryProperties;
  *
  * @author Aleksandr Gorshenin
  */
-public class ParsedQueryTest {
+public class YdbQueryTest {
     private class ParamsBuilder {
         private final Properties props = new Properties();
 

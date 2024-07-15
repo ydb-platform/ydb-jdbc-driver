@@ -661,6 +661,31 @@ public class YdbQueryConnectionImplTest {
     }
 
     @Test
+    public void testMixedStatements() throws SQLException {
+        String mixedQuery = QUERIES.withTableName(""
+                + "CREATE TABLE temp_#tableName(id Int32, value Int32, primary key(id));\n"
+                + "INSERT INTO temp_#tableName(id, value) VALUES (1, 1);"
+                + "DROP TABLE temp_#tableName;\n"
+        );
+
+        jdbc.connection().setAutoCommit(false);
+        try (Statement statement = jdbc.connection().createStatement()) {
+            ExceptionAssert.sqlFeatureNotSupported(
+                    "Query cannot contain expressions with different types: SCHEME_QUERY, DATA_QUERY",
+                    () -> statement.execute(mixedQuery)
+            );
+        }
+
+        jdbc.connection().setAutoCommit(true);
+        try (Statement statement = jdbc.connection().createStatement()) {
+            ExceptionAssert.sqlFeatureNotSupported(
+                    "Query cannot contain expressions with different types: SCHEME_QUERY, DATA_QUERY",
+                    () -> statement.execute(mixedQuery)
+            );
+        }
+    }
+
+    @Test
     public void testWarningsInQuery() throws SQLException {
         String createTempTable = QUERIES.withTableName(
                 "CREATE TABLE #tableName_idx(id Int32, value Int32, PRIMARY KEY(id), INDEX idx_value GLOBAL ON(value))"

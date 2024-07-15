@@ -48,7 +48,7 @@ public class YdbPreparedStatementWithDataQueryImplTest {
 
     private static final String SCAN_SELECT_BY_KEY_SQL = ""
             + "declare $key as Optional<Int32>;\n"
-            + "scan\tselect key, #column from #tableName where key=$key";
+            + "scan select key, #column from #tableName where key=$key";
     @BeforeAll
     public static void initTable() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement();) {
