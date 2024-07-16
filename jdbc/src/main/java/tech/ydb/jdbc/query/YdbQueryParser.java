@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.common.TypeDescription;
+import tech.ydb.table.values.PrimitiveType;
 
 
 /**
@@ -48,6 +50,7 @@ public class YdbQueryParser {
         return type != null ? type : QueryType.DATA_QUERY;
     }
 
+    @SuppressWarnings("MethodLength")
     public String parseSQL(String origin) throws SQLException {
         this.statements.clear();
 
@@ -59,6 +62,7 @@ public class YdbQueryParser {
 
         int parenLevel = 0;
         int keywordStart = -1;
+        boolean lastKeywordIsOffsetLimit = false;
 
         char[] chars = origin.toCharArray();
 
@@ -100,7 +104,11 @@ public class YdbQueryParser {
                             i++; // make sure the coming ? is not treated as a bind
                         } else {
                             String binded = argNameGenerator.createArgName(origin);
-                            currStatement.addParameter(binded, null);
+                            // force type UInt64 for OFFSET and LIMIT parameters
+                            TypeDescription type = lastKeywordIsOffsetLimit
+                                    ? TypeDescription.of(PrimitiveType.Uint64)
+                                    : null;
+                            currStatement.addParameter(binded, type);
                             parsed.append(binded);
                         }
                         fragmentStart = i + 1;
@@ -120,11 +128,16 @@ public class YdbQueryParser {
             }
 
             if (keywordStart >= 0 && (!isInsideKeyword || (i == chars.length - 1))) {
+                lastKeywordIsOffsetLimit = false;
 
                 if (currStatement != null) {
                     // Detect RETURNING keyword
                     if (parenLevel == 0 && parseReturningKeyword(chars, keywordStart)) {
                         currStatement.setHasReturning(true);
+                    }
+
+                    if (parseOffsetKeyword(chars, keywordStart) || parseLimitKeyword(chars, keywordStart)) {
+                        lastKeywordIsOffsetLimit = true;
                     }
                 } else {
                     // Detecting type of statement by the first keyword
@@ -179,7 +192,6 @@ public class YdbQueryParser {
                             || parseDropKeyword(chars, i)) {
                         currStatement = new QueryStatement(QueryType.SCHEME_QUERY, QueryCmd.CREATE_ALTER_DROP);
                         statements.add(currStatement);
-                        break;
                     }
                 }
 
@@ -440,5 +452,30 @@ public class YdbQueryParser {
                 && (query[offset + 6] | 32) == 'i'
                 && (query[offset + 7] | 32) == 'n'
                 && (query[offset + 8] | 32) == 'g';
+    }
+
+    private static boolean parseOffsetKeyword(char[] query, int offset) {
+        if (query.length < (offset + 6)) {
+            return false;
+        }
+
+        return (query[offset] | 32) == 'o'
+                && (query[offset + 1] | 32) == 'f'
+                && (query[offset + 2] | 32) == 'f'
+                && (query[offset + 3] | 32) == 's'
+                && (query[offset + 4] | 32) == 'e'
+                && (query[offset + 5] | 32) == 't';
+    }
+
+    private static boolean parseLimitKeyword(char[] query, int offset) {
+        if (query.length < (offset + 5)) {
+            return false;
+        }
+
+        return (query[offset] | 32) == 'l'
+                && (query[offset + 1] | 32) == 'i'
+                && (query[offset + 2] | 32) == 'm'
+                && (query[offset + 3] | 32) == 'i'
+                && (query[offset + 4] | 32) == 't';
     }
 }

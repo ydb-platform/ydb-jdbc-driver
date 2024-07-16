@@ -783,6 +783,25 @@ public class YdbQueryConnectionImplTest {
     }
 
     @Test
+    public void testOffsetLimit() throws SQLException {
+        String query = QUERIES.withTableName("SELECT * FROM #tableName ORDER BY key LIMIT ? OFFSET ?");
+
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(query)) {
+            ps.setInt(1, 0);
+            ps.setInt(2, 0);
+            try (ResultSet rs = ps.executeQuery()) {
+                Assertions.assertFalse(rs.next());
+            }
+
+            ps.setLong(1, 5);
+            ps.setLong(2, 5);
+            try (ResultSet rs = ps.executeQuery()) {
+                Assertions.assertFalse(rs.next());
+            }
+        }
+    }
+
+    @Test
     public void testWarningsInQuery() throws SQLException {
         String createTempTable = QUERIES.withTableName(
                 "CREATE TABLE #tableName_idx(id Int32, value Int32, PRIMARY KEY(id), INDEX idx_value GLOBAL ON(value))"

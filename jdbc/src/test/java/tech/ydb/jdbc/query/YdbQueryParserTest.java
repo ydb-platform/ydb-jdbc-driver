@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import tech.ydb.table.values.PrimitiveType;
+
 
 /**
  *
@@ -83,5 +85,30 @@ public class YdbQueryParserTest {
         Assertions.assertEquals(QueryType.SCAN_QUERY, parser.getStatements().get(1).getType());
 
         Assertions.assertEquals(QueryType.SCAN_QUERY, parser.detectQueryType());
+    }
+
+    @Test
+    public void offsetParameterTest() throws SQLException {
+        String query = ""
+                + "select * from test_table where true=true -- test request\n"
+                + " offset /* comment */ ? limit 20";
+
+        YdbQueryParser parser = new YdbQueryParser(true, true);
+        String parsed = parser.parseSQL(query);
+        Assertions.assertEquals(""
+                + "select * from test_table where true=true -- test request\n"
+                + " offset /* comment */ $jp1 limit 20",
+                parsed);
+
+        Assertions.assertEquals(1, parser.getStatements().size());
+
+        QueryStatement statement = parser.getStatements().get(0);
+        Assertions.assertEquals(QueryType.DATA_QUERY, statement.getType());
+        Assertions.assertEquals(1, statement.getParams().size());
+
+        ParamDescription prm1 = statement.getParams().get(0);
+        Assertions.assertEquals("$jp1", prm1.name());
+        Assertions.assertNotNull(prm1.type());
+        Assertions.assertEquals(PrimitiveType.Uint64, prm1.type().ydbType());
     }
 }
