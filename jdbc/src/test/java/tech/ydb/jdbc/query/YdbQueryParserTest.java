@@ -1,13 +1,16 @@
 package tech.ydb.jdbc.query;
 
 import java.sql.SQLException;
+import java.util.Arrays;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import tech.ydb.table.values.PrimitiveType;
+
 
 
 /**
@@ -23,7 +26,6 @@ public class YdbQueryParserTest {
         "'\texPlain\nupsert to', '\t\nupsert to'",
         "'EXPLAIN',''",
     })
-
     public void explainQueryTest(String sql, String prepared) throws SQLException {
         YdbQueryParser parser = new YdbQueryParser(true, true);
         String parsed = parser.parseSQL(sql);
@@ -33,6 +35,34 @@ public class YdbQueryParserTest {
         Assertions.assertEquals(1, parser.getStatements().size());
         QueryStatement statement = parser.getStatements().get(0);
         Assertions.assertEquals(QueryType.EXPLAIN_QUERY, statement.getType());
+    }
+
+    @ParameterizedTest(name = "[{index}] {0} is scheme query")
+    @ValueSource(strings = {
+        "  Alter table set;",
+        "drOp table 'test'",
+        "-- comment \nCreate;",
+    })
+    public void schemeQueryTest(String sql) throws SQLException {
+        YdbQueryParser parser = new YdbQueryParser(true, true);
+        String parsed = parser.parseSQL(sql);
+
+        Assertions.assertEquals(sql, parsed);
+
+        Assertions.assertEquals(1, parser.getStatements().size());
+        QueryStatement statement = parser.getStatements().get(0);
+        Assertions.assertEquals(QueryType.SCHEME_QUERY, statement.getType());
+    }
+
+    @Test
+    public void wrongSqlCommandTest() throws SQLException {
+        String query = "SC;";
+        YdbQueryParser parser = new YdbQueryParser(true, true);
+        String parsed = parser.parseSQL(query);
+        Assertions.assertEquals(query, parsed);
+
+        Assertions.assertEquals(1, parser.getStatements().size());
+        Assertions.assertEquals(QueryType.UNKNOWN, parser.getStatements().get(0).getType());
     }
 
     @Test
@@ -110,5 +140,69 @@ public class YdbQueryParserTest {
         Assertions.assertEquals("$jp1", prm1.name());
         Assertions.assertNotNull(prm1.type());
         Assertions.assertEquals(PrimitiveType.Uint64, prm1.type().ydbType());
+    }
+
+    @ParameterizedTest(name = "[{index}] {0} is batched insert query")
+    @ValueSource(strings = {
+        "Insert into table_name(c1, c2, c3) values (?, ? , ?)",
+        "\n  insert into `table_name`  (\t`c1`, c2, c3)values(?, ? , ?)",
+        "/* comment */ Insert into `table_name`  (`c1`, /* commect */ c2, c3)values(?, ? , ?);\n-- post comment",
+        ";;Insert into table_name (`c1`, /* comment */ c2, c3 )   values(?, ? , ?);",
+    })
+    public void validBatchedInsertTest(String sql) throws SQLException {
+        YdbQueryParser parser = new YdbQueryParser(true, true);
+        parser.parseSQL(sql);
+
+        YqlBatcher batch = parser.getYqlBatcher();
+        Assertions.assertTrue(batch.isValidBatch());
+        Assertions.assertFalse(batch.isUpsert());
+        Assertions.assertTrue(batch.isInsert());
+
+        Assertions.assertEquals("table_name", batch.getTableName());
+        Assertions.assertEquals(3, batch.getColumns().size());
+        Assertions.assertEquals(Arrays.asList("c1", "c2", "c3"), batch.getColumns());
+    }
+
+    @ParameterizedTest(name = "[{index}] {0} is batched upsert query")
+    @ValueSource(strings = {
+        "Upsert into table_name(c1, c2, c3) values (?, ? , ?)",
+        "\n  upsert into `table_name`  (\t`c1`, c2, c3)values(?, ? , ?)",
+        "/* comment */ Upsert into `table_name`  (`c1`, /* commect */ c2, c3)values(?, ? , ?);\n-- post comment",
+        ";;Upsert into table_name (`c1`, /* comment */ c2, c3 )   values(?, ? , ?);",
+    })
+    public void validBatchedUpsertTest(String sql) throws SQLException {
+        YdbQueryParser parser = new YdbQueryParser(true, true);
+        parser.parseSQL(sql);
+
+        YqlBatcher batch = parser.getYqlBatcher();
+        Assertions.assertTrue(batch.isValidBatch());
+        Assertions.assertTrue(batch.isUpsert());
+        Assertions.assertFalse(batch.isInsert());
+
+        Assertions.assertEquals("table_name", batch.getTableName());
+        Assertions.assertEquals(3, batch.getColumns().size());
+        Assertions.assertEquals(Arrays.asList("c1", "c2", "c3"), batch.getColumns());
+    }
+
+    @ParameterizedTest(name = "[{index}] {0} is not batched query")
+    @ValueSource(strings = {
+        "Insert into table_name(c1, c2, c3) values (?, ? , ?); Insert into table_name(c1, c2, c3) values (?, ? , ?);",
+        "ipsert into table_name(c1, c2, c3) values (?, ? , ?)",
+        "upsert into (c1, c2, c3) values (?, ? , ?)",
+        "upsert into table_name (c1, c2, c3); values (?, ?, ?)",
+        "upsert into table_name (c1, , c3) values (?, ?)",
+        "upsert into table_name (c1, c2) values (?,,?)",
+        "upsert into table_name (c1, c2, c3) values (?, ?, ?,)",
+        "upsert into table_name (c1, c2, c3,) values (?, ?, ?)",
+        "upsert into table_name (c1, c2, c3) (?, ?, ?)",
+        "upsert into table_name (c1, c2, c3) values (?, ?)",
+        "upsert into table_name (c1, c2, c3) values (?, ?, 123)",
+    })
+    public void invalidBatchedTest(String sql) throws SQLException {
+        YdbQueryParser parser = new YdbQueryParser(true, true);
+        parser.parseSQL(sql);
+
+        YqlBatcher batch = parser.getYqlBatcher();
+        Assertions.assertFalse(batch.isValidBatch());
     }
 }

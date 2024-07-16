@@ -20,6 +20,7 @@ public class YdbQueryParser {
     private final boolean isDetectJdbcParameters;
 
     private final List<QueryStatement> statements = new ArrayList<>();
+    private final YqlBatcher batcher = new YqlBatcher();
 
     public YdbQueryParser(boolean isDetectQueryType, boolean isDetectJdbcParameters) {
         this.isDetectQueryType = isDetectQueryType;
@@ -28,6 +29,10 @@ public class YdbQueryParser {
 
     public List<QueryStatement> getStatements() {
         return this.statements;
+    }
+
+    public YqlBatcher getYqlBatcher() {
+        return this.batcher;
     }
 
     public QueryType detectQueryType() throws SQLException {
@@ -53,6 +58,7 @@ public class YdbQueryParser {
     @SuppressWarnings("MethodLength")
     public String parseSQL(String origin) throws SQLException {
         this.statements.clear();
+        this.batcher.clear();
 
         int fragmentStart = 0;
 
@@ -73,20 +79,22 @@ public class YdbQueryParser {
             char ch = chars[i];
             boolean isInsideKeyword = false;
             switch (ch) {
-                case '(':
-                    parenLevel++;
-                    break;
-
-                case ')':
-                    parenLevel--;
-                    break;
-
                 case '\'': // single-quotes
-                    i = parseSingleQuotes(chars, i);
+                    int singleQuitesEnd = parseSingleQuotes(chars, i);
+                    batcher.readSingleQuoteLiteral(chars, i, singleQuitesEnd - i + 1);
+                    i = singleQuitesEnd;
                     break;
 
                 case '"': // double-quotes
-                    i = parseDoubleQuotes(chars, i);
+                    int doubleQuitesEnd = parseDoubleQuotes(chars, i);
+                    batcher.readDoubleQuoteLiteral(chars, i, doubleQuitesEnd - i + 1);
+                    i = doubleQuitesEnd;
+                    break;
+
+                case '`': // backtick-quotes
+                    int backstickQuitesEnd = parseBacktickQuotes(chars, i);
+                    batcher.readIdentifier(chars, i, backstickQuitesEnd - i + 1);
+                    i = backstickQuitesEnd;
                     break;
 
                 case '-': // possibly -- style comment
@@ -101,6 +109,7 @@ public class YdbQueryParser {
                         parsed.append(chars, fragmentStart, i - fragmentStart);
                         if (i + 1 < chars.length && chars[i + 1] == '?') /* replace ?? with ? */ {
                             parsed.append('?');
+                            batcher.readIdentifier(chars, i, 1);
                             i++; // make sure the coming ? is not treated as a bind
                         } else {
                             String binded = argNameGenerator.createArgName(origin);
@@ -110,6 +119,8 @@ public class YdbQueryParser {
                                     : null;
                             currStatement.addParameter(binded, type);
                             parsed.append(binded);
+
+                            batcher.readParameter();
                         }
                         fragmentStart = i + 1;
                     }
@@ -129,8 +140,11 @@ public class YdbQueryParser {
 
             if (keywordStart >= 0 && (!isInsideKeyword || (i == chars.length - 1))) {
                 lastKeywordIsOffsetLimit = false;
+                int keywordLength = isInsideKeyword ? i - keywordStart - 1 : i - keywordStart;
 
                 if (currStatement != null) {
+                    batcher.readIdentifier(chars, keywordStart, keywordLength);
+
                     // Detect RETURNING keyword
                     if (parenLevel == 0 && parseReturningKeyword(chars, keywordStart)) {
                         currStatement.setHasReturning(true);
@@ -147,11 +161,17 @@ public class YdbQueryParser {
                     if (parseSelectKeyword(chars, keywordStart)) {
                         currStatement = new QueryStatement(QueryType.DATA_QUERY, QueryCmd.SELECT);
                     }
+
                     // starts with INSERT, UPSERT
-                    if (parseInsertKeyword(chars, keywordStart)
-                            || parseUpsertKeyword(chars, keywordStart)) {
+                    if (parseInsertKeyword(chars, keywordStart)) {
                         currStatement = new QueryStatement(QueryType.DATA_QUERY, QueryCmd.INSERT_UPSERT);
+                        batcher.readInsert();
                     }
+                    if (parseUpsertKeyword(chars, keywordStart)) {
+                        currStatement = new QueryStatement(QueryType.DATA_QUERY, QueryCmd.INSERT_UPSERT);
+                        batcher.readUpsert();
+                    }
+
                     // starts with UPDATE, REPLACE, DELETE
                     if (parseUpdateKeyword(chars, keywordStart)
                             || parseDeleteKeyword(chars, keywordStart)
@@ -165,6 +185,7 @@ public class YdbQueryParser {
                             || parseDropKeyword(chars, keywordStart)) {
                         currStatement = new QueryStatement(QueryType.SCHEME_QUERY, QueryCmd.CREATE_ALTER_DROP);
                     }
+
                     if (isDetectQueryType) {
                         // Detect scan expression - starts with SCAN
                         if (parseScanKeyword(chars, keywordStart)) {
@@ -186,21 +207,33 @@ public class YdbQueryParser {
                     detectJdbcArgs = currStatement.getType() != QueryType.SCHEME_QUERY
                             && currStatement.getType() != QueryType.UNKNOWN
                             && isDetectJdbcParameters;
-
-                    if (parseAlterKeyword(chars, i)
-                            || parseCreateKeyword(chars, i)
-                            || parseDropKeyword(chars, i)) {
-                        currStatement = new QueryStatement(QueryType.SCHEME_QUERY, QueryCmd.CREATE_ALTER_DROP);
-                        statements.add(currStatement);
-                    }
                 }
 
                 keywordStart = -1;
             }
 
-            if (ch == ';' && parenLevel == 0) {
-                currStatement = null;
-                detectJdbcArgs = false;
+            switch (ch) {
+                case '(':
+                    parenLevel++;
+                    batcher.readOpenParen();
+                    break;
+                case ')':
+                    parenLevel--;
+                    batcher.readCloseParen();
+                    break;
+                case ',':
+                    batcher.readComma();
+                    break;
+                case ';':
+                    batcher.readSemiColon();
+                    if (parenLevel == 0) {
+                        currStatement = null;
+                        detectJdbcArgs = false;
+                    }
+                    break;
+                default:
+                    // nothing
+                    break;
             }
         }
 
@@ -245,6 +278,14 @@ public class YdbQueryParser {
     @SuppressWarnings("EmptyBlock")
     private static int parseDoubleQuotes(final char[] query, int offset) {
         while (++offset < query.length && query[offset] != '"') {
+            // do nothing
+        }
+        return offset;
+    }
+
+    @SuppressWarnings("EmptyBlock")
+    private static int parseBacktickQuotes(final char[] query, int offset) {
+        while (++offset < query.length && query[offset] != '`') {
             // do nothing
         }
         return offset;
