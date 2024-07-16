@@ -3,6 +3,8 @@ package tech.ydb.jdbc.query;
 import java.util.ArrayList;
 import java.util.List;
 
+import tech.ydb.jdbc.common.TypeDescription;
+
 /**
  *
  * @author Aleksandr Gorshenin
@@ -10,7 +12,7 @@ import java.util.List;
 public class QueryStatement {
     private final QueryType queryType;
     private final QueryCmd command;
-    private final List<String> paramNames = new ArrayList<>();
+    private final List<ParamDescription> parameters = new ArrayList<>();
     private boolean hasReturinng = false;
 
     public QueryStatement(QueryType type, QueryCmd command) {
@@ -22,12 +24,12 @@ public class QueryStatement {
         return queryType;
     }
 
-    public List<String> getParamNames() {
-        return paramNames;
+    public List<ParamDescription> getParams() {
+        return parameters;
     }
 
-    public void addParamName(String name) {
-        this.paramNames.add(name);
+    public void addParameter(String name, TypeDescription type) {
+        this.parameters.add(new ParamDescription(name, type));
     }
 
     public void setHasReturning(boolean hasReturning) {

@@ -12,40 +12,10 @@ import tech.ydb.table.values.Value;
  *
  * @author Aleksandr Gorshenin
  */
-public class ParamDescription {
-    private final int index;
-    private final String name;
-    private final String displayName;
-    private final TypeDescription type;
+public class ValueFactory {
+    private ValueFactory() { }
 
-    public ParamDescription(int index, String name, String displayName, TypeDescription type) {
-        this.index = index;
-        this.name = name;
-        this.displayName = displayName;
-        this.type = type;
-    }
-
-    public ParamDescription(int index, String name, TypeDescription type) {
-        this(index, name, name, type);
-    }
-
-    public int index() {
-        return index;
-    }
-
-    public String name() {
-        return name;
-    }
-
-    public String displayName() {
-        return displayName;
-    }
-
-    public TypeDescription type() {
-        return type;
-    }
-
-    protected Value<?> getValue(Object value) throws SQLException {
+    public static Value<?> readValue(String name, Object value, TypeDescription type) throws SQLException {
         if (value == null) {
             if (type.nullValue() != null) {
                 return type.nullValue();
@@ -59,22 +29,22 @@ public class ParamDescription {
             Value<?> ydbValue = (Value<?>) value;
             if (type.isOptional()) {
                 if (ydbValue instanceof OptionalValue) {
-                    checkType(ydbValue.asOptional().getType().getItemType());
+                    checkType(name, type.ydbType(), ydbValue.asOptional().getType().getItemType());
                     return ydbValue; // Could be null
                 } else {
-                    checkType(ydbValue.getType());
+                    checkType(name, type.ydbType(), ydbValue.getType());
                     return ydbValue.makeOptional();
                 }
             } else {
                 if (ydbValue instanceof OptionalValue) {
                     OptionalValue optional = ydbValue.asOptional();
                     if (!optional.isPresent()) {
-                        throw new SQLException(YdbConst.MISSING_REQUIRED_VALUE + displayName);
+                        throw new SQLException(YdbConst.MISSING_REQUIRED_VALUE + name);
                     }
-                    checkType(optional.getType().getItemType());
+                    checkType(name, type.ydbType(), optional.getType().getItemType());
                     return optional.get();
                 } else {
-                    checkType(ydbValue.getType());
+                    checkType(name, type.ydbType(), ydbValue.getType());
                     return ydbValue;
                 }
             }
@@ -88,9 +58,9 @@ public class ParamDescription {
         }
     }
 
-    private void checkType(Type objectType) throws SQLException {
-        if (!type.ydbType().equals(objectType)) {
-            String msg = String.format(YdbConst.INVALID_PARAMETER_TYPE, displayName, objectType, type.ydbType());
+    private static void checkType(String name, Type type, Type objectType) throws SQLException {
+        if (!type.equals(objectType)) {
+            String msg = String.format(YdbConst.INVALID_PARAMETER_TYPE, name, objectType, type);
             throw new SQLException(msg);
         }
     }

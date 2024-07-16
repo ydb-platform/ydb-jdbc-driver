@@ -19,7 +19,7 @@ import tech.ydb.core.settings.BaseRequestSettings;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.exception.ExceptionFactory;
-import tech.ydb.jdbc.query.JdbcParams;
+import tech.ydb.jdbc.query.YdbPreparedParams;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.query.params.BatchedParams;
 import tech.ydb.jdbc.query.params.InMemoryParams;
@@ -270,11 +270,11 @@ public class YdbContext implements AutoCloseable {
         return cached;
     }
 
-    public JdbcParams findOrCreateJdbcParams(YdbQuery query, YdbPrepareMode mode) throws SQLException {
-        if (query.hasFreeParams()
+    public YdbPreparedParams findOrPrepareParams(YdbQuery query, YdbPrepareMode mode) throws SQLException {
+        if (!query.isPlainYQL()
                 || mode == YdbPrepareMode.IN_MEMORY
-                || !queryOptions.iPrepareDataQueries()) {
-            return new InMemoryParams(query.getFreeParams());
+                || !queryOptions.isPrepareDataQueries()) {
+            return new InMemoryParams(query.getStatements());
         }
 
         String yql = query.withParams(null);

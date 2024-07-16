@@ -15,7 +15,8 @@ import java.util.TreeSet;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
-import tech.ydb.jdbc.query.JdbcParams;
+import tech.ydb.jdbc.query.ParamDescription;
+import tech.ydb.jdbc.query.YdbPreparedParams;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.ListType;
 import tech.ydb.table.values.ListValue;
@@ -28,7 +29,7 @@ import tech.ydb.table.values.Value;
  *
  * @author Aleksandr Gorshenin
  */
-public class BatchedParams implements JdbcParams {
+public class BatchedParams implements YdbPreparedParams {
     private final String batchParamName;
     private final Map<String, ParamDescription> paramsByName;
     private final ParamDescription[] params;
@@ -53,7 +54,7 @@ public class BatchedParams implements JdbcParams {
             if (types.containsKey(indexedName)) {
                 String displayName = YdbConst.VARIABLE_PARAMETER_PREFIX + indexedName;
                 TypeDescription typeDesc = TypeDescription.of(types.get(indexedName));
-                ParamDescription paramDesc = new ParamDescription(idx, indexedName, displayName, typeDesc);
+                ParamDescription paramDesc = new ParamDescription(indexedName, displayName, typeDesc);
 
                 params[idx] = paramDesc;
                 paramsByName.put(indexedName, paramDesc);
@@ -75,7 +76,7 @@ public class BatchedParams implements JdbcParams {
 
             String displayName = YdbConst.VARIABLE_PARAMETER_PREFIX + param;
             TypeDescription typeDesc = TypeDescription.of(types.get(param));
-            ParamDescription paramDesc = new ParamDescription(idx, param, displayName, typeDesc);
+            ParamDescription paramDesc = new ParamDescription(param, displayName, typeDesc);
 
             params[idx] = paramDesc;
             paramsByName.put(param, paramDesc);
@@ -147,7 +148,7 @@ public class BatchedParams implements JdbcParams {
             throw new SQLException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + index);
         }
         ParamDescription desc = params[index - 1];
-        Value<?> value = desc.getValue(obj);
+        Value<?> value = ValueFactory.readValue(desc.displayName(), obj, desc.type());
         currentValues.put(desc.name(), value);
     }
 
@@ -157,7 +158,7 @@ public class BatchedParams implements JdbcParams {
             throw new SQLException(YdbConst.PARAMETER_NOT_FOUND + name);
         }
         ParamDescription desc = paramsByName.get(name);
-        Value<?> value = desc.getValue(obj);
+        Value<?> value = ValueFactory.readValue(desc.displayName(), obj, desc.type());
         currentValues.put(desc.name(), value);
     }
 

@@ -4,7 +4,6 @@ package tech.ydb.jdbc.query;
 
 import java.sql.SQLDataException;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -23,8 +22,8 @@ public class YdbQuery {
     private final List<QueryStatement> statements;
 
     private final QueryType type;
+    private final boolean isPlainYQL;
     private final boolean isAutoDeclare;
-    private final List<String> paramNames = new ArrayList<>();
 
     YdbQuery(String originSQL, String preparedYQL, List<QueryStatement> stats, QueryType type, boolean isAutoDeclare) {
         this.originSQL = originSQL;
@@ -33,13 +32,19 @@ public class YdbQuery {
         this.type = type;
         this.isAutoDeclare = isAutoDeclare;
 
-        for (QueryStatement expression : stats) {
-            paramNames.addAll(expression.getParamNames());
+        boolean hasJdbcParamters = false;
+        for (QueryStatement st: statements) {
+            hasJdbcParamters = hasJdbcParamters || !st.getParams().isEmpty();
         }
+        this.isPlainYQL = !hasJdbcParamters;
     }
 
     public QueryType getType() {
         return type;
+    }
+
+    public boolean isPlainYQL() {
+        return isPlainYQL;
     }
 
     public String getOriginSQL() {
@@ -50,42 +55,36 @@ public class YdbQuery {
         return statements;
     }
 
-    public boolean hasFreeParams() {
-        return !paramNames.isEmpty();
-    }
-
-    public List<String> getFreeParams() {
-        return paramNames;
-    }
-
     public String withParams(Params params) throws SQLException {
-        if (paramNames.isEmpty()) {
+        if (isPlainYQL) {
             return preparedYQL;
         }
 
         if (params == null) {
-            if (!paramNames.isEmpty() && isAutoDeclare) {
+            if (isAutoDeclare) {
+                int paramCount = statements.stream().mapToInt(st -> st.getParams().size()).sum();
                 // Comment in place where must be declare section
-                return "-- DECLARE " + paramNames.size() + " PARAMETERS\n" + preparedYQL;
+                return "-- DECLARE " + paramCount + " PARAMETERS\n" + preparedYQL;
             }
             return preparedYQL;
         }
 
         StringBuilder yql = new StringBuilder();
         Map<String, Value<?>> values = params.values();
-        for (int idx = 0; idx < paramNames.size(); idx += 1) {
-            String prm = paramNames.get(idx);
-            if (!values.containsKey(prm)) {
-                throw new SQLDataException(YdbConst.MISSING_VALUE_FOR_PARAMETER + prm);
-            }
+        for (QueryStatement st: statements) {
+            for (ParamDescription prm: st.getParams()) {
+                if (!values.containsKey(prm.name())) {
+                    throw new SQLDataException(YdbConst.MISSING_VALUE_FOR_PARAMETER + prm);
+                }
 
-            if (isAutoDeclare) {
-                String prmType = values.get(prm).getType().toString();
-                yql.append("DECLARE ")
-                        .append(prm)
-                        .append(" AS ")
-                        .append(prmType)
-                        .append(";\n");
+                if (isAutoDeclare) {
+                    String prmType = values.get(prm.name()).getType().toString();
+                    yql.append("DECLARE ")
+                            .append(prm.name())
+                            .append(" AS ")
+                            .append(prmType)
+                            .append(";\n");
+                }
             }
         }
 

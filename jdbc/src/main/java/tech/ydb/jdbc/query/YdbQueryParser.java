@@ -100,7 +100,7 @@ public class YdbQueryParser {
                             i++; // make sure the coming ? is not treated as a bind
                         } else {
                             String binded = argNameGenerator.createArgName(origin);
-                            currStatement.addParamName(binded);
+                            currStatement.addParameter(binded, null);
                             parsed.append(binded);
                         }
                         fragmentStart = i + 1;

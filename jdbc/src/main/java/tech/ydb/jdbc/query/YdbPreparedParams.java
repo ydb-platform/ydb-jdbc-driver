@@ -14,7 +14,7 @@ import tech.ydb.table.values.Type;
  *
  * @author Aleksandr Gorshenin
  */
-public interface JdbcParams {
+public interface YdbPreparedParams {
     void clearParameters();
 
     void setParam(int index, @Nullable Object obj, @Nonnull Type type) throws SQLException;

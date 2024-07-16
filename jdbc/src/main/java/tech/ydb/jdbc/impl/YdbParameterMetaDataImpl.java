@@ -9,12 +9,12 @@ import java.sql.Types;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbParameterMetaData;
 import tech.ydb.jdbc.common.TypeDescription;
-import tech.ydb.jdbc.query.JdbcParams;
+import tech.ydb.jdbc.query.YdbPreparedParams;
 
 public class YdbParameterMetaDataImpl implements YdbParameterMetaData {
-    private final JdbcParams params;
+    private final YdbPreparedParams params;
 
-    public YdbParameterMetaDataImpl(JdbcParams params) {
+    public YdbParameterMetaDataImpl(YdbPreparedParams params) {
         this.params = params;
     }
 

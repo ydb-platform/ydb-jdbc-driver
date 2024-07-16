@@ -32,8 +32,8 @@ import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbExecutor;
 import tech.ydb.jdbc.context.YdbValidator;
 import tech.ydb.jdbc.query.ExplainedQuery;
-import tech.ydb.jdbc.query.JdbcParams;
 import tech.ydb.jdbc.query.QueryType;
+import tech.ydb.jdbc.query.YdbPreparedParams;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.settings.FakeTxMode;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
@@ -311,7 +311,7 @@ public class YdbConnectionImpl implements YdbConnection {
             throw new SQLException(YdbConst.UNSUPPORTED_QUERY_TYPE_IN_PS + query.getType());
         }
 
-        JdbcParams params = ctx.findOrCreateJdbcParams(query, mode);
+        YdbPreparedParams params = ctx.findOrPrepareParams(query, mode);
         return new YdbPreparedStatementImpl(this, query, params, resultSetType);
     }
 
