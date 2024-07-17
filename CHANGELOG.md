@@ -1,3 +1,9 @@
+## 2.2.0 ##
+
+* Added support of queries with RETURNING
+* Added auto batch mode for simple UPSERT/INSERT
+* Forced usage UInt64 for OFFSET/LIMIT parameters
+
 ## 2.1.6 ##
 
 * Fixed QueryClient leaks
