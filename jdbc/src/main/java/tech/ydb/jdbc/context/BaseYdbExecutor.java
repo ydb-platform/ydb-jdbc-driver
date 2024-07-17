@@ -9,7 +9,6 @@ import tech.ydb.core.Result;
 import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.jdbc.exception.ExceptionFactory;
 import tech.ydb.jdbc.query.QueryType;
-import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.Session;
 import tech.ydb.table.TableClient;
 import tech.ydb.table.query.Params;
@@ -42,22 +41,19 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
     }
 
     @Override
-    public void executeSchemeQuery(YdbContext ctx, YdbValidator validator, YdbQuery query) throws SQLException {
+    public void executeSchemeQuery(YdbContext ctx, YdbValidator validator, String yql) throws SQLException {
         // Scheme query does not affect transactions or result sets
         ExecuteSchemeQuerySettings settings = ctx.withDefaultTimeout(new ExecuteSchemeQuerySettings());
-        final String yql = query.getYqlQuery(null);
-
         try (Session session = createNewTableSession(validator)) {
             validator.execute(QueryType.SCHEME_QUERY + " >>\n" + yql, () -> session.executeSchemeQuery(yql, settings));
         }
     }
 
     @Override
-    public ResultSetReader executeScanQuery(YdbContext ctx, YdbValidator validator, YdbQuery query, Params params)
+    public ResultSetReader executeScanQuery(YdbContext ctx, YdbValidator validator, String yql, Params params)
             throws SQLException {
         ensureOpened();
 
-        String yql = query.getYqlQuery(params);
         Collection<ResultSetReader> resultSets = new LinkedBlockingQueue<>();
         Duration scanQueryTimeout = ctx.getOperationProperties().getScanQueryTimeout();
         ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()

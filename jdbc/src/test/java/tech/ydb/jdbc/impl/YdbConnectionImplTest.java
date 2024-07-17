@@ -218,7 +218,7 @@ public class YdbConnectionImplTest {
     @Test
     public void nativeSQL() throws SQLException {
         String nativeSQL = jdbc.connection().nativeSQL("select ? + ?");
-        Assertions.assertEquals("-- DECLARE 2 PARAMETERS\nselect $jp1 + $jp2", nativeSQL);
+        Assertions.assertEquals("select $jp1 + $jp2", nativeSQL);
     }
 
     @Test
@@ -656,6 +656,145 @@ public class YdbConnectionImplTest {
 
             // call autocommit
             statement.execute(dropTempTable);
+        }
+    }
+
+    @Test
+    public void testMixedStatements() throws SQLException {
+        String mixedQuery = QUERIES.withTableName(""
+                + "CREATE TABLE temp_#tableName(id Int32, value Int32, primary key(id));\n"
+                + "INSERT INTO temp_#tableName(id, value) VALUES (1, 1);"
+                + "DROP TABLE temp_#tableName;\n"
+        );
+
+        jdbc.connection().setAutoCommit(false);
+        try (Statement statement = jdbc.connection().createStatement()) {
+            ExceptionAssert.sqlFeatureNotSupported(
+                    "Query cannot contain expressions with different types: SCHEME_QUERY, DATA_QUERY",
+                    () -> statement.execute(mixedQuery)
+            );
+        }
+
+        jdbc.connection().setAutoCommit(true);
+        try (Statement statement = jdbc.connection().createStatement()) {
+            ExceptionAssert.sqlFeatureNotSupported(
+                    "Query cannot contain expressions with different types: SCHEME_QUERY, DATA_QUERY",
+                    () -> statement.execute(mixedQuery)
+            );
+        }
+    }
+
+    @Test
+    public void testReturingStatements() throws SQLException {
+        String returningQuery = QUERIES.withTableName(""
+                + "INSERT INTO #tableName (key, c_Text) VALUES (1, '123') RETURNING key;\n"
+                + "INSERT INTO #tableName (key, c_Text) VALUES (2, '234');\n"
+                + "UPDATE #tableName SET c_Text = '100' WHERE key = 1 RETURNING c_Text;\n"
+                + "UPDATE #tableName SET c_Text = '200' WHERE key = 2;\n"
+                + "UPSERT INTO #tableName (key, c_Text) VALUES (1, '321') RETURNING key, c_Text;\n"
+                + "UPSERT INTO #tableName (key, c_Text) VALUES (2, '222');\n"
+                + "REPLACE INTO #tableName (key, c_Text) VALUES (1, '111') RETURNING c_Text, key;\n"
+                + "REPLACE INTO #tableName (key, c_Text) VALUES (2, '333');\n"
+                + "DELETE FROM #tableName WHERE key = 1 RETURNING c_Text;\n"
+                + "DELETE FROM #tableName WHERE key = 2;\n"
+        );
+
+        try (Statement statement = jdbc.connection().createStatement()) {
+            // INSERT with returning
+            Assertions.assertTrue(statement.execute(returningQuery));
+            Assertions.assertEquals(-1, statement.getUpdateCount());
+            try (ResultSet rs = statement.getResultSet()) {
+                Assertions.assertTrue(rs.next());
+                Assertions.assertEquals(1, rs.getInt("key"));
+                Assertions.assertFalse(rs.next());
+            }
+
+            // simple INSERT
+            Assertions.assertFalse(statement.getMoreResults());
+            Assertions.assertNull(statement.getResultSet());
+            Assertions.assertEquals(1, statement.getUpdateCount());
+
+            // UPDATE with returning
+            Assertions.assertTrue(statement.getMoreResults());
+            Assertions.assertEquals(-1, statement.getUpdateCount());
+            try (ResultSet rs = statement.getResultSet()) {
+                Assertions.assertTrue(rs.next());
+                Assertions.assertEquals("100", rs.getString("c_Text"));
+                Assertions.assertFalse(rs.next());
+            }
+
+            // simple UPDATE
+            Assertions.assertFalse(statement.getMoreResults());
+            Assertions.assertNull(statement.getResultSet());
+            Assertions.assertEquals(1, statement.getUpdateCount());
+
+            // UPSERT with returning
+            Assertions.assertTrue(statement.getMoreResults());
+            Assertions.assertEquals(-1, statement.getUpdateCount());
+            try (ResultSet rs = statement.getResultSet()) {
+                Assertions.assertTrue(rs.next());
+                Assertions.assertEquals(1, rs.getInt("key"));
+                Assertions.assertEquals("321", rs.getString("c_Text"));
+                Assertions.assertFalse(rs.next());
+            }
+
+            // simple UPSERT
+            Assertions.assertFalse(statement.getMoreResults());
+            Assertions.assertNull(statement.getResultSet());
+            Assertions.assertEquals(1, statement.getUpdateCount());
+
+            // REPLACE with returning
+            Assertions.assertTrue(statement.getMoreResults());
+            Assertions.assertEquals(-1, statement.getUpdateCount());
+            try (ResultSet rs = statement.getResultSet()) {
+                Assertions.assertTrue(rs.next());
+                Assertions.assertEquals(1, rs.getInt("key"));
+                Assertions.assertEquals("111", rs.getString("c_Text"));
+                Assertions.assertFalse(rs.next());
+            }
+
+            // simple REPLACE
+            Assertions.assertFalse(statement.getMoreResults());
+            Assertions.assertNull(statement.getResultSet());
+            Assertions.assertEquals(1, statement.getUpdateCount());
+
+            // DELETE with returning
+            Assertions.assertTrue(statement.getMoreResults());
+            Assertions.assertEquals(-1, statement.getUpdateCount());
+            try (ResultSet rs = statement.getResultSet()) {
+                Assertions.assertTrue(rs.next());
+                Assertions.assertEquals("111", rs.getString("c_Text"));
+                Assertions.assertFalse(rs.next());
+            }
+
+            // simple DELETE
+            Assertions.assertFalse(statement.getMoreResults());
+            Assertions.assertNull(statement.getResultSet());
+            Assertions.assertEquals(1, statement.getUpdateCount());
+
+            // no more results
+            Assertions.assertFalse(statement.getMoreResults());
+            Assertions.assertNull(statement.getResultSet());
+            Assertions.assertEquals(-1, statement.getUpdateCount());
+        }
+    }
+
+    @Test
+    public void testOffsetLimit() throws SQLException {
+        String query = QUERIES.withTableName("SELECT * FROM #tableName ORDER BY key LIMIT ? OFFSET ?");
+
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(query)) {
+            ps.setInt(1, 0);
+            ps.setInt(2, 0);
+            try (ResultSet rs = ps.executeQuery()) {
+                Assertions.assertFalse(rs.next());
+            }
+
+            ps.setLong(1, 5);
+            ps.setLong(2, 5);
+            try (ResultSet rs = ps.executeQuery()) {
+                Assertions.assertFalse(rs.next());
+            }
         }
     }
 

@@ -18,7 +18,7 @@ import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.common.FixedResultSetFactory;
 import tech.ydb.jdbc.context.YdbValidator;
 import tech.ydb.jdbc.query.ExplainedQuery;
-import tech.ydb.jdbc.query.YdbExpression;
+import tech.ydb.jdbc.query.QueryStatement;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.table.query.Params;
@@ -166,9 +166,9 @@ public abstract class BaseYdbStatement implements YdbStatement {
     }
 
     protected List<YdbResult> executeSchemeQuery(YdbQuery query) throws SQLException {
-        connection.executeSchemeQuery(query, validator);
+        connection.executeSchemeQuery(query.getPreparedYql(), validator);
 
-        int expressionsCount = query.getExpressions().isEmpty() ? 1 : query.getExpressions().size();
+        int expressionsCount = query.getStatements().isEmpty() ? 1 : query.getStatements().size();
         List<YdbResult> results = new ArrayList<>();
         for (int i = 0; i < expressionsCount; i++) {
             results.add(NO_UPDATED);
@@ -177,7 +177,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
     }
 
     protected List<YdbResult> executeExplainQuery(YdbQuery query) throws SQLException {
-        ExplainedQuery explainedQuery = connection.executeExplainQuery(query, validator);
+        ExplainedQuery explainedQuery = connection.executeExplainQuery(query.getPreparedYql(), validator);
 
         ResultSetReader result = EXPLAIN_RS_FACTORY.createResultSet()
                 .newRow()
@@ -189,28 +189,28 @@ public abstract class BaseYdbStatement implements YdbStatement {
         return Collections.singletonList(new YdbResult(new YdbResultSetImpl(this, result)));
     }
 
-    protected List<YdbResult> executeScanQuery(YdbQuery query, Params params) throws SQLException {
-        ResultSetReader result = connection.executeScanQuery(query, validator, params);
+    protected List<YdbResult> executeScanQuery(String yql, Params params) throws SQLException {
+        ResultSetReader result = connection.executeScanQuery(yql, validator, params);
         return Collections.singletonList(new YdbResult(new YdbResultSetImpl(this, result)));
     }
 
-    protected List<YdbResult> executeDataQuery(YdbQuery query, Params params) throws SQLException {
+    protected List<YdbResult> executeDataQuery(YdbQuery query, String yql, Params params) throws SQLException {
         List<ResultSetReader> resultSets = connection
-                .executeDataQuery(query, validator, getQueryTimeout(), isPoolable(), params);
+                .executeDataQuery(yql, validator, getQueryTimeout(), isPoolable(), params);
 
         List<YdbResult> results = new ArrayList<>();
         int idx = 0;
-        for (YdbExpression exp: query.getExpressions()) {
+        for (QueryStatement exp: query.getStatements()) {
             if (exp.isDDL()) {
                 results.add(NO_UPDATED);
                 continue;
             }
-            if (!exp.isSelect()) {
+            if (exp.hasUpdateCount()) {
                 results.add(HAS_UPDATED);
                 continue;
             }
 
-            if (idx < resultSets.size())  {
+            if (exp.hasResults() && idx < resultSets.size()) {
                 ResultSetReader rs = resultSets.get(idx);
                 if (failOnTruncatedResult && rs.isTruncated()) {
                     String msg = String.format(YdbConst.RESULT_IS_TRUNCATED, idx, rs.getRowCount());

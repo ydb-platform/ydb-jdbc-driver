@@ -73,7 +73,7 @@ public class YdbQueryProperties {
         return isDeclareJdbcParameters;
     }
 
-    public boolean iPrepareDataQueries() {
+    public boolean isPrepareDataQueries() {
         return isPrepareDataQueries;
     }
 

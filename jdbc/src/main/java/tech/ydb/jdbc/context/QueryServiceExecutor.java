@@ -17,7 +17,6 @@ import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.exception.ExceptionFactory;
 import tech.ydb.jdbc.query.ExplainedQuery;
 import tech.ydb.jdbc.query.QueryType;
-import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.query.QueryClient;
 import tech.ydb.query.QuerySession;
 import tech.ydb.query.QueryStream;
@@ -197,11 +196,10 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public List<ResultSetReader> executeDataQuery(
-            YdbContext ctx, YdbValidator validator, YdbQuery query, long timeout, boolean keepInCache, Params params
+            YdbContext ctx, YdbValidator validator, String yql, long timeout, boolean keepInCache, Params params
     ) throws SQLException {
         ensureOpened();
 
-        final String yql = query.getYqlQuery(params);
         ExecuteQuerySettings.Builder builder = ExecuteQuerySettings.newBuilder();
         if (timeout > 0) {
             builder = builder.withRequestTimeout(timeout, TimeUnit.SECONDS);
@@ -229,13 +227,11 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    public void executeSchemeQuery(YdbContext ctx, YdbValidator validator, YdbQuery query) throws SQLException {
+    public void executeSchemeQuery(YdbContext ctx, YdbValidator validator, String yql) throws SQLException {
         ensureOpened();
 
         // Scheme query does not affect transactions or result sets
         ExecuteQuerySettings settings = ctx.withRequestTimeout(ExecuteQuerySettings.newBuilder()).build();
-        final String yql = query.getYqlQuery(null);
-
         try (QuerySession session = createNewQuerySession(validator)) {
             validator.call(QueryType.SCHEME_QUERY + " >>\n" + yql, () -> session
                     .createQuery(yql, TxMode.NONE, Params.empty(), settings)
@@ -245,7 +241,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    public ExplainedQuery executeExplainQuery(YdbContext ctx, YdbValidator validator, YdbQuery query)
+    public ExplainedQuery executeExplainQuery(YdbContext ctx, YdbValidator validator, String yql)
             throws SQLException {
         ensureOpened();
 
@@ -253,7 +249,6 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         ExecuteQuerySettings settings = ctx.withRequestTimeout(ExecuteQuerySettings.newBuilder())
                 .withExecMode(QueryExecMode.EXPLAIN)
                 .build();
-        final String yql = query.getYqlQuery(null);
 
         try (QuerySession session = createNewQuerySession(validator)) {
             QueryInfo res = validator.call(QueryType.EXPLAIN_QUERY + " >>\n" + yql, () -> session

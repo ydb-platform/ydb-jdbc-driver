@@ -10,7 +10,6 @@ import java.util.List;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.query.ExplainedQuery;
 import tech.ydb.jdbc.query.QueryType;
-import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.Session;
 import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.ExplainDataQueryResult;
@@ -155,11 +154,10 @@ public class TableServiceExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    public ExplainedQuery executeExplainQuery(YdbContext ctx, YdbValidator validator, YdbQuery query)
+    public ExplainedQuery executeExplainQuery(YdbContext ctx, YdbValidator validator, String yql)
             throws SQLException {
         ensureOpened();
 
-        String yql = query.getYqlQuery(null);
         ExplainDataQuerySettings settings = ctx.withDefaultTimeout(new ExplainDataQuerySettings());
         try (Session session = createNewTableSession(validator)) {
             String msg = QueryType.EXPLAIN_QUERY + " >>\n" + yql;
@@ -170,11 +168,10 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public List<ResultSetReader> executeDataQuery(
-            YdbContext ctx, YdbValidator validator, YdbQuery query, long timeout, boolean keepInCache, Params params
+            YdbContext ctx, YdbValidator validator, String yql, long timeout, boolean keepInCache, Params params
     ) throws SQLException {
         ensureOpened();
 
-        final String yql = query.getYqlQuery(params);
         final Session session = tx.getSession(validator);
         try {
             DataQueryResult result = validator.call(

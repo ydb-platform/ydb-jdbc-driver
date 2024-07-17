@@ -15,7 +15,10 @@ import java.util.TreeSet;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
-import tech.ydb.jdbc.query.JdbcParams;
+import tech.ydb.jdbc.query.ParamDescription;
+import tech.ydb.jdbc.query.YdbPreparedQuery;
+import tech.ydb.jdbc.query.YdbQuery;
+import tech.ydb.jdbc.query.YqlBatcher;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.ListType;
 import tech.ydb.table.values.ListValue;
@@ -28,7 +31,8 @@ import tech.ydb.table.values.Value;
  *
  * @author Aleksandr Gorshenin
  */
-public class BatchedParams implements JdbcParams {
+public class BatchedQuery implements YdbPreparedQuery {
+    private final String yql;
     private final String batchParamName;
     private final Map<String, ParamDescription> paramsByName;
     private final ParamDescription[] params;
@@ -36,7 +40,8 @@ public class BatchedParams implements JdbcParams {
     private final List<StructValue> batchList = new ArrayList<>();
     private final Map<String, Value<?>> currentValues = new HashMap<>();
 
-    private BatchedParams(String listName, StructType structType) {
+    private BatchedQuery(String yql, String listName, StructType structType) {
+        this.yql = yql;
         this.batchParamName = listName;
         this.paramsByName = new HashMap<>();
         this.params = new ParamDescription[structType.getMembersCount()];
@@ -53,7 +58,7 @@ public class BatchedParams implements JdbcParams {
             if (types.containsKey(indexedName)) {
                 String displayName = YdbConst.VARIABLE_PARAMETER_PREFIX + indexedName;
                 TypeDescription typeDesc = TypeDescription.of(types.get(indexedName));
-                ParamDescription paramDesc = new ParamDescription(idx, indexedName, displayName, typeDesc);
+                ParamDescription paramDesc = new ParamDescription(indexedName, displayName, typeDesc);
 
                 params[idx] = paramDesc;
                 paramsByName.put(indexedName, paramDesc);
@@ -75,11 +80,16 @@ public class BatchedParams implements JdbcParams {
 
             String displayName = YdbConst.VARIABLE_PARAMETER_PREFIX + param;
             TypeDescription typeDesc = TypeDescription.of(types.get(param));
-            ParamDescription paramDesc = new ParamDescription(idx, param, displayName, typeDesc);
+            ParamDescription paramDesc = new ParamDescription(param, displayName, typeDesc);
 
             params[idx] = paramDesc;
             paramsByName.put(param, paramDesc);
         }
+    }
+
+    @Override
+    public String getQueryText(Params prms) {
+        return yql;
     }
 
     @Override
@@ -147,7 +157,7 @@ public class BatchedParams implements JdbcParams {
             throw new SQLException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + index);
         }
         ParamDescription desc = params[index - 1];
-        Value<?> value = desc.getValue(obj);
+        Value<?> value = ValueFactory.readValue(desc.displayName(), obj, desc.type());
         currentValues.put(desc.name(), value);
     }
 
@@ -157,7 +167,7 @@ public class BatchedParams implements JdbcParams {
             throw new SQLException(YdbConst.PARAMETER_NOT_FOUND + name);
         }
         ParamDescription desc = paramsByName.get(name);
-        Value<?> value = desc.getValue(obj);
+        Value<?> value = ValueFactory.readValue(desc.displayName(), obj, desc.type());
         currentValues.put(desc.name(), value);
     }
 
@@ -177,7 +187,7 @@ public class BatchedParams implements JdbcParams {
         return params[index - 1].type();
     }
 
-    public static BatchedParams tryCreateBatched(Map<String, Type> types) {
+    public static BatchedQuery tryCreateBatched(YdbQuery query, Map<String, Type> types) {
         // Only single parameter
         if (types.size() != 1) {
             return null;
@@ -200,6 +210,49 @@ public class BatchedParams implements JdbcParams {
         }
 
         StructType itemType = (StructType) innerType;
-        return new BatchedParams(listName, itemType);
+        return new BatchedQuery(query.getPreparedYql(), listName, itemType);
+    }
+
+    public static BatchedQuery createAutoBatched(YqlBatcher batcher, Map<String, Type> tableColumns) {
+        StringBuilder sb = new StringBuilder();
+        Map<String, Type> structTypes = new HashMap<>();
+
+        sb.append("DECLARE $batch AS List<Struct<");
+        int idx = 1;
+        for (String column: batcher.getColumns()) {
+            Type type = tableColumns.get(column);
+            if (type == null) {
+                return null;
+            }
+            if (idx > 1) {
+                sb.append(", ");
+            }
+            sb.append("p").append(idx).append(":").append(type.toString());
+            structTypes.put("p" + idx, type);
+            idx++;
+        }
+        sb.append(">>;\n");
+
+        if (batcher.isInsert()) {
+            sb.append("INSERT ");
+        }
+        if (batcher.isUpsert()) {
+            sb.append("UPSERT ");
+        }
+
+        sb.append("INTO `").append(batcher.getTableName()).append("` SELECT ");
+
+        idx = 1;
+        for (String column: batcher.getColumns()) {
+            if (idx > 1) {
+                sb.append(", ");
+            }
+            sb.append("p").append(idx).append(" AS `").append(column).append("`");
+            idx++;
+        }
+
+        sb.append(" FROM AS_TABLE($batch);");
+
+        return new BatchedQuery(sb.toString(), "$batch", StructType.of(structTypes));
     }
 }

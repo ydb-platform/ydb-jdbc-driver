@@ -14,7 +14,9 @@ import java.util.TreeSet;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
-import tech.ydb.jdbc.query.JdbcParams;
+import tech.ydb.jdbc.query.ParamDescription;
+import tech.ydb.jdbc.query.YdbPreparedQuery;
+import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Type;
 import tech.ydb.table.values.Value;
@@ -23,14 +25,16 @@ import tech.ydb.table.values.Value;
  *
  * @author Aleksandr Gorshenin
  */
-public class PreparedParams implements JdbcParams {
+public class PreparedQuery implements YdbPreparedQuery {
+    private final String yql;
     private final Map<String, ParamDescription> params;
     private final String[] paramNames;
 
     private final Map<String, Value<?>> paramValues = new HashMap<>();
     private final List<Params> batchList = new ArrayList<>();
 
-    public PreparedParams(Map<String, Type> types) {
+    public PreparedQuery(YdbQuery query, Map<String, Type> types) {
+        yql = query.getPreparedYql();
         params = new HashMap<>();
         paramNames = new String[types.size()];
 
@@ -40,7 +44,7 @@ public class PreparedParams implements JdbcParams {
             String indexedName = YdbConst.VARIABLE_PARAMETER_PREFIX + YdbConst.INDEXED_PARAMETER_PREFIX + (1 + idx);
             if (types.containsKey(indexedName)) {
                 TypeDescription typeDesc = TypeDescription.of(types.get(indexedName));
-                ParamDescription paramDesc = new ParamDescription(idx, indexedName, typeDesc);
+                ParamDescription paramDesc = new ParamDescription(indexedName, typeDesc);
 
                 params.put(indexedName, paramDesc);
                 paramNames[idx] = indexedName;
@@ -61,11 +65,16 @@ public class PreparedParams implements JdbcParams {
             }
 
             TypeDescription typeDesc = TypeDescription.of(types.get(param));
-            ParamDescription paramDesc = new ParamDescription(idx, param, typeDesc);
+            ParamDescription paramDesc = new ParamDescription(param, typeDesc);
 
             params.put(param, paramDesc);
             paramNames[idx] = param;
         }
+    }
+
+    @Override
+    public String getQueryText(Params prms) {
+        return yql;
     }
 
     @Override
@@ -75,7 +84,7 @@ public class PreparedParams implements JdbcParams {
         }
         String varName = paramNames[index - 1];
         ParamDescription desc = params.get(varName);
-        paramValues.put(varName, desc.getValue(obj));
+        paramValues.put(varName, ValueFactory.readValue(desc.name(), obj, desc.type()));
     }
 
     @Override
@@ -86,7 +95,7 @@ public class PreparedParams implements JdbcParams {
         }
 
         ParamDescription desc = params.get(varName);
-        paramValues.put(varName, desc.getValue(obj));
+        paramValues.put(varName, ValueFactory.readValue(desc.name(), obj, desc.type()));
     }
 
     @Override

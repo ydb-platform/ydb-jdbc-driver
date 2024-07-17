@@ -32,8 +32,8 @@ import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbExecutor;
 import tech.ydb.jdbc.context.YdbValidator;
 import tech.ydb.jdbc.query.ExplainedQuery;
-import tech.ydb.jdbc.query.JdbcParams;
 import tech.ydb.jdbc.query.QueryType;
+import tech.ydb.jdbc.query.YdbPreparedQuery;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.settings.FakeTxMode;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
@@ -76,7 +76,7 @@ public class YdbConnectionImpl implements YdbConnection {
     @Override
     public String nativeSQL(String sql) {
         try {
-            return ctx.parseYdbQuery(sql).getYqlQuery(null);
+            return ctx.parseYdbQuery(sql).getPreparedYql();
         } catch (SQLException ex) {
             return ex.getMessage();
         }
@@ -185,7 +185,7 @@ public class YdbConnectionImpl implements YdbConnection {
     }
 
     @Override
-    public void executeSchemeQuery(YdbQuery query, YdbValidator validator) throws SQLException {
+    public void executeSchemeQuery(String yql, YdbValidator validator) throws SQLException {
         executor.ensureOpened();
 
         if (executor.isInsideTransaction()) {
@@ -202,17 +202,17 @@ public class YdbConnectionImpl implements YdbConnection {
             }
         }
 
-        executor.executeSchemeQuery(ctx, validator, query);
+        executor.executeSchemeQuery(ctx, validator, yql);
     }
 
     @Override
-    public List<ResultSetReader> executeDataQuery(YdbQuery query, YdbValidator validator,
+    public List<ResultSetReader> executeDataQuery(String yql, YdbValidator validator,
             int timeout, boolean poolable, Params params) throws SQLException {
-        return executor.executeDataQuery(ctx, validator, query, timeout, poolable, params);
+        return executor.executeDataQuery(ctx, validator, yql, timeout, poolable, params);
     }
 
     @Override
-    public ResultSetReader executeScanQuery(YdbQuery query, YdbValidator validator, Params params) throws SQLException {
+    public ResultSetReader executeScanQuery(String yql, YdbValidator validator, Params params) throws SQLException {
         executor.ensureOpened();
 
         if (executor.isInsideTransaction()) {
@@ -228,12 +228,12 @@ public class YdbConnectionImpl implements YdbConnection {
             }
         }
 
-        return executor.executeScanQuery(ctx, validator, query, params);
+        return executor.executeScanQuery(ctx, validator, yql, params);
     }
 
     @Override
-    public ExplainedQuery executeExplainQuery(YdbQuery query, YdbValidator validator) throws SQLException {
-        return executor.executeExplainQuery(ctx, validator, query);
+    public ExplainedQuery executeExplainQuery(String yql, YdbValidator validator) throws SQLException {
+        return executor.executeExplainQuery(ctx, validator, yql);
     }
 
     @Override
@@ -307,11 +307,11 @@ public class YdbConnectionImpl implements YdbConnection {
 
         YdbQuery query = ctx.findOrParseYdbQuery(sql);
 
-        if (query.type() != QueryType.DATA_QUERY && query.type() != QueryType.SCAN_QUERY) {
-            throw new SQLException(YdbConst.UNSUPPORTED_QUERY_TYPE_IN_PS + query.type());
+        if (query.getType() != QueryType.DATA_QUERY && query.getType() != QueryType.SCAN_QUERY) {
+            throw new SQLException(YdbConst.UNSUPPORTED_QUERY_TYPE_IN_PS + query.getType());
         }
 
-        JdbcParams params = ctx.findOrCreateJdbcParams(query, mode);
+        YdbPreparedQuery params = ctx.findOrPrepareParams(query, mode);
         return new YdbPreparedStatementImpl(this, query, params, resultSetType);
     }
 
