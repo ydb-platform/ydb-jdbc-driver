@@ -220,7 +220,7 @@ public class YdbQueryConnectionImplTest {
     @Test
     public void nativeSQL() throws SQLException {
         String nativeSQL = jdbc.connection().nativeSQL("select ? + ?");
-        Assertions.assertEquals("-- DECLARE 2 PARAMETERS\nselect $jp1 + $jp2", nativeSQL);
+        Assertions.assertEquals("select $jp1 + $jp2", nativeSQL);
     }
 
     @Test

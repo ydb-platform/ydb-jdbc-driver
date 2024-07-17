@@ -19,11 +19,11 @@ import tech.ydb.core.settings.BaseRequestSettings;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.exception.ExceptionFactory;
-import tech.ydb.jdbc.query.YdbPreparedParams;
+import tech.ydb.jdbc.query.YdbPreparedQuery;
 import tech.ydb.jdbc.query.YdbQuery;
-import tech.ydb.jdbc.query.params.BatchedParams;
-import tech.ydb.jdbc.query.params.InMemoryParams;
-import tech.ydb.jdbc.query.params.PreparedParams;
+import tech.ydb.jdbc.query.params.BatchedQuery;
+import tech.ydb.jdbc.query.params.InMemoryQuery;
+import tech.ydb.jdbc.query.params.PreparedQuery;
 import tech.ydb.jdbc.settings.YdbClientProperties;
 import tech.ydb.jdbc.settings.YdbConfig;
 import tech.ydb.jdbc.settings.YdbConnectionProperties;
@@ -270,37 +270,37 @@ public class YdbContext implements AutoCloseable {
         return cached;
     }
 
-    public YdbPreparedParams findOrPrepareParams(YdbQuery query, YdbPrepareMode mode) throws SQLException {
+    public YdbPreparedQuery findOrPrepareParams(YdbQuery query, YdbPrepareMode mode) throws SQLException {
         if (!query.isPlainYQL()
                 || mode == YdbPrepareMode.IN_MEMORY
                 || !queryOptions.isPrepareDataQueries()) {
-            return new InMemoryParams(query.getStatements());
+            return new InMemoryQuery(query, queryOptions.isDeclareJdbcParameters());
         }
 
-        String yql = query.withParams(null);
+        String yql = query.getPreparedYql();
         PrepareDataQuerySettings settings = withDefaultTimeout(new PrepareDataQuerySettings());
         try {
-            Map<String, Type> types = queryParamsCache.getIfPresent(query.getOriginSQL());
+            Map<String, Type> types = queryParamsCache.getIfPresent(query.getOriginQuery());
             if (types == null) {
                 types = retryCtx.supplyResult(session -> session.prepareDataQuery(yql, settings))
                         .join()
                         .getValue()
                         .types();
-                queryParamsCache.put(query.getOriginSQL(), types);
+                queryParamsCache.put(query.getOriginQuery(), types);
             }
 
             boolean requireBatch = mode == YdbPrepareMode.DATA_QUERY_BATCH;
             if (requireBatch || (mode == YdbPrepareMode.AUTO && queryOptions.isDetectBatchQueries())) {
-                BatchedParams params = BatchedParams.tryCreateBatched(types);
+                BatchedQuery params = BatchedQuery.tryCreateBatched(query, types);
                 if (params != null) {
                     return params;
                 }
 
                 if (requireBatch) {
-                    throw new SQLDataException(YdbConst.STATEMENT_IS_NOT_A_BATCH + query.getOriginSQL());
+                    throw new SQLDataException(YdbConst.STATEMENT_IS_NOT_A_BATCH + query.getOriginQuery());
                 }
             }
-            return new PreparedParams(types);
+            return new PreparedQuery(query, types);
         } catch (UnexpectedResultException ex) {
             throw ExceptionFactory.createException("Cannot prepare data query: " + ex.getMessage(), ex);
         }

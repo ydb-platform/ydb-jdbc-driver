@@ -166,7 +166,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
     }
 
     protected List<YdbResult> executeSchemeQuery(YdbQuery query) throws SQLException {
-        connection.executeSchemeQuery(query, validator);
+        connection.executeSchemeQuery(query.getPreparedYql(), validator);
 
         int expressionsCount = query.getStatements().isEmpty() ? 1 : query.getStatements().size();
         List<YdbResult> results = new ArrayList<>();
@@ -177,7 +177,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
     }
 
     protected List<YdbResult> executeExplainQuery(YdbQuery query) throws SQLException {
-        ExplainedQuery explainedQuery = connection.executeExplainQuery(query, validator);
+        ExplainedQuery explainedQuery = connection.executeExplainQuery(query.getPreparedYql(), validator);
 
         ResultSetReader result = EXPLAIN_RS_FACTORY.createResultSet()
                 .newRow()
@@ -189,14 +189,14 @@ public abstract class BaseYdbStatement implements YdbStatement {
         return Collections.singletonList(new YdbResult(new YdbResultSetImpl(this, result)));
     }
 
-    protected List<YdbResult> executeScanQuery(YdbQuery query, Params params) throws SQLException {
-        ResultSetReader result = connection.executeScanQuery(query, validator, params);
+    protected List<YdbResult> executeScanQuery(String yql, Params params) throws SQLException {
+        ResultSetReader result = connection.executeScanQuery(yql, validator, params);
         return Collections.singletonList(new YdbResult(new YdbResultSetImpl(this, result)));
     }
 
-    protected List<YdbResult> executeDataQuery(YdbQuery query, Params params) throws SQLException {
+    protected List<YdbResult> executeDataQuery(YdbQuery query, String yql, Params params) throws SQLException {
         List<ResultSetReader> resultSets = connection
-                .executeDataQuery(query, validator, getQueryTimeout(), isPoolable(), params);
+                .executeDataQuery(yql, validator, getQueryTimeout(), isPoolable(), params);
 
         List<YdbResult> results = new ArrayList<>();
         int idx = 0;

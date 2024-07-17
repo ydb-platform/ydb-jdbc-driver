@@ -15,7 +15,8 @@ import java.util.TreeSet;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
 import tech.ydb.jdbc.query.ParamDescription;
-import tech.ydb.jdbc.query.YdbPreparedParams;
+import tech.ydb.jdbc.query.YdbPreparedQuery;
+import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Type;
 import tech.ydb.table.values.Value;
@@ -24,14 +25,16 @@ import tech.ydb.table.values.Value;
  *
  * @author Aleksandr Gorshenin
  */
-public class PreparedParams implements YdbPreparedParams {
+public class PreparedQuery implements YdbPreparedQuery {
+    private final String yql;
     private final Map<String, ParamDescription> params;
     private final String[] paramNames;
 
     private final Map<String, Value<?>> paramValues = new HashMap<>();
     private final List<Params> batchList = new ArrayList<>();
 
-    public PreparedParams(Map<String, Type> types) {
+    public PreparedQuery(YdbQuery query, Map<String, Type> types) {
+        yql = query.getPreparedYql();
         params = new HashMap<>();
         paramNames = new String[types.size()];
 
@@ -67,6 +70,11 @@ public class PreparedParams implements YdbPreparedParams {
             params.put(param, paramDesc);
             paramNames[idx] = param;
         }
+    }
+
+    @Override
+    public String getQueryText(Params prms) {
+        return yql;
     }
 
     @Override

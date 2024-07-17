@@ -16,7 +16,8 @@ import java.util.TreeSet;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
 import tech.ydb.jdbc.query.ParamDescription;
-import tech.ydb.jdbc.query.YdbPreparedParams;
+import tech.ydb.jdbc.query.YdbPreparedQuery;
+import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.ListType;
 import tech.ydb.table.values.ListValue;
@@ -29,7 +30,8 @@ import tech.ydb.table.values.Value;
  *
  * @author Aleksandr Gorshenin
  */
-public class BatchedParams implements YdbPreparedParams {
+public class BatchedQuery implements YdbPreparedQuery {
+    private final String yql;
     private final String batchParamName;
     private final Map<String, ParamDescription> paramsByName;
     private final ParamDescription[] params;
@@ -37,7 +39,8 @@ public class BatchedParams implements YdbPreparedParams {
     private final List<StructValue> batchList = new ArrayList<>();
     private final Map<String, Value<?>> currentValues = new HashMap<>();
 
-    private BatchedParams(String listName, StructType structType) {
+    private BatchedQuery(String yql, String listName, StructType structType) {
+        this.yql = yql;
         this.batchParamName = listName;
         this.paramsByName = new HashMap<>();
         this.params = new ParamDescription[structType.getMembersCount()];
@@ -81,6 +84,11 @@ public class BatchedParams implements YdbPreparedParams {
             params[idx] = paramDesc;
             paramsByName.put(param, paramDesc);
         }
+    }
+
+    @Override
+    public String getQueryText(Params prms) {
+        return yql;
     }
 
     @Override
@@ -178,7 +186,7 @@ public class BatchedParams implements YdbPreparedParams {
         return params[index - 1].type();
     }
 
-    public static BatchedParams tryCreateBatched(Map<String, Type> types) {
+    public static BatchedQuery tryCreateBatched(YdbQuery query, Map<String, Type> types) {
         // Only single parameter
         if (types.size() != 1) {
             return null;
@@ -201,6 +209,6 @@ public class BatchedParams implements YdbPreparedParams {
         }
 
         StructType itemType = (StructType) innerType;
-        return new BatchedParams(listName, itemType);
+        return new BatchedQuery(query.getPreparedYql(), listName, itemType);
     }
 }

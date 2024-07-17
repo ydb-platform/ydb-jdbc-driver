@@ -2,6 +2,7 @@ package tech.ydb.jdbc.query.params;
 
 
 
+import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -13,8 +14,8 @@ import java.util.stream.Collectors;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
 import tech.ydb.jdbc.query.ParamDescription;
-import tech.ydb.jdbc.query.QueryStatement;
-import tech.ydb.jdbc.query.YdbPreparedParams;
+import tech.ydb.jdbc.query.YdbPreparedQuery;
+import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Type;
 import tech.ydb.table.values.Value;
@@ -24,22 +25,51 @@ import tech.ydb.table.values.Value;
  *
  * @author Aleksandr Gorshenin
  */
-public class InMemoryParams implements YdbPreparedParams {
+public class InMemoryQuery implements YdbPreparedQuery {
+    private final String yql;
+    private final boolean isAutoDeclare;
     private final ParamDescription[] parameters;
     private final Map<String, ParamDescription> parametersByName;
     private final Map<String, Value<?>> paramValues;
     private final List<Params> batchList;
 
-    public InMemoryParams(List<QueryStatement> statements) {
-        this.parameters = statements.stream()
+    public InMemoryQuery(YdbQuery query, boolean isAutoDeclare) {
+        this.yql = query.getPreparedYql();
+        this.isAutoDeclare = isAutoDeclare;
+        this.parameters = query.getStatements().stream()
                 .flatMap(s -> s.getParams().stream())
                 .toArray(ParamDescription[]::new);
-        this.parametersByName = statements.stream()
+        this.parametersByName = query.getStatements().stream()
                 .flatMap(s -> s.getParams().stream())
                 .collect(Collectors.toMap(ParamDescription::name, Function.identity()));
 
         this.paramValues = new HashMap<>();
         this.batchList = new ArrayList<>();
+    }
+
+    @Override
+    public String getQueryText(Params prms) throws SQLException {
+        if (!isAutoDeclare) {
+            return yql;
+        }
+
+        StringBuilder query = new StringBuilder();
+        Map<String, Value<?>> values = prms.values();
+        for (ParamDescription prm: parameters) {
+            if (!values.containsKey(prm.name())) {
+                throw new SQLDataException(YdbConst.MISSING_VALUE_FOR_PARAMETER + prm.name());
+            }
+
+            String prmType = values.get(prm.name()).getType().toString();
+            query.append("DECLARE ")
+                    .append(prm.name())
+                    .append(" AS ")
+                    .append(prmType)
+                    .append(";\n");
+        }
+
+        query.append(yql);
+        return query.toString();
     }
 
     @Override

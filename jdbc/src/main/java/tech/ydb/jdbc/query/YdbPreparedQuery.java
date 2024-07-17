@@ -14,7 +14,9 @@ import tech.ydb.table.values.Type;
  *
  * @author Aleksandr Gorshenin
  */
-public interface YdbPreparedParams {
+public interface YdbPreparedQuery {
+    String getQueryText(Params prms) throws SQLException;
+
     void clearParameters();
 
     void setParam(int index, @Nullable Object obj, @Nonnull Type type) throws SQLException;

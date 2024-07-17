@@ -39,7 +39,7 @@ public class YdbStatementImpl extends BaseYdbStatement {
         clearBatch();
 
         YdbQuery query = getConnection().getCtx().parseYdbQuery(sql);
-        List<YdbResult> results = executeScanQuery(query, Params.empty());
+        List<YdbResult> results = executeScanQuery(query.getPreparedYql(), Params.empty());
         if (!updateState(results)) {
             throw new SQLException(YdbConst.QUERY_EXPECT_RESULT_SET);
         }
@@ -86,10 +86,10 @@ public class YdbStatementImpl extends BaseYdbStatement {
                 newState = executeSchemeQuery(query);
                 break;
             case DATA_QUERY:
-                newState = executeDataQuery(query, Params.empty());
+                newState = executeDataQuery(query, query.getPreparedYql(), Params.empty());
                 break;
             case SCAN_QUERY:
-                newState = executeScanQuery(query, Params.empty());
+                newState = executeScanQuery(query.getPreparedYql(), Params.empty());
                 break;
             case EXPLAIN_QUERY:
                 newState = executeExplainQuery(query);
