@@ -60,14 +60,6 @@ public class YqlBatcher {
                 && !columns.isEmpty() && columns.size() == values.size();
     }
 
-    public void clear() {
-        this.state = State.INIT;
-        this.cmd = null;
-        this.tableName = null;
-        this.columns.clear();
-        this.values.clear();
-    }
-
     public void readInsert() {
         if (state == State.INIT) {
             state = State.CMD;

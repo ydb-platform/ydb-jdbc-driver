@@ -24,6 +24,7 @@ public class YdbQueryParserTest {
         "'exPlain\nupsert to', '\nupsert to'",
         "'  Explain select * from table', '   select * from table'",
         "'\texPlain\nupsert to', '\t\nupsert to'",
+        "'EXPLAIN/*comment*/UPSERT INTO', '/*comment*/UPSERT INTO'",
         "'EXPLAIN',''",
     })
     public void explainQueryTest(String sql, String prepared) throws SQLException {
@@ -40,6 +41,7 @@ public class YdbQueryParserTest {
     @ParameterizedTest(name = "[{index}] {0} is scheme query")
     @ValueSource(strings = {
         "  Alter table set;",
+        "Alter--comment\ntable set;",
         "drOp table 'test'",
         "-- comment \nCreate;",
     })
@@ -168,7 +170,7 @@ public class YdbQueryParserTest {
         "Upsert into table_name(c1, c2, c3) values (?, ? , ?)",
         "\n  upsert into `table_name`  (\t`c1`, c2, c3)values(?, ? , ?)",
         "/* comment */ Upsert into `table_name`  (`c1`, /* commect */ c2, c3)values(?, ? , ?);\n-- post comment",
-        ";;Upsert into table_name (`c1`, /* comment */ c2, c3 )   values(?, ? , ?);",
+        ";;Upsert/* comment */into table_name (`c1`, /* comment */ c2, c3 )   values(?, ? , ?);",
     })
     public void validBatchedUpsertTest(String sql) throws SQLException {
         YdbQueryParser parser = new YdbQueryParser(true, true);

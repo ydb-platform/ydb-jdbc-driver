@@ -57,11 +57,7 @@ public class YdbQueryParser {
 
     @SuppressWarnings("MethodLength")
     public String parseSQL(String origin) throws SQLException {
-        this.statements.clear();
-        this.batcher.clear();
-
         int fragmentStart = 0;
-
         boolean detectJdbcArgs = false;
 
         QueryStatement currStatement = null;
@@ -78,6 +74,7 @@ public class YdbQueryParser {
         for (int i = 0; i < chars.length; ++i) {
             char ch = chars[i];
             boolean isInsideKeyword = false;
+            int keywordEnd = i; // parseSingleQuotes, parseDoubleQuotes, etc move index so we keep old value
             switch (ch) {
                 case '\'': // single-quotes
                     int singleQuitesEnd = parseSingleQuotes(chars, i);
@@ -140,7 +137,7 @@ public class YdbQueryParser {
 
             if (keywordStart >= 0 && (!isInsideKeyword || (i == chars.length - 1))) {
                 lastKeywordIsOffsetLimit = false;
-                int keywordLength = isInsideKeyword ? i - keywordStart - 1 : i - keywordStart;
+                int keywordLength = (isInsideKeyword ? i + 1 : keywordEnd) - keywordStart;
 
                 if (currStatement != null) {
                     batcher.readIdentifier(chars, keywordStart, keywordLength);
@@ -192,14 +189,14 @@ public class YdbQueryParser {
                             currStatement = new QueryStatement(QueryType.SCAN_QUERY, QueryCmd.SELECT);
                             // Skip SCAN prefix
                             parsed.append(chars, fragmentStart, keywordStart - fragmentStart);
-                            fragmentStart = isInsideKeyword ? i + 1 : i;
+                            fragmentStart = isInsideKeyword ? keywordEnd + 1 : keywordEnd;
                         }
                         // Detect explain expression - starts with EXPLAIN
                         if (parseExplainKeyword(chars, keywordStart)) {
                             currStatement = new QueryStatement(QueryType.EXPLAIN_QUERY, QueryCmd.SELECT);
                             // Skip EXPLAIN prefix
                             parsed.append(chars, fragmentStart, keywordStart - fragmentStart);
-                            fragmentStart = isInsideKeyword ? i + 1 : i;
+                            fragmentStart = isInsideKeyword ? keywordEnd + 1 : keywordEnd;
                         }
                     }
 
@@ -334,12 +331,8 @@ public class YdbQueryParser {
         return offset;
     }
 
-    private static boolean isSpace(char c) {
-        return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f';
-    }
-
     private static boolean parseAlterKeyword(char[] query, int offset) {
-        if (query.length < (offset + 6)) {
+        if (query.length < (offset + 5)) {
             return false;
         }
 
@@ -347,8 +340,7 @@ public class YdbQueryParser {
                 && (query[offset + 1] | 32) == 'l'
                 && (query[offset + 2] | 32) == 't'
                 && (query[offset + 3] | 32) == 'e'
-                && (query[offset + 4] | 32) == 'r'
-                && isSpace(query[offset + 5]);
+                && (query[offset + 4] | 32) == 'r';
     }
 
     private static boolean parseCreateKeyword(char[] query, int offset) {
