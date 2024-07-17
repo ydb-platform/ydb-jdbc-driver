@@ -8,10 +8,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
+import tech.ydb.core.Result;
 import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
@@ -34,8 +36,11 @@ import tech.ydb.query.impl.QueryClientImpl;
 import tech.ydb.scheme.SchemeClient;
 import tech.ydb.table.SessionRetryContext;
 import tech.ydb.table.TableClient;
+import tech.ydb.table.description.TableColumn;
+import tech.ydb.table.description.TableDescription;
 import tech.ydb.table.impl.PooledTableClient;
 import tech.ydb.table.rpc.grpc.GrpcTableRpc;
+import tech.ydb.table.settings.DescribeTableSettings;
 import tech.ydb.table.settings.PrepareDataQuerySettings;
 import tech.ydb.table.settings.RequestSettings;
 import tech.ydb.table.values.Type;
@@ -271,17 +276,44 @@ public class YdbContext implements AutoCloseable {
     }
 
     public YdbPreparedQuery findOrPrepareParams(YdbQuery query, YdbPrepareMode mode) throws SQLException {
+        if (query.getYqlBatcher() != null && mode == YdbPrepareMode.AUTO) {
+            Map<String, Type> types = queryParamsCache.getIfPresent(query.getOriginQuery());
+            if (types == null) {
+                String tableName = query.getYqlBatcher().getTableName();
+                String tablePath = tableName.startsWith("/") ? tableName : getDatabase() + "/" + tableName;
+
+                DescribeTableSettings settings = withDefaultTimeout(new DescribeTableSettings());
+                Result<TableDescription> result = retryCtx.supplyResult(
+                        session -> session.describeTable(tablePath, settings)
+                ).join();
+
+                if (result.isSuccess()) {
+                    TableDescription d = result.getValue();
+                    types = result.getValue().getColumns().stream()
+                            .collect(Collectors.toMap(TableColumn::getName, TableColumn::getType));
+                    queryParamsCache.put(query.getOriginQuery(), types);
+                }
+            }
+            if (types != null) {
+                BatchedQuery params = BatchedQuery.createAutoBatched(query.getYqlBatcher(), types);
+                if (params != null) {
+                    return params;
+                }
+            }
+        }
+
         if (!query.isPlainYQL()
                 || mode == YdbPrepareMode.IN_MEMORY
                 || !queryOptions.isPrepareDataQueries()) {
             return new InMemoryQuery(query, queryOptions.isDeclareJdbcParameters());
         }
 
-        String yql = query.getPreparedYql();
-        PrepareDataQuerySettings settings = withDefaultTimeout(new PrepareDataQuerySettings());
+        // try to prepare data query
         try {
             Map<String, Type> types = queryParamsCache.getIfPresent(query.getOriginQuery());
             if (types == null) {
+                String yql = query.getPreparedYql();
+                PrepareDataQuerySettings settings = withDefaultTimeout(new PrepareDataQuerySettings());
                 types = retryCtx.supplyResult(session -> session.prepareDataQuery(yql, settings))
                         .join()
                         .getValue()

@@ -18,6 +18,7 @@ import tech.ydb.jdbc.common.TypeDescription;
 import tech.ydb.jdbc.query.ParamDescription;
 import tech.ydb.jdbc.query.YdbPreparedQuery;
 import tech.ydb.jdbc.query.YdbQuery;
+import tech.ydb.jdbc.query.YqlBatcher;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.ListType;
 import tech.ydb.table.values.ListValue;
@@ -210,5 +211,48 @@ public class BatchedQuery implements YdbPreparedQuery {
 
         StructType itemType = (StructType) innerType;
         return new BatchedQuery(query.getPreparedYql(), listName, itemType);
+    }
+
+    public static BatchedQuery createAutoBatched(YqlBatcher batcher, Map<String, Type> tableColumns) {
+        StringBuilder sb = new StringBuilder();
+        Map<String, Type> structTypes = new HashMap<>();
+
+        sb.append("DECLARE $batch AS List<Struct<");
+        int idx = 1;
+        for (String column: batcher.getColumns()) {
+            Type type = tableColumns.get(column);
+            if (type == null) {
+                return null;
+            }
+            if (idx > 1) {
+                sb.append(", ");
+            }
+            sb.append("p").append(idx).append(":").append(type.toString());
+            structTypes.put("p" + idx, type);
+            idx++;
+        }
+        sb.append(">>;\n");
+
+        if (batcher.isInsert()) {
+            sb.append("INSERT ");
+        }
+        if (batcher.isUpsert()) {
+            sb.append("UPSERT ");
+        }
+
+        sb.append("INTO `").append(batcher.getTableName()).append("` SELECT ");
+
+        idx = 1;
+        for (String column: batcher.getColumns()) {
+            if (idx > 1) {
+                sb.append(", ");
+            }
+            sb.append("p").append(idx).append(" AS `").append(column).append("`");
+            idx++;
+        }
+
+        sb.append(" FROM AS_TABLE($batch);");
+
+        return new BatchedQuery(sb.toString(), "$batch", StructType.of(structTypes));
     }
 }

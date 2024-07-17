@@ -15,15 +15,21 @@ public class YdbQuery {
     private final String originQuery;
     private final String preparedYQL;
     private final List<QueryStatement> statements;
+    private final YqlBatcher batch;
 
     private final QueryType type;
     private final boolean isPlainYQL;
 
     YdbQuery(String originQuery, String preparedYQL, List<QueryStatement> stats, QueryType type) {
+        this(originQuery, preparedYQL, stats, null, type);
+    }
+
+    YdbQuery(String originQuery, String preparedYQL, List<QueryStatement> stats, YqlBatcher batch, QueryType type) {
         this.originQuery = originQuery;
         this.preparedYQL = preparedYQL;
         this.statements = stats;
         this.type = type;
+        this.batch = batch;
 
         boolean hasJdbcParamters = false;
         for (QueryStatement st: statements) {
@@ -34,6 +40,10 @@ public class YdbQuery {
 
     public QueryType getType() {
         return type;
+    }
+
+    public YqlBatcher getYqlBatcher() {
+        return batch;
     }
 
     public boolean isPlainYQL() {
@@ -52,43 +62,6 @@ public class YdbQuery {
         return statements;
     }
 
-//    public String withParams(Params params) throws SQLException {
-//        if (isPlainYQL) {
-//            return preparedYQL;
-//        }
-//
-//        if (params == null) {
-//            if (isAutoDeclare) {
-//                int paramCount = statements.stream().mapToInt(st -> st.getParams().size()).sum();
-//                // Comment in place where must be declare section
-//                return "-- DECLARE " + paramCount + " PARAMETERS\n" + preparedYQL;
-//            }
-//            return preparedYQL;
-//        }
-//
-//        StringBuilder yql = new StringBuilder();
-//        Map<String, Value<?>> values = params.values();
-//        for (QueryStatement st: statements) {
-//            for (ParamDescription prm: st.getParams()) {
-//                if (!values.containsKey(prm.name())) {
-//                    throw new SQLDataException(YdbConst.MISSING_VALUE_FOR_PARAMETER + prm);
-//                }
-//
-//                if (isAutoDeclare) {
-//                    String prmType = values.get(prm.name()).getType().toString();
-//                    yql.append("DECLARE ")
-//                            .append(prm.name())
-//                            .append(" AS ")
-//                            .append(prmType)
-//                            .append(";\n");
-//                }
-//            }
-//        }
-//
-//        yql.append(preparedYQL);
-//        return yql.toString();
-//    }
-
     public static YdbQuery parseQuery(String query, YdbQueryProperties opts) throws SQLException {
         YdbQueryParser parser = new YdbQueryParser(opts.isDetectQueryType(), opts.isDetectJdbcParameters());
         String preparedYQL = parser.parseSQL(query);
@@ -97,7 +70,9 @@ public class YdbQuery {
         if (type == null) {
             type = parser.detectQueryType();
         }
-
+        if (parser.getYqlBatcher().isValidBatch()) {
+            return new YdbQuery(query, preparedYQL, parser.getStatements(), parser.getYqlBatcher(), type);
+        }
         return new YdbQuery(query, preparedYQL, parser.getStatements(), type);
     }
 }
