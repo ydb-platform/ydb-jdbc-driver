@@ -199,6 +199,8 @@ public class YdbQueryParserTest {
         "upsert into table_name (c1, c2, c3) (?, ?, ?)",
         "upsert into table_name (c1, c2, c3) values (?, ?)",
         "upsert into table_name (c1, c2, c3) values (?, ?, 123)",
+        "upsert into table_name (c1, c2, c3) values (?, ?, ?) returning c1, c2, c3;",
+        "upsert into table_name (c1, c2, c3) values (?, ?, ?); select 1;",
     })
     public void invalidBatchedTest(String sql) throws SQLException {
         YdbQueryParser parser = new YdbQueryParser(true, true);

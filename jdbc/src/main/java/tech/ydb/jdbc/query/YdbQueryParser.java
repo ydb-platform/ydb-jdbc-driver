@@ -157,6 +157,7 @@ public class YdbQueryParser {
                     // starts with SELECT
                     if (parseSelectKeyword(chars, keywordStart)) {
                         currStatement = new QueryStatement(QueryType.DATA_QUERY, QueryCmd.SELECT);
+                        batcher.readIdentifier(chars, keywordStart, keywordLength);
                     }
 
                     // starts with INSERT, UPSERT
@@ -174,6 +175,7 @@ public class YdbQueryParser {
                             || parseDeleteKeyword(chars, keywordStart)
                             || parseReplaceKeyword(chars, keywordStart)) {
                         currStatement = new QueryStatement(QueryType.DATA_QUERY, QueryCmd.UPDATE_REPLACE_DELETE);
+                        batcher.readIdentifier(chars, keywordStart, keywordLength);
                     }
 
                     // Detect scheme expression - starts with ALTER, DROP, CREATE
@@ -181,6 +183,7 @@ public class YdbQueryParser {
                             || parseCreateKeyword(chars, keywordStart)
                             || parseDropKeyword(chars, keywordStart)) {
                         currStatement = new QueryStatement(QueryType.SCHEME_QUERY, QueryCmd.CREATE_ALTER_DROP);
+                        batcher.readIdentifier(chars, keywordStart, keywordLength);
                     }
 
                     if (isDetectQueryType) {
