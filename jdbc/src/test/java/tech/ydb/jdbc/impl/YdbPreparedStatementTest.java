@@ -9,9 +9,13 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Month;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import java.util.TimeZone;
 
 import org.junit.Assert;
 import org.junit.jupiter.api.AfterAll;
@@ -46,6 +50,12 @@ public class YdbPreparedStatementTest {
     // remove time part from instant in UTC
     private static Instant calcStartDayUTC(Instant instant) {
         return instant.atOffset(ZoneOffset.UTC).toLocalDate().atStartOfDay().toInstant(ZoneOffset.UTC);
+    }
+
+    @BeforeAll
+    public static void setupTimeZone() throws SQLException {
+        // Set non UTC timezone to test different cases
+        TimeZone.setDefault(TimeZone.getTimeZone(ZoneId.of("UTC+0600")));
     }
 
     @BeforeAll
@@ -338,4 +348,111 @@ public class YdbPreparedStatementTest {
             }
         }
     };
+
+    private void assertTimestamp(ResultSet rs, LocalDate ld, LocalDateTime ldt, Instant instant) throws SQLException {
+        // TODO: NOT SUPPORTED YET
+//        Assert.assertEquals(ld, rs.getObject("c_Timestamp", LocalDate.class));
+//        Assert.assertEquals(ldt, rs.getObject("c_Timestamp", LocalDateTime.class));
+        Object obj = rs.getObject("c_Timestamp");
+        Assert.assertTrue(obj instanceof Instant);
+        Assert.assertEquals(instant, obj);
+
+        Assert.assertEquals(new Date(instant.toEpochMilli()), rs.getDate("c_Timestamp"));
+        Assert.assertEquals(new Timestamp(instant.toEpochMilli()), rs.getTimestamp("c_Timestamp"));
+        Assert.assertEquals(instant.toEpochMilli(), rs.getLong("c_Timestamp"));
+        Assert.assertEquals(instant.toString(), rs.getString("c_Timestamp"));
+    }
+
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(SqlQueries.JdbcQuery.class)
+    public void timestampTest(SqlQueries.JdbcQuery query) throws SQLException {
+        String upsert = TEST_TABLE.upsertOne(query, "c_Timestamp", "Timestamp");
+
+        try (PreparedStatement statement = jdbc.connection().prepareStatement(upsert)) {
+            statement.setInt(1, 1);
+            statement.setObject(2, LocalDate.of(2023, Month.MARCH, 3));
+            statement.execute();
+
+            statement.setInt(1, 2);
+            statement.setObject(2, LocalDateTime.of(2023, Month.MARCH, 3, 14, 56, 59, 123456789));
+            statement.execute();
+
+            statement.setInt(1, 3);
+            statement.setDate(2, new Date(INSTANT.toEpochMilli()));
+            statement.execute();
+
+            statement.setInt(1, 4);
+            statement.setTimestamp(2, new Timestamp(INSTANT.toEpochMilli()));
+            statement.execute();
+
+            statement.setInt(1, 5);
+            statement.setLong(2, 1585932011123l);
+            statement.execute();
+
+            statement.setInt(1, 6);
+            statement.setString(2, "2011-12-03T10:15:30.456789123Z");
+            statement.execute();
+        }
+
+        try (Statement statement = jdbc.connection().createStatement()) {
+            try (ResultSet rs = statement.executeQuery(TEST_TABLE.selectColumn("c_Timestamp"))) {
+                Assert.assertTrue(rs.next());
+                Assert.assertEquals(1, rs.getInt("key"));
+                // LocalDate.of(2023, Month.MARCH, 3) UTC == 1677801600000l;
+                assertTimestamp(rs,
+                        LocalDate.of(2023, Month.MARCH, 3),
+                        LocalDateTime.of(2023, Month.MARCH, 3, 0, 0, 0),
+                        Instant.ofEpochSecond(1677801600l, 0)
+                );
+
+                Assert.assertTrue(rs.next());
+                Assert.assertEquals(2, rs.getInt("key"));
+                // LocalDateTime.of(2023, Month.MARCH, 3, 14, 56, 59, 123456789) UTC == 1677855419123l;
+                assertTimestamp(rs,
+                        LocalDate.of(2023, Month.MARCH, 3),
+                        LocalDateTime.of(2023, Month.MARCH, 3, 14, 56, 59, 123456000), // Timestamp supports only micros
+                        Instant.ofEpochSecond(1677855419l, 123456000)
+                );
+
+                Assert.assertTrue(rs.next());
+                Assert.assertEquals(3, rs.getInt("key"));
+                //  Instant.ofEpochMilli(1585932011123l) == Friday, April 3, 2020 4:40:11.123 UTC
+                assertTimestamp(rs,
+                        LocalDate.of(2022, Month.APRIL, 3),
+                        LocalDateTime.of(2022, Month.APRIL, 3, 4, 40, 11, 123000000), // Timestamp supports only micros
+                        Instant.ofEpochSecond(1585932011l, 123000000)
+                );
+
+                Assert.assertTrue(rs.next());
+                Assert.assertEquals(4, rs.getInt("key"));
+                //  Instant.ofEpochMilli(1585932011123l) == Friday, April 3, 2020 4:40:11.123 UTC
+                assertTimestamp(rs,
+                        LocalDate.of(2022, Month.APRIL, 3),
+                        LocalDateTime.of(2022, Month.APRIL, 3, 4, 40, 11, 123000000), // Timestamp supports only micros
+                        Instant.ofEpochSecond(1585932011l, 123000000)
+                );
+
+                Assert.assertTrue(rs.next());
+                Assert.assertEquals(5, rs.getInt("key"));
+                //  Instant.ofEpochMilli(1585932011123l) == Friday, April 3, 2020 4:40:11.123 UTC
+                assertTimestamp(rs,
+                        LocalDate.of(2022, Month.APRIL, 3),
+                        LocalDateTime.of(2022, Month.APRIL, 3, 4, 40, 11, 123000000), // Timestamp supports only micros
+                        Instant.ofEpochSecond(1585932011l, 123000000)
+                );
+
+                Assert.assertTrue(rs.next());
+                Assert.assertEquals(6, rs.getInt("key"));
+                // 2011-12-03T10:15:30.456789123Z
+                assertTimestamp(rs,
+                        LocalDate.of(2011, Month.DECEMBER, 3),
+                        LocalDateTime.of(2011, Month.DECEMBER, 3, 10, 15, 30, 456789000), // Timestamp supports only micros
+                        Instant.ofEpochSecond(1322907330l, 456789000)
+                );
+
+                Assert.assertFalse(rs.next());
+            }
+        }
+    };
+
 }

@@ -11,6 +11,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
@@ -410,6 +411,10 @@ public class MappingSetters {
             return PrimitiveValue.newTimestamp(TimeUnit.MILLISECONDS.toMicros((Long) x));
         } else if (x instanceof Date) {
             return PrimitiveValue.newTimestamp(TimeUnit.MILLISECONDS.toMicros(((Date) x).getTime()));
+        } else if (x instanceof LocalDate) {
+            return PrimitiveValue.newTimestamp(((LocalDate) x).toEpochDay() * 24 * 60 * 60 * 1000000);
+        } else if (x instanceof LocalDateTime) {
+            return PrimitiveValue.newTimestamp(((LocalDateTime) x).toInstant(ZoneOffset.UTC));
         } else if (x instanceof Timestamp) {
             return PrimitiveValue.newTimestamp(TimeUnit.MILLISECONDS.toMicros(((Timestamp) x).getTime()));
         } else if (x instanceof String) {
