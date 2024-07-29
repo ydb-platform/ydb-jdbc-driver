@@ -120,12 +120,8 @@ public class YdbPreparedStatementTest {
     }
 
     @ParameterizedTest(name = "with {0}")
-    @EnumSource(SqlQueries.JdbcQuery.class)
+    @EnumSource(value=SqlQueries.JdbcQuery.class, names = { "BATCHED", "TYPED" })
     public void executeWithMissingParameter(SqlQueries.JdbcQuery query) throws SQLException {
-        if (query == SqlQueries.JdbcQuery.STANDART) {
-            // TODO: auto batching don't check missing parameter
-            return;
-        }
         String sql = TEST_TABLE.upsertOne(query, "c_Text", "Text");
 
         try (PreparedStatement statement = jdbc.connection().prepareStatement(sql)) {
@@ -135,13 +131,8 @@ public class YdbPreparedStatementTest {
     }
 
     @ParameterizedTest(name = "with {0}")
-    @EnumSource(value=SqlQueries.JdbcQuery.class)
+    @EnumSource(value=SqlQueries.JdbcQuery.class, names = { "BATCHED", "TYPED" })
     public void executeWithWrongType(SqlQueries.JdbcQuery query) throws SQLException {
-        if (query == SqlQueries.JdbcQuery.STANDART) {
-            // Standart mode doesn't support type checking
-            return;
-        }
-
         String sql = TEST_TABLE.upsertOne(query, "c_Text", "Text"); // Must be Optional<Text>
 
         try (PreparedStatement statement = jdbc.connection().prepareStatement(sql)) {
@@ -454,5 +445,4 @@ public class YdbPreparedStatementTest {
             }
         }
     };
-
 }

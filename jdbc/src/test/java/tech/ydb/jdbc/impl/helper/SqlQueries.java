@@ -13,6 +13,7 @@ import tech.ydb.jdbc.settings.YdbLookup;
 public class SqlQueries {
     public enum JdbcQuery {
         STANDART,
+        IN_MEMORY,
         TYPED,
         BATCHED,
     }
@@ -43,6 +44,9 @@ public class SqlQueries {
     private static final Map<JdbcQuery, String> JDBC_UPSERT_ONE = ImmutableMap.of(
             JdbcQuery.STANDART, "" +
                     "upsert into #tableName (key, #column) values (?, ?)",
+
+            JdbcQuery.IN_MEMORY, "" +
+                    "upsert into #tableName (key, #column) values (?, ?); select 1;",
 
             JdbcQuery.TYPED, "" +
                     "declare $p1 as Int32;\n" +
