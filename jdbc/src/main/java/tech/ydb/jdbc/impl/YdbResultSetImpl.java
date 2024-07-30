@@ -463,8 +463,13 @@ public class YdbResultSetImpl implements YdbResultSet {
         if (instant == null) {
             return null;
         }
-        final TimeZone tz = cal != null ? cal.getTimeZone() : Calendar.getInstance().getTimeZone();
-        return Date.valueOf(instant.atZone(tz.toZoneId()).toLocalDate());
+
+        if (state.description.isTimestamp()) {
+            final TimeZone tz = cal != null ? cal.getTimeZone() : Calendar.getInstance().getTimeZone();
+            return Date.valueOf(instant.atZone(tz.toZoneId()).toLocalDate());
+        }
+
+        return Date.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalDate());
     }
 
     @Override
@@ -478,8 +483,13 @@ public class YdbResultSetImpl implements YdbResultSet {
         if (instant == null) {
             return null;
         }
-        final TimeZone tz = cal != null ? cal.getTimeZone() : Calendar.getInstance().getTimeZone();
-        return Time.valueOf(instant.atZone(tz.toZoneId()).toLocalTime());
+
+        if (state.description.isTimestamp()) {
+            final TimeZone tz = cal != null ? cal.getTimeZone() : Calendar.getInstance().getTimeZone();
+            return Time.valueOf(instant.atZone(tz.toZoneId()).toLocalTime());
+        }
+
+        return Time.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalTime());
     }
 
     @Override
@@ -493,8 +503,13 @@ public class YdbResultSetImpl implements YdbResultSet {
         if (instant == null) {
             return null;
         }
-        final TimeZone tz = cal != null ? cal.getTimeZone() : Calendar.getInstance().getTimeZone();
-        return Timestamp.valueOf(instant.atZone(tz.toZoneId()).toLocalDateTime());
+
+        if (state.description.isTimestamp()) {
+            final TimeZone tz = cal != null ? cal.getTimeZone() : Calendar.getInstance().getTimeZone();
+            return Timestamp.valueOf(instant.atZone(tz.toZoneId()).toLocalDateTime());
+        }
+
+        return Timestamp.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalDateTime());
     }
 
     @Override
