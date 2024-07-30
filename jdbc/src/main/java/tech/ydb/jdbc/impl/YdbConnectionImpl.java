@@ -27,7 +27,6 @@ import tech.ydb.jdbc.YdbDatabaseMetaData;
 import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.YdbStatement;
-import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbExecutor;
 import tech.ydb.jdbc.context.YdbValidator;
@@ -354,11 +353,6 @@ public class YdbConnectionImpl implements YdbConnection {
     public int getNetworkTimeout() throws SQLException {
         executor.ensureOpened();
         return (int) ctx.getOperationProperties().getDeadlineTimeout().toMillis();
-    }
-
-    @Override
-    public YdbTypes getYdbTypes() {
-        return YdbTypesImpl.getInstance();
     }
 
     @Override

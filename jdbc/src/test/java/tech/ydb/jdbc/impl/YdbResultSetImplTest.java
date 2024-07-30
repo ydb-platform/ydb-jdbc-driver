@@ -43,7 +43,6 @@ import org.junit.jupiter.api.function.Executable;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbResultSetMetaData;
 import tech.ydb.jdbc.YdbStatement;
-import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.SqlQueries;
@@ -52,6 +51,7 @@ import tech.ydb.jdbc.impl.types.NClobImpl;
 import tech.ydb.jdbc.impl.types.RefImpl;
 import tech.ydb.jdbc.impl.types.RowIdImpl;
 import tech.ydb.jdbc.impl.types.SQLXMLImpl;
+import tech.ydb.table.values.DecimalType;
 import tech.ydb.table.values.PrimitiveValue;
 import tech.ydb.table.values.Value;
 import tech.ydb.test.junit5.YdbHelperExtension;
@@ -1709,7 +1709,7 @@ public class YdbResultSetImplTest {
                 .typedValue(19, "c_Datetime", LocalDateTime.ofEpochSecond(311111156, 0, ZoneOffset.UTC))
                 .typedValue(20, "c_Timestamp", Instant.ofEpochSecond(311111, 223342000))
                 .typedValue(21, "c_Interval", Duration.parse("PT3.111113S"))
-                .typedValue(22, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("3.335000000"));
+                .typedValue(22, "c_Decimal", DecimalType.getDefault().newValue("3.335000000"));
 
         checker.nextRow()
                 .typedValue(1, "key", 2)
@@ -1733,7 +1733,7 @@ public class YdbResultSetImplTest {
                 .typedValue(19, "c_Datetime", LocalDateTime.ofEpochSecond(211211100, 0, ZoneOffset.UTC))
                 .typedValue(20, "c_Timestamp", Instant.ofEpochSecond(111111, 223342000))
                 .typedValue(21, "c_Interval", Duration.parse("PT3.112113S"))
-                .typedValue(22, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("-3.335000000"));
+                .typedValue(22, "c_Decimal", DecimalType.getDefault().newValue("-3.335000000"));
 
         checker.nextRow()
                 .typedValue(1, "key", 3)
@@ -1757,7 +1757,7 @@ public class YdbResultSetImplTest {
                 .typedValue(19, "c_Datetime", LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC))
                 .typedValue(20, "c_Timestamp", Instant.ofEpochSecond(0, 0))
                 .typedValue(21, "c_Interval", Duration.parse("PT0.000000S"))
-                .typedValue(22, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("0.00000000"));
+                .typedValue(22, "c_Decimal", DecimalType.getDefault().newValue("0.00000000"));
 
         checker.nextRow()
                 .typedValue(1, "key", 4)
@@ -1781,7 +1781,7 @@ public class YdbResultSetImplTest {
                 .typedValue(19, "c_Datetime", LocalDateTime.ofEpochSecond(1, 0, ZoneOffset.UTC))
                 .typedValue(20, "c_Timestamp", Instant.ofEpochSecond(0, 1000))
                 .typedValue(21, "c_Interval", Duration.parse("PT0.000001S"))
-                .typedValue(22, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("1.00000000"));
+                .typedValue(22, "c_Decimal", DecimalType.getDefault().newValue("1.00000000"));
 
         checker.nextRow()
                 .value(1, "key", 5)
@@ -2030,7 +2030,7 @@ public class YdbResultSetImplTest {
                 .typedValue(19, "c_Datetime", PrimitiveValue.newDatetime(Instant.ofEpochSecond(311111156)))
                 .typedValue(20, "c_Timestamp", PrimitiveValue.newTimestamp(Instant.ofEpochSecond(311111, 223342000)))
                 .typedValue(21, "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT3.111113S")))
-                .typedValue(22, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("3.335000000"));
+                .typedValue(22, "c_Decimal", DecimalType.getDefault().newValue("3.335000000"));
 
         checker.nextRow()
                 .typedValue(1, "key", PrimitiveValue.newInt32(2))
@@ -2054,7 +2054,7 @@ public class YdbResultSetImplTest {
                 .typedValue(19, "c_Datetime", PrimitiveValue.newDatetime(Instant.ofEpochSecond(211211100)))
                 .typedValue(20, "c_Timestamp", PrimitiveValue.newTimestamp(Instant.ofEpochSecond(111111, 223342000)))
                 .typedValue(21, "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT3.112113S")))
-                .typedValue(22, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("-3.335000000"));
+                .typedValue(22, "c_Decimal", DecimalType.getDefault().newValue("-3.335000000"));
 
         checker.nextRow()
                 .typedValue(1, "key", PrimitiveValue.newInt32(3))
@@ -2078,7 +2078,7 @@ public class YdbResultSetImplTest {
                 .typedValue(19, "c_Datetime", PrimitiveValue.newDatetime(Instant.parse("1970-01-01T00:00:00Z")))
                 .typedValue(20, "c_Timestamp", PrimitiveValue.newTimestamp(Instant.ofEpochMilli(0)))
                 .typedValue(21, "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT0S")))
-                .typedValue(22, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue(0));
+                .typedValue(22, "c_Decimal", DecimalType.getDefault().newValue(0));
 
         checker.nextRow()
                 .typedValue(1, "key", PrimitiveValue.newInt32(4))
@@ -2102,7 +2102,7 @@ public class YdbResultSetImplTest {
                 .typedValue(19, "c_Datetime", PrimitiveValue.newDatetime(Instant.parse("1970-01-01T00:00:01Z")))
                 .typedValue(20, "c_Timestamp", PrimitiveValue.newTimestamp(1))
                 .typedValue(21, "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT0.000001S")))
-                .typedValue(22, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("1.000000000"));
+                .typedValue(22, "c_Decimal", DecimalType.getDefault().newValue("1.000000000"));
 
         checker.nextRow()
                 .value(1, "key", PrimitiveValue.newInt32(5))

@@ -152,7 +152,7 @@ public class BatchedQuery implements YdbPreparedQuery {
     }
 
     @Override
-    public void setParam(int index, Object obj, Type type) throws SQLException {
+    public void setParam(int index, Object obj, int sqlType) throws SQLException {
         if (index <= 0 || index > params.length) {
             throw new SQLException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + index);
         }
@@ -162,7 +162,7 @@ public class BatchedQuery implements YdbPreparedQuery {
     }
 
     @Override
-    public void setParam(String name, Object obj, Type type) throws SQLException {
+    public void setParam(String name, Object obj, int sqlType) throws SQLException {
         if (!paramsByName.containsKey(name)) {
             throw new SQLException(YdbConst.PARAMETER_NOT_FOUND + name);
         }

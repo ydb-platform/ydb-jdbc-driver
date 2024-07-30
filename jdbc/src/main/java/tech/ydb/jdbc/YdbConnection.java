@@ -13,14 +13,6 @@ import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
 
 public interface YdbConnection extends Connection {
-
-    /**
-     * Returns class with some type conversion capabilities
-     *
-     * @return ydb types converter
-     */
-    YdbTypes getYdbTypes();
-
     /**
      * Return current YDB transaction, if exists
      *
