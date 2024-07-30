@@ -1960,10 +1960,10 @@ public class YdbResultSetImplTest {
     @Test
     public void unsupportedGetters() {
         // getObject with type
-        ExceptionAssert.sqlFeatureNotSupported("Object with type conversion is not supported yet",
-                () -> resultSet.getObject(1, Integer.class));
-        ExceptionAssert.sqlFeatureNotSupported("Object with type conversion is not supported yet",
-                () -> resultSet.getObject("Column", Integer.class));
+//        ExceptionAssert.sqlFeatureNotSupported("Object with type conversion is not supported yet",
+//                () -> resultSet.getObject(1, Integer.class));
+//        ExceptionAssert.sqlFeatureNotSupported("Object with type conversion is not supported yet",
+//                () -> resultSet.getObject("Column", Integer.class));
 
         // getObject with type map
         ExceptionAssert.sqlFeatureNotSupported("Object with type conversion is not supported yet",
@@ -2151,7 +2151,7 @@ public class YdbResultSetImplTest {
         private final IndexFunctor<T> indexFunctor;
         private final StringFunctor<T> nameFunctor;
 
-        public ResultSetChecker(ResultSet rs, IndexFunctor<T>  indexFunctor, StringFunctor<T> nameFunctor) {
+        public ResultSetChecker(ResultSet rs, IndexFunctor<T> indexFunctor, StringFunctor<T> nameFunctor) {
             this.rs = rs;
             this.indexFunctor = indexFunctor;
             this.nameFunctor = nameFunctor;

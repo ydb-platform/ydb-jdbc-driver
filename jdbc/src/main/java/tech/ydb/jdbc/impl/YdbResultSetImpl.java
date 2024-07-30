@@ -1180,12 +1180,13 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public <T> T getObject(int columnIndex, Class<T> type) throws SQLException {
-        throw new SQLFeatureNotSupportedException(YdbConst.OBJECT_TYPED_UNSUPPORTED);
+        initValueReader(columnIndex);
+        return state.description.getters().readClass(state.value, type);
     }
 
     @Override
     public <T> T getObject(String columnLabel, Class<T> type) throws SQLException {
-        throw new SQLFeatureNotSupportedException(YdbConst.OBJECT_TYPED_UNSUPPORTED);
+        return getObject(findColumn(columnLabel), type);
     }
 
     @Override

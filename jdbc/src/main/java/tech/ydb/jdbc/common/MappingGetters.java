@@ -11,13 +11,18 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import tech.ydb.jdbc.YdbConst;
-import tech.ydb.jdbc.impl.YdbTypesImpl;
+import tech.ydb.jdbc.impl.YdbTypes;
 import tech.ydb.table.result.PrimitiveReader;
 import tech.ydb.table.result.ValueReader;
 import tech.ydb.table.values.DecimalValue;
@@ -54,6 +59,7 @@ import static tech.ydb.table.values.Type.Kind.PRIMITIVE;
 public class MappingGetters {
     private MappingGetters() { }
 
+    @SuppressWarnings("Convert2Lambda")
     static Getters buildGetters(Type type) {
         Type.Kind kind = type.getKind();
         String clazz = kind.toString();
@@ -71,6 +77,7 @@ public class MappingGetters {
                         valueToDouble(id),
                         valueToBytes(id),
                         valueToObject(id),
+                        valueToClass(id),
                         valueToInstant(id),
                         valueToNString(id),
                         valueToURL(id),
@@ -89,6 +96,7 @@ public class MappingGetters {
                         value -> value.getDecimal().toBigDecimal().doubleValue(),
                         castToBytesNotSupported(clazz),
                         PrimitiveReader::getDecimal,
+                        castToClassNotSupported(clazz),
                         castToInstantNotSupported(clazz),
                         castToNStringNotSupported(clazz),
                         castToUrlNotSupported(clazz),
@@ -108,6 +116,12 @@ public class MappingGetters {
                         value -> 0,
                         value -> null,
                         value -> null,
+                        new ValueToClass() {
+                            @Override
+                            public <T> T fromValue(ValueReader reader, Class<T> clazz) throws SQLException {
+                                return null;
+                            }
+                        },
                         value -> Instant.ofEpochSecond(0),
                         value -> null,
                         value -> null,
@@ -126,6 +140,7 @@ public class MappingGetters {
                         castToDoubleNotSupported(clazz),
                         castToBytesNotSupported(clazz),
                         ValueReader::getValue,
+                        castToClassNotSupported(clazz),
                         castToInstantNotSupported(clazz),
                         castToNStringNotSupported(clazz),
                         castToUrlNotSupported(clazz),
@@ -356,6 +371,8 @@ public class MappingGetters {
                 return value -> checkIntValue(id, value.getUint32());
             case Uint64:
                 return value -> checkIntValue(id, value.getUint64());
+            case Date:
+                return value -> checkIntValue(id, value.getDate().toEpochDay());
             default:
                 return castToIntNotSupported(id.name());
         }
@@ -382,6 +399,7 @@ public class MappingGetters {
             case Uint64:
                 return PrimitiveReader::getUint64;
             case Date:
+                return value -> value.getDate().toEpochDay();
             case Datetime:
             case TzDate:
             case TzDatetime:
@@ -622,7 +640,7 @@ public class MappingGetters {
 
     static SqlType buildDataType(Type type) {
         // All types must be the same as for #valueToObject
-        int sqlType = YdbTypesImpl.getInstance().toSqlType(type);
+        int sqlType = YdbTypes.toSqlType(type);
 
         switch (type.getKind()) {
             case PRIMITIVE:
@@ -689,6 +707,177 @@ public class MappingGetters {
                 return value -> {
                     throw dataTypeNotSupported(id, Object.class);
                 };
+        }
+    }
+
+    private static class ValueToClassBuilder {
+        private final Type type;
+        private final Map<Class<?>, Function<ValueReader, ?>> map = new HashMap<>();
+
+        ValueToClassBuilder(Type type) {
+            this.type = type;
+        }
+
+        public <T> ValueToClassBuilder register(Class<T> clazz, Function<ValueReader, T> func) {
+            map.put(clazz, func);
+            return this;
+        }
+
+        @SuppressWarnings("Convert2Lambda")
+        public ValueToClass build() {
+            return new ValueToClass() {
+                @Override
+                @SuppressWarnings("unchecked")
+                public <T> T fromValue(ValueReader reader, Class<T> clazz) throws SQLException {
+                    Function<ValueReader, ?> f = map.get(clazz);
+                    if (f != null) {
+                        return (T) f.apply(reader);
+                    }
+                    throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST_TO_CLASS, type, clazz));
+                }
+            };
+        }
+    }
+
+
+    private static ValueToClass valueToClass(PrimitiveType id) {
+        ValueToClassBuilder builder = new ValueToClassBuilder(id);
+        switch (id) {
+            case Bytes:
+                return builder
+                        .register(byte[].class, ValueReader::getBytes)
+                        .build();
+            case Text:
+                return builder
+                        .register(String.class, ValueReader::getText)
+                        .build();
+            case Json:
+                return builder
+                        .register(String.class, ValueReader::getJson)
+                        .build();
+            case JsonDocument:
+                return builder
+                        .register(String.class, ValueReader::getJsonDocument)
+                        .build();
+            case Yson:
+                return builder
+                        .register(byte[].class, ValueReader::getYson)
+                        .build();
+            case Uuid:
+                return builder
+                        .register(UUID.class, ValueReader::getUuid)
+                        .build();
+            case Bool:
+                return builder
+                        .register(boolean.class, ValueReader::getBool)
+                        .register(Boolean.class, ValueReader::getBool)
+                        .build();
+            case Int8:
+                return builder
+                        .register(byte.class, ValueReader::getInt8)
+                        .register(Byte.class, ValueReader::getInt8)
+                        .build();
+            case Uint8:
+                return builder
+                        .register(int.class, ValueReader::getUint8)
+                        .register(Integer.class, ValueReader::getUint8)
+                        .build();
+            case Int16:
+                return builder
+                        .register(short.class, ValueReader::getInt16)
+                        .register(Short.class, ValueReader::getInt16)
+                        .build();
+            case Uint16:
+                return builder
+                        .register(int.class, ValueReader::getUint16)
+                        .register(Integer.class, ValueReader::getUint16)
+                        .build();
+            case Int32:
+                return builder
+                        .register(int.class, ValueReader::getInt32)
+                        .register(Integer.class, ValueReader::getInt32)
+                        .build();
+            case Uint32:
+                return builder
+                        .register(long.class, ValueReader::getUint32)
+                        .register(Long.class, ValueReader::getUint32)
+                        .build();
+            case Int64:
+                return builder
+                        .register(long.class, ValueReader::getInt64)
+                        .register(Long.class, ValueReader::getInt64)
+                        .build();
+            case Uint64:
+                return builder
+                        .register(long.class, ValueReader::getUint64)
+                        .register(Long.class, ValueReader::getUint64)
+                        .build();
+            case Float:
+                return builder
+                        .register(float.class, ValueReader::getFloat)
+                        .register(Float.class, ValueReader::getFloat)
+                        .build();
+            case Double:
+                return builder
+                        .register(double.class, ValueReader::getDouble)
+                        .register(Double.class, ValueReader::getDouble)
+                        .build();
+            case Date:
+                return builder
+                        .register(long.class, v -> v.getDate().toEpochDay())
+                        .register(Long.class, v -> v.getDate().toEpochDay())
+                        .register(LocalDate.class, ValueReader::getDate)
+                        .register(LocalDateTime.class, v -> v.getDate().atStartOfDay())
+                        .register(java.sql.Date.class, v -> java.sql.Date.valueOf(v.getDate()))
+                        .register(java.sql.Timestamp.class, v -> java.sql.Timestamp.valueOf(v.getDate().atStartOfDay()))
+                        .register(Instant.class, v -> v.getDate().atStartOfDay(ZoneId.systemDefault()).toInstant())
+                        .register(java.util.Date.class, v -> java.util.Date.from(
+                                v.getDate().atStartOfDay(ZoneId.systemDefault()).toInstant()))
+                        .build();
+            case Datetime:
+                return builder
+                        .register(long.class, v -> v.getDatetime().toEpochSecond(ZoneOffset.UTC))
+                        .register(Long.class, v -> v.getDatetime().toEpochSecond(ZoneOffset.UTC))
+                        .register(LocalDate.class, v -> v.getDatetime().toLocalDate())
+                        .register(LocalDateTime.class, ValueReader::getDatetime)
+                        .register(java.sql.Date.class, v -> java.sql.Date.valueOf(v.getDatetime().toLocalDate()))
+                        .register(java.sql.Timestamp.class, v -> java.sql.Timestamp.valueOf(v.getDatetime()))
+                        .register(Instant.class, v -> v.getDatetime().atZone(ZoneId.systemDefault()).toInstant())
+                        .register(java.util.Date.class, v -> java.util.Date.from(
+                                v.getDatetime().atZone(ZoneId.systemDefault()).toInstant()))
+                        .build();
+            case Timestamp:
+                return builder
+                        .register(long.class, v -> v.getTimestamp().toEpochMilli())
+                        .register(Long.class, v -> v.getTimestamp().toEpochMilli())
+                        .register(LocalDate.class, v -> v.getTimestamp().atZone(ZoneId.systemDefault()).toLocalDate())
+                        .register(LocalDateTime.class, v -> v.getTimestamp()
+                                .atZone(ZoneId.systemDefault()).toLocalDateTime())
+                        .register(java.sql.Date.class, v -> java.sql.Date
+                                .valueOf(v.getTimestamp().atZone(ZoneId.systemDefault()).toLocalDate()))
+                        .register(java.sql.Timestamp.class, v -> java.sql.Timestamp
+                                .valueOf(v.getTimestamp().atZone(ZoneId.systemDefault()).toLocalDateTime()))
+                        .register(Instant.class, ValueReader::getTimestamp)
+                        .register(java.util.Date.class, v -> java.util.Date.from(v.getTimestamp()))
+                        .build();
+            case Interval:
+                return builder
+                        .register(Duration.class, ValueReader::getInterval)
+                        .build();
+            case TzDate:
+                return builder
+                        .register(ZonedDateTime.class, ValueReader::getTzDate)
+                        .build();
+            case TzDatetime:
+                return builder
+                        .register(ZonedDateTime.class, ValueReader::getTzDatetime)
+                        .build();
+            case TzTimestamp:
+                return builder
+                        .register(ZonedDateTime.class, ValueReader::getTzTimestamp)
+                        .build();
+            default:
+                return castToClassNotSupported(id.toString());
         }
     }
 
@@ -778,6 +967,16 @@ public class MappingGetters {
         };
     }
 
+    @SuppressWarnings("Convert2Lambda")
+    private static ValueToClass castToClassNotSupported(String type) {
+        return new ValueToClass() {
+            @Override
+            public <T> T fromValue(ValueReader reader, Class<T> clazz) throws SQLException {
+                throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST_TO_CLASS, type, clazz));
+            }
+        };
+    }
+
     public static class Getters {
         private final ValueToString toString;
         private final ValueToBoolean toBoolean;
@@ -789,6 +988,7 @@ public class MappingGetters {
         private final ValueToDouble toDouble;
         private final ValueToBytes toBytes;
         private final ValueToObject toObject;
+        private final ValueToClass toClass;
         private final ValueToInstant toInstant;
         private final ValueToNString toNString;
         private final ValueToURL toURL;
@@ -806,6 +1006,7 @@ public class MappingGetters {
                 ValueToDouble toDouble,
                 ValueToBytes toBytes,
                 ValueToObject toObject,
+                ValueToClass toClass,
                 ValueToInstant toInstant,
                 ValueToNString toNString,
                 ValueToURL toURL,
@@ -821,6 +1022,7 @@ public class MappingGetters {
             this.toDouble = toDouble;
             this.toBytes = toBytes;
             this.toObject = toObject;
+            this.toClass = toClass;
             this.toInstant = toInstant;
             this.toNString = toNString;
             this.toURL = toURL;
@@ -866,6 +1068,10 @@ public class MappingGetters {
 
         public Object readObject(ValueReader reader) throws SQLException {
             return toObject.fromValue(reader);
+        }
+
+        public <T> T readClass(ValueReader reader, Class<T> clazz) throws SQLException {
+            return toClass.fromValue(reader, clazz);
         }
 
         public Instant readInstant(ValueReader reader) throws SQLException {
@@ -927,6 +1133,10 @@ public class MappingGetters {
 
     private interface ValueToObject {
         Object fromValue(ValueReader reader) throws SQLException;
+    }
+
+    private interface ValueToClass {
+        <T> T fromValue(ValueReader reader, Class<T> clazz) throws SQLException;
     }
 
     private interface ValueToInstant {
