@@ -47,6 +47,9 @@ public class TypeDescription {
         return type.getKind() == Type.Kind.NULL || type.getKind() == Type.Kind.VOID;
     }
 
+    public boolean isTimestamp() {
+        return type == PrimitiveType.Timestamp;
+    }
     public boolean isOptional() {
         return optional;
     }

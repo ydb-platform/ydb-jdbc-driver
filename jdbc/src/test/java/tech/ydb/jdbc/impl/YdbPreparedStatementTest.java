@@ -11,10 +11,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.Month;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
 import java.util.TimeZone;
 
@@ -22,7 +22,6 @@ import org.junit.Assert;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -47,7 +46,10 @@ public class YdbPreparedStatementTest {
 
     private static final SqlQueries TEST_TABLE = new SqlQueries("ydb_prepared_test");
 
-    private static final Instant TEST_TS = Instant.ofEpochMilli(1583288311345l); // Friday, April 3, 2020 02:18:31.345
+    /**
+     * Mar 04 2020 02:18:31.123456789 UTC
+     */
+    private static final Instant TEST_TS = Instant.ofEpochSecond(1583288311l, 123456789);
 
     @BeforeAll
     public static void setupTimeZone() throws SQLException {
@@ -76,6 +78,10 @@ public class YdbPreparedStatementTest {
             // clean table
             statement.execute(TEST_TABLE.deleteAllSQL());
         }
+    }
+
+    private static Instant truncToMicros(Instant instant) {
+        return instant.with(ChronoField.MICRO_OF_SECOND, instant.get(ChronoField.MICRO_OF_SECOND));
     }
 
     @ParameterizedTest(name = "with {0}")
@@ -281,15 +287,12 @@ public class YdbPreparedStatementTest {
         Date sqlDate = new Date(TEST_TS.toEpochMilli());
         LocalDateTime dateTime = LocalDateTime.ofInstant(TEST_TS, ZoneOffset.UTC).plusMinutes(id)
                 .truncatedTo(ChronoUnit.SECONDS);
-        Timestamp timestamp = Timestamp.from(TEST_TS.plusSeconds(id));
-        Duration duration = Duration.ofMinutes(id);
+        Timestamp timestamp = Timestamp.from(truncToMicros(TEST_TS.plusSeconds(id)));
 
-        Date rsDate = rs.getDate("c_Date");
-
-        Assert.assertEquals(sqlDate.toLocalDate(), rsDate.toLocalDate());
+        Assert.assertEquals(sqlDate.toLocalDate(), rs.getDate("c_Date").toLocalDate());
         Assert.assertEquals(dateTime, rs.getObject("c_Datetime"));
-//        Assert.assertEquals(timestamp, rs.getTimestamp("c_Timestamp"));
-        Assert.assertEquals(duration, rs.getObject("c_Interval"));
+        Assert.assertEquals(timestamp, rs.getTimestamp("c_Timestamp"));
+        Assert.assertEquals(Duration.ofMinutes(id), rs.getObject("c_Interval"));
 
         Assert.assertNull(rs.getString("c_Decimal"));
         Assert.assertTrue(rs.wasNull());
@@ -337,95 +340,56 @@ public class YdbPreparedStatementTest {
         }
     };
 
-    @Disabled
     @ParameterizedTest(name = "with {0}")
     @EnumSource(SqlQueries.JdbcQuery.class)
     public void timestampTest(SqlQueries.JdbcQuery query) throws SQLException {
         String upsert = TEST_TABLE.upsertOne(query, "c_Timestamp", "Timestamp");
 
-        try (PreparedStatement statement = jdbc.connection().prepareStatement(upsert)) {
-            statement.setInt(1, 1);
-            statement.setObject(2, LocalDate.of(2023, Month.MARCH, 3));
-            statement.execute();
+        boolean castingSupported = query != SqlQueries.JdbcQuery.IN_MEMORY;
 
-            statement.setInt(1, 2);
-            statement.setObject(2, LocalDateTime.of(2023, Month.MARCH, 3, 14, 56, 59, 123456789));
-            statement.execute();
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert)) {
+            ps.setInt(1, 1);
+            ps.setObject(2, TEST_TS);
+            ps.execute();
 
-            statement.setInt(1, 3);
-            statement.setDate(2, new Date(TEST_TS.toEpochMilli())); // java.sql.Date will be truncated to days
-            statement.execute();
+            ps.setInt(1, 2);
+            ps.setTimestamp(2, Timestamp.from(TEST_TS));
+            ps.execute();
 
-            statement.setInt(1, 4);
-            statement.setTimestamp(2, new Timestamp(TEST_TS.toEpochMilli()));
-            statement.execute();
+            ps.setInt(1, 3);
+            ps.setDate(2, new Date(TEST_TS.toEpochMilli()));
+            ps.execute();
 
-            if (query != SqlQueries.JdbcQuery.IN_MEMORY) { // IN MEMORY is not typed mode, casting is not supported
-                statement.setInt(1, 5);
-                statement.setLong(2, 1585932011123l);
-                statement.execute();
+            ps.setInt(1, 4);
+            ps.setObject(2, LocalDate.of(2021, Month.MAY, 22));
+            ps.execute();
 
-                statement.setInt(1, 6);
-                statement.setString(2, "2011-12-03T10:15:30.456789123Z");
-                statement.execute();
+            ps.setInt(1, 5);
+            ps.setObject(2, LocalDateTime.of(2023, Month.MAY, 29, 14, 56, 59, 123456789));
+            ps.execute();
+
+            if (castingSupported) {
+                ps.setInt(1, 6);
+                ps.setLong(2, 1585932011123l);
+                ps.execute();
+
+                ps.setInt(1, 7);
+                ps.setString(2, "2011-12-03T10:15:30.456789123Z");
+                ps.execute();
             }
         }
 
         try (Statement statement = jdbc.connection().createStatement()) {
             try (ResultSet rs = statement.executeQuery(TEST_TABLE.selectColumn("c_Timestamp"))) {
-                Assert.assertTrue(rs.next());
-                Assert.assertEquals(1, rs.getInt("key"));
-                // LocalDate.of(2023, Month.MARCH, 3) UTC == 1677801600000l;
-                assertTimestamp(rs,
-                        LocalDate.of(2023, Month.MARCH, 3),
-                        LocalDateTime.of(2023, Month.MARCH, 3, 0, 0, 0),
-                        Instant.ofEpochSecond(1677801600l, 0)
-                );
+                assertNextTimestamp(rs, 1, truncToMicros(TEST_TS));
+                assertNextTimestamp(rs, 2, truncToMicros(TEST_TS));
+                assertNextTimestamp(rs, 3, LocalDate.of(2020, Month.MARCH, 3).atStartOfDay().toInstant(ZoneOffset.UTC));
+                assertNextTimestamp(rs, 4, LocalDate.of(2021, Month.MAY, 22).atStartOfDay().toInstant(ZoneOffset.UTC));
+                assertNextTimestamp(rs, 5, LocalDateTime.of(2023, Month.MAY, 29, 14, 56, 59).toInstant(ZoneOffset.UTC));
 
-                Assert.assertTrue(rs.next());
-                Assert.assertEquals(2, rs.getInt("key"));
-                // LocalDateTime.of(2023, Month.MARCH, 3, 14, 56, 59, 123456789) UTC == 1677855419123l;
-                assertTimestamp(rs,
-                        LocalDate.of(2023, Month.MARCH, 3),
-                        LocalDateTime.of(2023, Month.MARCH, 3, 14, 56, 59), // Timestamp supports only micros
-                        Instant.ofEpochSecond(1677855419l)
-                );
-
-                Assert.assertTrue(rs.next());
-                Assert.assertEquals(3, rs.getInt("key"));
-                assertTimestamp(rs,
-                        LocalDate.of(2020, Month.APRIL, 3),
-                        LocalDateTime.of(2020, Month.APRIL, 3, 0, 0, 0),
-                        Instant.ofEpochSecond(1585872000l) // Friday, April 3, 2020 00:00:00 UTC
-                );
-
-                Assert.assertTrue(rs.next());
-                Assert.assertEquals(4, rs.getInt("key"));
-                //  Instant.ofEpochMilli(1585932011123l) == Friday, April 3, 2020 16:40:11.123 UTC
-                assertTimestamp(rs,
-                        LocalDate.of(2022, Month.APRIL, 3),
-                        LocalDateTime.of(2022, Month.APRIL, 3, 16, 40, 11, 123000000), // Timestamp supports only micros
-                        Instant.ofEpochSecond(1585932011l, 123000000)
-                );
-
-                if (query != SqlQueries.JdbcQuery.IN_MEMORY) { // IN MEMORY is not typed mode, casting is not supported
-                    Assert.assertTrue(rs.next());
-                    Assert.assertEquals(5, rs.getInt("key"));
-                    //  Instant.ofEpochMilli(1585932011123l) == Friday, April 3, 2020 16:40:11.123 UTC
-                    assertTimestamp(rs,
-                            LocalDate.of(2022, Month.APRIL, 3),
-                            LocalDateTime.of(2022, Month.APRIL, 3, 16, 40, 11, 123000000),
-                            Instant.ofEpochSecond(1585932011l, 123000000)
-                    );
-
-                    Assert.assertTrue(rs.next());
-                    Assert.assertEquals(6, rs.getInt("key"));
-                    // 2011-12-03T10:15:30.456789123Z
-                    assertTimestamp(rs,
-                            LocalDate.of(2011, Month.DECEMBER, 3),
-                            LocalDateTime.of(2011, Month.DECEMBER, 3, 10, 15, 30, 456789000),
-                            Instant.ofEpochSecond(1322907330l, 456789000)
-                    );
+                if (castingSupported) {
+                    assertNextTimestamp(rs, 6, Instant.ofEpochMilli(1585932011123l));
+                    assertNextTimestamp(rs, 7, Instant.parse("2011-12-03T10:15:30.456789000Z"));
                 }
 
                 Assert.assertFalse(rs.next());
@@ -433,18 +397,25 @@ public class YdbPreparedStatementTest {
         }
     };
 
-    private void assertTimestamp(ResultSet rs, LocalDate ld, LocalDateTime ldt, Instant instant) throws SQLException {
-        // TODO: NOT SUPPORTED YET
-//        Assert.assertEquals(ld, rs.getObject("c_Timestamp", LocalDate.class));
-//        Assert.assertEquals(ldt, rs.getObject("c_Timestamp", LocalDateTime.class));
+    private void assertNextTimestamp(ResultSet rs, int key, Instant ts) throws SQLException {
+        Assert.assertTrue(rs.next());
+        Assert.assertEquals(key, rs.getInt("key"));
+
         Object obj = rs.getObject("c_Timestamp");
         Assert.assertTrue(obj instanceof Instant);
-        Assert.assertEquals(instant, obj);
+        Assert.assertEquals(ts, obj);
 
-        Assert.assertEquals(new Date(instant.toEpochMilli()), rs.getDate("c_Timestamp"));
-        Assert.assertEquals(new Timestamp(instant.toEpochMilli()), rs.getTimestamp("c_Timestamp"));
-        Assert.assertEquals(instant.toEpochMilli(), rs.getLong("c_Timestamp"));
-        Assert.assertEquals(instant.toString(), rs.getString("c_Timestamp"));
+        Assert.assertEquals(ts.toEpochMilli(), rs.getLong("c_Timestamp"));
+
+        Assert.assertEquals(new Date(ts.toEpochMilli()), rs.getDate("c_Timestamp"));
+        Assert.assertEquals(Timestamp.from(ts), rs.getTimestamp("c_Timestamp"));
+        Assert.assertEquals(ts.toString(), rs.getString("c_Timestamp"));
+
+        LocalDateTime ldt = LocalDateTime.ofInstant(ts, ZoneId.systemDefault());
+        Assert.assertEquals(Long.valueOf(ts.toEpochMilli()), rs.getObject("c_Timestamp", Long.class));
+        Assert.assertEquals(ldt.toLocalDate(), rs.getObject("c_Timestamp", LocalDate.class));
+        Assert.assertEquals(ldt, rs.getObject("c_Timestamp", LocalDateTime.class));
+        Assert.assertEquals(ts, rs.getObject("c_Timestamp", Instant.class));
     }
 
     @ParameterizedTest(name = "with {0}")
@@ -459,17 +430,17 @@ public class YdbPreparedStatementTest {
             ps.setObject(2, LocalDateTime.of(2025, Month.AUGUST, 10, 23, 59, 59, 100));
             ps.execute();
 
+            ps.setInt(1, 2);
+            ps.setDate(2, new Date(TEST_TS.toEpochMilli()));
+            ps.execute();
+
             if (castingSupported) {
-                ps.setInt(1, 2);
+                ps.setInt(1, 3);
                 ps.setTimestamp(2, new Timestamp(TEST_TS.toEpochMilli()));
                 ps.execute();
 
-                ps.setInt(1, 3);
-                ps.setLong(2, 1585932011l);
-                ps.execute();
-
                 ps.setInt(1, 4);
-                ps.setDate(2, new Date(TEST_TS.toEpochMilli()));
+                ps.setLong(2, 1585932011l);
                 ps.execute();
 
                 ps.setInt(1, 5);
@@ -479,19 +450,24 @@ public class YdbPreparedStatementTest {
                 ps.setInt(1, 6);
                 ps.setString(2, "2011-12-03T10:15:30");
                 ps.execute();
+
+                ps.setInt(1, 7);
+                ps.setObject(2, TEST_TS);
+                ps.execute();
             }
         }
 
         try (Statement statement = jdbc.connection().createStatement()) {
-            Instant ts = TEST_TS.truncatedTo(ChronoUnit.SECONDS);
+            LocalDateTime ts = TEST_TS.truncatedTo(ChronoUnit.SECONDS).atZone(ZoneId.systemDefault()).toLocalDateTime();
             try (ResultSet rs = statement.executeQuery(TEST_TABLE.selectColumn("c_Datetime"))) {
                 assertNextDatetime(rs, 1, LocalDateTime.of(2025, Month.AUGUST, 10, 23, 59, 59));
+                assertNextDatetime(rs, 2, LocalDateTime.of(2020, Month.MARCH, 3, 0, 0, 0));
                 if (castingSupported) {
-                    assertNextDatetime(rs, 2, ts.atZone(ZoneId.systemDefault()).toLocalDateTime());
-                    assertNextDatetime(rs, 3, LocalDateTime.of(2020, Month.APRIL, 3, 16, 40, 11));
-                    assertNextDatetime(rs, 4, ts.atZone(ZoneId.systemDefault()).toLocalDateTime());
+                    assertNextDatetime(rs, 3, ts);
+                    assertNextDatetime(rs, 4, LocalDateTime.of(2020, Month.APRIL, 3, 16, 40, 11));
                     assertNextDatetime(rs, 5, LocalDateTime.of(2021, Month.JULY, 21, 0, 0, 0));
                     assertNextDatetime(rs, 6, LocalDateTime.of(2011, Month.DECEMBER, 3, 10, 15, 30));
+                    assertNextDatetime(rs, 7, ts);
                 }
                 Assert.assertFalse(rs.next());
             }
@@ -547,7 +523,7 @@ public class YdbPreparedStatementTest {
                 ps.execute();
 
                 ps.setInt(1, 6);
-                ps.setObject(2, LocalDateTime.of(2023, Month.MARCH, 3, 14, 56, 59, 123456789));
+                ps.setObject(2, LocalDateTime.of(2021, Month.JULY, 23, 14, 56, 59, 123456789));
                 ps.execute();
 
                 ps.setInt(1, 7);
@@ -563,15 +539,15 @@ public class YdbPreparedStatementTest {
         try (Statement st = jdbc.connection().createStatement()) {
             try (ResultSet rs = st.executeQuery(TEST_TABLE.selectColumn("c_Date"))) {
                 assertNextDate(rs, 1, LocalDate.of(2025, Month.AUGUST, 10));
-                assertNextDate(rs, 2, TEST_TS.atZone(ZoneId.systemDefault()).toLocalDate());
+                assertNextDate(rs, 2, LocalDate.of(2020, Month.MARCH, 3));
 
                 if (castingSupported) {
-                    assertNextDate(rs, 3, TEST_TS.atZone(ZoneId.systemDefault()).toLocalDate());
+                    assertNextDate(rs, 3, LocalDate.of(2020, Month.MARCH, 3));
                     assertNextDate(rs, 4, LocalDate.of(1970, Month.JANUARY, 11));
                     assertNextDate(rs, 5, LocalDate.of(2003, Month.OCTOBER, 20));
-                    assertNextDate(rs, 6, LocalDate.of(2023, Month.MARCH, 3));
+                    assertNextDate(rs, 6, LocalDate.of(2021, Month.JULY, 23));
                     assertNextDate(rs, 7, LocalDate.of(2011, Month.DECEMBER, 3));
-                    assertNextDate(rs, 8, TEST_TS.atZone(ZoneId.systemDefault()).toLocalDate());
+                    assertNextDate(rs, 8, LocalDate.of(2020, Month.MARCH, 3));
                 }
 
                 Assert.assertFalse(rs.next());
@@ -591,15 +567,12 @@ public class YdbPreparedStatementTest {
         Assert.assertEquals(ld.toEpochDay(), rs.getLong("c_Date"));
 
         Assert.assertEquals(Date.valueOf(ld), rs.getDate("c_Date"));
-        Assert.assertEquals(Timestamp.valueOf(LocalDateTime.of(ld, LocalTime.MIN)), rs.getTimestamp("c_Date"));
+        Assert.assertEquals(Timestamp.valueOf(ld.atStartOfDay()), rs.getTimestamp("c_Date"));
         Assert.assertEquals(ld.toString(), rs.getString("c_Date"));
 
         Assert.assertEquals(Long.valueOf(ld.toEpochDay()), rs.getObject("c_Date", Long.class));
         Assert.assertEquals(ld, rs.getObject("c_Date", LocalDate.class));
-        Assert.assertEquals(ld.atTime(LocalTime.MIN), rs.getObject("c_Date", LocalDateTime.class));
-        Assert.assertEquals(ld.atTime(LocalTime.MIN)
-                .atZone(ZoneId.systemDefault())
-                .toInstant(),
-                rs.getObject("c_Date", Instant.class));
+        Assert.assertEquals(ld.atStartOfDay(), rs.getObject("c_Date", LocalDateTime.class));
+        Assert.assertEquals(ld.atStartOfDay(ZoneId.systemDefault()).toInstant(), rs.getObject("c_Date", Instant.class));
     }
 }

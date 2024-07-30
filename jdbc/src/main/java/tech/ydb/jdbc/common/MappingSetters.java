@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Duration;
@@ -17,9 +18,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Date;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CharStreams;
@@ -370,6 +369,11 @@ public class MappingSetters {
             return PrimitiveValue.newDate(LocalDate.ofEpochDay((Integer) x));
         } else if (x instanceof Long) {
             return PrimitiveValue.newDate(LocalDate.ofEpochDay((Long) x));
+        } else if (x instanceof Timestamp) {
+            // Normalize date - use system timezone to detect correct date
+            Instant instant = Instant.ofEpochMilli(((Timestamp) x).getTime());
+            LocalDate ld = instant.atZone(ZoneId.systemDefault()).toLocalDate();
+            return PrimitiveValue.newDate(ld);
         } else if (x instanceof Date) {
             // Normalize date - use system timezone to detect correct date
             Instant instant = Instant.ofEpochMilli(((Date) x).getTime());
@@ -394,11 +398,16 @@ public class MappingSetters {
             return PrimitiveValue.newDatetime(((LocalDate) x).atStartOfDay());
         } else if (x instanceof Long) {
             return PrimitiveValue.newDatetime(LocalDateTime.ofEpochSecond((Long) x, 0, ZoneOffset.UTC));
+        } else if (x instanceof Timestamp) {
+            // Normalize date - use system timezone to detect correct date
+            Instant instant = Instant.ofEpochMilli(((Timestamp) x).getTime());
+            LocalDateTime ldt = instant.atZone(ZoneId.systemDefault()).toLocalDateTime();
+            return PrimitiveValue.newDatetime(ldt);
         } else if (x instanceof Date) {
             // Normalize date - use system timezone to detect correct date
             Instant instant = Instant.ofEpochMilli(((Date) x).getTime());
-            LocalDateTime ldt = instant.atZone(ZoneId.systemDefault()).toLocalDateTime();
-            return PrimitiveValue.newDatetime(ldt);
+            LocalDate ld = instant.atZone(ZoneId.systemDefault()).toLocalDate();
+            return PrimitiveValue.newDatetime(ld.atStartOfDay());
         } else if (x instanceof String) {
             try {
                 return PrimitiveValue.newDatetime(LocalDateTime.parse((String) x));
@@ -413,29 +422,23 @@ public class MappingSetters {
         if (x instanceof Instant) {
             return PrimitiveValue.newTimestamp((Instant) x);
         } else if (x instanceof Long) {
-            return PrimitiveValue.newTimestamp(TimeUnit.MILLISECONDS.toMicros((Long) x));
+            return PrimitiveValue.newTimestamp(Instant.ofEpochMilli((Long) x));
         } else if (x instanceof LocalDate) {
-            return PrimitiveValue.newTimestamp(((LocalDate) x).toEpochDay() * 24 * 60 * 60 * 1000000);
+            return PrimitiveValue.newTimestamp(((LocalDate) x).atStartOfDay().toInstant(ZoneOffset.UTC));
         } else if (x instanceof LocalDateTime) {
-            // LocalDateTime is usually used as Datetime analog, so truncate it to seconds
-            long seconds = ((LocalDateTime) x).toInstant(ZoneOffset.UTC).getEpochSecond();
-            return PrimitiveValue.newTimestamp(seconds * 1000000);
+            long epochSeconds = ((LocalDateTime) x).toEpochSecond(ZoneOffset.UTC);
+            return PrimitiveValue.newTimestamp(Instant.ofEpochSecond(epochSeconds));
         } else if (x instanceof Timestamp) {
-            return PrimitiveValue.newTimestamp(TimeUnit.MILLISECONDS.toMicros(((Timestamp) x).getTime()));
+            return PrimitiveValue.newTimestamp(((Timestamp) x).toInstant());
         } else if (x instanceof Date) {
-            // Normalize date to UTC
-            // Normalize date - use system timezone to detect correct datetime
-            Instant instant = Instant.ofEpochMilli(((Date) x).getTime());
-            LocalDate ld = instant.atZone(ZoneId.systemDefault()).toLocalDate();
-            return PrimitiveValue.newTimestamp(ld.toEpochDay() * 24 * 60 * 60 * 1000000);
+            Instant instant = ((Date) x).toLocalDate().atStartOfDay().toInstant(ZoneOffset.UTC);
+            return PrimitiveValue.newTimestamp(instant);
         } else if (x instanceof String) {
-            Instant parsed;
             try {
-                parsed = Instant.parse((String) x);
+                return PrimitiveValue.newTimestamp(Instant.parse((String) x));
             } catch (DateTimeParseException e) {
                 throw castNotSupported(type, x, e);
             }
-            return PrimitiveValue.newTimestamp(parsed);
         }
         throw castNotSupported(type, x);
     }

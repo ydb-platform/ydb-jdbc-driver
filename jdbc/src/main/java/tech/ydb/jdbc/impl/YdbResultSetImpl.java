@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.TimeZone;
-import java.util.function.Function;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
@@ -148,17 +147,41 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public Date getDate(int columnIndex) throws SQLException {
-        return getDateImpl(columnIndex, instant -> Date.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalDate()));
+        Instant instant = getInstant(columnIndex);
+        if (instant == null) {
+            return null;
+        }
+        if (state.description.isTimestamp()) {
+            return new Date(instant.toEpochMilli());
+        }
+
+        return Date.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalDate());
     }
 
     @Override
     public Time getTime(int columnIndex) throws SQLException {
-        return getDateImpl(columnIndex, instant -> Time.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalTime()));
+        Instant instant = getInstant(columnIndex);
+        if (instant == null) {
+            return null;
+        }
+        if (state.description.isTimestamp()) {
+            return new Time(instant.toEpochMilli());
+        }
+
+        return Time.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalTime());
     }
 
     @Override
-    public Timestamp getTimestamp(int inx) throws SQLException {
-        return getDateImpl(inx, instant -> Timestamp.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalDateTime()));
+    public Timestamp getTimestamp(int columnIndex) throws SQLException {
+        Instant instant = getInstant(columnIndex);
+        if (instant == null) {
+            return null;
+        }
+        if (state.description.isTimestamp()) {
+            return Timestamp.from(instant);
+        }
+
+        return Timestamp.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalDateTime());
     }
 
     @Deprecated
@@ -436,8 +459,12 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public Date getDate(int columnIndex, Calendar cal) throws SQLException {
+        Instant instant = getInstant(columnIndex);
+        if (instant == null) {
+            return null;
+        }
         final TimeZone tz = cal != null ? cal.getTimeZone() : Calendar.getInstance().getTimeZone();
-        return getDateImpl(columnIndex, instant -> Date.valueOf(instant.atZone(tz.toZoneId()).toLocalDate()));
+        return Date.valueOf(instant.atZone(tz.toZoneId()).toLocalDate());
     }
 
     @Override
@@ -447,8 +474,12 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public Time getTime(int columnIndex, Calendar cal) throws SQLException {
+        Instant instant = getInstant(columnIndex);
+        if (instant == null) {
+            return null;
+        }
         final TimeZone tz = cal != null ? cal.getTimeZone() : Calendar.getInstance().getTimeZone();
-        return getDateImpl(columnIndex, instant -> Time.valueOf(instant.atZone(tz.toZoneId()).toLocalTime()));
+        return Time.valueOf(instant.atZone(tz.toZoneId()).toLocalTime());
     }
 
     @Override
@@ -458,8 +489,12 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public Timestamp getTimestamp(int columnIndex, Calendar cal) throws SQLException {
+        Instant instant = getInstant(columnIndex);
+        if (instant == null) {
+            return null;
+        }
         final TimeZone tz = cal != null ? cal.getTimeZone() : Calendar.getInstance().getTimeZone();
-        return getDateImpl(columnIndex, instant -> Timestamp.valueOf(instant.atZone(tz.toZoneId()).toLocalDateTime()));
+        return Timestamp.valueOf(instant.atZone(tz.toZoneId()).toLocalDateTime());
     }
 
     @Override
@@ -550,13 +585,13 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     //
 
-    private <T> T getDateImpl(int columnIndex, Function<Instant, T> fromMillis) throws SQLException {
+    private Instant getInstant(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        Instant longValue = state.description.getters().readInstant(state.value);
+        Instant instant = state.description.getters().readInstant(state.value);
         if (state.nullValue) {
             return null;
         }
-        return fromMillis.apply(longValue);
+        return instant;
     }
 
 
