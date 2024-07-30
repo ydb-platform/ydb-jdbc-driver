@@ -47,8 +47,8 @@ values
     cast ('{"key": "value JsonDocument"}' as JsonDocument),
     Yson(@@{key="value yson"}@@),
     cast (3111 as Date),
-    cast (3111111 as DateTime),
-    cast (3111112 as Timestamp),
+    cast (311111156 as DateTime),
+    cast (311111223342 as Timestamp),
     cast (3111113 as Interval),
     cast('3.335' as Decimal(22, 9))
     ),
@@ -70,8 +70,8 @@ values
     cast ('' as JsonDocument),
     Yson(@@""@@),
     cast (3112 as Date),
-    cast (3112111 as DateTime),
-    cast (3112112 as Timestamp),
+    cast (211211100 as DateTime),
+    cast (111111223342 as Timestamp),
     cast (3112113 as Interval),
     cast('-3.335' as Decimal(22, 9))
     ),

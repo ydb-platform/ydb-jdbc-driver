@@ -71,7 +71,7 @@ public class MappingGetters {
                         valueToDouble(id),
                         valueToBytes(id),
                         valueToObject(id),
-                        valueToDateMillis(id),
+                        valueToInstant(id),
                         valueToNString(id),
                         valueToURL(id),
                         valueToBigDecimal(id),
@@ -89,7 +89,7 @@ public class MappingGetters {
                         value -> value.getDecimal().toBigDecimal().doubleValue(),
                         castToBytesNotSupported(clazz),
                         PrimitiveReader::getDecimal,
-                        castToDateMillisNotSupported(clazz),
+                        castToInstantNotSupported(clazz),
                         castToNStringNotSupported(clazz),
                         castToUrlNotSupported(clazz),
                         value -> value.getDecimal().toBigDecimal(),
@@ -108,7 +108,7 @@ public class MappingGetters {
                         value -> 0,
                         value -> null,
                         value -> null,
-                        value -> 0,
+                        value -> Instant.ofEpochSecond(0),
                         value -> null,
                         value -> null,
                         value -> null,
@@ -126,7 +126,7 @@ public class MappingGetters {
                         castToDoubleNotSupported(clazz),
                         castToBytesNotSupported(clazz),
                         ValueReader::getValue,
-                        castToDateMillisNotSupported(clazz),
+                        castToInstantNotSupported(clazz),
                         castToNStringNotSupported(clazz),
                         castToUrlNotSupported(clazz),
                         castToBigDecimalNotSupported(clazz),
@@ -387,8 +387,8 @@ public class MappingGetters {
             case TzDatetime:
             case Timestamp:
             case TzTimestamp:
-                ValueToDateMillis delegate = valueToDateMillis(id);
-                return delegate::fromValue;
+                ValueToInstant delegate = valueToInstant(id);
+                return value -> delegate.fromValue(value).toEpochMilli();
             case Interval:
                 return value -> TimeUnit.NANOSECONDS.toMicros(value.getInterval().toNanos());
             default:
@@ -474,26 +474,26 @@ public class MappingGetters {
         }
     }
 
-    private static ValueToDateMillis valueToDateMillis(PrimitiveType id) {
+    private static ValueToInstant valueToInstant(PrimitiveType id) {
         switch (id) {
             case Int64:
-                return PrimitiveReader::getInt64;
+                return v -> Instant.ofEpochMilli(v.getInt64());
             case Uint64:
-                return PrimitiveReader::getUint64;
+                return v -> Instant.ofEpochMilli(v.getUint64());
             case Date:
-                return value -> TimeUnit.DAYS.toMillis(value.getDate().toEpochDay());
+                return v -> Instant.ofEpochSecond(v.getDate().toEpochDay() * 24 * 60 * 60);
             case Datetime:
-                return value -> TimeUnit.SECONDS.toMillis(value.getDatetime().toEpochSecond(ZoneOffset.UTC));
+                return v -> Instant.ofEpochSecond(v.getDatetime().toEpochSecond(ZoneOffset.UTC));
             case TzDate:
-                return value -> TimeUnit.SECONDS.toMillis(value.getTzDate().toEpochSecond());
+                return v -> Instant.ofEpochSecond(v.getTzDate().toEpochSecond());
             case TzDatetime:
-                return value -> TimeUnit.SECONDS.toMillis(value.getTzDatetime().toEpochSecond());
+                return v -> Instant.ofEpochSecond(v.getTzDatetime().toEpochSecond());
             case Timestamp:
-                return value -> value.getTimestamp().toEpochMilli();
+                return ValueReader::getTimestamp;
             case TzTimestamp:
-                return value -> TimeUnit.SECONDS.toMillis(value.getTzTimestamp().toEpochSecond());
+                return v -> v.getTzTimestamp().toInstant();
             default:
-                return castToDateMillisNotSupported(id.name());
+                return castToInstantNotSupported(id.name());
         }
     }
 
@@ -748,7 +748,7 @@ public class MappingGetters {
         };
     }
 
-    private static ValueToDateMillis castToDateMillisNotSupported(String type) {
+    private static ValueToInstant castToInstantNotSupported(String type) {
         return value -> {
             throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, type, long.class));
         };
@@ -789,7 +789,7 @@ public class MappingGetters {
         private final ValueToDouble toDouble;
         private final ValueToBytes toBytes;
         private final ValueToObject toObject;
-        private final ValueToDateMillis toDateMillis;
+        private final ValueToInstant toInstant;
         private final ValueToNString toNString;
         private final ValueToURL toURL;
         private final ValueToBigDecimal toBigDecimal;
@@ -806,7 +806,7 @@ public class MappingGetters {
                 ValueToDouble toDouble,
                 ValueToBytes toBytes,
                 ValueToObject toObject,
-                ValueToDateMillis toDateMillis,
+                ValueToInstant toInstant,
                 ValueToNString toNString,
                 ValueToURL toURL,
                 ValueToBigDecimal toBigDecimal,
@@ -821,7 +821,7 @@ public class MappingGetters {
             this.toDouble = toDouble;
             this.toBytes = toBytes;
             this.toObject = toObject;
-            this.toDateMillis = toDateMillis;
+            this.toInstant = toInstant;
             this.toNString = toNString;
             this.toURL = toURL;
             this.toBigDecimal = toBigDecimal;
@@ -868,8 +868,8 @@ public class MappingGetters {
             return toObject.fromValue(reader);
         }
 
-        public long readDateMillis(ValueReader reader) throws SQLException {
-            return toDateMillis.fromValue(reader);
+        public Instant readInstant(ValueReader reader) throws SQLException {
+            return toInstant.fromValue(reader);
         }
 
         public String readNString(ValueReader reader) throws SQLException {
@@ -929,8 +929,8 @@ public class MappingGetters {
         Object fromValue(ValueReader reader) throws SQLException;
     }
 
-    private interface ValueToDateMillis {
-        long fromValue(ValueReader reader) throws SQLException;
+    private interface ValueToInstant {
+        Instant fromValue(ValueReader reader) throws SQLException;
     }
 
     private interface ValueToNString {

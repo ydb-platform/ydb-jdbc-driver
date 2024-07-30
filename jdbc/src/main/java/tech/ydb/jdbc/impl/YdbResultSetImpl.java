@@ -21,11 +21,14 @@ import java.sql.SQLWarning;
 import java.sql.SQLXML;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Calendar;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.LongFunction;
+import java.util.TimeZone;
+import java.util.function.Function;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
@@ -145,17 +148,17 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public Date getDate(int columnIndex) throws SQLException {
-        return getDateImpl(columnIndex, Date::new);
+        return getDateImpl(columnIndex, instant -> Date.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalDate()));
     }
 
     @Override
     public Time getTime(int columnIndex) throws SQLException {
-        return getDateImpl(columnIndex, Time::new);
+        return getDateImpl(columnIndex, instant -> Time.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalTime()));
     }
 
     @Override
-    public Timestamp getTimestamp(int columnIndex) throws SQLException {
-        return getDateImpl(columnIndex, Timestamp::new);
+    public Timestamp getTimestamp(int inx) throws SQLException {
+        return getDateImpl(inx, instant -> Timestamp.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalDateTime()));
     }
 
     @Deprecated
@@ -433,7 +436,8 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public Date getDate(int columnIndex, Calendar cal) throws SQLException {
-        return getDateImpl(columnIndex, Date::new); // TODO: use cal
+        final TimeZone tz = cal != null ? cal.getTimeZone() : Calendar.getInstance().getTimeZone();
+        return getDateImpl(columnIndex, instant -> Date.valueOf(instant.atZone(tz.toZoneId()).toLocalDate()));
     }
 
     @Override
@@ -443,8 +447,8 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public Time getTime(int columnIndex, Calendar cal) throws SQLException {
-        // TODO: use cal
-        return getDateImpl(columnIndex, Time::new);
+        final TimeZone tz = cal != null ? cal.getTimeZone() : Calendar.getInstance().getTimeZone();
+        return getDateImpl(columnIndex, instant -> Time.valueOf(instant.atZone(tz.toZoneId()).toLocalTime()));
     }
 
     @Override
@@ -454,8 +458,8 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public Timestamp getTimestamp(int columnIndex, Calendar cal) throws SQLException {
-        // TODO: use cal
-        return getDateImpl(columnIndex, Timestamp::new);
+        final TimeZone tz = cal != null ? cal.getTimeZone() : Calendar.getInstance().getTimeZone();
+        return getDateImpl(columnIndex, instant -> Timestamp.valueOf(instant.atZone(tz.toZoneId()).toLocalDateTime()));
     }
 
     @Override
@@ -546,9 +550,9 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     //
 
-    private <T> T getDateImpl(int columnIndex, LongFunction<T> fromMillis) throws SQLException {
+    private <T> T getDateImpl(int columnIndex, Function<Instant, T> fromMillis) throws SQLException {
         initValueReader(columnIndex);
-        long longValue = state.description.getters().readDateMillis(state.value);
+        Instant longValue = state.description.getters().readInstant(state.value);
         if (state.nullValue) {
             return null;
         }

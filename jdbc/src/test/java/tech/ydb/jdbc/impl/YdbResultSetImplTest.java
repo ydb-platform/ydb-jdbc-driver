@@ -20,6 +20,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Month;
+import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Locale;
@@ -687,8 +689,8 @@ public class YdbResultSetImplTest {
                 .value(16, "c_JsonDocument", "{\"key\":\"value JsonDocument\"}")
                 .value(17, "c_Yson", "{key=\"value yson\"}")
                 .value(18, "c_Date", "1978-07-09")
-                .value(19, "c_Datetime", "1970-02-06T00:11:51")
-                .value(20, "c_Timestamp", "1970-01-01T00:00:03.111112Z")
+                .value(19, "c_Datetime", "1979-11-10T19:45:56")
+                .value(20, "c_Timestamp", "1970-01-04T14:25:11.223342Z")
                 .value(21, "c_Interval", "PT3.111113S")
                 .value(22, "c_Decimal", "3.335000000");
 
@@ -711,8 +713,8 @@ public class YdbResultSetImplTest {
                 .value(16, "c_JsonDocument", null)
                 .value(17, "c_Yson", "\"\"")
                 .value(18, "c_Date", "1978-07-10")
-                .value(19, "c_Datetime", "1970-02-06T00:28:31")
-                .value(20, "c_Timestamp", "1970-01-01T00:00:03.112112Z")
+                .value(19, "c_Datetime", "1976-09-10T13:45")
+                .value(20, "c_Timestamp", "1970-01-02T06:51:51.223342Z")
                 .value(21, "c_Interval", "PT3.112113S")
                 .value(22, "c_Decimal", "-3.335000000");
 
@@ -1077,9 +1079,9 @@ public class YdbResultSetImplTest {
                 .value(8, "c_Uint16", 20002L)
                 .value(9, "c_Uint32", 2000000002L)
                 .value(10, "c_Uint64", 2000000000002L)
-                .value(18, "c_Date", 3111L * 86400 * 1000)
-                .value(19, "c_Datetime", 3111111L * 1000)
-                .value(20, "c_Timestamp", 3111L)
+                .value(18, "c_Date", 3111L * 24 * 60 * 60 * 1000)
+                .value(19, "c_Datetime", 311111156L * 1000)
+                .value(20, "c_Timestamp", 311111223342L / 1000)
                 .value(21, "c_Interval", 3111113L)
                 .value(22, "c_Decimal", 3L);
 
@@ -1094,9 +1096,9 @@ public class YdbResultSetImplTest {
                 .value(8, "c_Uint16", 40002L)
                 .value(9, "c_Uint32", 4000000002L)
                 .value(10, "c_Uint64", 4000000000002L)
-                .value(18, "c_Date", 3112L * 86400 * 1000)
-                .value(19, "c_Datetime", 3112111L * 1000)
-                .value(20, "c_Timestamp", 3112L)
+                .value(18, "c_Date", 3112L * 24 * 60 * 60 * 1000)
+                .value(19, "c_Datetime", 211211100L * 1000)
+                .value(20, "c_Timestamp", 111111223342L / 1000)
                 .value(21, "c_Interval", 3112113L)
                 .value(22, "c_Decimal", -3L);
 
@@ -1128,9 +1130,9 @@ public class YdbResultSetImplTest {
                 .value(8, "c_Uint16", 1L)
                 .value(9, "c_Uint32", 1L)
                 .value(10, "c_Uint64", 1L)
-                .value(18, "c_Date", 86400000L)
-                .value(19, "c_Datetime", 1000L)
-                .value(20, "c_Timestamp", 0L)
+                .value(18, "c_Date", 1L * 24 * 60 * 60 * 1000)
+                .value(19, "c_Datetime", 1L * 1000L)
+                .value(20, "c_Timestamp", 1L / 1000)
                 .value(21, "c_Interval", 1L)
                 .value(22, "c_Decimal", 1L);
 
@@ -1451,41 +1453,55 @@ public class YdbResultSetImplTest {
         ResultSetChecker<Date> checker = check(resultSet, ResultSet::getDate, ResultSet::getDate);
 
         checker.nextRow()
-                .value(6, "c_Int64", new Date(2000000000001l))
-                .value(10, "c_Uint64", new Date(2000000000002l))
-                .value(18, "c_Date", new Date(3111L * 86400 * 1000))
-                .value(19, "c_Datetime", new Date(3111111L * 1000))
-                .value(20, "c_Timestamp", new Date(3111));
+                // 2000000000001 unix millis = May 18, 2033 3:33:20.001 UTC
+                .value(6,  "c_Int64",     Date.valueOf(LocalDate.of(2033, Month.MAY, 18)))
+                // 2000000000002 unix millis = May 18, 2033 3:33:20.002 UTC
+                .value(10, "c_Uint64",    Date.valueOf(LocalDate.of(2033, Month.MAY, 18)))
+                // 3111 unix days = Sunday, July 9, 1978 0:00:00 UTC
+                .value(18, "c_Date",      Date.valueOf(LocalDate.of(1978, Month.JULY, 9)))
+                // 311111156 unix seconds = Sat Nov 10 1979 19:45:56 UTC
+                .value(19, "c_Datetime",  Date.valueOf(LocalDate.of(1979, Month.NOVEMBER, 10)))
+                // 311111223342 unix microseconds = Sun Jan 04 1970 14:25:11 UTC
+                .value(20, "c_Timestamp", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 4)));
 
         checker.nextRow()
-                .value(6, "c_Int64", new Date(-2000000000001l))
-                .value(10, "c_Uint64", new Date(4000000000002l))
-                .value(18, "c_Date", new Date(3112L * 86400 * 1000))
-                .value(19, "c_Datetime", new Date(3112111L * 1000))
-                .value(20, "c_Timestamp", new Date(3112));
+                // -2000000000001 unix millis = Thursday, August 16, 1906 20:26:39.999 UTC
+                .value(6,  "c_Int64",     Date.valueOf(LocalDate.of(1906, Month.AUGUST, 16)))
+                // 4000000000002 unix millis = Tuesday, October 2, 2096 7:06:40.002 UTC
+                .value(10, "c_Uint64",    Date.valueOf(LocalDate.of(2096, Month.OCTOBER, 2)))
+                // 3112 unix days = Mon Jul 10 1978 00:00:00 UTC
+                .value(18, "c_Date",      Date.valueOf(LocalDate.of(1978, Month.JULY, 10)))
+                // 211211100 unix seconds = Fri Sep 10 1976 13:45:00 UTC
+                .value(19, "c_Datetime",  Date.valueOf(LocalDate.of(1976, Month.SEPTEMBER, 10)))
+                // 111111223342 unix microseconds = Fri Jan 02 1970 06:51:51 UTC
+                .value(20, "c_Timestamp", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 2)));
 
         checker.nextRow()
-                .value(6, "c_Int64", new Date(0))
-                .value(10, "c_Uint64", new Date(0))
-                .value(18, "c_Date", new Date(0))
-                .value(19, "c_Datetime", new Date(0))
-                .value(20, "c_Timestamp", new Date(0));
+                .value(6,  "c_Int64",     Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
+                .value(10, "c_Uint64",    Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
+                .value(18, "c_Date",      Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
+                .value(19, "c_Datetime",  Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
+                .value(20, "c_Timestamp", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)));
 
         checker.nextRow()
-                .value(6, "c_Int64", new Date(1))
-                .value(10, "c_Uint64", new Date(1))
-                .value(18, "c_Date", new Date(86400000L))
-                .value(19, "c_Datetime", new Date(1000))
-                .value(20, "c_Timestamp", new Date(0));
+                .value(6,  "c_Int64",     Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
+                .value(10, "c_Uint64",    Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
+                .value(18, "c_Date",      Date.valueOf(LocalDate.of(1970, Month.JANUARY, 2)))
+                .value(19, "c_Datetime",  Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
+                .value(20, "c_Timestamp", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)));
 
         checker.nextRow()
-                .value(6, "c_Int64", null)
-                .value(10, "c_Uint64", null)
-                .value(18, "c_Date", null)
-                .value(19, "c_Datetime", null)
+                .value(6,  "c_Int64",     null)
+                .value(10, "c_Uint64",    null)
+                .value(18, "c_Date",      null)
+                .value(19, "c_Datetime",  null)
                 .value(20, "c_Timestamp", null);
 
         checker.assertNoRows();
+    }
+
+    private Time time(long seconds, int nanos) {
+        return Time.valueOf(LocalDateTime.ofEpochSecond(seconds, nanos, ZoneOffset.UTC).toLocalTime());
     }
 
     @Test
@@ -1493,41 +1509,45 @@ public class YdbResultSetImplTest {
         ResultSetChecker<Time> checker = check(resultSet, ResultSet::getTime, ResultSet::getTime);
 
         checker.nextRow()
-                .value(6, "c_Int64", new Time(2000000000001l))
-                .value(10, "c_Uint64", new Time(2000000000002l))
-                .value(18, "c_Date", new Time(3111L * 86400 * 1000))
-                .value(19, "c_Datetime", new Time(3111111L * 1000))
-                .value(20, "c_Timestamp", new Time(3111));
+                .value(6,  "c_Int64",     time(2000000000, 1000000))
+                .value(10, "c_Uint64",    time(2000000000, 2000000))
+                .value(18, "c_Date",      time(3111 * 24 * 60 * 60, 0))
+                .value(19, "c_Datetime",  time(311111156, 0))
+                .value(20, "c_Timestamp", time(311111, 223342000));
 
         checker.nextRow()
-                .value(6, "c_Int64", new Time(-2000000000001l))
-                .value(10, "c_Uint64", new Time(4000000000002l))
-                .value(18, "c_Date", new Time(3112L * 86400 * 1000))
-                .value(19, "c_Datetime", new Time(3112111L * 1000))
-                .value(20, "c_Timestamp", new Time(3112));
+                .value(6,  "c_Int64",     time(-2000000001, 999000000))
+                .value(10, "c_Uint64",    time(4000000000l, 2000000))
+                .value(18, "c_Date",      time(3112 * 24 * 60 * 60, 0))
+                .value(19, "c_Datetime",  time(211211100, 0))
+                .value(20, "c_Timestamp", time(111111, 223342000));
 
         checker.nextRow()
-                .value(6, "c_Int64", new Time(0))
-                .value(10, "c_Uint64", new Time(0))
-                .value(18, "c_Date", new Time(0))
-                .value(19, "c_Datetime", new Time(0))
-                .value(20, "c_Timestamp", new Time(0));
+                .value(6,  "c_Int64",     time(0, 0))
+                .value(10, "c_Uint64",    time(0, 0))
+                .value(18, "c_Date",      time(0, 0))
+                .value(19, "c_Datetime",  time(0, 0))
+                .value(20, "c_Timestamp", time(0, 0));
 
         checker.nextRow()
-                .value(6, "c_Int64", new Time(1))
-                .value(10, "c_Uint64", new Time(1))
-                .value(18, "c_Date", new Time(86400000L))
-                .value(19, "c_Datetime", new Time(1000))
-                .value(20, "c_Timestamp", new Time(0));
+                .value(6,  "c_Int64",     time(0, 1000000))
+                .value(10, "c_Uint64",    time(0, 1000000))
+                .value(18, "c_Date",      time(1 * 24 * 60 * 60, 0))
+                .value(19, "c_Datetime",  time(1, 0))
+                .value(20, "c_Timestamp", time(0, 1000));
 
         checker.nextRow()
-                .value(6, "c_Int64", null)
-                .value(10, "c_Uint64", null)
-                .value(18, "c_Date", null)
-                .value(19, "c_Datetime", null)
+                .value(6,  "c_Int64",     null)
+                .value(10, "c_Uint64",    null)
+                .value(18, "c_Date",      null)
+                .value(19, "c_Datetime",  null)
                 .value(20, "c_Timestamp", null);
 
         checker.assertNoRows();
+    }
+
+    private Timestamp timestamp(long seconds, int nanos) {
+        return Timestamp.valueOf(LocalDateTime.ofEpochSecond(seconds, nanos, ZoneOffset.UTC));
     }
 
     @Test
@@ -1535,38 +1555,38 @@ public class YdbResultSetImplTest {
         ResultSetChecker<Timestamp> checker = check(resultSet, ResultSet::getTimestamp, ResultSet::getTimestamp);
 
         checker.nextRow()
-                .value(6, "c_Int64", new Timestamp(2000000000001l))
-                .value(10, "c_Uint64", new Timestamp(2000000000002l))
-                .value(18, "c_Date", new Timestamp(3111L * 86400 * 1000))
-                .value(19, "c_Datetime", new Timestamp(3111111L * 1000))
-                .value(20, "c_Timestamp", new Timestamp(3111));
+                .value(6,  "c_Int64",     timestamp(2000000000, 1000000))
+                .value(10, "c_Uint64",    timestamp(2000000000, 2000000))
+                .value(18, "c_Date",      timestamp(3111 * 24 * 60 * 60, 0))
+                .value(19, "c_Datetime",  timestamp(311111156, 0))
+                .value(20, "c_Timestamp", timestamp(311111, 223342000));
 
         checker.nextRow()
-                .value(6, "c_Int64", new Timestamp(-2000000000001l))
-                .value(10, "c_Uint64", new Timestamp(4000000000002l))
-                .value(18, "c_Date", new Timestamp(3112L * 86400 * 1000))
-                .value(19, "c_Datetime", new Timestamp(3112111L * 1000))
-                .value(20, "c_Timestamp", new Timestamp(3112));
+                .value(6,  "c_Int64",     timestamp(-2000000001, 999000000))
+                .value(10, "c_Uint64",    timestamp(4000000000l, 2000000))
+                .value(18, "c_Date",      timestamp(3112 * 24 * 60 * 60, 0))
+                .value(19, "c_Datetime",  timestamp(211211100, 0))
+                .value(20, "c_Timestamp", timestamp(111111, 223342000));
 
         checker.nextRow()
-                .value(6, "c_Int64", new Timestamp(0))
-                .value(10, "c_Uint64", new Timestamp(0))
-                .value(18, "c_Date", new Timestamp(0))
-                .value(19, "c_Datetime", new Timestamp(0))
-                .value(20, "c_Timestamp", new Timestamp(0));
+                .value(6,  "c_Int64",     timestamp(0, 0))
+                .value(10, "c_Uint64",    timestamp(0, 0))
+                .value(18, "c_Date",      timestamp(0, 0))
+                .value(19, "c_Datetime",  timestamp(0, 0))
+                .value(20, "c_Timestamp", timestamp(0, 0));
 
         checker.nextRow()
-                .value(6, "c_Int64", new Timestamp(1))
-                .value(10, "c_Uint64", new Timestamp(1))
-                .value(18, "c_Date", new Timestamp(86400000L))
-                .value(19, "c_Datetime", new Timestamp(1000))
-                .value(20, "c_Timestamp", new Timestamp(0));
+                .value(6,  "c_Int64",     timestamp(0, 1000000))
+                .value(10, "c_Uint64",    timestamp(0, 1000000))
+                .value(18, "c_Date",      timestamp(1 * 24 * 60 * 60, 0))
+                .value(19, "c_Datetime",  timestamp(1, 0))
+                .value(20, "c_Timestamp", timestamp(0, 1000));
 
         checker.nextRow()
-                .value(6, "c_Int64", null)
-                .value(10, "c_Uint64", null)
-                .value(18, "c_Date", null)
-                .value(19, "c_Datetime", null)
+                .value(6,  "c_Int64",     null)
+                .value(10, "c_Uint64",    null)
+                .value(18, "c_Date",      null)
+                .value(19, "c_Datetime",  null)
                 .value(20, "c_Timestamp", null);
 
         checker.assertNoRows();
@@ -1685,9 +1705,9 @@ public class YdbResultSetImplTest {
                 .typedValue(15, "c_Json", "{\"key\": \"value Json\"}")
                 .typedValue(16, "c_JsonDocument", "{\"key\":\"value JsonDocument\"}")
                 .typedValue(17, "c_Yson", bytes("{key=\"value yson\"}"))
-                .typedValue(18, "c_Date", LocalDate.parse("1978-07-09"))
-                .typedValue(19, "c_Datetime", LocalDateTime.parse("1970-02-06T00:11:51"))
-                .typedValue(20, "c_Timestamp", Instant.parse("1970-01-01T00:00:03.111112Z"))
+                .typedValue(18, "c_Date", LocalDate.ofEpochDay(3111))
+                .typedValue(19, "c_Datetime", LocalDateTime.ofEpochSecond(311111156, 0, ZoneOffset.UTC))
+                .typedValue(20, "c_Timestamp", Instant.ofEpochSecond(311111, 223342000))
                 .typedValue(21, "c_Interval", Duration.parse("PT3.111113S"))
                 .typedValue(22, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("3.335000000"));
 
@@ -1709,9 +1729,9 @@ public class YdbResultSetImplTest {
                 .value(15, "c_Json", null)
                 .value(16, "c_JsonDocument", null)
                 .typedValue(17, "c_Yson", bytes("\"\""))
-                .typedValue(18, "c_Date", LocalDate.parse("1978-07-10"))
-                .typedValue(19, "c_Datetime", LocalDateTime.parse("1970-02-06T00:28:31"))
-                .typedValue(20, "c_Timestamp", Instant.parse("1970-01-01T00:00:03.112112Z"))
+                .typedValue(18, "c_Date", LocalDate.ofEpochDay(3112))
+                .typedValue(19, "c_Datetime", LocalDateTime.ofEpochSecond(211211100, 0, ZoneOffset.UTC))
+                .typedValue(20, "c_Timestamp", Instant.ofEpochSecond(111111, 223342000))
                 .typedValue(21, "c_Interval", Duration.parse("PT3.112113S"))
                 .typedValue(22, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("-3.335000000"));
 
@@ -1733,9 +1753,9 @@ public class YdbResultSetImplTest {
                 .value(15, "c_Json", null)
                 .value(16, "c_JsonDocument", null)
                 .typedValue(17, "c_Yson", bytes("0"))
-                .typedValue(18, "c_Date", LocalDate.parse("1970-01-01"))
-                .typedValue(19, "c_Datetime", LocalDateTime.parse("1970-01-01T00:00:00"))
-                .typedValue(20, "c_Timestamp", Instant.parse("1970-01-01T00:00:00.000000Z"))
+                .typedValue(18, "c_Date", LocalDate.ofEpochDay(0))
+                .typedValue(19, "c_Datetime", LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC))
+                .typedValue(20, "c_Timestamp", Instant.ofEpochSecond(0, 0))
                 .typedValue(21, "c_Interval", Duration.parse("PT0.000000S"))
                 .typedValue(22, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("0.00000000"));
 
@@ -1757,9 +1777,9 @@ public class YdbResultSetImplTest {
                 .typedValue(15, "c_Json", "{}")
                 .typedValue(16, "c_JsonDocument", "{}")
                 .typedValue(17, "c_Yson", bytes("1"))
-                .typedValue(18, "c_Date", LocalDate.parse("1970-01-02"))
-                .typedValue(19, "c_Datetime", LocalDateTime.parse("1970-01-01T00:00:01"))
-                .typedValue(20, "c_Timestamp", Instant.parse("1970-01-01T00:00:00.000001Z"))
+                .typedValue(18, "c_Date", LocalDate.ofEpochDay(1))
+                .typedValue(19, "c_Datetime", LocalDateTime.ofEpochSecond(1, 0, ZoneOffset.UTC))
+                .typedValue(20, "c_Timestamp", Instant.ofEpochSecond(0, 1000))
                 .typedValue(21, "c_Interval", Duration.parse("PT0.000001S"))
                 .typedValue(22, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("1.00000000"));
 
@@ -2006,9 +2026,9 @@ public class YdbResultSetImplTest {
                 .typedValue(15, "c_Json", PrimitiveValue.newJson("{\"key\": \"value Json\"}"))
                 .typedValue(16, "c_JsonDocument", PrimitiveValue.newJsonDocument("{\"key\":\"value JsonDocument\"}"))
                 .typedValue(17, "c_Yson", PrimitiveValue.newYson(bytes("{key=\"value yson\"}")))
-                .typedValue(18, "c_Date", PrimitiveValue.newDate(LocalDate.parse("1978-07-09")))
-                .typedValue(19, "c_Datetime", PrimitiveValue.newDatetime(Instant.parse("1970-02-06T00:11:51Z")))
-                .typedValue(20, "c_Timestamp", PrimitiveValue.newTimestamp(3111112L))
+                .typedValue(18, "c_Date", PrimitiveValue.newDate(LocalDate.ofEpochDay(3111)))
+                .typedValue(19, "c_Datetime", PrimitiveValue.newDatetime(Instant.ofEpochSecond(311111156)))
+                .typedValue(20, "c_Timestamp", PrimitiveValue.newTimestamp(Instant.ofEpochSecond(311111, 223342000)))
                 .typedValue(21, "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT3.111113S")))
                 .typedValue(22, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("3.335000000"));
 
@@ -2030,9 +2050,9 @@ public class YdbResultSetImplTest {
                 .value(15, "c_Json", null)
                 .value(16, "c_JsonDocument", null)
                 .typedValue(17, "c_Yson", PrimitiveValue.newYson(bytes("\"\"")))
-                .typedValue(18, "c_Date", PrimitiveValue.newDate(LocalDate.parse("1978-07-10")))
-                .typedValue(19, "c_Datetime", PrimitiveValue.newDatetime(Instant.parse("1970-02-06T00:28:31Z")))
-                .typedValue(20, "c_Timestamp", PrimitiveValue.newTimestamp(3112112l))
+                .typedValue(18, "c_Date", PrimitiveValue.newDate(LocalDate.ofEpochDay(3112)))
+                .typedValue(19, "c_Datetime", PrimitiveValue.newDatetime(Instant.ofEpochSecond(211211100)))
+                .typedValue(20, "c_Timestamp", PrimitiveValue.newTimestamp(Instant.ofEpochSecond(111111, 223342000)))
                 .typedValue(21, "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT3.112113S")))
                 .typedValue(22, "c_Decimal", YdbTypes.DEFAULT_DECIMAL_TYPE.newValue("-3.335000000"));
 
