@@ -366,26 +366,21 @@ public class MappingSetters {
             return PrimitiveValue.newDate(((LocalDateTime) x).toLocalDate());
         } else if (x instanceof LocalDate) {
             return PrimitiveValue.newDate((LocalDate) x);
+        } else if (x instanceof Integer) {
+            return PrimitiveValue.newDate(LocalDate.ofEpochDay((Integer) x));
         } else if (x instanceof Long) {
-            return PrimitiveValue.newDate(TimeUnit.MILLISECONDS.toDays((Long) x));
-        } else if (x instanceof Timestamp) {
-            // Normalize date - use system timezone to detect correct date
-            Instant instant = Instant.ofEpochMilli(((Timestamp) x).getTime());
-            LocalDateTime ldt = instant.atZone(ZoneId.systemDefault()).toLocalDateTime();
-            return PrimitiveValue.newDate(ldt.toLocalDate());
+            return PrimitiveValue.newDate(LocalDate.ofEpochDay((Long) x));
         } else if (x instanceof Date) {
             // Normalize date - use system timezone to detect correct date
             Instant instant = Instant.ofEpochMilli(((Date) x).getTime());
             LocalDate ld = instant.atZone(ZoneId.systemDefault()).toLocalDate();
             return PrimitiveValue.newDate(ld);
         } else if (x instanceof String) {
-            Instant parsed;
             try {
-                parsed = Instant.parse((String) x);
+                return PrimitiveValue.newDate(LocalDate.parse((String) x));
             } catch (DateTimeParseException e) {
                 throw castNotSupported(type, x, e);
             }
-            return PrimitiveValue.newDate(parsed);
         }
         throw castNotSupported(type, x);
     }
