@@ -5,19 +5,20 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Date;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CharStreams;
@@ -359,46 +360,60 @@ public class MappingSetters {
 
     private static PrimitiveValue castToDate(PrimitiveType type, Object x) throws SQLException {
         if (x instanceof Instant) {
-            return PrimitiveValue.newDate((Instant) x);
+            return PrimitiveValue.newDate(((Instant) x).atZone(ZoneId.systemDefault()).toLocalDate());
+        } else if (x instanceof LocalDateTime) {
+            return PrimitiveValue.newDate(((LocalDateTime) x).toLocalDate());
         } else if (x instanceof LocalDate) {
             return PrimitiveValue.newDate((LocalDate) x);
+        } else if (x instanceof Integer) {
+            return PrimitiveValue.newDate(LocalDate.ofEpochDay((Integer) x));
         } else if (x instanceof Long) {
-            return PrimitiveValue.newDate(TimeUnit.MILLISECONDS.toDays((Long) x));
-        } else if (x instanceof Date) {
-            return PrimitiveValue.newDate(TimeUnit.MILLISECONDS.toDays(((Date) x).getTime()));
+            return PrimitiveValue.newDate(LocalDate.ofEpochDay((Long) x));
         } else if (x instanceof Timestamp) {
-            return PrimitiveValue.newDate(TimeUnit.MILLISECONDS.toDays(((Timestamp) x).getTime()));
+            // Normalize date - use system timezone to detect correct date
+            Instant instant = Instant.ofEpochMilli(((Timestamp) x).getTime());
+            LocalDate ld = instant.atZone(ZoneId.systemDefault()).toLocalDate();
+            return PrimitiveValue.newDate(ld);
+        } else if (x instanceof Date) {
+            // Normalize date - use system timezone to detect correct date
+            Instant instant = Instant.ofEpochMilli(((Date) x).getTime());
+            LocalDate ld = instant.atZone(ZoneId.systemDefault()).toLocalDate();
+            return PrimitiveValue.newDate(ld);
         } else if (x instanceof String) {
-            Instant parsed;
             try {
-                parsed = Instant.parse((String) x);
+                return PrimitiveValue.newDate(LocalDate.parse((String) x));
             } catch (DateTimeParseException e) {
                 throw castNotSupported(type, x, e);
             }
-            return PrimitiveValue.newDate(parsed);
         }
         throw castNotSupported(type, x);
     }
 
     private static PrimitiveValue castToDateTime(PrimitiveType type, Object x) throws SQLException {
         if (x instanceof Instant) {
-            return PrimitiveValue.newDatetime((Instant) x);
+            return PrimitiveValue.newDatetime(((Instant) x).atZone(ZoneId.systemDefault()).toLocalDateTime());
         } else if (x instanceof LocalDateTime) {
-            return PrimitiveValue.newDatetime((LocalDateTime) x);
+            return PrimitiveValue.newDatetime(((LocalDateTime) x));
+        } else if (x instanceof LocalDate) {
+            return PrimitiveValue.newDatetime(((LocalDate) x).atStartOfDay());
         } else if (x instanceof Long) {
-            return PrimitiveValue.newDatetime(TimeUnit.MILLISECONDS.toSeconds((Long) x));
-        } else if (x instanceof Date) {
-            return PrimitiveValue.newDatetime(TimeUnit.MILLISECONDS.toSeconds(((Date) x).getTime()));
+            return PrimitiveValue.newDatetime(LocalDateTime.ofEpochSecond((Long) x, 0, ZoneOffset.UTC));
         } else if (x instanceof Timestamp) {
-            return PrimitiveValue.newDatetime(TimeUnit.MILLISECONDS.toSeconds(((Timestamp) x).getTime()));
+            // Normalize date - use system timezone to detect correct date
+            Instant instant = Instant.ofEpochMilli(((Timestamp) x).getTime());
+            LocalDateTime ldt = instant.atZone(ZoneId.systemDefault()).toLocalDateTime();
+            return PrimitiveValue.newDatetime(ldt);
+        } else if (x instanceof Date) {
+            // Normalize date - use system timezone to detect correct date
+            Instant instant = Instant.ofEpochMilli(((Date) x).getTime());
+            LocalDate ld = instant.atZone(ZoneId.systemDefault()).toLocalDate();
+            return PrimitiveValue.newDatetime(ld.atStartOfDay());
         } else if (x instanceof String) {
-            Instant parsed;
             try {
-                parsed = Instant.parse((String) x);
+                return PrimitiveValue.newDatetime(LocalDateTime.parse((String) x));
             } catch (DateTimeParseException e) {
                 throw castNotSupported(type, x, e);
             }
-            return PrimitiveValue.newDatetime(parsed);
         }
         throw castNotSupported(type, x);
     }
@@ -407,19 +422,23 @@ public class MappingSetters {
         if (x instanceof Instant) {
             return PrimitiveValue.newTimestamp((Instant) x);
         } else if (x instanceof Long) {
-            return PrimitiveValue.newTimestamp(TimeUnit.MILLISECONDS.toMicros((Long) x));
-        } else if (x instanceof Date) {
-            return PrimitiveValue.newTimestamp(TimeUnit.MILLISECONDS.toMicros(((Date) x).getTime()));
+            return PrimitiveValue.newTimestamp(Instant.ofEpochMilli((Long) x));
+        } else if (x instanceof LocalDate) {
+            return PrimitiveValue.newTimestamp(((LocalDate) x).atStartOfDay().toInstant(ZoneOffset.UTC));
+        } else if (x instanceof LocalDateTime) {
+            long epochSeconds = ((LocalDateTime) x).toEpochSecond(ZoneOffset.UTC);
+            return PrimitiveValue.newTimestamp(Instant.ofEpochSecond(epochSeconds));
         } else if (x instanceof Timestamp) {
-            return PrimitiveValue.newTimestamp(TimeUnit.MILLISECONDS.toMicros(((Timestamp) x).getTime()));
+            return PrimitiveValue.newTimestamp(((Timestamp) x).toInstant());
+        } else if (x instanceof Date) {
+            Instant instant = ((Date) x).toLocalDate().atStartOfDay().toInstant(ZoneOffset.UTC);
+            return PrimitiveValue.newTimestamp(instant);
         } else if (x instanceof String) {
-            Instant parsed;
             try {
-                parsed = Instant.parse((String) x);
+                return PrimitiveValue.newTimestamp(Instant.parse((String) x));
             } catch (DateTimeParseException e) {
                 throw castNotSupported(type, x, e);
             }
-            return PrimitiveValue.newTimestamp(parsed);
         }
         throw castNotSupported(type, x);
     }

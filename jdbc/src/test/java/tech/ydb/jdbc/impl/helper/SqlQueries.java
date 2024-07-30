@@ -12,7 +12,8 @@ import tech.ydb.jdbc.settings.YdbLookup;
  */
 public class SqlQueries {
     public enum JdbcQuery {
-        STANDART,
+        STANDARD,
+        IN_MEMORY,
         TYPED,
         BATCHED,
     }
@@ -40,9 +41,11 @@ public class SqlQueries {
     private static final String SELECT_COLUMN = "select key, #column from #tableName";
     private static final String WRONG_SELECT = "select key2 from #tableName";
 
-    private static final Map<JdbcQuery, String> JDBC_UPSERT_ONE = ImmutableMap.of(
-            JdbcQuery.STANDART, "" +
+    private static final Map<JdbcQuery, String> JDBC_UPSERT_ONE = ImmutableMap.of(JdbcQuery.STANDARD, "" +
                     "upsert into #tableName (key, #column) values (?, ?)",
+
+            JdbcQuery.IN_MEMORY, "" +
+                    "upsert into #tableName (key, #column) values (?, ?); select 1;",
 
             JdbcQuery.TYPED, "" +
                     "declare $p1 as Int32;\n" +
@@ -125,7 +128,7 @@ public class SqlQueries {
                 return withTableName(TYPED_BATCH, tableName);
             case TYPED:
                 return withTableName(TYPED_UPSERT, tableName);
-            case STANDART:
+            case STANDARD:
             default:
                 return withTableName(SIMPLE_UPSERT, tableName);
         }

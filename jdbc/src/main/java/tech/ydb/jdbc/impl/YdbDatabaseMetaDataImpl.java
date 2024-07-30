@@ -28,7 +28,6 @@ import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbDatabaseMetaData;
 import tech.ydb.jdbc.YdbDriverInfo;
-import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.common.FixedResultSetFactory;
 import tech.ydb.jdbc.common.YdbFunctions;
 import tech.ydb.jdbc.context.SchemeExecutor;
@@ -53,11 +52,9 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     private final YdbConnection connection;
     private final YdbValidator validator;
     private final SchemeExecutor executor;
-    private final YdbTypes types;
 
     public YdbDatabaseMetaDataImpl(YdbConnection connection) {
         this.connection = Objects.requireNonNull(connection);
-        this.types = connection.getYdbTypes();
         this.executor = new SchemeExecutor(connection.getCtx());
         this.validator = new YdbValidator(LOGGER);
     }
@@ -807,9 +804,9 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
                 rs.newRow()
                         .withTextValue("TABLE_NAME", tableName)
                         .withTextValue("COLUMN_NAME", column.getName())
-                        .withIntValue("DATA_TYPE", types.toSqlType(type))
+                        .withIntValue("DATA_TYPE", YdbTypes.toSqlType(type))
                         .withTextValue("TYPE_NAME", type.toString())
-                        .withIntValue("COLUMN_SIZE", types.getSqlPrecision(type))
+                        .withIntValue("COLUMN_SIZE", YdbTypes.getSqlPrecision(type))
                         .withIntValue("BUFFER_LENGTH", 0)
                         .withIntValue("DECIMAL_DIGITS", decimalDigits)
                         .withIntValue("NUM_PREC_RADIX", 10)
@@ -886,7 +883,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
             rs.newRow()
                     .withShortValue("SCOPE", (short) scope)
                     .withTextValue("COLUMN_NAME", key)
-                    .withIntValue("DATA_TYPE", types.toSqlType(type))
+                    .withIntValue("DATA_TYPE", YdbTypes.toSqlType(type))
                     .withTextValue("TYPE_NAME", type.toString())
                     .withIntValue("COLUMN_SIZE", 0)
                     .withIntValue("BUFFER_LENGTH", 0)
@@ -963,13 +960,13 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     public ResultSet getTypeInfo() {
         FixedResultSetFactory.ResultSetBuilder rs = MetaDataTables.TYPE_INFOS.createResultSet();
 
-        for (Type type: types.getAllDatabaseTypes()) {
+        for (Type type: YdbTypes.getAllDatabaseTypes()) {
             String literal = getLiteral(type);
             int scale = type.getKind() == Type.Kind.DECIMAL ? YdbConst.SQL_DECIMAL_DEFAULT_SCALE : 0;
             rs.newRow()
                     .withTextValue("TYPE_NAME", type.toString())
-                    .withIntValue("DATA_TYPE", types.toSqlType(type))
-                    .withIntValue("PRECISION", types.getSqlPrecision(type))
+                    .withIntValue("DATA_TYPE", YdbTypes.toSqlType(type))
+                    .withIntValue("PRECISION", YdbTypes.getSqlPrecision(type))
                     .withTextValue("LITERAL_PREFIX", literal)
                     .withTextValue("LITERAL_SUFFIX", literal)
                     .withShortValue("NULLABLE", (short) typeNullable)

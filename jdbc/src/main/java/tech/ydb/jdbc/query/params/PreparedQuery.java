@@ -78,7 +78,7 @@ public class PreparedQuery implements YdbPreparedQuery {
     }
 
     @Override
-    public void setParam(int index, Object obj, Type type) throws SQLException {
+    public void setParam(int index, Object obj, int sqlType) throws SQLException {
         if (index <= 0 || index > paramNames.length) {
             throw new SQLException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + index);
         }
@@ -88,7 +88,7 @@ public class PreparedQuery implements YdbPreparedQuery {
     }
 
     @Override
-    public void setParam(String name, Object obj, Type type) throws SQLException {
+    public void setParam(String name, Object obj, int sqlType) throws SQLException {
         String varName = YdbConst.VARIABLE_PARAMETER_PREFIX + name;
         if (!params.containsKey(varName)) {
             throw new SQLException(YdbConst.PARAMETER_NOT_FOUND + name);

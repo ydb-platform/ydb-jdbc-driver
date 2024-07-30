@@ -31,26 +31,22 @@ import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbParameterMetaData;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.YdbResultSet;
-import tech.ydb.jdbc.YdbTypes;
 import tech.ydb.jdbc.common.MappingSetters;
 import tech.ydb.jdbc.query.YdbPreparedQuery;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Type;
-import tech.ydb.table.values.VoidType;
 
 public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPreparedStatement {
     private static final Logger LOGGER = Logger.getLogger(YdbPreparedStatementImpl.class.getName());
     private final YdbQuery query;
     private final YdbPreparedQuery prepared;
-    private final YdbTypes types;
 
     public YdbPreparedStatementImpl(YdbConnection connection, YdbQuery query, YdbPreparedQuery prepared, int rsType) {
         super(LOGGER, connection, rsType, true); // is poolable by default
 
         this.query = Objects.requireNonNull(query);
         this.prepared = Objects.requireNonNull(prepared);
-        this.types = connection.getYdbTypes();
     }
 
     @Override
@@ -161,38 +157,30 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
         return getResultSet();
     }
 
-    private Type ydbType(int sqlType) {
-        return types.toYdbType(sqlType);
-    }
-
-    private Type ydbType(Class<?> clazz) {
-        return types.toYdbType(clazz);
-    }
-
     private void setImplReader(String name, Reader reader, long length) throws SQLException {
-        prepared.setParam(name, MappingSetters.CharStream.fromReader(reader, length), ydbType(Types.VARCHAR));
+        prepared.setParam(name, MappingSetters.CharStream.fromReader(reader, length), Types.VARCHAR);
     }
 
     private void setImplStream(String name, InputStream stream, long length) throws SQLException {
-        prepared.setParam(name, MappingSetters.ByteStream.fromInputStream(stream, length), ydbType(Types.BINARY));
+        prepared.setParam(name, MappingSetters.ByteStream.fromInputStream(stream, length), Types.BINARY);
     }
 
     private void setImplReader(int index, Reader reader, long length) throws SQLException {
-        prepared.setParam(index, MappingSetters.CharStream.fromReader(reader, length), ydbType(Types.VARCHAR));
+        prepared.setParam(index, MappingSetters.CharStream.fromReader(reader, length), Types.VARCHAR);
     }
 
     private void setImplStream(int index, InputStream stream, long length) throws SQLException {
-        prepared.setParam(index, MappingSetters.ByteStream.fromInputStream(stream, length), ydbType(Types.BINARY));
+        prepared.setParam(index, MappingSetters.ByteStream.fromInputStream(stream, length), Types.BINARY);
     }
 
     @Override
     public void setObject(String parameterName, Object value, Type type) throws SQLException {
-        prepared.setParam(parameterName, value, type);
+        prepared.setParam(parameterName, value, Types.JAVA_OBJECT);
     }
 
     @Override
     public void setObject(int parameterIndex, Object value, Type type) throws SQLException {
-        prepared.setParam(parameterIndex, value, type);
+        prepared.setParam(parameterIndex, value, Types.JAVA_OBJECT);
     }
 
     @Override
@@ -200,7 +188,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
         if (x == null) {
             throw new SQLDataException(YdbConst.UNABLE_TO_SET_NULL_OBJECT);
         }
-        prepared.setParam(parameterName, x, ydbType(x.getClass()));
+        prepared.setParam(parameterName, x, Types.JAVA_OBJECT);
     }
 
     @Override
@@ -208,81 +196,77 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
         if (x == null) {
             throw new SQLDataException(YdbConst.UNABLE_TO_SET_NULL_OBJECT);
         }
-        prepared.setParam(parameterIndex, x, ydbType(x.getClass()));
+        prepared.setParam(parameterIndex, x, Types.JAVA_OBJECT);
     }
 
     @Override
     public void setNull(String parameterName, int sqlType) throws SQLException {
-        Type type = ydbType(sqlType);
-        if (type == null) {
-            type = VoidType.of();
-        }
-        prepared.setParam(parameterName, null, type);
+        prepared.setParam(parameterName, null, sqlType);
     }
 
     @Override
     public void setBoolean(String parameterName, boolean x) throws SQLException {
-        prepared.setParam(parameterName, x, ydbType(Boolean.class));
+        prepared.setParam(parameterName, x, Types.BOOLEAN);
     }
 
     @Override
     public void setByte(String parameterName, byte x) throws SQLException {
-        prepared.setParam(parameterName, x, ydbType(Byte.class));
+        prepared.setParam(parameterName, x, Types.TINYINT);
     }
 
     @Override
     public void setShort(String parameterName, short x) throws SQLException {
-        prepared.setParam(parameterName, x, ydbType(Short.class));
+        prepared.setParam(parameterName, x, Types.SMALLINT);
     }
 
     @Override
     public void setInt(String parameterName, int x) throws SQLException {
-        prepared.setParam(parameterName, x, ydbType(Integer.class));
+        prepared.setParam(parameterName, x, Types.INTEGER);
     }
 
     @Override
     public void setLong(String parameterName, long x) throws SQLException {
-        prepared.setParam(parameterName, x, ydbType(Long.class));
+        prepared.setParam(parameterName, x, Types.BIGINT);
     }
 
     @Override
     public void setFloat(String parameterName, float x) throws SQLException {
-        prepared.setParam(parameterName, x, ydbType(Float.class));
+        prepared.setParam(parameterName, x, Types.FLOAT);
     }
 
     @Override
     public void setDouble(String parameterName, double x) throws SQLException {
-        prepared.setParam(parameterName, x, ydbType(Double.class));
+        prepared.setParam(parameterName, x, Types.DOUBLE);
     }
 
     @Override
     public void setBigDecimal(String parameterName, BigDecimal x) throws SQLException {
-        prepared.setParam(parameterName, x, ydbType(Types.DECIMAL));
+        prepared.setParam(parameterName, x, Types.DECIMAL);
     }
 
     @Override
     public void setString(String parameterName, String x) throws SQLException {
-        prepared.setParam(parameterName, x, ydbType(Types.VARCHAR));
+        prepared.setParam(parameterName, x, Types.VARCHAR);
     }
 
     @Override
     public void setBytes(String parameterName, byte[] x) throws SQLException {
-        prepared.setParam(parameterName, x, ydbType(Types.BINARY));
+        prepared.setParam(parameterName, x, Types.BINARY);
     }
 
     @Override
     public void setDate(String parameterName, Date x) throws SQLException {
-        prepared.setParam(parameterName, x, ydbType(Types.DATE));
+        prepared.setParam(parameterName, x, Types.DATE);
     }
 
     @Override
     public void setTime(String parameterName, Time x) throws SQLException {
-        prepared.setParam(parameterName, x, ydbType(Types.TIME));
+        prepared.setParam(parameterName, x, Types.TIME);
     }
 
     @Override
     public void setTimestamp(String parameterName, Timestamp x) throws SQLException {
-        prepared.setParam(parameterName, x, ydbType(Types.TIMESTAMP));
+        prepared.setParam(parameterName, x, Types.TIMESTAMP);
     }
 
     @Override
@@ -297,7 +281,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
 
     @Override
     public void setObject(String parameterName, Object x, int targetSqlType) throws SQLException {
-        prepared.setParam(parameterName, x, ydbType(targetSqlType));
+        prepared.setParam(parameterName, x, targetSqlType);
     }
 
     @Override
@@ -308,41 +292,34 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
     @Override
     public void setDate(String parameterName, Date x, Calendar cal) throws SQLException {
         // TODO: check cal
-        prepared.setParam(parameterName, x, ydbType(Types.DATE));
+        prepared.setParam(parameterName, x, Types.DATE);
     }
 
     @Override
     public void setTime(String parameterName, Time x, Calendar cal) throws SQLException {
         // TODO: check cal
-        prepared.setParam(parameterName, x, ydbType(Types.TIME));
+        prepared.setParam(parameterName, x, Types.TIME);
     }
 
     @Override
     public void setTimestamp(String parameterName, Timestamp x, Calendar cal) throws SQLException {
         // TODO: check cal
-        prepared.setParam(parameterName, x, ydbType(Types.TIMESTAMP));
+        prepared.setParam(parameterName, x, Types.TIMESTAMP);
     }
 
     @Override
     public void setNull(String parameterName, int sqlType, String typeName) throws SQLException {
-        Type type = types.toYdbType(typeName);
-        if (type == null) {
-            type = types.toYdbType(sqlType);
-        }
-        if (type == null) {
-            type = VoidType.of();
-        }
-        prepared.setParam(parameterName, null, type);
+        prepared.setParam(parameterName, null, sqlType);
     }
 
     @Override
     public void setURL(String parameterName, URL x) throws SQLException {
-        prepared.setParam(parameterName, x, ydbType(Types.VARCHAR));
+        prepared.setParam(parameterName, x, Types.VARCHAR);
     }
 
     @Override
     public void setNString(String parameterName, String value) throws SQLException {
-        prepared.setParam(parameterName, value, ydbType(Types.VARCHAR));
+        prepared.setParam(parameterName, value, Types.VARCHAR);
     }
 
     @Override
@@ -368,7 +345,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
     @Override
     public void setObject(String parameterName, Object x, int targetSqlType, int scaleOrLength) throws SQLException {
         // TODO: check scaleOrLength
-        prepared.setParam(parameterName, x, ydbType(targetSqlType));
+        prepared.setParam(parameterName, x, targetSqlType);
     }
 
     @Override
@@ -413,76 +390,72 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
 
     @Override
     public void setNull(int parameterIndex, int sqlType) throws SQLException {
-        Type type = ydbType(sqlType);
-        if (type == null) {
-            type = VoidType.of();
-        }
-        prepared.setParam(parameterIndex, null, type);
+        prepared.setParam(parameterIndex, null, sqlType);
     }
 
     @Override
     public void setBoolean(int parameterIndex, boolean x) throws SQLException {
-        prepared.setParam(parameterIndex, x, ydbType(Boolean.class));
+        prepared.setParam(parameterIndex, x, Types.BOOLEAN);
     }
 
     @Override
     public void setByte(int parameterIndex, byte x) throws SQLException {
-        prepared.setParam(parameterIndex, x, ydbType(Byte.class));
+        prepared.setParam(parameterIndex, x, Types.TINYINT);
     }
 
     @Override
     public void setShort(int parameterIndex, short x) throws SQLException {
-        prepared.setParam(parameterIndex, x, ydbType(Short.class));
+        prepared.setParam(parameterIndex, x, Types.SMALLINT);
     }
 
     @Override
     public void setInt(int parameterIndex, int x) throws SQLException {
-        prepared.setParam(parameterIndex, x, ydbType(Integer.class));
+        prepared.setParam(parameterIndex, x, Types.INTEGER);
     }
 
     @Override
     public void setLong(int parameterIndex, long x) throws SQLException {
-        prepared.setParam(parameterIndex, x, ydbType(Long.class));
+        prepared.setParam(parameterIndex, x, Types.BIGINT);
     }
 
     @Override
     public void setFloat(int parameterIndex, float x) throws SQLException {
-        prepared.setParam(parameterIndex, x, ydbType(Float.class));
+        prepared.setParam(parameterIndex, x, Types.FLOAT);
     }
 
     @Override
     public void setDouble(int parameterIndex, double x) throws SQLException {
-        prepared.setParam(parameterIndex, x, ydbType(Double.class));
+        prepared.setParam(parameterIndex, x, Types.DOUBLE);
     }
 
     @Override
     public void setBigDecimal(int parameterIndex, BigDecimal x) throws SQLException {
-        prepared.setParam(parameterIndex, x, ydbType(Types.DECIMAL));
+        prepared.setParam(parameterIndex, x, Types.DECIMAL);
     }
 
     @Override
     public void setString(int parameterIndex, String x) throws SQLException {
-        prepared.setParam(parameterIndex, x, ydbType(Types.VARCHAR));
+        prepared.setParam(parameterIndex, x, Types.VARCHAR);
     }
 
     @Override
     public void setBytes(int parameterIndex, byte[] x) throws SQLException {
-        prepared.setParam(parameterIndex, x, ydbType(Types.BINARY));
+        prepared.setParam(parameterIndex, x, Types.BINARY);
     }
 
     @Override
     public void setDate(int parameterIndex, Date x) throws SQLException {
-        prepared.setParam(parameterIndex, x, ydbType(Types.DATE));
+        prepared.setParam(parameterIndex, x, Types.DATE);
     }
 
     @Override
     public void setTime(int parameterIndex, Time x) throws SQLException {
-        prepared.setParam(parameterIndex, x, ydbType(Types.TIME));
+        prepared.setParam(parameterIndex, x, Types.TIME);
     }
 
     @Override
     public void setTimestamp(int parameterIndex, Timestamp x) throws SQLException {
-        prepared.setParam(parameterIndex, x, ydbType(Types.TIMESTAMP));
+        prepared.setParam(parameterIndex, x, Types.TIMESTAMP);
     }
 
     @Override
@@ -503,7 +476,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
 
     @Override
     public void setObject(int parameterIndex, Object x, int targetSqlType) throws SQLException {
-        prepared.setParam(parameterIndex, x, ydbType(targetSqlType));
+        prepared.setParam(parameterIndex, x, targetSqlType);
     }
 
     @Override
@@ -534,41 +507,34 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
     @Override
     public void setDate(int parameterIndex, Date x, Calendar cal) throws SQLException {
         // TODO: check cal
-        prepared.setParam(parameterIndex, x, ydbType(Types.DATE));
+        prepared.setParam(parameterIndex, x, Types.DATE);
     }
 
     @Override
     public void setTime(int parameterIndex, Time x, Calendar cal) throws SQLException {
         // TODO: check cal
-        prepared.setParam(parameterIndex, x, ydbType(Types.TIME));
+        prepared.setParam(parameterIndex, x, Types.TIME);
     }
 
     @Override
     public void setTimestamp(int parameterIndex, Timestamp x, Calendar cal) throws SQLException {
         // TODO: check cal
-        prepared.setParam(parameterIndex, x, ydbType(Types.TIMESTAMP));
+        prepared.setParam(parameterIndex, x, Types.TIMESTAMP);
     }
 
     @Override
     public void setNull(int parameterIndex, int sqlType, String typeName) throws SQLException {
-        Type type = types.toYdbType(typeName);
-        if (type == null) {
-            type = types.toYdbType(sqlType);
-        }
-        if (type == null) {
-            type = VoidType.of();
-        }
-        prepared.setParam(parameterIndex, null, type);
+        prepared.setParam(parameterIndex, null, sqlType);
     }
 
     @Override
     public void setURL(int parameterIndex, URL x) throws SQLException {
-        prepared.setParam(parameterIndex, x, ydbType(Types.VARCHAR));
+        prepared.setParam(parameterIndex, x, Types.VARCHAR);
     }
 
     @Override
     public void setNString(int parameterIndex, String value) throws SQLException {
-        prepared.setParam(parameterIndex, value, ydbType(Types.VARCHAR));
+        prepared.setParam(parameterIndex, value, Types.VARCHAR);
     }
 
     @Override
@@ -604,7 +570,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
     @Override
     public void setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength) throws SQLException {
         // TODO: handle scaleOrLength
-        prepared.setParam(parameterIndex, x, ydbType(targetSqlType));
+        prepared.setParam(parameterIndex, x, targetSqlType);
     }
 
     @Override

@@ -15,7 +15,7 @@ public class TypeDescription {
 
     static {
         ofInternal(DecimalType.of(DecimalType.MAX_PRECISION)); // max
-        ofInternal(DecimalType.of(22, 9)); // default for database
+        ofInternal(DecimalType.getDefault()); // default for database
         for (PrimitiveType type : PrimitiveType.values()) {
             ofInternal(type); // All primitive values
         }
@@ -47,6 +47,9 @@ public class TypeDescription {
         return type.getKind() == Type.Kind.NULL || type.getKind() == Type.Kind.VOID;
     }
 
+    public boolean isTimestamp() {
+        return type == PrimitiveType.Timestamp;
+    }
     public boolean isOptional() {
         return optional;
     }

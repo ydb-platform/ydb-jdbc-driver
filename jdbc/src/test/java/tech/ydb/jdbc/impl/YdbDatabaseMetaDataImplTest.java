@@ -420,7 +420,7 @@ public class YdbDatabaseMetaDataImplTest {
                 prefix.eq("'"), suffix.eq("'"), unsigned.eq(false), searchable.eq(searchNone)).assertAll();
 
         rs.nextRow(name.eq("Date"), type.eq(Types.DATE), precision.eq(10), unsigned.eq(false)).assertAll();
-        rs.nextRow(name.eq("Datetime"), type.eq(Types.TIME), precision.eq(19), unsigned.eq(false)).assertAll();
+        rs.nextRow(name.eq("Datetime"), type.eq(Types.TIMESTAMP), precision.eq(19), unsigned.eq(false)).assertAll();
         rs.nextRow(name.eq("Timestamp"), type.eq(Types.TIMESTAMP), precision.eq(26), unsigned.eq(false)).assertAll();
         rs.nextRow(name.eq("Interval"), type.eq(Types.BIGINT), precision.eq(8), unsigned.eq(false)).assertAll();
 
@@ -596,7 +596,7 @@ public class YdbDatabaseMetaDataImplTest {
 
         rs.nextRow(columnName.eq("c_Date"), dataType.eq(Types.DATE), typeName.eq("Date"),
                 columnSize.eq(10), ordinal.eq(18)).assertAll();
-        rs.nextRow(columnName.eq("c_Datetime"), dataType.eq(Types.TIME), typeName.eq("Datetime"),
+        rs.nextRow(columnName.eq("c_Datetime"), dataType.eq(Types.TIMESTAMP), typeName.eq("Datetime"),
                 columnSize.eq(19), ordinal.eq(19)).assertAll();
         rs.nextRow(columnName.eq("c_Timestamp"), dataType.eq(Types.TIMESTAMP), typeName.eq("Timestamp"),
                 columnSize.eq(26), ordinal.eq(20)).assertAll();

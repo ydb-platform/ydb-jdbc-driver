@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
+import tech.ydb.jdbc.impl.YdbTypes;
 import tech.ydb.jdbc.query.ParamDescription;
 import tech.ydb.jdbc.query.YdbPreparedQuery;
 import tech.ydb.jdbc.query.YdbQuery;
@@ -135,24 +136,24 @@ public class InMemoryQuery implements YdbPreparedQuery {
     }
 
     @Override
-    public void setParam(int index, Object obj, Type type) throws SQLException {
+    public void setParam(int index, Object obj, int sqlType) throws SQLException {
         if (index <= 0 || index > parameters.length) {
             throw new SQLException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + index);
         }
 
-        setParam(parameters[index - 1], obj, type);
+        setParam(parameters[index - 1], obj, sqlType);
     }
 
     @Override
-    public void setParam(String name, Object obj, Type type) throws SQLException {
+    public void setParam(String name, Object obj, int sqlType) throws SQLException {
         ParamDescription param = parametersByName.get(name);
         if (param == null) {
             param = new ParamDescription(name, null);
         }
-        setParam(param, obj, type);
+        setParam(param, obj, sqlType);
     }
 
-    private void setParam(ParamDescription param, Object obj, Type type) throws SQLException {
+    private void setParam(ParamDescription param, Object obj, int sqlType) throws SQLException {
         if (obj instanceof Value<?>) {
             paramValues.put(param.name(), (Value<?>) obj);
             return;
@@ -160,6 +161,10 @@ public class InMemoryQuery implements YdbPreparedQuery {
 
         TypeDescription description = param.type();
         if (description == null) {
+            Type type = YdbTypes.findType(obj, sqlType);
+            if (type == null) {
+                throw new SQLException(String.format(YdbConst.PARAMETER_TYPE_UNKNOWN, sqlType, obj));
+            }
             description = TypeDescription.of(type);
         }
 

@@ -21,11 +21,13 @@ import java.sql.SQLWarning;
 import java.sql.SQLXML;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Calendar;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.LongFunction;
+import java.util.TimeZone;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
@@ -145,17 +147,41 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public Date getDate(int columnIndex) throws SQLException {
-        return getDateImpl(columnIndex, Date::new);
+        Instant instant = getInstant(columnIndex);
+        if (instant == null) {
+            return null;
+        }
+        if (state.description.isTimestamp()) {
+            return new Date(instant.toEpochMilli());
+        }
+
+        return Date.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalDate());
     }
 
     @Override
     public Time getTime(int columnIndex) throws SQLException {
-        return getDateImpl(columnIndex, Time::new);
+        Instant instant = getInstant(columnIndex);
+        if (instant == null) {
+            return null;
+        }
+        if (state.description.isTimestamp()) {
+            return new Time(instant.toEpochMilli());
+        }
+
+        return Time.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalTime());
     }
 
     @Override
     public Timestamp getTimestamp(int columnIndex) throws SQLException {
-        return getDateImpl(columnIndex, Timestamp::new);
+        Instant instant = getInstant(columnIndex);
+        if (instant == null) {
+            return null;
+        }
+        if (state.description.isTimestamp()) {
+            return Timestamp.from(instant);
+        }
+
+        return Timestamp.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalDateTime());
     }
 
     @Deprecated
@@ -433,7 +459,17 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public Date getDate(int columnIndex, Calendar cal) throws SQLException {
-        return getDateImpl(columnIndex, Date::new); // TODO: use cal
+        Instant instant = getInstant(columnIndex);
+        if (instant == null) {
+            return null;
+        }
+
+        if (state.description.isTimestamp()) {
+            final TimeZone tz = cal != null ? cal.getTimeZone() : Calendar.getInstance().getTimeZone();
+            return Date.valueOf(instant.atZone(tz.toZoneId()).toLocalDate());
+        }
+
+        return Date.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalDate());
     }
 
     @Override
@@ -443,8 +479,17 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public Time getTime(int columnIndex, Calendar cal) throws SQLException {
-        // TODO: use cal
-        return getDateImpl(columnIndex, Time::new);
+        Instant instant = getInstant(columnIndex);
+        if (instant == null) {
+            return null;
+        }
+
+        if (state.description.isTimestamp()) {
+            final TimeZone tz = cal != null ? cal.getTimeZone() : Calendar.getInstance().getTimeZone();
+            return Time.valueOf(instant.atZone(tz.toZoneId()).toLocalTime());
+        }
+
+        return Time.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalTime());
     }
 
     @Override
@@ -454,8 +499,17 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public Timestamp getTimestamp(int columnIndex, Calendar cal) throws SQLException {
-        // TODO: use cal
-        return getDateImpl(columnIndex, Timestamp::new);
+        Instant instant = getInstant(columnIndex);
+        if (instant == null) {
+            return null;
+        }
+
+        if (state.description.isTimestamp()) {
+            final TimeZone tz = cal != null ? cal.getTimeZone() : Calendar.getInstance().getTimeZone();
+            return Timestamp.valueOf(instant.atZone(tz.toZoneId()).toLocalDateTime());
+        }
+
+        return Timestamp.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalDateTime());
     }
 
     @Override
@@ -546,13 +600,13 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     //
 
-    private <T> T getDateImpl(int columnIndex, LongFunction<T> fromMillis) throws SQLException {
+    private Instant getInstant(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
-        long longValue = state.description.getters().readDateMillis(state.value);
+        Instant instant = state.description.getters().readInstant(state.value);
         if (state.nullValue) {
             return null;
         }
-        return fromMillis.apply(longValue);
+        return instant;
     }
 
 
@@ -1176,12 +1230,13 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public <T> T getObject(int columnIndex, Class<T> type) throws SQLException {
-        throw new SQLFeatureNotSupportedException(YdbConst.OBJECT_TYPED_UNSUPPORTED);
+        initValueReader(columnIndex);
+        return state.description.getters().readClass(state.value, type);
     }
 
     @Override
     public <T> T getObject(String columnLabel, Class<T> type) throws SQLException {
-        throw new SQLFeatureNotSupportedException(YdbConst.OBJECT_TYPED_UNSUPPORTED);
+        return getObject(findColumn(columnLabel), type);
     }
 
     @Override
