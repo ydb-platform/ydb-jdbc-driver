@@ -401,9 +401,11 @@ public class MappingGetters {
             case Date:
                 return value -> value.getDate().toEpochDay();
             case Datetime:
+                return value -> value.getDatetime().toEpochSecond(ZoneOffset.UTC);
+            case Timestamp:
+                return value -> value.getTimestamp().toEpochMilli();
             case TzDate:
             case TzDatetime:
-            case Timestamp:
             case TzTimestamp:
                 ValueToInstant delegate = valueToInstant(id);
                 return value -> delegate.fromValue(value).toEpochMilli();

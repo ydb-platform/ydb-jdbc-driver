@@ -1080,7 +1080,7 @@ public class YdbResultSetImplTest {
                 .value(9, "c_Uint32", 2000000002L)
                 .value(10, "c_Uint64", 2000000000002L)
                 .value(18, "c_Date", 3111l)
-                .value(19, "c_Datetime", 311111156L * 1000)
+                .value(19, "c_Datetime", 311111156L)
                 .value(20, "c_Timestamp", 311111223342L / 1000)
                 .value(21, "c_Interval", 3111113L)
                 .value(22, "c_Decimal", 3L);
@@ -1097,7 +1097,7 @@ public class YdbResultSetImplTest {
                 .value(9, "c_Uint32", 4000000002L)
                 .value(10, "c_Uint64", 4000000000002L)
                 .value(18, "c_Date", 3112l)
-                .value(19, "c_Datetime", 211211100L * 1000)
+                .value(19, "c_Datetime", 211211100L)
                 .value(20, "c_Timestamp", 111111223342L / 1000)
                 .value(21, "c_Interval", 3112113L)
                 .value(22, "c_Decimal", -3L);
@@ -1131,7 +1131,7 @@ public class YdbResultSetImplTest {
                 .value(9, "c_Uint32", 1L)
                 .value(10, "c_Uint64", 1L)
                 .value(18, "c_Date", 1L)
-                .value(19, "c_Datetime", 1L * 1000L)
+                .value(19, "c_Datetime", 1L)
                 .value(20, "c_Timestamp", 1L / 1000)
                 .value(21, "c_Interval", 1L)
                 .value(22, "c_Decimal", 1L);
