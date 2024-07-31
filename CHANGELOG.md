@@ -1,3 +1,7 @@
+## 2.2.1 ##
+
+* Fixed usage of datetime types
+
 ## 2.2.0 ##
 
 * Added support of queries with RETURNING
