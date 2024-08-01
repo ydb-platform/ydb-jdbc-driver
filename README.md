@@ -36,6 +36,9 @@ Specify the YDB JDBC driver in the dependencies:
     </dependency>
 </dependencies>
 ```
+### Using QueryService mode
+By default JDBC driver executes all queries via TableService, so it brings corresponding [limitations](https://ydb.tech/docs/en/concepts/limits-ydb#query).
+To eliminate these limitations you can try a new experimentail [QueryService](https://ydb.tech/docs/en/conceptrs/query_service) mode by passing property `useQueryService=true` to the JDBC URL
 
 ### Authentication modes
 
