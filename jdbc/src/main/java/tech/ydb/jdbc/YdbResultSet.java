@@ -2,22 +2,10 @@ package tech.ydb.jdbc;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Optional;
 
-import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.values.Value;
 
 public interface YdbResultSet extends ResultSet {
-
-    /**
-     * Return YDB result set reader for direct processing
-     *
-     * @return YDB original result set reader
-     */
-    ResultSetReader getYdbResultSetReader();
-
-    //
-
     /**
      * Returns native YDB value, extracted from optional value.
      * Please note that this method will create value object for each method call.
@@ -26,7 +14,7 @@ public interface YdbResultSet extends ResultSet {
      * @return value if available; return empty if value is optional and no value provided
      * @throws SQLException if column cannot be read
      */
-    Optional<Value<?>> getNativeColumn(int columnIndex) throws SQLException;
+    Value<?> getNativeColumn(int columnIndex) throws SQLException;
 
     /**
      * Return native YDB value.
@@ -36,7 +24,7 @@ public interface YdbResultSet extends ResultSet {
      * @return value if available
      * @throws SQLException if column cannot be read
      */
-    Optional<Value<?>> getNativeColumn(String columnLabel) throws SQLException;
+    Value<?> getNativeColumn(String columnLabel) throws SQLException;
 
     //
 

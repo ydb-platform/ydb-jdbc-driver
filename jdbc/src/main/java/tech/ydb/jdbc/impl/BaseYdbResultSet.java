@@ -7,123 +7,154 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.sql.Array;
-import java.sql.Blob;
-import java.sql.Clob;
 import java.sql.Date;
-import java.sql.NClob;
-import java.sql.Ref;
-import java.sql.ResultSet;
-import java.sql.RowId;
-import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
-import java.sql.SQLWarning;
-import java.sql.SQLXML;
-import java.sql.Time;
-import java.sql.Timestamp;
+import java.sql.*;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoField;
-import java.util.Calendar;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.TimeZone;
+import java.util.*;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbResultSetMetaData;
 import tech.ydb.jdbc.YdbStatement;
-import tech.ydb.jdbc.common.TypeDescription;
-import tech.ydb.table.result.ResultSetReader;
+import tech.ydb.jdbc.common.ColumnInfo;
 import tech.ydb.table.result.ValueReader;
-import tech.ydb.table.values.OptionalValue;
 import tech.ydb.table.values.Value;
 
-public class YdbResultSetImpl implements YdbResultSet {
+/**
+ *
+ * @author Aleksandr Gorshenin
+ */
+public abstract class BaseYdbResultSet implements YdbResultSet {
+    protected final YdbStatement statement;
 
-    private final MutableState state = new MutableState();
+    private final ColumnInfo[] columns;
+    private final Map<String, Integer> columnNames = new HashMap<>();
 
-    private final YdbStatement statement;
-    private final ResultSetReader result;
-    private final YdbResultSetMetaDataImpl metaData;
+    private YdbResultSetMetaData metaData = null;
+    private boolean wasNull = false;
 
-    private final int rowCount;
-
-    public YdbResultSetImpl(YdbStatement statement, ResultSetReader result) {
+    protected BaseYdbResultSet(YdbStatement statement, ColumnInfo[] columns) {
         this.statement = Objects.requireNonNull(statement);
-        this.result = Objects.requireNonNull(result);
-        this.rowCount = result.getRowCount();
-        this.metaData = new YdbResultSetMetaDataImpl(result);
+        this.columns = columns;
+
+        for (int idx = 1; idx <= columns.length; idx += 1) {
+            String name = columns[idx - 1].getName();
+            if (!columnNames.containsKey(name)) {
+                columnNames.put(name, idx);
+            }
+        }
     }
 
-    @Override
-    public boolean next() {
-        setRowIndex(state.rowIndex + 1);
-        return isRowIndexValid();
+    protected abstract ValueReader getValue(int columnIndex) throws SQLException;
+
+    public ColumnInfo getColumnInfo(int columnIndex) throws SQLException {
+        if (columnIndex <= 0 || columnIndex > columns.length) {
+            throw new SQLException(YdbConst.COLUMN_NUMBER_NOT_FOUND + columnIndex);
+        }
+        return columns[columnIndex - 1];
     }
 
-    @Override
-    public void close() {
-        state.closed = true;
+    public int getColumnsLength() {
+        return columns.length;
+    }
+
+    private int getColumnIndex(String name) throws SQLException {
+        if (!columnNames.containsKey(name)) {
+            throw new SQLException(YdbConst.COLUMN_NOT_FOUND + name);
+        }
+        return columnNames.get(name);
+    }
+
+    private ValueReader readValue(int columnIndex) throws SQLException {
+        if (columnIndex <= 0 || columnIndex > columns.length) {
+            throw new SQLException(YdbConst.COLUMN_NUMBER_NOT_FOUND + columnIndex);
+        }
+
+        ValueReader value = getValue(columnIndex - 1);
+        ColumnInfo type = columns[columnIndex - 1];
+        wasNull = type.isNull() || (type.isOptional() && !value.isOptionalItemPresent());
+        return value;
     }
 
     @Override
     public boolean wasNull() {
-        return state.nullValue;
+        return wasNull;
     }
 
     @Override
     public String getString(int columnIndex) throws SQLException {
-        initValueReader(columnIndex);
-        if (state.nullValue) {
+        ValueReader value = readValue(columnIndex);
+        if (wasNull) {
             return null; // getString supports all types, it's safe to check nullability here
         }
-        return state.description.getters().readString(state.value);
+        return columns[columnIndex - 1].getGetters().readString(value);
     }
 
     @Override
     public boolean getBoolean(int columnIndex) throws SQLException {
-        initValueReader(columnIndex);
-        return state.description.getters().readBoolean(state.value);
+        ValueReader value = readValue(columnIndex);
+        if (wasNull) {
+            return false;
+        }
+        return columns[columnIndex - 1].getGetters().readBoolean(value);
     }
 
     @Override
     public byte getByte(int columnIndex) throws SQLException {
-        initValueReader(columnIndex);
-        return state.description.getters().readByte(state.value);
+        ValueReader value = readValue(columnIndex);
+        if (wasNull) {
+            return 0;
+        }
+        return columns[columnIndex - 1].getGetters().readByte(value);
     }
 
     @Override
     public short getShort(int columnIndex) throws SQLException {
-        initValueReader(columnIndex);
-        return state.description.getters().readShort(state.value);
+        ValueReader value = readValue(columnIndex);
+        if (wasNull) {
+            return 0;
+        }
+        return columns[columnIndex - 1].getGetters().readShort(value);
     }
 
     @Override
     public int getInt(int columnIndex) throws SQLException {
-        initValueReader(columnIndex);
-        return state.description.getters().readInt(state.value);
+        ValueReader value = readValue(columnIndex);
+        if (wasNull) {
+            return 0;
+        }
+        return columns[columnIndex - 1].getGetters().readInt(value);
     }
 
     @Override
     public long getLong(int columnIndex) throws SQLException {
-        initValueReader(columnIndex);
-        return state.description.getters().readLong(state.value);
+        ValueReader value = readValue(columnIndex);
+        if (wasNull) {
+            return 0;
+        }
+        return columns[columnIndex - 1].getGetters().readLong(value);
     }
 
     @Override
     public float getFloat(int columnIndex) throws SQLException {
-        initValueReader(columnIndex);
-        return state.description.getters().readFloat(state.value);
+        ValueReader value = readValue(columnIndex);
+        if (wasNull) {
+            return 0;
+        }
+        return columns[columnIndex - 1].getGetters().readFloat(value);
     }
 
     @Override
     public double getDouble(int columnIndex) throws SQLException {
-        initValueReader(columnIndex);
-        return state.description.getters().readDouble(state.value);
+        ValueReader value = readValue(columnIndex);
+        if (wasNull) {
+            return 0;
+        }
+        return columns[columnIndex - 1].getGetters().readDouble(value);
     }
 
     @Deprecated
@@ -139,33 +170,34 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public byte[] getBytes(int columnIndex) throws SQLException {
-        initValueReader(columnIndex);
-        byte[] copy = state.description.getters().readBytes(state.value);
-        if (state.nullValue) { // TODO: do not parse empty value when optional and no value present
+        ValueReader value = readValue(columnIndex);
+        if (wasNull) {
             return null;
         }
-        return copy;
+        return columns[columnIndex - 1].getGetters().readBytes(value);
     }
 
 
     @Override
     public Date getDate(int columnIndex) throws SQLException {
-        initValueReader(columnIndex);
-        if (state.nullValue) {
+        ValueReader value = readValue(columnIndex);
+        if (wasNull) {
             return null;
         }
 
-        if (state.description.isNumber()) {
-            long value = state.description.getters().readLong(state.value);
-            if (!ChronoField.EPOCH_DAY.range().isValidValue(value)) {
-                String msg = String.format(YdbConst.UNABLE_TO_CONVERT, state.description.ydbType(), value, Date.class);
+        ColumnInfo type = columns[columnIndex - 1];
+
+        if (type.isNumber()) {
+            long number = type.getGetters().readLong(value);
+            if (!ChronoField.EPOCH_DAY.range().isValidValue(number)) {
+                String msg = String.format(YdbConst.UNABLE_TO_CONVERT, type.getYdbType(), number, Date.class);
                 throw new SQLException(msg);
             }
-            return Date.valueOf(LocalDate.ofEpochDay(value));
+            return Date.valueOf(LocalDate.ofEpochDay(number));
         }
 
-        Instant instant = state.description.getters().readInstant(state.value);
-        if (state.description.isTimestamp()) {
+        Instant instant = type.getGetters().readInstant(value);
+        if (type.isTimestamp()) {
             return new Date(instant.toEpochMilli());
         }
 
@@ -179,22 +211,23 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public Date getDate(int columnIndex, Calendar cal) throws SQLException {
-        initValueReader(columnIndex);
-        if (state.nullValue) {
+        ValueReader value = readValue(columnIndex);
+        if (wasNull) {
             return null;
         }
 
-        if (state.description.isNumber()) {
-            long value = state.description.getters().readLong(state.value);
-            if (!ChronoField.EPOCH_DAY.range().isValidValue(value)) {
-                String msg = String.format(YdbConst.UNABLE_TO_CONVERT, state.description.ydbType(), value, Date.class);
+        ColumnInfo type = columns[columnIndex - 1];
+        if (type.isNumber()) {
+            long number = type.getGetters().readLong(value);
+            if (!ChronoField.EPOCH_DAY.range().isValidValue(number)) {
+                String msg = String.format(YdbConst.UNABLE_TO_CONVERT, type.getYdbType(), number, Date.class);
                 throw new SQLException(msg);
             }
-            return Date.valueOf(LocalDate.ofEpochDay(value));
+            return Date.valueOf(LocalDate.ofEpochDay(number));
         }
 
-        Instant instant = state.description.getters().readInstant(state.value);
-        if (state.description.isTimestamp()) {
+        Instant instant = type.getGetters().readInstant(value);
+        if (type.isTimestamp()) {
             final TimeZone tz = cal != null ? cal.getTimeZone() : Calendar.getInstance().getTimeZone();
             return Date.valueOf(instant.atZone(tz.toZoneId()).toLocalDate());
         }
@@ -209,22 +242,23 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public Time getTime(int columnIndex) throws SQLException {
-        initValueReader(columnIndex);
-        if (state.nullValue) {
+        ValueReader value = readValue(columnIndex);
+        if (wasNull) {
             return null;
         }
 
-        if (state.description.isNumber()) {
-            long value = state.description.getters().readLong(state.value);
-            if (!ChronoField.SECOND_OF_DAY.range().isValidValue(value)) {
-                String msg = String.format(YdbConst.UNABLE_TO_CONVERT, state.description.ydbType(), value, Time.class);
+        ColumnInfo type = columns[columnIndex - 1];
+        if (type.isNumber()) {
+            long number = type.getGetters().readLong(value);
+            if (!ChronoField.SECOND_OF_DAY.range().isValidValue(number)) {
+                String msg = String.format(YdbConst.UNABLE_TO_CONVERT, type.getYdbType(), number, Time.class);
                 throw new SQLException(msg);
             }
-            return Time.valueOf(LocalTime.ofSecondOfDay(value));
+            return Time.valueOf(LocalTime.ofSecondOfDay(number));
         }
 
-        Instant instant = state.description.getters().readInstant(state.value);
-        if (state.description.isTimestamp()) {
+        Instant instant = type.getGetters().readInstant(value);
+        if (type.isTimestamp()) {
             return new Time(instant.toEpochMilli());
         }
 
@@ -233,22 +267,23 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public Time getTime(int columnIndex, Calendar cal) throws SQLException {
-        initValueReader(columnIndex);
-        if (state.nullValue) {
+        ValueReader value = readValue(columnIndex);
+        if (wasNull) {
             return null;
         }
 
-        if (state.description.isNumber()) {
-            long value = state.description.getters().readLong(state.value);
-            if (!ChronoField.SECOND_OF_DAY.range().isValidValue(value)) {
-                String msg = String.format(YdbConst.UNABLE_TO_CONVERT, state.description.ydbType(), value, Time.class);
+        ColumnInfo type = columns[columnIndex - 1];
+        if (type.isNumber()) {
+            long number = type.getGetters().readLong(value);
+            if (!ChronoField.SECOND_OF_DAY.range().isValidValue(number)) {
+                String msg = String.format(YdbConst.UNABLE_TO_CONVERT, type.getYdbType(), number, Time.class);
                 throw new SQLException(msg);
             }
-            return Time.valueOf(LocalTime.ofSecondOfDay(value));
+            return Time.valueOf(LocalTime.ofSecondOfDay(number));
         }
 
-        Instant instant = state.description.getters().readInstant(state.value);
-        if (state.description.isTimestamp()) {
+        Instant instant = type.getGetters().readInstant(value);
+        if (type.isTimestamp()) {
             final TimeZone tz = cal != null ? cal.getTimeZone() : Calendar.getInstance().getTimeZone();
             return Time.valueOf(instant.atZone(tz.toZoneId()).toLocalTime());
         }
@@ -263,18 +298,19 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public Timestamp getTimestamp(int columnIndex) throws SQLException {
-        initValueReader(columnIndex);
-        if (state.nullValue) {
+        ValueReader value = readValue(columnIndex);
+        if (wasNull) {
             return null;
         }
 
-        if (state.description.isNumber()) {
-            long value = state.description.getters().readLong(state.value);
-            return new Timestamp(value);
+        ColumnInfo type = columns[columnIndex - 1];
+        if (type.isNumber()) {
+            long number = type.getGetters().readLong(value);
+            return new Timestamp(number);
         }
 
-        Instant instant = state.description.getters().readInstant(state.value);
-        if (state.description.isTimestamp()) {
+        Instant instant = type.getGetters().readInstant(value);
+        if (type.isTimestamp()) {
             return Timestamp.from(instant);
         }
 
@@ -283,18 +319,19 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public Timestamp getTimestamp(int columnIndex, Calendar cal) throws SQLException {
-        initValueReader(columnIndex);
-        if (state.nullValue) {
+        ValueReader value = readValue(columnIndex);
+        if (wasNull) {
             return null;
         }
 
-        if (state.description.isNumber()) {
-            long value = state.description.getters().readLong(state.value);
-            return new Timestamp(value);
+        ColumnInfo type = columns[columnIndex - 1];
+        if (type.isNumber()) {
+            long number = type.getGetters().readLong(value);
+            return new Timestamp(number);
         }
 
-        Instant instant = state.description.getters().readInstant(state.value);
-        if (state.description.isTimestamp()) {
+        Instant instant = type.getGetters().readInstant(value);
+        if (type.isTimestamp()) {
             final TimeZone tz = cal != null ? cal.getTimeZone() : Calendar.getInstance().getTimeZone();
             return Timestamp.valueOf(instant.atZone(tz.toZoneId()).toLocalDateTime());
         }
@@ -406,16 +443,19 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public YdbResultSetMetaData getMetaData() {
+        if (metaData == null) {
+            metaData = new YdbResultSetMetaDataImpl(this);
+        }
         return metaData;
     }
 
     @Override
     public Object getObject(int columnIndex) throws SQLException {
-        initValueReader(columnIndex);
-        if (state.nullValue) {
-            return null; // getObject supports all types, it's safe to check nullability here
+        ValueReader value = readValue(columnIndex);
+        if (wasNull) {
+            return null;
         }
-        return state.description.getters().readObject(state.value);
+        return columns[columnIndex - 1].getGetters().readObject(value);
     }
 
     @Override
@@ -430,12 +470,11 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public Reader getCharacterStream(int columnIndex) throws SQLException {
-        initValueReader(columnIndex);
-        Reader copy = state.description.getters().readReader(state.value);
-        if (state.nullValue) {
+        ValueReader value = readValue(columnIndex);
+        if (wasNull) {
             return null;
         }
-        return copy;
+        return columns[columnIndex - 1].getGetters().readReader(value);
     }
 
     @Override
@@ -445,109 +484,16 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public BigDecimal getBigDecimal(int columnIndex) throws SQLException {
-        initValueReader(columnIndex);
-        BigDecimal copy = state.description.getters().readBigDecimal(state.value);
-        if (state.nullValue) {
+        ValueReader value = readValue(columnIndex);
+        if (wasNull) {
             return null;
         }
-        return copy;
+        return columns[columnIndex - 1].getGetters().readBigDecimal(value);
     }
 
     @Override
     public BigDecimal getBigDecimal(String columnLabel) throws SQLException {
         return getBigDecimal(getColumnIndex(columnLabel));
-    }
-
-    @Override
-    public boolean isBeforeFirst() {
-        return rowCount != 0 && state.rowIndex <= 0;
-    }
-
-    @Override
-    public boolean isAfterLast() {
-        return rowCount != 0 && state.rowIndex > rowCount;
-    }
-
-    @Override
-    public boolean isFirst() {
-        return rowCount != 0 && state.rowIndex == 1;
-    }
-
-    @Override
-    public boolean isLast() {
-        return rowCount != 0 && state.rowIndex == rowCount;
-    }
-
-    @Override
-    public void beforeFirst() throws SQLException {
-        checkScroll();
-        setRowIndex(0);
-    }
-
-    @Override
-    public void afterLast() throws SQLException {
-        checkScroll();
-        setRowIndex(rowCount + 1);
-    }
-
-    @Override
-    public boolean first() throws SQLException {
-        checkScroll();
-        setRowIndex(1);
-        return isRowIndexValid();
-    }
-
-    @Override
-    public boolean last() throws SQLException {
-        checkScroll();
-        setRowIndex(rowCount);
-        return isRowIndexValid();
-    }
-
-    @Override
-    public int getRow() {
-        return state.rowIndex;
-    }
-
-    @Override
-    public boolean absolute(int row) throws SQLException {
-        checkScroll();
-        if (row >= 0) {
-            setRowIndex(row);
-        } else {
-            setRowIndex(rowCount + 1 + row);
-        }
-        return isRowIndexValid();
-    }
-
-    @Override
-    public boolean relative(int rows) throws SQLException {
-        checkScroll();
-        if (rows != 0) {
-            setRowIndex(state.rowIndex + rows);
-        }
-        return isRowIndexValid();
-    }
-
-    @Override
-    public boolean previous() throws SQLException {
-        checkScroll();
-        setRowIndex(state.rowIndex - 1);
-        return isRowIndexValid();
-    }
-
-    @Override
-    public void setFetchDirection(int direction) throws SQLException {
-        int resultSetType = getType();
-        if (resultSetType == ResultSet.TYPE_FORWARD_ONLY && direction != ResultSet.FETCH_FORWARD) {
-            throw new SQLException(String.format(YdbConst.INVALID_FETCH_DIRECTION, direction, resultSetType));
-        }
-        state.direction = direction;
-    }
-
-    @Override
-    public int getFetchDirection() {
-        return state.direction;
     }
 
     @Override
@@ -577,15 +523,16 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public URL getURL(int columnIndex) throws SQLException {
-        initValueReader(columnIndex);
-        String copy = state.description.getters().readURL(state.value);
-        if (state.nullValue) {
+        ValueReader value = readValue(columnIndex);
+        if (wasNull) {
             return null;
         }
+
+        String url = columns[columnIndex - 1].getGetters().readURL(value);
         try {
-            return new URL(copy);
+            return new URL(url);
         } catch (MalformedURLException e) {
-            throw new SQLException(YdbConst.UNABLE_TO_CONVERT_AS_URL + result, e);
+            throw new SQLException(YdbConst.UNABLE_TO_CONVERT_AS_URL + url, e);
         }
     }
 
@@ -600,18 +547,13 @@ public class YdbResultSetImpl implements YdbResultSet {
     }
 
     @Override
-    public boolean isClosed() {
-        return state.closed;
-    }
-
-    @Override
     public String getNString(int columnIndex) throws SQLException {
-        initValueReader(columnIndex);
-        String copy = state.description.getters().readNString(state.value);
-        if (state.nullValue) {
+        ValueReader value = readValue(columnIndex);
+        if (wasNull) {
             return null;
         }
-        return copy;
+
+        return columns[columnIndex - 1].getGetters().readNString(value);
     }
 
     @Override
@@ -630,88 +572,20 @@ public class YdbResultSetImpl implements YdbResultSet {
     }
 
     @Override
-    public Optional<Value<?>> getNativeColumn(int columnIndex) throws SQLException {
-        initValueReader(columnIndex);
-        if (state.nullValue) {
-            return Optional.empty();
+    public Value<?> getNativeColumn(int columnIndex) throws SQLException {
+        ValueReader value = readValue(columnIndex);
+        if (wasNull) {
+            return null;
         }
         // It's just a bug in implementation - actualValue could be optional, but without flag
         // I.e. the optional object looks like empty, not null
-        Value<?> actualValue = state.value.getValue();
-        if (actualValue instanceof OptionalValue) {
-            return Optional.of((Value<?>) ((OptionalValue) actualValue).get());
-        }
-        return Optional.of(actualValue);
+        return value.getValue();
     }
 
     @Override
-    public Optional<Value<?>> getNativeColumn(String columnLabel) throws SQLException {
+    public Value<?> getNativeColumn(String columnLabel) throws SQLException {
         return getNativeColumn(getColumnIndex(columnLabel));
     }
-
-    //
-
-    @Override
-    public ResultSetReader getYdbResultSetReader() {
-        return result;
-    }
-
-    //
-
-    private boolean isNullValue(TypeDescription description, ValueReader value) {
-        return description.isNull() || (description.isOptional() && !value.isOptionalItemPresent());
-    }
-
-    private void initValueReader(int columnIndex) throws SQLException {
-        try {
-            ValueReader value = result.getColumn(columnIndex - 1);
-            TypeDescription description = TypeDescription.of(result.getColumnType(columnIndex - 1));
-            state.value = value;
-            state.description = description;
-            state.nullValue = isNullValue(description, value);
-        } catch (IllegalStateException e) {
-            throw new SQLException(YdbConst.INVALID_ROW + state.rowIndex);
-        }
-    }
-
-    private int getColumnIndex(String columnLabel) throws SQLException {
-        int index = result.getColumnIndex(columnLabel);
-        if (index < 0) {
-            throw new SQLException(YdbConst.COLUMN_NOT_FOUND + columnLabel);
-        }
-        return index + 1;
-    }
-
-    private void checkScroll() throws SQLException {
-        if (getType() == ResultSet.TYPE_FORWARD_ONLY) {
-            throw new SQLException(YdbConst.FORWARD_ONLY_MODE);
-        }
-    }
-
-    private void setRowIndex(int rowIndex) {
-        if (rowCount > 0) {
-            int actualIndex = Math.max(Math.min(rowIndex, rowCount + 1), 0);
-            state.rowIndex = actualIndex;
-            result.setRowIndex(actualIndex - 1);
-        }
-    }
-
-    private boolean isRowIndexValid() {
-        return state.rowIndex > 0 && state.rowIndex <= rowCount;
-    }
-
-    private static class MutableState {
-        private int rowIndex; // 1..rowCount, inclusive (first row is 1, second is 2 and so on)
-
-        // last column reader
-        private ValueReader value;
-        private TypeDescription description;
-        boolean nullValue;
-
-        private int direction = ResultSet.FETCH_UNKNOWN;
-        private boolean closed;
-    }
-
 
     // UNSUPPORTED
 
@@ -1278,8 +1152,11 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public <T> T getObject(int columnIndex, Class<T> type) throws SQLException {
-        initValueReader(columnIndex);
-        return state.description.getters().readClass(state.value, type);
+        ValueReader value = readValue(columnIndex);
+        if (wasNull) {
+            return null;
+        }
+        return columns[columnIndex - 1].getGetters().readClass(value, type);
     }
 
     @Override
@@ -1299,4 +1176,5 @@ public class YdbResultSetImpl implements YdbResultSet {
     public boolean isWrapperFor(Class<?> iface) {
         return iface.isAssignableFrom(getClass());
     }
+
 }

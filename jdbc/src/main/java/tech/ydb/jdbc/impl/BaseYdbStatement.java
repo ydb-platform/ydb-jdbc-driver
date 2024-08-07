@@ -201,13 +201,13 @@ public abstract class BaseYdbStatement implements YdbStatement {
                 .build()
                 .build();
 
-        return Collections.singletonList(new YdbResult(new YdbResultSetImpl(this, result)));
+        return Collections.singletonList(new YdbResult(new FixedResultSetImpl(this, result)));
     }
 
     protected List<YdbResult> executeScanQuery(YdbQuery query, String yql, Params params) throws SQLException {
         connection.getCtx().traceQuery(query, yql);
         ResultSetReader result = connection.executeScanQuery(query, yql, validator, params);
-        return Collections.singletonList(new YdbResult(new YdbResultSetImpl(this, result)));
+        return Collections.singletonList(new YdbResult(new FixedResultSetImpl(this, result)));
     }
 
     protected List<YdbResult> executeDataQuery(YdbQuery query, String yql, Params params) throws SQLException {
@@ -215,7 +215,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
 
         if (ctx.queryStatsEnabled()) {
             if (QueryStat.isPrint(yql)) {
-                YdbResultSet rs = new YdbResultSetImpl(this, QueryStat.toResultSetReader(ctx.getQueryStats()));
+                YdbResultSet rs = new FixedResultSetImpl(this, QueryStat.toResultSetReader(ctx.getQueryStats()));
                 return Collections.singletonList(new YdbResult(rs));
             }
             if (QueryStat.isReset(yql)) {
@@ -246,7 +246,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
                     String msg = String.format(YdbConst.RESULT_IS_TRUNCATED, idx, rs.getRowCount());
                     throw new SQLException(msg);
                 }
-                results.add(new YdbResult(new YdbResultSetImpl(this, rs)));
+                results.add(new YdbResult(new FixedResultSetImpl(this, rs)));
                 idx++;
             }
         }
@@ -257,7 +257,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
                 String msg = String.format(YdbConst.RESULT_IS_TRUNCATED, idx, rs.getRowCount());
                 throw new SQLException(msg);
             }
-            results.add(new YdbResult(new YdbResultSetImpl(this, rs)));
+            results.add(new YdbResult(new FixedResultSetImpl(this, rs)));
             idx++;
         }
 

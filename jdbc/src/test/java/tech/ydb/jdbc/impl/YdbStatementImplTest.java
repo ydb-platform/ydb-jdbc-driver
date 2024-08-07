@@ -494,7 +494,10 @@ public class YdbStatementImplTest {
         jdbc.connection().commit();
 
         try (YdbResultSet result = statement.executeQuery(TEST_TABLE.selectSQL()).unwrap(YdbResultSet.class)) {
-            Assertions.assertEquals(3, result.getYdbResultSetReader().getRowCount());
+            Assertions.assertTrue(result.next());
+            Assertions.assertTrue(result.next());
+            Assertions.assertTrue(result.next());
+            Assertions.assertFalse(result.next());
         }
     }
 

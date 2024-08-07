@@ -24,7 +24,6 @@ import java.time.LocalTime;
 import java.time.Month;
 import java.time.ZoneOffset;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.Locale;
 
 import javax.sql.rowset.serial.SerialBlob;
@@ -180,20 +179,14 @@ public class YdbResultSetImplTest {
         Assertions.assertSame(metadata, ydbMetadata);
 
         ExceptionAssert.sqlException("Column is out of range: 995", () -> metadata.getColumnName(995));
-        ExceptionAssert.sqlException("Column not found: column0", () -> ydbMetadata.getColumnIndex("column0"));
 
         Assertions.assertEquals(22, metadata.getColumnCount());
 
-        Iterator<String> names = metadata.unwrap(YdbResultSetMetaData.class).getColumnNames().iterator();
         for (int index = 0; index < metadata.getColumnCount(); index++) {
             int column = index + 1;
             String name = metadata.getColumnName(column);
             Assertions.assertNotNull(name);
             Assertions.assertEquals(name, metadata.getColumnLabel(column));
-            Assertions.assertEquals(column, ydbMetadata.getColumnIndex(name));
-
-            Assertions.assertTrue(names.hasNext());
-            Assertions.assertEquals(name, names.next());
 
             Assertions.assertFalse(metadata.isAutoIncrement(column), "All columns are not isAutoIncrement");
             Assertions.assertTrue(metadata.isCaseSensitive(column), "All columns are isCaseSensitive");
@@ -233,8 +226,8 @@ public class YdbResultSetImplTest {
     @Test
     public void fetchDirection() throws SQLException {
         Assertions.assertEquals(ResultSet.FETCH_UNKNOWN, resultSet.getFetchDirection());
-        resultSet.setFetchDirection(ResultSet.FETCH_FORWARD); // do nothing actually
-        Assertions.assertEquals(ResultSet.FETCH_FORWARD, resultSet.getFetchDirection());
+        resultSet.setFetchDirection(ResultSet.FETCH_REVERSE);
+        Assertions.assertEquals(ResultSet.FETCH_REVERSE, resultSet.getFetchDirection());
     }
 
     @Test
@@ -914,7 +907,7 @@ public class YdbResultSetImplTest {
                 .nullValue(8, "c_Uint16", (byte)0)
                 .nullValue(9, "c_Uint32", (byte)0)
                 .nullValue(10, "c_Uint64", (byte)0)
-                .exceptionValue(22, "c_Decimal", "Cannot cast [DECIMAL] to [byte]");
+                .nullValue(22, "c_Decimal", (byte)0);
 
         checker.assertNoRows();
     }
@@ -987,7 +980,7 @@ public class YdbResultSetImplTest {
                 .nullValue(8, "c_Uint16", (short)0)
                 .nullValue(9, "c_Uint32", (short)0)
                 .nullValue(10, "c_Uint64", (short)0)
-                .exceptionValue(22, "c_Decimal", "Cannot cast [DECIMAL] to [short]");
+                .nullValue(22, "c_Decimal", (short)0);
 
         checker.assertNoRows();
     }
@@ -2099,8 +2092,8 @@ public class YdbResultSetImplTest {
     @Test
     public void getNativeColumn() throws SQLException {
         ResultSetChecker<Value<?>> checker = check(resultSet,
-                (rs, index) -> rs.unwrap(YdbResultSet.class).getNativeColumn(index).orElse(null),
-                (rs, label) -> rs.unwrap(YdbResultSet.class).getNativeColumn(label).orElse(null)
+                (rs, index) -> rs.unwrap(YdbResultSet.class).getNativeColumn(index),
+                (rs, label) -> rs.unwrap(YdbResultSet.class).getNativeColumn(label)
         );
 
         checker.nextRow()
