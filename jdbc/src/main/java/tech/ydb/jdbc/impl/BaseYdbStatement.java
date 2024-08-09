@@ -14,8 +14,8 @@ import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.context.QueryStat;
+import tech.ydb.jdbc.context.StaticQueryResult;
 import tech.ydb.jdbc.context.YdbContext;
-import tech.ydb.jdbc.context.YdbQueryResult;
 import tech.ydb.jdbc.context.YdbValidator;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.settings.FakeTxMode;
@@ -131,12 +131,6 @@ public abstract class BaseYdbStatement implements YdbStatement {
     }
 
     @Override
-    public YdbResultSet getResultSetAt(int resultSetIndex) throws SQLException {
-        ensureOpened();
-        return state.getResultSet(resultSetIndex);
-    }
-
-    @Override
     public boolean getMoreResults(int current) throws SQLException {
         ensureOpened();
         return state.getMoreResults(current);
@@ -161,7 +155,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
         state = YdbQueryResult.EMPTY;
     }
 
-    protected boolean updateState(YdbQueryResult result) {
+    protected boolean updateState(YdbQueryResult result) throws SQLException {
         state = result == null ? YdbQueryResult.EMPTY : result;
         return state.hasResultSets();
     }
@@ -197,8 +191,8 @@ public abstract class BaseYdbStatement implements YdbStatement {
         YdbContext ctx = connection.getCtx();
         if (ctx.queryStatsEnabled()) {
             if (QueryStat.isPrint(yql)) {
-                YdbResultSet rs = new FixedResultSetImpl(this, QueryStat.toResultSetReader(ctx.getQueryStats()));
-                return YdbQueryResult.fromResults(query, Collections.singletonList(rs));
+                YdbResultSet rs = new YdbStaticResultSet(this, QueryStat.toResultSetReader(ctx.getQueryStats()));
+                return new StaticQueryResult(query, Collections.singletonList(rs));
             }
             if (QueryStat.isReset(yql)) {
                 getConnection().getCtx().resetQueryStats();

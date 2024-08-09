@@ -8,7 +8,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
-import tech.ydb.jdbc.impl.FixedResultSetImpl;
+import tech.ydb.jdbc.impl.YdbQueryResult;
+import tech.ydb.jdbc.impl.YdbStaticResultSet;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.SessionRetryContext;
@@ -44,7 +45,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
                 () -> retryCtx.supplyStatus(session -> session.executeSchemeQuery(yql, settings))
         );
 
-        return YdbQueryResult.fromResults(query, Collections.emptyList());
+        return new StaticQueryResult(query, Collections.emptyList());
     }
 
     @Override
@@ -58,7 +59,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
                 () -> retryCtx.supplyStatus(session -> session.executeBulkUpsert(tablePath, rows))
         );
 
-        return YdbQueryResult.fromResults(query, Collections.emptyList());
+        return new StaticQueryResult(query, Collections.emptyList());
     }
 
     @Override
@@ -83,7 +84,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
                 })
         );
 
-        YdbResultSet rs = new FixedResultSetImpl(statement, ProtoValueReaders.forResultSets(resultSets));
-        return YdbQueryResult.fromResults(query, Collections.singletonList(rs));
+        YdbResultSet rs = new YdbStaticResultSet(statement, ProtoValueReaders.forResultSets(resultSets));
+        return new StaticQueryResult(query, Collections.singletonList(rs));
     }
 }

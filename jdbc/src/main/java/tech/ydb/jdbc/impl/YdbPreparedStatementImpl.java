@@ -31,7 +31,6 @@ import tech.ydb.jdbc.YdbParameterMetaData;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.common.MappingSetters;
-import tech.ydb.jdbc.context.YdbQueryResult;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbPreparedQuery;
 import tech.ydb.jdbc.query.YdbQuery;

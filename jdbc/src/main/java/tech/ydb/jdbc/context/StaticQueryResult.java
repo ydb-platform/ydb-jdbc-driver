@@ -10,7 +10,8 @@ import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.common.FixedResultSetFactory;
-import tech.ydb.jdbc.impl.FixedResultSetImpl;
+import tech.ydb.jdbc.impl.YdbQueryResult;
+import tech.ydb.jdbc.impl.YdbStaticResultSet;
 import tech.ydb.jdbc.query.QueryStatement;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.result.ResultSetReader;
@@ -19,9 +20,7 @@ import tech.ydb.table.result.ResultSetReader;
  *
  * @author Aleksandr Gorshenin
  */
-public class YdbQueryResult {
-    public static final YdbQueryResult EMPTY = new YdbQueryResult(null);
-
+public class StaticQueryResult implements YdbQueryResult {
     private static final FixedResultSetFactory EXPLAIN_RS_FACTORY = FixedResultSetFactory.newBuilder()
             .addTextColumn(YdbConst.EXPLAIN_COLUMN_AST)
             .addTextColumn(YdbConst.EXPLAIN_COLUMN_PLAN)
@@ -49,15 +48,52 @@ public class YdbQueryResult {
     private final List<ExpressionResult> results;
     private int resultIndex;
 
-    YdbQueryResult(List<ExpressionResult> results) {
-        this.results = results;
+    public StaticQueryResult(YdbQuery query, List<YdbResultSet> list) {
+        this.results = new ArrayList<>();
+        this.resultIndex = 0;
+
+        int idx = 0;
+        for (QueryStatement exp: query.getStatements()) {
+            if (exp.isDDL()) {
+                results.add(NO_UPDATED);
+                continue;
+            }
+            if (exp.hasUpdateCount()) {
+                results.add(HAS_UPDATED);
+                continue;
+            }
+
+            if (exp.hasResults() && idx < list.size()) {
+                results.add(new ExpressionResult(list.get(idx)));
+                idx++;
+            }
+        }
+
+        while (idx < list.size())  {
+            results.add(new ExpressionResult(list.get(idx)));
+            idx++;
+        }
+    }
+
+    public StaticQueryResult(YdbStatement statement, String ast, String plan) {
+        ResultSetReader result = EXPLAIN_RS_FACTORY.createResultSet()
+                .newRow()
+                .withTextValue(YdbConst.EXPLAIN_COLUMN_AST, ast)
+                .withTextValue(YdbConst.EXPLAIN_COLUMN_PLAN, plan)
+                .build()
+                .build();
+
+        YdbResultSet rs = new YdbStaticResultSet(statement, result);
+        this.results = Collections.singletonList(new ExpressionResult(rs));
         this.resultIndex = 0;
     }
 
+    @Override
     public void close() {
         // nothing
     }
 
+    @Override
     public boolean hasResultSets() {
         if (results == null || resultIndex >= results.size()) {
             return false;
@@ -66,6 +102,7 @@ public class YdbQueryResult {
         return results.get(resultIndex).resultSet != null;
     }
 
+    @Override
     public int getUpdateCount() {
         if (results == null || resultIndex >= results.size()) {
             return -1;
@@ -74,6 +111,7 @@ public class YdbQueryResult {
         return results.get(resultIndex).updateCount;
     }
 
+    @Override
     public YdbResultSet getCurrentResultSet()  {
         if (results == null || resultIndex >= results.size()) {
             return null;
@@ -81,13 +119,7 @@ public class YdbQueryResult {
         return results.get(resultIndex).resultSet;
     }
 
-    public YdbResultSet getResultSet(int index) {
-        if (results == null || index < 0 || index >= results.size()) {
-            return null;
-        }
-        return results.get(index).resultSet;
-    }
-
+    @Override
     public boolean getMoreResults(int current) throws SQLException {
         if (results == null || resultIndex >= results.size()) {
             return false;
@@ -110,43 +142,5 @@ public class YdbQueryResult {
 
         resultIndex += 1;
         return hasResultSets();
-    }
-
-    public static YdbQueryResult fromResults(YdbQuery query, List<YdbResultSet> rsList) {
-        List<ExpressionResult> results = new ArrayList<>();
-        int idx = 0;
-        for (QueryStatement exp: query.getStatements()) {
-            if (exp.isDDL()) {
-                results.add(NO_UPDATED);
-                continue;
-            }
-            if (exp.hasUpdateCount()) {
-                results.add(HAS_UPDATED);
-                continue;
-            }
-
-            if (exp.hasResults() && idx < rsList.size()) {
-                results.add(new ExpressionResult(rsList.get(idx)));
-                idx++;
-            }
-        }
-
-        while (idx < rsList.size())  {
-            results.add(new ExpressionResult(rsList.get(idx)));
-            idx++;
-        }
-
-        return new YdbQueryResult(results);
-    }
-
-    public static YdbQueryResult fromExplain(YdbStatement statement, String ast, String plan) {
-        ResultSetReader result = EXPLAIN_RS_FACTORY.createResultSet()
-                .newRow()
-                .withTextValue(YdbConst.EXPLAIN_COLUMN_AST, ast)
-                .withTextValue(YdbConst.EXPLAIN_COLUMN_PLAN, plan)
-                .build()
-                .build();
-        YdbResultSet rs = new FixedResultSetImpl(statement, result);
-        return new YdbQueryResult(Collections.singletonList(new ExpressionResult(rs)));
     }
 }

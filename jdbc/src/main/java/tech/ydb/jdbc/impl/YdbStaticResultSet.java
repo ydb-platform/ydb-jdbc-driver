@@ -10,7 +10,7 @@ import tech.ydb.jdbc.common.ColumnInfo;
 import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.result.ValueReader;
 
-public class FixedResultSetImpl extends BaseYdbResultSet {
+public class YdbStaticResultSet extends BaseYdbResultSet {
     private final ResultSetReader rsReader;
     private final int rowCount;
 
@@ -18,9 +18,9 @@ public class FixedResultSetImpl extends BaseYdbResultSet {
     private int rowIndex = 0;
     private boolean isClosed = false;
 
-    public FixedResultSetImpl(YdbStatement statement, ResultSetReader result) {
-        super(statement, readColumns(result));
-        this.rsReader = Objects.requireNonNull(result);
+    public YdbStaticResultSet(YdbStatement statement, ResultSetReader result) {
+        super(statement, readColumns(Objects.requireNonNull(result)));
+        this.rsReader = result;
         this.rowCount = result.getRowCount();
     }
 

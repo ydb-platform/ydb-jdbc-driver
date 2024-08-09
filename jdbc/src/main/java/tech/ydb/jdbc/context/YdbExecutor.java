@@ -4,6 +4,7 @@ import java.sql.SQLException;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbStatement;
+import tech.ydb.jdbc.impl.YdbQueryResult;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.ListValue;

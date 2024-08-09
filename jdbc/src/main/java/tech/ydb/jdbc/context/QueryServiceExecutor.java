@@ -18,7 +18,8 @@ import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.exception.ExceptionFactory;
-import tech.ydb.jdbc.impl.FixedResultSetImpl;
+import tech.ydb.jdbc.impl.YdbQueryResult;
+import tech.ydb.jdbc.impl.YdbStaticResultSet;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.query.QueryClient;
@@ -222,8 +223,8 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             validator.addStatusIssues(result.getIssueList());
 
             List<YdbResultSet> rsList = new ArrayList<>();
-            result.forEach(rsr -> rsList.add(new FixedResultSetImpl(statement, rsr)));
-            return YdbQueryResult.fromResults(query, rsList);
+            result.forEach(rsr -> rsList.add(new YdbStaticResultSet(statement, rsr)));
+            return new StaticQueryResult(query, rsList);
         } finally {
             if (!tx.isActive()) {
                 cleanTx();
@@ -248,7 +249,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             );
         }
 
-        return YdbQueryResult.fromResults(query, Collections.emptyList());
+        return new StaticQueryResult(query, Collections.emptyList());
     }
 
     @Override
@@ -274,7 +275,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
                 throw new SQLException("No explain data");
             }
 
-            return YdbQueryResult.fromExplain(statement, res.getStats().getQueryAst(), res.getStats().getQueryPlan());
+            return new StaticQueryResult(statement, res.getStats().getQueryAst(), res.getStats().getQueryPlan());
         }
     }
 

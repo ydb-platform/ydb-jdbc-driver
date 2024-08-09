@@ -13,7 +13,8 @@ import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.exception.ExceptionFactory;
-import tech.ydb.jdbc.impl.FixedResultSetImpl;
+import tech.ydb.jdbc.impl.YdbQueryResult;
+import tech.ydb.jdbc.impl.YdbStaticResultSet;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.Session;
@@ -188,7 +189,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         try (Session session = createNewTableSession(validator)) {
             String msg = QueryType.EXPLAIN_QUERY + " >>\n" + yql;
             ExplainDataQueryResult res = validator.call(msg, () -> session.explainDataQuery(yql, settings));
-            return YdbQueryResult.fromExplain(statement, res.getQueryAst(), res.getQueryPlan());
+            return new StaticQueryResult(statement, res.getQueryAst(), res.getQueryPlan());
         }
     }
 
@@ -214,10 +215,10 @@ public class TableServiceExecutor extends BaseYdbExecutor {
                     throw new SQLException(msg);
                 }
 
-                readers.add(new FixedResultSetImpl(statement, rs));
+                readers.add(new YdbStaticResultSet(statement, rs));
             }
 
-            return YdbQueryResult.fromResults(query, readers);
+            return new StaticQueryResult(query, readers);
         } catch (SQLException | RuntimeException ex) {
             updateState(tx.withRollback(session));
             throw ex;
