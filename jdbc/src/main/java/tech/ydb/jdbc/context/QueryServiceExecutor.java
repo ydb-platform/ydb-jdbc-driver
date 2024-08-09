@@ -6,6 +6,7 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -14,8 +15,10 @@ import tech.ydb.core.Issue;
 import tech.ydb.core.Result;
 import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.YdbResultSet;
+import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.exception.ExceptionFactory;
-import tech.ydb.jdbc.query.ExplainedQuery;
+import tech.ydb.jdbc.impl.FixedResultSetImpl;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.query.QueryClient;
@@ -30,7 +33,6 @@ import tech.ydb.query.settings.QueryExecMode;
 import tech.ydb.query.settings.RollbackTransactionSettings;
 import tech.ydb.query.tools.QueryReader;
 import tech.ydb.table.query.Params;
-import tech.ydb.table.result.ResultSetReader;
 
 /**
  *
@@ -196,11 +198,12 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    public List<ResultSetReader> executeDataQuery(
-            YdbContext ctx, YdbValidator validator, YdbQuery query,
-            String yql, long timeout, boolean keepInCache, Params params
+    public YdbQueryResult executeDataQuery(
+            YdbStatement statement, YdbQuery query, String yql, Params params, long timeout, boolean keepInCache
     ) throws SQLException {
         ensureOpened();
+
+        YdbValidator validator = statement.getValidator();
 
         ExecuteQuerySettings.Builder builder = ExecuteQuerySettings.newBuilder();
         if (timeout > 0) {
@@ -218,9 +221,9 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             );
             validator.addStatusIssues(result.getIssueList());
 
-            List<ResultSetReader> readers = new ArrayList<>();
-            result.forEach(readers::add);
-            return readers;
+            List<YdbResultSet> rsList = new ArrayList<>();
+            result.forEach(rsr -> rsList.add(new FixedResultSetImpl(statement, rsr)));
+            return YdbQueryResult.fromResults(query, rsList);
         } finally {
             if (!tx.isActive()) {
                 cleanTx();
@@ -229,8 +232,12 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    public void executeSchemeQuery(YdbContext ctx, YdbValidator validator, String yql) throws SQLException {
+    public YdbQueryResult executeSchemeQuery(YdbStatement statement, YdbQuery query) throws SQLException {
         ensureOpened();
+
+        String yql = query.getPreparedYql();
+        YdbContext ctx = statement.getConnection().getCtx();
+        YdbValidator validator = statement.getValidator();
 
         // Scheme query does not affect transactions or result sets
         ExecuteQuerySettings settings = ctx.withRequestTimeout(ExecuteQuerySettings.newBuilder()).build();
@@ -240,12 +247,17 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
                     .execute(new IssueHandler(validator))
             );
         }
+
+        return YdbQueryResult.fromResults(query, Collections.emptyList());
     }
 
     @Override
-    public ExplainedQuery executeExplainQuery(YdbContext ctx, YdbValidator validator, String yql)
-            throws SQLException {
+    public YdbQueryResult executeExplainQuery(YdbStatement statement, YdbQuery query) throws SQLException {
         ensureOpened();
+
+        String yql = query.getPreparedYql();
+        YdbContext ctx = statement.getConnection().getCtx();
+        YdbValidator validator = statement.getValidator();
 
         // Scheme query does not affect transactions or result sets
         ExecuteQuerySettings settings = ctx.withRequestTimeout(ExecuteQuerySettings.newBuilder())
@@ -261,7 +273,8 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             if (!res.hasStats()) {
                 throw new SQLException("No explain data");
             }
-            return new ExplainedQuery(res.getStats().getQueryAst(), res.getStats().getQueryPlan());
+
+            return YdbQueryResult.fromExplain(statement, res.getStats().getQueryAst(), res.getStats().getQueryPlan());
         }
     }
 

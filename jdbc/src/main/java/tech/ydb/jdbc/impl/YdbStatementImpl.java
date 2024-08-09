@@ -12,6 +12,7 @@ import java.util.logging.Logger;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
+import tech.ydb.jdbc.context.YdbQueryResult;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.Params;
 
@@ -39,7 +40,7 @@ public class YdbStatementImpl extends BaseYdbStatement {
         clearBatch();
 
         YdbQuery query = getConnection().getCtx().parseYdbQuery(sql);
-        List<YdbResult> results = executeScanQuery(query, query.getPreparedYql(), Params.empty());
+        YdbQueryResult results = executeScanQuery(query, query.getPreparedYql(), Params.empty());
         if (!updateState(results)) {
             throw new SQLException(YdbConst.QUERY_EXPECT_RESULT_SET);
         }
@@ -52,7 +53,7 @@ public class YdbStatementImpl extends BaseYdbStatement {
         clearBatch();
 
         YdbQuery query = getConnection().getCtx().parseYdbQuery(sql);
-        List<YdbResult> newState = executeExplainQuery(query);
+        YdbQueryResult newState = executeExplainQuery(query);
         if (!updateState(newState)) {
             throw new SQLException(YdbConst.QUERY_EXPECT_RESULT_SET);
         }
@@ -80,7 +81,7 @@ public class YdbStatementImpl extends BaseYdbStatement {
         cleanState();
 
         YdbQuery query = getConnection().getCtx().parseYdbQuery(sql);
-        List<YdbResult> newState = null;
+        YdbQueryResult newState = null;
         switch (query.getType()) {
             case SCHEME_QUERY:
                 newState = executeSchemeQuery(query);

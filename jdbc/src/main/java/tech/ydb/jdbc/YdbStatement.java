@@ -3,6 +3,8 @@ package tech.ydb.jdbc;
 import java.sql.SQLException;
 import java.sql.Statement;
 
+import tech.ydb.jdbc.context.YdbValidator;
+
 public interface YdbStatement extends Statement {
     /**
      * Explicitly execute query as a schema query
@@ -31,6 +33,8 @@ public interface YdbStatement extends Statement {
      */
     YdbResultSet executeExplainQuery(String sql) throws SQLException;
 
+    YdbValidator getValidator() throws SQLException;
+
     /**
      * Cant return previous results sets after {@link #getMoreResults()} traverse,
      * in case previous rows were not removed by providing {@link Statement#CLOSE_ALL_RESULTS}
@@ -50,5 +54,4 @@ public interface YdbStatement extends Statement {
 
     @Override
     YdbConnection getConnection() throws SQLException;
-
 }

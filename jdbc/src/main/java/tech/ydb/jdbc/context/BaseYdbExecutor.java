@@ -3,8 +3,12 @@ package tech.ydb.jdbc.context;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import tech.ydb.jdbc.YdbResultSet;
+import tech.ydb.jdbc.YdbStatement;
+import tech.ydb.jdbc.impl.FixedResultSetImpl;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.SessionRetryContext;
@@ -27,30 +31,43 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
     }
 
     @Override
-    public void executeSchemeQuery(YdbContext ctx, YdbValidator validator, String yql) throws SQLException {
+    public YdbQueryResult executeSchemeQuery(YdbStatement statement, YdbQuery query) throws SQLException {
         ensureOpened();
+
+        String yql = query.getPreparedYql();
+        YdbContext ctx = statement.getConnection().getCtx();
+        YdbValidator validator = statement.getValidator();
 
         // Scheme query does not affect transactions or result sets
         ExecuteSchemeQuerySettings settings = ctx.withDefaultTimeout(new ExecuteSchemeQuerySettings());
         validator.execute(QueryType.SCHEME_QUERY + " >>\n" + yql,
                 () -> retryCtx.supplyStatus(session -> session.executeSchemeQuery(yql, settings))
         );
+
+        return YdbQueryResult.fromResults(query, Collections.emptyList());
     }
 
     @Override
-    public void executeBulkUpsert(YdbContext ctx, YdbValidator validator, String yql, String tablePath, ListValue rows)
+    public YdbQueryResult executeBulkUpsert(YdbStatement statement, YdbQuery query, String tablePath, ListValue rows)
             throws SQLException {
         ensureOpened();
+        String yql = query.getPreparedYql();
+        YdbValidator validator = statement.getValidator();
+
         validator.execute(QueryType.BULK_QUERY + " >>\n" + yql,
                 () -> retryCtx.supplyStatus(session -> session.executeBulkUpsert(tablePath, rows))
         );
+
+        return YdbQueryResult.fromResults(query, Collections.emptyList());
     }
 
     @Override
-    public ResultSetReader executeScanQuery(
-            YdbContext ctx, YdbValidator validator, YdbQuery query, String yql, Params params
-    ) throws SQLException {
+    public YdbQueryResult executeScanQuery(YdbStatement statement, YdbQuery query, String yql, Params params)
+            throws SQLException {
         ensureOpened();
+
+        YdbContext ctx = statement.getConnection().getCtx();
+        YdbValidator validator = statement.getValidator();
 
         Collection<ResultSetReader> resultSets = new LinkedBlockingQueue<>();
         Duration scanQueryTimeout = ctx.getOperationProperties().getScanQueryTimeout();
@@ -66,8 +83,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
                 })
         );
 
-        return ProtoValueReaders.forResultSets(resultSets);
+        YdbResultSet rs = new FixedResultSetImpl(statement, ProtoValueReaders.forResultSets(resultSets));
+        return YdbQueryResult.fromResults(query, Collections.singletonList(rs));
     }
-
-
 }

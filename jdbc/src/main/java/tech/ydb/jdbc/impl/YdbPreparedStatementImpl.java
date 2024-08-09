@@ -22,7 +22,6 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.Arrays;
 import java.util.Calendar;
-import java.util.List;
 import java.util.Objects;
 import java.util.logging.Logger;
 
@@ -32,6 +31,7 @@ import tech.ydb.jdbc.YdbParameterMetaData;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.common.MappingSetters;
+import tech.ydb.jdbc.context.YdbQueryResult;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbPreparedQuery;
 import tech.ydb.jdbc.query.YdbQuery;
@@ -77,7 +77,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
     }
 
     @Override
-    public void close() {
+    public void close() throws SQLException {
         clearParameters();
         super.close();
     }
@@ -94,8 +94,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
         try {
             if (query.getType() == QueryType.BULK_QUERY && (prepared instanceof BulkUpsertQuery)) {
                 BulkUpsertQuery bulk = (BulkUpsertQuery) prepared;
-                String yql = bulk.getQueryText(null);
-                executeBulkUpsert(query, yql, bulk.getTablePath(), bulk.getBatchedBulk());
+                executeBulkUpsert(query, bulk.getTablePath(), bulk.getBatchedBulk());
             } else {
                 for (Params prm: prepared.getBatchParams()) {
                     executeDataQuery(query, prepared.getQueryText(prm), prm);
@@ -130,8 +129,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
         cleanState();
         clearBatch();
 
-        List<YdbResult> newState = null;
-
+        YdbQueryResult newState = null;
         Params prms = prepared.getCurrentParams();
         switch (query.getType()) {
             case DATA_QUERY:
@@ -149,8 +147,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
             case BULK_QUERY:
                 if (prepared instanceof BulkUpsertQuery) {
                     BulkUpsertQuery bulk = (BulkUpsertQuery) prepared;
-                    String yql = bulk.getQueryText(null);
-                    newState = executeBulkUpsert(query, yql, bulk.getTablePath(), bulk.getCurrentBulk());
+                    newState = executeBulkUpsert(query, bulk.getTablePath(), bulk.getCurrentBulk());
                 } else {
                     throw new IllegalStateException(
                             "Internal error. Incorrect class of bulk prepared query " + prepared.getClass()
@@ -169,16 +166,16 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
     public YdbResultSet executeScanQuery() throws SQLException {
         cleanState();
         Params prms = prepared.getCurrentParams();
-        List<YdbResult> state = executeScanQuery(query, prepared.getQueryText(prms), prms);
+        YdbQueryResult result = executeScanQuery(query, prepared.getQueryText(prms), prms);
         prepared.clearParameters();
-        updateState(state);
-        return getResultSet();
+        updateState(result);
+        return result.getCurrentResultSet();
     }
 
     @Override
     public YdbResultSet executeExplainQuery() throws SQLException {
         cleanState();
-        List<YdbResult> state = executeExplainQuery(query);
+        YdbQueryResult state = executeExplainQuery(query);
         updateState(state);
         return getResultSet();
     }
