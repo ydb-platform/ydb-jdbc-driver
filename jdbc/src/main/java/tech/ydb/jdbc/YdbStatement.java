@@ -33,7 +33,7 @@ public interface YdbStatement extends Statement {
      */
     YdbResultSet executeExplainQuery(String sql) throws SQLException;
 
-    YdbValidator getValidator() throws SQLException;
+    YdbValidator getValidator();
 
     @Override
     YdbResultSet executeQuery(String sql) throws SQLException;

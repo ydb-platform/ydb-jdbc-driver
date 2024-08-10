@@ -19,7 +19,7 @@ public class YdbStaticResultSet extends BaseYdbResultSet {
     private boolean isClosed = false;
 
     public YdbStaticResultSet(YdbStatement statement, ResultSetReader result) {
-        super(statement, readColumns(Objects.requireNonNull(result)));
+        super(statement, ColumnInfo.fromResultSetReader(Objects.requireNonNull(result)));
         this.rsReader = result;
         this.rowCount = result.getRowCount();
     }
@@ -31,14 +31,6 @@ public class YdbStaticResultSet extends BaseYdbResultSet {
         } catch (IllegalStateException ex) {
             throw new SQLException(YdbConst.INVALID_ROW + rowIndex);
         }
-    }
-
-    private static ColumnInfo[] readColumns(ResultSetReader rsr) {
-        ColumnInfo[] columns = new ColumnInfo[rsr.getColumnCount()];
-        for (int idx = 0; idx < rsr.getColumnCount(); idx += 1) {
-            columns[idx] = new ColumnInfo(rsr.getColumnName(idx), rsr.getColumnType(idx));
-        }
-        return columns;
     }
 
     @Override

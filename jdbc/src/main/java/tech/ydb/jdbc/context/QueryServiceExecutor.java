@@ -4,10 +4,8 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import tech.ydb.common.transaction.TxMode;
@@ -15,11 +13,9 @@ import tech.ydb.core.Issue;
 import tech.ydb.core.Result;
 import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.jdbc.YdbConst;
-import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.exception.ExceptionFactory;
 import tech.ydb.jdbc.impl.YdbQueryResult;
-import tech.ydb.jdbc.impl.YdbStaticResultSet;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.query.QueryClient;
@@ -32,7 +28,6 @@ import tech.ydb.query.settings.CommitTransactionSettings;
 import tech.ydb.query.settings.ExecuteQuerySettings;
 import tech.ydb.query.settings.QueryExecMode;
 import tech.ydb.query.settings.RollbackTransactionSettings;
-import tech.ydb.query.tools.QueryReader;
 import tech.ydb.table.query.Params;
 
 /**
@@ -216,20 +211,17 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             tx = createNewQuerySession(validator).createNewTransaction(txMode);
         }
 
-        try {
-            QueryReader result = validator.call(QueryType.DATA_QUERY + " >>\n" + yql,
-                    () -> QueryReader.readFrom(tx.createQuery(yql, isAutoCommit, params, settings))
-            );
-            validator.addStatusIssues(result.getIssueList());
+        String msg = "STREAM_QUERY >>\n" + yql;
+        QueryStream stream = tx.createQuery(yql, isAutoCommit, params, settings);
+        StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
 
-            List<YdbResultSet> rsList = new ArrayList<>();
-            result.forEach(rsr -> rsList.add(new YdbStaticResultSet(statement, rsr)));
-            return new StaticQueryResult(query, rsList);
-        } finally {
+        result.start(stream).thenRun(() -> {
             if (!tx.isActive()) {
                 cleanTx();
             }
-        }
+        });
+
+        return result;
     }
 
     @Override

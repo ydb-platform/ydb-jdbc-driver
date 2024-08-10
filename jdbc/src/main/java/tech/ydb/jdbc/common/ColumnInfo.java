@@ -1,5 +1,6 @@
 package tech.ydb.jdbc.common;
 
+import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.table.values.Type;
 
@@ -66,4 +67,13 @@ public class ColumnInfo {
     public MappingGetters.Getters getGetters() {
         return this.getters;
     }
+
+    public static ColumnInfo[] fromResultSetReader(ResultSetReader rsr) {
+        ColumnInfo[] columns = new ColumnInfo[rsr.getColumnCount()];
+        for (int idx = 0; idx < rsr.getColumnCount(); idx += 1) {
+            columns[idx] = new ColumnInfo(rsr.getColumnName(idx), rsr.getColumnType(idx));
+        }
+        return columns;
+    }
+
 }
