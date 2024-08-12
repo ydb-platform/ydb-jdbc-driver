@@ -81,5 +81,4 @@ public class YdbClientProperties {
         query.sessionPoolMaxSize(maxSize).sessionPoolMinSize(minSize);
         return false;
     }
-
 }

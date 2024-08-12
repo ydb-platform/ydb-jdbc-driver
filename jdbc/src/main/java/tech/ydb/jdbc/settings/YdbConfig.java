@@ -40,6 +40,9 @@ public class YdbConfig {
     static final YdbProperty<Boolean> USE_QUERY_SERVICE = YdbProperty.bool("useQueryService",
             "Use QueryService intead of TableService", false
     );
+    static final YdbProperty<Boolean> FULLSCAN_DETECTOR_ENABLED = YdbProperty.bool(
+            "jdbc.ydb.fullscan_analyze", "Enable analizator for collecting query stats", false
+    );
 
 
     private final String url;
@@ -53,6 +56,7 @@ public class YdbConfig {
     private final boolean isCacheConnectionsInDriver;
     private final int preparedStatementsCacheSize;
     private final boolean useQueryService;
+    private final boolean fullScanDetectorEnabled;
 
     private YdbConfig(
             String url, String safeUrl, String connectionString, String username, String password, Properties props
@@ -66,6 +70,7 @@ public class YdbConfig {
         this.isCacheConnectionsInDriver = CACHE_CONNECTIONS_IN_DRIVER.readValue(props).getValue();
         this.preparedStatementsCacheSize = Math.max(0, PREPARED_STATEMENT_CACHE_SIZE.readValue(props).getValue());
         this.useQueryService = USE_QUERY_SERVICE.readValue(props).getValue();
+        this.fullScanDetectorEnabled = FULLSCAN_DETECTOR_ENABLED.readValue(props).getValue();
     }
 
     public Properties getSafeProps() {
@@ -94,6 +99,10 @@ public class YdbConfig {
 
     public boolean isUseQueryService() {
         return this.useQueryService;
+    }
+
+    public boolean isFullScanDetectorEnabled() {
+        return fullScanDetectorEnabled;
     }
 
     static boolean isSensetive(String key) {
