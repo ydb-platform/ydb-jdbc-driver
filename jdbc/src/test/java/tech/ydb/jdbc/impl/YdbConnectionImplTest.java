@@ -925,4 +925,87 @@ public class YdbConnectionImplTest {
                     () -> statement.execute(sql));
         }
     }
+
+    @Test
+    public void testFullScanAnalyzer() throws SQLException {
+        try (Connection connection = jdbc.createCustomConnection("jdbcFullScanDetector", "true")) {
+            String selectAll = QUERIES.selectAllSQL();
+            String selectByKey = QUERIES.selectAllByKey("1");
+            String preparedSelect = QUERIES.selectAllByKey("?");
+
+            try (Statement st = connection.createStatement()) {
+                try (ResultSet rs = st.executeQuery(" print_JDBC_stats();  ")) {
+                    Assertions.assertFalse(rs.next()); // not stats
+                }
+
+                try (ResultSet rs = st.executeQuery(selectAll)) {
+                    Assertions.assertFalse(rs.next());
+                }
+
+                try (ResultSet rs = st.executeQuery("Print_JDBC_stats();\n")) {
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(selectAll, rs.getString("sql"));
+                    Assertions.assertEquals(true, rs.getBoolean("is_fullscan"));
+                    Assertions.assertEquals(1l, rs.getLong("executed"));
+
+                    Assertions.assertFalse(rs.next());
+                }
+
+                try (ResultSet rs = st.executeQuery(selectAll)) {
+                    Assertions.assertFalse(rs.next());
+                }
+                try (ResultSet rs = st.executeQuery(selectByKey)) {
+                    Assertions.assertFalse(rs.next());
+                }
+
+                try (ResultSet rs = st.executeQuery("Print_JDBC_stats();\n")) {
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(selectAll, rs.getString("sql"));
+                    Assertions.assertEquals(true, rs.getBoolean("is_fullscan"));
+                    Assertions.assertEquals(2l, rs.getLong("executed"));
+
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(selectByKey, rs.getString("sql"));
+                    Assertions.assertEquals(false, rs.getBoolean("is_fullscan"));
+                    Assertions.assertEquals(1l, rs.getLong("executed"));
+
+                    Assertions.assertFalse(rs.next());
+                }
+
+                try (PreparedStatement ps = connection.prepareStatement(preparedSelect)) {
+                    ps.setLong(1, 1);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        Assertions.assertFalse(rs.next());
+                    }
+                    ps.setLong(1, 2);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        Assertions.assertFalse(rs.next());
+                    }
+                    ps.setLong(1, 3);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        Assertions.assertFalse(rs.next());
+                    }
+                }
+
+                try (ResultSet rs = st.executeQuery("Print_JDBC_stats();\n")) {
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(preparedSelect, rs.getString("sql"));
+                    Assertions.assertEquals(false, rs.getBoolean("is_fullscan"));
+                    Assertions.assertEquals(3l, rs.getLong("executed"));
+
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(selectAll, rs.getString("sql"));
+                    Assertions.assertEquals(true, rs.getBoolean("is_fullscan"));
+                    Assertions.assertEquals(2l, rs.getLong("executed"));
+
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(selectByKey, rs.getString("sql"));
+                    Assertions.assertEquals(false, rs.getBoolean("is_fullscan"));
+                    Assertions.assertEquals(1l, rs.getLong("executed"));
+
+                    Assertions.assertFalse(rs.next());
+                }
+            }
+        }
+    }
 }

@@ -3,7 +3,12 @@ package tech.ydb.jdbc.context;
 import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -178,6 +183,28 @@ public class YdbContext implements AutoCloseable {
         return connectionsCount.get() > 0;
     }
 
+    public boolean queryStatsEnabled() {
+        return queryStatesCache != null;
+    }
+
+    public Collection<QueryStat> getQueryStats() {
+        if (queryStatesCache == null) {
+            return Collections.emptyList();
+        }
+        Set<QueryStat> sortedByUsage = new TreeSet<>(Comparator.comparingLong(QueryStat::getUsageCounter).reversed());
+        sortedByUsage.addAll(queryStatesCache.asMap().values());
+        return sortedByUsage;
+    }
+
+    public void traceQueryExecution(YdbQuery query) {
+        if (queryStatesCache != null) {
+            QueryStat stat = queryStatesCache.getIfPresent(query.getOriginQuery());
+            if (stat != null) {
+                stat.incrementUsage();
+            }
+        }
+    }
+
     public void register() {
         int actual = connectionsCount.incrementAndGet();
         int maxSize = tableClient.sessionPoolStats().getMaxSize();
@@ -279,26 +306,24 @@ public class YdbContext implements AutoCloseable {
         if (cached == null) {
             cached = parseYdbQuery(sql);
             queriesCache.put(sql, cached);
+        }
 
-            if (queryStatesCache != null) {
-                QueryStat stat = queryStatesCache.getIfPresent(sql);
-                if (stat == null) {
-                    final String preparedYQL = cached.getPreparedYql();
-                    final ExplainDataQuerySettings settings = withDefaultTimeout(new ExplainDataQuerySettings());
-                    Result<ExplainDataQueryResult> res = retryCtx.supplyResult(
-                            session -> session.explainDataQuery(preparedYQL, settings)
-                    ).join();
+        if (queryStatesCache != null) {
+            QueryStat stat = queryStatesCache.getIfPresent(sql);
+            if (stat == null) {
+                final String preparedYQL = cached.getPreparedYql();
+                final ExplainDataQuerySettings settings = withDefaultTimeout(new ExplainDataQuerySettings());
+                Result<ExplainDataQueryResult> res = retryCtx.supplyResult(
+                        session -> session.explainDataQuery(preparedYQL, settings)
+                ).join();
 
-                    if (res.isSuccess()) {
-                        ExplainDataQueryResult exp = res.getValue();
-                        stat = new QueryStat(cached, exp.getQueryAst(), exp.getQueryPlan());
-                    } else {
-                        stat = new QueryStat(cached, res.getStatus());
-                    }
-                    queryStatesCache.put(sql, stat);
+                if (res.isSuccess()) {
+                    ExplainDataQueryResult exp = res.getValue();
+                    stat = new QueryStat(cached, exp.getQueryAst(), exp.getQueryPlan());
+                } else {
+                    stat = new QueryStat(cached, res.getStatus());
                 }
-
-                stat.incrementUsage();
+                queryStatesCache.put(sql, stat);
             }
         }
 

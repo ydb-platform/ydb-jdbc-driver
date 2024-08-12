@@ -41,7 +41,7 @@ public class YdbConfig {
             "Use QueryService intead of TableService", false
     );
     static final YdbProperty<Boolean> FULLSCAN_DETECTOR_ENABLED = YdbProperty.bool(
-            "jdbc.ydb.fullscan_analyze", "Enable analizator for collecting query stats", false
+            "jdbcFullScanDetector", "Enable analizator for collecting query stats", false
     );
 
 

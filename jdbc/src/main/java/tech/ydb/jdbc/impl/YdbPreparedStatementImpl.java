@@ -91,6 +91,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
 
         try {
             for (Params prm: prepared.getBatchParams()) {
+                getConnection().getCtx().traceQueryExecution(query);
                 executeDataQuery(query, prepared.getQueryText(prm), prm);
             }
         } finally {
@@ -123,7 +124,9 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
         clearBatch();
 
         List<YdbResult> newState = null;
+
         Params prms = prepared.getCurrentParams();
+        getConnection().getCtx().traceQueryExecution(query);
         switch (query.getType()) {
             case DATA_QUERY:
                 newState = executeDataQuery(query, prepared.getQueryText(prms), prms);
