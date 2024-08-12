@@ -3,7 +3,12 @@ package tech.ydb.jdbc.context;
 import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -39,8 +44,10 @@ import tech.ydb.table.TableClient;
 import tech.ydb.table.description.TableColumn;
 import tech.ydb.table.description.TableDescription;
 import tech.ydb.table.impl.PooledTableClient;
+import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.rpc.grpc.GrpcTableRpc;
 import tech.ydb.table.settings.DescribeTableSettings;
+import tech.ydb.table.settings.ExplainDataQuerySettings;
 import tech.ydb.table.settings.PrepareDataQuerySettings;
 import tech.ydb.table.settings.RequestSettings;
 import tech.ydb.table.values.Type;
@@ -68,6 +75,7 @@ public class YdbContext implements AutoCloseable {
     private final SessionRetryContext retryCtx;
 
     private final Cache<String, YdbQuery> queriesCache;
+    private final Cache<String, QueryStat> queryStatesCache;
     private final Cache<String, Map<String, Type>> queryParamsCache;
 
     private final boolean autoResizeSessionPool;
@@ -98,8 +106,14 @@ public class YdbContext implements AutoCloseable {
         if (cacheSize > 0) {
             queriesCache = CacheBuilder.newBuilder().maximumSize(cacheSize).build();
             queryParamsCache = CacheBuilder.newBuilder().maximumSize(cacheSize).build();
+            if (config.isFullScanDetectorEnabled()) {
+                queryStatesCache = CacheBuilder.newBuilder().maximumSize(cacheSize).build();
+            } else {
+                queryStatesCache = null;
+            }
         } else {
             queriesCache = null;
+            queryStatesCache = null;
             queryParamsCache = null;
         }
     }
@@ -167,6 +181,28 @@ public class YdbContext implements AutoCloseable {
 
     public boolean hasConnections() {
         return connectionsCount.get() > 0;
+    }
+
+    public boolean queryStatsEnabled() {
+        return queryStatesCache != null;
+    }
+
+    public Collection<QueryStat> getQueryStats() {
+        if (queryStatesCache == null) {
+            return Collections.emptyList();
+        }
+        Set<QueryStat> sortedByUsage = new TreeSet<>(Comparator.comparingLong(QueryStat::getUsageCounter).reversed());
+        sortedByUsage.addAll(queryStatesCache.asMap().values());
+        return sortedByUsage;
+    }
+
+    public void traceQueryExecution(YdbQuery query) {
+        if (queryStatesCache != null) {
+            QueryStat stat = queryStatesCache.getIfPresent(query.getOriginQuery());
+            if (stat != null) {
+                stat.incrementUsage();
+            }
+        }
     }
 
     public void register() {
@@ -272,6 +308,25 @@ public class YdbContext implements AutoCloseable {
             queriesCache.put(sql, cached);
         }
 
+        if (queryStatesCache != null) {
+            QueryStat stat = queryStatesCache.getIfPresent(sql);
+            if (stat == null) {
+                final String preparedYQL = cached.getPreparedYql();
+                final ExplainDataQuerySettings settings = withDefaultTimeout(new ExplainDataQuerySettings());
+                Result<ExplainDataQueryResult> res = retryCtx.supplyResult(
+                        session -> session.explainDataQuery(preparedYQL, settings)
+                ).join();
+
+                if (res.isSuccess()) {
+                    ExplainDataQueryResult exp = res.getValue();
+                    stat = new QueryStat(cached, exp.getQueryAst(), exp.getQueryPlan());
+                } else {
+                    stat = new QueryStat(cached, res.getStatus());
+                }
+                queryStatesCache.put(sql, stat);
+            }
+        }
+
         return cached;
     }
 
@@ -288,8 +343,8 @@ public class YdbContext implements AutoCloseable {
                 ).join();
 
                 if (result.isSuccess()) {
-                    TableDescription d = result.getValue();
-                    types = result.getValue().getColumns().stream()
+                    TableDescription descrtiption = result.getValue();
+                    types = descrtiption.getColumns().stream()
                             .collect(Collectors.toMap(TableColumn::getName, TableColumn::getType));
                     queryParamsCache.put(query.getOriginQuery(), types);
                 }

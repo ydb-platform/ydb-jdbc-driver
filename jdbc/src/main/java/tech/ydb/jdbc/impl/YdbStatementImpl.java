@@ -5,6 +5,7 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -12,6 +13,8 @@ import java.util.logging.Logger;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
+import tech.ydb.jdbc.context.QueryStat;
+import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.Params;
 
@@ -79,7 +82,20 @@ public class YdbStatementImpl extends BaseYdbStatement {
     public boolean execute(String sql) throws SQLException {
         cleanState();
 
-        YdbQuery query = getConnection().getCtx().parseYdbQuery(sql);
+        YdbContext ctx = getConnection().getCtx();
+        YdbQuery query;
+
+        if (ctx.queryStatsEnabled()) {
+            if (sql != null && QueryStat.QUERY.equalsIgnoreCase(sql.trim())) {
+                YdbResultSet rs = new YdbResultSetImpl(this, QueryStat.toResultSetReader(ctx.getQueryStats()));
+                return updateState(Collections.singletonList(new YdbResult(rs)));
+            }
+            query = ctx.findOrParseYdbQuery(sql);
+            ctx.traceQueryExecution(query);
+        } else {
+            query = ctx.parseYdbQuery(sql);
+        }
+
         List<YdbResult> newState = null;
         switch (query.getType()) {
             case SCHEME_QUERY:
