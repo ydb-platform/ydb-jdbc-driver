@@ -1,3 +1,7 @@
+## 2.2.2 ##
+
+* Added optional query stats collector
+
 ## 2.2.1 ##
 
 * Fixed usage of datetime types
