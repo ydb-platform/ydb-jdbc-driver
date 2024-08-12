@@ -212,16 +212,17 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         }
 
         String msg = "STREAM_QUERY >>\n" + yql;
-        QueryStream stream = tx.createQuery(yql, isAutoCommit, params, settings);
-        StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
-
-        result.start(stream).thenRun(() -> {
+        try {
+            return validator.call(msg, () -> {
+                QueryStream stream = tx.createQuery(yql, isAutoCommit, params, settings);
+                StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
+                return result.execute(stream);
+            });
+        } finally {
             if (!tx.isActive()) {
                 cleanTx();
             }
-        });
-
-        return result;
+        }
     }
 
     @Override

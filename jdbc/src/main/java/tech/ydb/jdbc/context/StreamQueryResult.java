@@ -40,7 +40,9 @@ public class StreamQueryResult implements YdbQueryResult {
     private final String msg;
     private final YdbStatement statement;
     private final Runnable stopRunnable;
-    private final CompletableFuture<Status> statusFuture = new CompletableFuture<>();
+
+    private final CompletableFuture<Status> finishFuture = new CompletableFuture<>();
+    private final CompletableFuture<Result<StreamQueryResult>> startFuture = new CompletableFuture<>();
 
     private final int[] resultIndexes;
     private final List<CompletableFuture<Result<LazyResultSet>>> resultFutures = new ArrayList<>();
@@ -72,31 +74,34 @@ public class StreamQueryResult implements YdbQueryResult {
         }
     }
 
-    public CompletableFuture<Status> start(QueryStream stream) {
-        return stream
-                .execute(new QueryPartsHandler())
+    public CompletableFuture<Result<StreamQueryResult>> execute(QueryStream stream) {
+        stream.execute(new QueryPartsHandler())
                 .thenApply(Result::getStatus)
-                .whenComplete(this::onStreamFinish);
+                .whenComplete(this::onStreamFinished);
+        return startFuture;
     }
 
-    private void onStreamFinish(Status status, Throwable th) {
+    private void onStreamFinished(Status status, Throwable th) {
         if (th != null) {
-            statusFuture.completeExceptionally(th);
+            finishFuture.completeExceptionally(th);
             for (CompletableFuture<Result<LazyResultSet>> future: resultFutures) {
                 future.completeExceptionally(th);
             }
+            startFuture.completeExceptionally(th);
         }
 
         if (status != null) {
-            statusFuture.complete(status);
+            finishFuture.complete(status);
             if (status.isSuccess()) {
                 for (CompletableFuture<Result<LazyResultSet>> future: resultFutures) {
                     future.complete(Result.success(new LazyResultSet(statement, new ColumnInfo[0]), status));
                 }
+                startFuture.complete(Result.success(this));
             } else {
                 for (CompletableFuture<Result<LazyResultSet>> future: resultFutures) {
                     future.complete(Result.fail(status));
                 }
+                startFuture.complete(Result.fail(status));
             }
         }
 
@@ -112,7 +117,7 @@ public class StreamQueryResult implements YdbQueryResult {
 
     @Override
     public void close() throws SQLException {
-        Status status = statusFuture.join();
+        Status status = finishFuture.join();
         if (!status.isSuccess()) {
             throw ExceptionFactory.createException("Cannot execute '" + msg + "' with " + status,
                     new UnexpectedResultException("Unexpected status", status)
@@ -218,11 +223,13 @@ public class StreamQueryResult implements YdbQueryResult {
     private class QueryPartsHandler implements QueryStream.PartsHandler {
         @Override
         public void onIssues(Issue[] issues) {
+            startFuture.complete(Result.success(StreamQueryResult.this));
             statement.getValidator().addStatusIssues(Arrays.asList(issues));
         }
 
         @Override
         public void onNextPart(QueryResultPart part) {
+            startFuture.complete(Result.success(StreamQueryResult.this));
             onResultSet((int) part.getResultSetIndex(), part.getResultSetReader());
         }
     }
