@@ -263,8 +263,8 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
     }
 
     @Override
-    public void setTime(String parameterName, Time x) throws SQLException {
-        prepared.setParam(parameterName, x, Types.TIME);
+    public void setTime(String parameterName, Time x) {
+        throw new UnsupportedOperationException("YDB does not have a TIME type");
     }
 
     @Override
@@ -299,9 +299,8 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
     }
 
     @Override
-    public void setTime(String parameterName, Time x, Calendar cal) throws SQLException {
-        // TODO: check cal
-        prepared.setParam(parameterName, x, Types.TIME);
+    public void setTime(String parameterName, Time x, Calendar cal) {
+        throw new UnsupportedOperationException("YDB does not have a TIME type");
     }
 
     @Override
@@ -452,8 +451,8 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
     }
 
     @Override
-    public void setTime(int parameterIndex, Time x) throws SQLException {
-        prepared.setParam(parameterIndex, x, Types.TIME);
+    public void setTime(int parameterIndex, Time x) {
+        throw new UnsupportedOperationException("YDB does not have a TIME type");
     }
 
     @Override
@@ -514,9 +513,8 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
     }
 
     @Override
-    public void setTime(int parameterIndex, Time x, Calendar cal) throws SQLException {
-        // TODO: check cal
-        prepared.setParam(parameterIndex, x, Types.TIME);
+    public void setTime(int parameterIndex, Time x, Calendar cal) {
+        throw new UnsupportedOperationException("YDB does not have a TIME type");
     }
 
     @Override
