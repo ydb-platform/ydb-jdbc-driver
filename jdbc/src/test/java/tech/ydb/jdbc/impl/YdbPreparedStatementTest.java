@@ -26,6 +26,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
+import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.SqlQueries;
@@ -344,8 +345,8 @@ public class YdbPreparedStatementTest {
     @EnumSource(SqlQueries.JdbcQuery.class)
     public void timestampTest(SqlQueries.JdbcQuery query) throws SQLException {
         String upsert = TEST_TABLE.upsertOne(query, "c_Timestamp", "Timestamp");
-
         boolean castingSupported = query != SqlQueries.JdbcQuery.IN_MEMORY;
+        int ydbSqlType = YdbConst.SQL_KIND_PRIMITIVE + PrimitiveType.Timestamp.ordinal();
 
         try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert)) {
             ps.setInt(1, 1);
@@ -376,6 +377,14 @@ public class YdbPreparedStatementTest {
                 ps.setInt(1, 7);
                 ps.setString(2, "2011-12-03T10:15:30.456789123Z");
                 ps.execute();
+            } else {
+                ps.setInt(1, 6);
+                ps.setObject(2, 1585932011123l, ydbSqlType);
+                ps.execute();
+
+                ps.setInt(1, 7);
+                ps.setObject(2, "2011-12-03T10:15:30.456789123Z", ydbSqlType);
+                ps.execute();
             }
         }
 
@@ -386,11 +395,8 @@ public class YdbPreparedStatementTest {
                 assertNextTimestamp(rs, 3, LocalDate.of(2020, Month.MARCH, 3).atStartOfDay().toInstant(ZoneOffset.UTC));
                 assertNextTimestamp(rs, 4, LocalDate.of(2021, Month.MAY, 22).atStartOfDay().toInstant(ZoneOffset.UTC));
                 assertNextTimestamp(rs, 5, LocalDateTime.of(2023, Month.MAY, 29, 14, 56, 59).toInstant(ZoneOffset.UTC));
-
-                if (castingSupported) {
-                    assertNextTimestamp(rs, 6, Instant.ofEpochMilli(1585932011123l));
-                    assertNextTimestamp(rs, 7, Instant.parse("2011-12-03T10:15:30.456789000Z"));
-                }
+                assertNextTimestamp(rs, 6, Instant.ofEpochMilli(1585932011123l));
+                assertNextTimestamp(rs, 7, Instant.parse("2011-12-03T10:15:30.456789000Z"));
 
                 Assert.assertFalse(rs.next());
             }
@@ -422,8 +428,8 @@ public class YdbPreparedStatementTest {
     @EnumSource(SqlQueries.JdbcQuery.class)
     public void datetimeTest(SqlQueries.JdbcQuery query) throws SQLException {
         String upsert = TEST_TABLE.upsertOne(query, "c_Datetime", "Datetime");
-
         boolean castingSupported = query != SqlQueries.JdbcQuery.IN_MEMORY;
+        int ydbSqlType = YdbConst.SQL_KIND_PRIMITIVE + PrimitiveType.Datetime.ordinal();
 
         try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert)) {
             ps.setInt(1, 1);
@@ -454,6 +460,26 @@ public class YdbPreparedStatementTest {
                 ps.setInt(1, 7);
                 ps.setObject(2, TEST_TS);
                 ps.execute();
+            } else {
+                ps.setInt(1, 3);
+                ps.setObject(2, new Timestamp(TEST_TS.toEpochMilli()), ydbSqlType);
+                ps.execute();
+
+                ps.setInt(1, 4);
+                ps.setObject(2, 1585932011l, ydbSqlType);
+                ps.execute();
+
+                ps.setInt(1, 5);
+                ps.setObject(2, LocalDate.of(2021, Month.JULY, 21), ydbSqlType);
+                ps.execute();
+
+                ps.setInt(1, 6);
+                ps.setObject(2, "2011-12-03T10:15:30", ydbSqlType);
+                ps.execute();
+
+                ps.setInt(1, 7);
+                ps.setObject(2, TEST_TS, ydbSqlType);
+                ps.execute();
             }
         }
 
@@ -462,13 +488,11 @@ public class YdbPreparedStatementTest {
             try (ResultSet rs = statement.executeQuery(TEST_TABLE.selectColumn("c_Datetime"))) {
                 assertNextDatetime(rs, 1, LocalDateTime.of(2025, Month.AUGUST, 10, 23, 59, 59));
                 assertNextDatetime(rs, 2, LocalDateTime.of(2020, Month.MARCH, 3, 0, 0, 0));
-                if (castingSupported) {
-                    assertNextDatetime(rs, 3, ts);
-                    assertNextDatetime(rs, 4, LocalDateTime.of(2020, Month.APRIL, 3, 16, 40, 11));
-                    assertNextDatetime(rs, 5, LocalDateTime.of(2021, Month.JULY, 21, 0, 0, 0));
-                    assertNextDatetime(rs, 6, LocalDateTime.of(2011, Month.DECEMBER, 3, 10, 15, 30));
-                    assertNextDatetime(rs, 7, ts);
-                }
+                assertNextDatetime(rs, 3, ts);
+                assertNextDatetime(rs, 4, LocalDateTime.of(2020, Month.APRIL, 3, 16, 40, 11));
+                assertNextDatetime(rs, 5, LocalDateTime.of(2021, Month.JULY, 21, 0, 0, 0));
+                assertNextDatetime(rs, 6, LocalDateTime.of(2011, Month.DECEMBER, 3, 10, 15, 30));
+                assertNextDatetime(rs, 7, ts);
                 Assert.assertFalse(rs.next());
             }
         }
@@ -499,6 +523,7 @@ public class YdbPreparedStatementTest {
     public void dateTest(SqlQueries.JdbcQuery query) throws SQLException {
         String upsert = TEST_TABLE.upsertOne(query, "c_Date", "Date");
         boolean castingSupported = query != SqlQueries.JdbcQuery.IN_MEMORY;
+        int ydbSqlType = YdbConst.SQL_KIND_PRIMITIVE + PrimitiveType.Date.ordinal();
 
         try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert)) {
             ps.setInt(1, 1);
@@ -533,6 +558,30 @@ public class YdbPreparedStatementTest {
                 ps.setInt(1, 8);
                 ps.setObject(2, TEST_TS);
                 ps.execute();
+            } else {
+                ps.setInt(1, 3);
+                ps.setObject(2, new Timestamp(TEST_TS.toEpochMilli()), ydbSqlType);
+                ps.execute();
+
+                ps.setInt(1, 4);
+                ps.setObject(2, 10, ydbSqlType); // Jan 11 1970
+                ps.execute();
+
+                ps.setInt(1, 5);
+                ps.setObject(2, 12345l, ydbSqlType); // Oct 20 2003
+                ps.execute();
+
+                ps.setInt(1, 6);
+                ps.setObject(2, LocalDateTime.of(2021, Month.JULY, 23, 14, 56, 59, 123456789), ydbSqlType);
+                ps.execute();
+
+                ps.setInt(1, 7);
+                ps.setObject(2, "2011-12-03", ydbSqlType);
+                ps.execute();
+
+                ps.setInt(1, 8);
+                ps.setObject(2, TEST_TS, ydbSqlType);
+                ps.execute();
             }
         }
 
@@ -540,15 +589,12 @@ public class YdbPreparedStatementTest {
             try (ResultSet rs = st.executeQuery(TEST_TABLE.selectColumn("c_Date"))) {
                 assertNextDate(rs, 1, LocalDate.of(2025, Month.AUGUST, 10));
                 assertNextDate(rs, 2, LocalDate.of(2020, Month.MARCH, 3));
-
-                if (castingSupported) {
-                    assertNextDate(rs, 3, LocalDate.of(2020, Month.MARCH, 3));
-                    assertNextDate(rs, 4, LocalDate.of(1970, Month.JANUARY, 11));
-                    assertNextDate(rs, 5, LocalDate.of(2003, Month.OCTOBER, 20));
-                    assertNextDate(rs, 6, LocalDate.of(2021, Month.JULY, 23));
-                    assertNextDate(rs, 7, LocalDate.of(2011, Month.DECEMBER, 3));
-                    assertNextDate(rs, 8, LocalDate.of(2020, Month.MARCH, 3));
-                }
+                assertNextDate(rs, 3, LocalDate.of(2020, Month.MARCH, 3));
+                assertNextDate(rs, 4, LocalDate.of(1970, Month.JANUARY, 11));
+                assertNextDate(rs, 5, LocalDate.of(2003, Month.OCTOBER, 20));
+                assertNextDate(rs, 6, LocalDate.of(2021, Month.JULY, 23));
+                assertNextDate(rs, 7, LocalDate.of(2011, Month.DECEMBER, 3));
+                assertNextDate(rs, 8, LocalDate.of(2020, Month.MARCH, 3));
 
                 Assert.assertFalse(rs.next());
             }
