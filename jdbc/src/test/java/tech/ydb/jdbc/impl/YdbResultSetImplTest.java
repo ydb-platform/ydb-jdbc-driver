@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.Month;
 import java.time.ZoneOffset;
 import java.util.Collections;
@@ -1453,10 +1454,16 @@ public class YdbResultSetImplTest {
         ResultSetChecker<Date> checker = check(resultSet, ResultSet::getDate, ResultSet::getDate);
 
         checker.nextRow()
-                // 2000000000001 unix millis = May 18, 2033 3:33:20.001 UTC
-                .value(6,  "c_Int64",     Date.valueOf(LocalDate.of(2033, Month.MAY, 18)))
-                // 2000000000002 unix millis = May 18, 2033 3:33:20.002 UTC
-                .value(10, "c_Uint64",    Date.valueOf(LocalDate.of(2033, Month.MAY, 18)))
+                .value(3, "c_Int8", Date.valueOf(LocalDate.ofEpochDay(101)))
+                .value(4, "c_Int16", Date.valueOf(LocalDate.ofEpochDay(20001)))
+                .value(5, "c_Int32", Date.valueOf(LocalDate.ofEpochDay(2000000001)))
+                .exceptionValue(6, "c_Int64",
+                        "Cannot cast [Int64] with value [2000000000001] to [class java.sql.Date]")
+                .value(7, "c_Uint8", Date.valueOf(LocalDate.ofEpochDay(100)))
+                .value(8, "c_Uint16", Date.valueOf(LocalDate.ofEpochDay(20002)))
+                .value(9, "c_Uint32", Date.valueOf(LocalDate.ofEpochDay(2000000002)))
+                .exceptionValue(10, "c_Uint64",
+                        "Cannot cast [Uint64] with value [2000000000002] to [class java.sql.Date]")
                 // 3111 unix days = Sunday, July 9, 1978 0:00:00 UTC
                 .value(18, "c_Date",      Date.valueOf(LocalDate.of(1978, Month.JULY, 9)))
                 // 311111156 unix seconds = Sat Nov 10 1979 19:45:56 UTC
@@ -1465,11 +1472,16 @@ public class YdbResultSetImplTest {
                 .value(20, "c_Timestamp", new Date(311111223342l / 1000));
 
         checker.nextRow()
-                // -2000000000001 unix millis = Thursday, August 16, 1906 20:26:39.999 UTC
-                .value(6,  "c_Int64",     Date.valueOf(LocalDate.of(1906, Month.AUGUST, 16)))
-                // 4000000000002 unix millis = Tuesday, October 2, 2096 7:06:40.002 UTC
-                .value(10, "c_Uint64",    Date.valueOf(LocalDate.of(2096, Month.OCTOBER, 2)))
-                // 3112 unix days = Mon Jul 10 1978 00:00:00 UTC
+                .value(3, "c_Int8", Date.valueOf(LocalDate.ofEpochDay(-101)))
+                .value(4, "c_Int16", Date.valueOf(LocalDate.ofEpochDay(-20001)))
+                .value(5, "c_Int32", Date.valueOf(LocalDate.ofEpochDay(-2000000001)))
+                .exceptionValue(6, "c_Int64",
+                        "Cannot cast [Int64] with value [-2000000000001] to [class java.sql.Date]")
+                .value(7, "c_Uint8", Date.valueOf(LocalDate.ofEpochDay(200)))
+                .value(8, "c_Uint16", Date.valueOf(LocalDate.ofEpochDay(40002)))
+                .value(9, "c_Uint32", Date.valueOf(LocalDate.ofEpochDay(4000000002l)))
+                .exceptionValue(10, "c_Uint64",
+                        "Cannot cast [Uint64] with value [4000000000002] to [class java.sql.Date]")
                 .value(18, "c_Date",      Date.valueOf(LocalDate.of(1978, Month.JULY, 10)))
                 // 211211100 unix seconds = Fri Sep 10 1976 13:45:00 UTC
                 .value(19, "c_Datetime",  Date.valueOf(LocalDate.of(1976, Month.SEPTEMBER, 10)))
@@ -1477,35 +1489,45 @@ public class YdbResultSetImplTest {
                 .value(20, "c_Timestamp", new Date(111111223342l / 1000));
 
         checker.nextRow()
-                .value(6,  "c_Int64",     Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
-                .value(10, "c_Uint64",    Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
+                .value(3, "c_Int8", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
+                .value(4, "c_Int16", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
+                .value(5, "c_Int32", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
+                .value(6, "c_Int64", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
+                .value(7, "c_Uint8", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
+                .value(8, "c_Uint16", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
+                .value(9, "c_Uint32", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
+                .value(10, "c_Uint64", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
                 .value(18, "c_Date",      Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
                 .value(19, "c_Datetime",  Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
                 .value(20, "c_Timestamp", new Date(1 / 1000));
 
         checker.nextRow()
-                .value(6,  "c_Int64",     Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
-                .value(10, "c_Uint64",    Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
+                .value(3, "c_Int8", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 2)))
+                .value(4, "c_Int16", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 2)))
+                .value(5, "c_Int32", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 2)))
+                .value(6, "c_Int64", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 2)))
+                .value(7, "c_Uint8", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 2)))
+                .value(8, "c_Uint16", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 2)))
+                .value(9, "c_Uint32", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 2)))
+                .value(10, "c_Uint64", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 2)))
                 .value(18, "c_Date",      Date.valueOf(LocalDate.of(1970, Month.JANUARY, 2)))
                 .value(19, "c_Datetime",  Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
                 .value(20, "c_Timestamp", new Date(0));
 
         checker.nextRow()
-                .value(6,  "c_Int64",     null)
-                .value(10, "c_Uint64",    null)
-                .value(18, "c_Date",      null)
-                .value(19, "c_Datetime",  null)
+                .value(3, "c_Int8", null)
+                .value(4, "c_Int16", null)
+                .value(5, "c_Int32", null)
+                .value(6, "c_Int64", null)
+                .value(7, "c_Uint8", null)
+                .value(8, "c_Uint16", null)
+                .value(9, "c_Uint32", null)
+                .value(10, "c_Uint64", null)
+                .value(18, "c_Date", null)
+                .value(19, "c_Datetime", null)
                 .value(20, "c_Timestamp", null);
 
         checker.assertNoRows();
-    }
-
-    private Time timeUTC(long seconds, int nanos) {
-        return Time.valueOf(LocalDateTime.ofEpochSecond(seconds, nanos, ZoneOffset.UTC).toLocalTime());
-    }
-
-    private Time timeDefault(long seconds, int nanos) {
-        return new Time(Instant.ofEpochSecond(seconds, nanos).toEpochMilli());
     }
 
     @Test
@@ -1513,38 +1535,73 @@ public class YdbResultSetImplTest {
         ResultSetChecker<Time> checker = check(resultSet, ResultSet::getTime, ResultSet::getTime);
 
         checker.nextRow()
-                .value(6,  "c_Int64",     timeUTC(2000000000, 1000000))
-                .value(10, "c_Uint64",    timeUTC(2000000000, 2000000))
-                .value(18, "c_Date",      timeUTC(3111 * 24 * 60 * 60, 0))
-                .value(19, "c_Datetime",  timeUTC(311111156, 0))
-                .value(20, "c_Timestamp", timeDefault(311111, 223342000));
+                .value(3, "c_Int8", Time.valueOf(LocalTime.ofSecondOfDay(101)))
+                .value(4, "c_Int16", Time.valueOf(LocalTime.ofSecondOfDay(20001)))
+                .exceptionValue(5, "c_Int32", "Cannot cast [Int32] with value [2000000001] to [class java.sql.Time]")
+                .exceptionValue(6, "c_Int64", "Cannot cast [Int64] with value [2000000000001] to [class java.sql.Time]")
+                .value(7, "c_Uint8", Time.valueOf(LocalTime.ofSecondOfDay(100)))
+                .value(8, "c_Uint16", Time.valueOf(LocalTime.ofSecondOfDay(20002)))
+                .exceptionValue(9, "c_Uint32", "Cannot cast [Uint32] with value [2000000002] to [class java.sql.Time]")
+                .exceptionValue(10, "c_Uint64", "Cannot cast [Uint64] with value [2000000000002] to [class java.sql.Time]")
+                // Any value of Date doesn't have a time
+                .value(18, "c_Date", Time.valueOf(LocalTime.MIN))
+                // 311111156 unix seconds = Sat Nov 10 1979 19:45:56 UTC
+                .value(19, "c_Datetime", Time.valueOf(LocalTime.of(19, 45, 56)))
+                // 311111223342 unix microseconds = Sun Jan 04 1970 10:25:11 in UTC-04
+                .value(20, "c_Timestamp", new Time(311111223342l / 1000));
 
         checker.nextRow()
-                .value(6,  "c_Int64",     timeUTC(-2000000001, 999000000))
-                .value(10, "c_Uint64",    timeUTC(4000000000l, 2000000))
-                .value(18, "c_Date",      timeUTC(3112 * 24 * 60 * 60, 0))
-                .value(19, "c_Datetime",  timeUTC(211211100, 0))
-                .value(20, "c_Timestamp", timeDefault(111111, 223342000));
+                .exceptionValue(3, "c_Int8", "Cannot cast [Int8] with value [-101] to [class java.sql.Time]")
+                .exceptionValue(4, "c_Int16", "Cannot cast [Int16] with value [-20001] to [class java.sql.Time]")
+                .exceptionValue(5, "c_Int32", "Cannot cast [Int32] with value [-2000000001] to [class java.sql.Time]")
+                .exceptionValue(6, "c_Int64", "Cannot cast [Int64] with value [-2000000000001] to [class java.sql.Time]")
+                .value(7, "c_Uint8", Time.valueOf(LocalTime.ofSecondOfDay(200)))
+                .value(8, "c_Uint16", Time.valueOf(LocalTime.ofSecondOfDay(40002)))
+                .exceptionValue(9, "c_Uint32", "Cannot cast [Uint32] with value [4000000002] to [class java.sql.Time]")
+                .exceptionValue(10, "c_Uint64", "Cannot cast [Uint64] with value [4000000000002] to [class java.sql.Time]")
+                .value(18, "c_Date", Time.valueOf(LocalTime.MIN))
+                // 211211100 unix seconds = Fri Sep 10 1976 13:45:00 UTC
+                .value(19, "c_Datetime", Time.valueOf(LocalTime.of(13, 45, 00)))
+                // 111111223342 unix microseconds = Fri Jan 02 1970 06:51:51 in UTC-04
+                .value(20, "c_Timestamp", new Time(111111223342l / 1000));
 
         checker.nextRow()
-                .value(6,  "c_Int64",     timeUTC(0, 0))
-                .value(10, "c_Uint64",    timeUTC(0, 0))
-                .value(18, "c_Date",      timeUTC(0, 0))
-                .value(19, "c_Datetime",  timeUTC(0, 0))
-                .value(20, "c_Timestamp", timeDefault(0, 0));
+                .value(3, "c_Int8", Time.valueOf(LocalTime.MIN))
+                .value(4, "c_Int16", Time.valueOf(LocalTime.MIN))
+                .value(5, "c_Int32", Time.valueOf(LocalTime.MIN))
+                .value(6, "c_Int64", Time.valueOf(LocalTime.MIN))
+                .value(7, "c_Uint8", Time.valueOf(LocalTime.MIN))
+                .value(8, "c_Uint16", Time.valueOf(LocalTime.MIN))
+                .value(9, "c_Uint32", Time.valueOf(LocalTime.MIN))
+                .value(10, "c_Uint64", Time.valueOf(LocalTime.MIN))
+                .value(18, "c_Date", Time.valueOf(LocalTime.MIN))
+                .value(19, "c_Datetime",  Time.valueOf(LocalTime.MIN))
+                .value(20, "c_Timestamp", new Time(0));
 
         checker.nextRow()
-                .value(6,  "c_Int64",     timeUTC(0, 1000000))
-                .value(10, "c_Uint64",    timeUTC(0, 1000000))
-                .value(18, "c_Date",      timeUTC(1 * 24 * 60 * 60, 0))
-                .value(19, "c_Datetime",  timeUTC(1, 0))
-                .value(20, "c_Timestamp", timeDefault(0, 1000));
+                .value(3, "c_Int8", Time.valueOf(LocalTime.ofSecondOfDay(1)))
+                .value(4, "c_Int16", Time.valueOf(LocalTime.ofSecondOfDay(1)))
+                .value(5, "c_Int32", Time.valueOf(LocalTime.ofSecondOfDay(1)))
+                .value(6, "c_Int64", Time.valueOf(LocalTime.ofSecondOfDay(1)))
+                .value(7, "c_Uint8", Time.valueOf(LocalTime.ofSecondOfDay(1)))
+                .value(8, "c_Uint16", Time.valueOf(LocalTime.ofSecondOfDay(1)))
+                .value(9, "c_Uint32", Time.valueOf(LocalTime.ofSecondOfDay(1)))
+                .value(10, "c_Uint64", Time.valueOf(LocalTime.ofSecondOfDay(1)))
+                .value(18, "c_Date", Time.valueOf(LocalTime.MIN))
+                .value(19, "c_Datetime",  Time.valueOf(LocalTime.ofSecondOfDay(1)))
+                .value(20, "c_Timestamp", new Time(1 / 1000));
 
         checker.nextRow()
-                .value(6,  "c_Int64",     null)
-                .value(10, "c_Uint64",    null)
-                .value(18, "c_Date",      null)
-                .value(19, "c_Datetime",  null)
+                .value(3, "c_Int8", null)
+                .value(4, "c_Int16", null)
+                .value(5, "c_Int32", null)
+                .value(6, "c_Int64", null)
+                .value(7, "c_Uint8", null)
+                .value(8, "c_Uint16", null)
+                .value(9, "c_Uint32", null)
+                .value(10, "c_Uint64", null)
+                .value(18, "c_Date", null)
+                .value(19, "c_Datetime", null)
                 .value(20, "c_Timestamp", null);
 
         checker.assertNoRows();
@@ -1563,38 +1620,68 @@ public class YdbResultSetImplTest {
         ResultSetChecker<Timestamp> checker = check(resultSet, ResultSet::getTimestamp, ResultSet::getTimestamp);
 
         checker.nextRow()
-                .value(6,  "c_Int64",     timestampUTC(2000000000, 1000000))
-                .value(10, "c_Uint64",    timestampUTC(2000000000, 2000000))
-                .value(18, "c_Date",      timestampUTC(3111 * 24 * 60 * 60, 0))
-                .value(19, "c_Datetime",  timestampUTC(311111156, 0))
+                .value(3, "c_Int8", new Timestamp(101))
+                .value(4, "c_Int16", new Timestamp(20001))
+                .value(5, "c_Int32", new Timestamp(2000000001))
+                .value(6, "c_Int64", new Timestamp(2000000000001l))
+                .value(7, "c_Uint8", new Timestamp(100))
+                .value(8, "c_Uint16", new Timestamp(20002))
+                .value(9, "c_Uint32", new Timestamp(2000000002))
+                .value(10, "c_Uint64", new Timestamp(2000000000002l))
+                .value(18, "c_Date", timestampUTC(3111 * 24 * 60 * 60, 0))
+                .value(19, "c_Datetime", timestampUTC(311111156, 0))
                 .value(20, "c_Timestamp", timestampDefault(311111, 223342000));
 
         checker.nextRow()
-                .value(6,  "c_Int64",     timestampUTC(-2000000001, 999000000))
-                .value(10, "c_Uint64",    timestampUTC(4000000000l, 2000000))
-                .value(18, "c_Date",      timestampUTC(3112 * 24 * 60 * 60, 0))
-                .value(19, "c_Datetime",  timestampUTC(211211100, 0))
+                .value(3, "c_Int8", new Timestamp(-101))
+                .value(4, "c_Int16", new Timestamp(-20001))
+                .value(5, "c_Int32", new Timestamp(-2000000001))
+                .value(6, "c_Int64", new Timestamp(-2000000000001l))
+                .value(7, "c_Uint8", new Timestamp(200))
+                .value(8, "c_Uint16", new Timestamp(40002))
+                .value(9, "c_Uint32", new Timestamp(4000000002l))
+                .value(10, "c_Uint64", new Timestamp(4000000000002l))
+                .value(18, "c_Date", timestampUTC(3112 * 24 * 60 * 60, 0))
+                .value(19, "c_Datetime", timestampUTC(211211100, 0))
                 .value(20, "c_Timestamp", timestampDefault(111111, 223342000));
 
         checker.nextRow()
-                .value(6,  "c_Int64",     timestampUTC(0, 0))
-                .value(10, "c_Uint64",    timestampUTC(0, 0))
-                .value(18, "c_Date",      timestampUTC(0, 0))
-                .value(19, "c_Datetime",  timestampUTC(0, 0))
+                .value(3, "c_Int8", new Timestamp(0))
+                .value(4, "c_Int16", new Timestamp(0))
+                .value(5, "c_Int32", new Timestamp(0))
+                .value(6, "c_Int64", new Timestamp(0))
+                .value(7, "c_Uint8", new Timestamp(0))
+                .value(8, "c_Uint16", new Timestamp(0))
+                .value(9, "c_Uint32", new Timestamp(0))
+                .value(10, "c_Uint64", new Timestamp(0))
+                .value(18, "c_Date", timestampUTC(0, 0))
+                .value(19, "c_Datetime", timestampUTC(0, 0))
                 .value(20, "c_Timestamp", timestampDefault(0, 0));
 
         checker.nextRow()
-                .value(6,  "c_Int64",     timestampUTC(0, 1000000))
-                .value(10, "c_Uint64",    timestampUTC(0, 1000000))
-                .value(18, "c_Date",      timestampUTC(1 * 24 * 60 * 60, 0))
-                .value(19, "c_Datetime",  timestampUTC(1, 0))
+                .value(3, "c_Int8", new Timestamp(1))
+                .value(4, "c_Int16", new Timestamp(1))
+                .value(5, "c_Int32", new Timestamp(1))
+                .value(6, "c_Int64", new Timestamp(1))
+                .value(7, "c_Uint8", new Timestamp(1))
+                .value(8, "c_Uint16", new Timestamp(1))
+                .value(9, "c_Uint32", new Timestamp(1))
+                .value(10, "c_Uint64", new Timestamp(1))
+                .value(18, "c_Date", timestampUTC(1 * 24 * 60 * 60, 0))
+                .value(19, "c_Datetime", timestampUTC(1, 0))
                 .value(20, "c_Timestamp", timestampDefault(0, 1000));
 
         checker.nextRow()
-                .value(6,  "c_Int64",     null)
-                .value(10, "c_Uint64",    null)
-                .value(18, "c_Date",      null)
-                .value(19, "c_Datetime",  null)
+                .value(3, "c_Int8", null)
+                .value(4, "c_Int16", null)
+                .value(5, "c_Int32", null)
+                .value(6, "c_Int64", null)
+                .value(7, "c_Uint8", null)
+                .value(8, "c_Uint16", null)
+                .value(9, "c_Uint32", null)
+                .value(10, "c_Uint64", null)
+                .value(18, "c_Date", null)
+                .value(19, "c_Datetime", null)
                 .value(20, "c_Timestamp", null);
 
         checker.assertNoRows();
