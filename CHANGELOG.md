@@ -1,3 +1,7 @@
+## 2.2.3 ##
+
+* Added custom sql types for usage of native YDB types
+
 ## 2.2.2 ##
 
 * Added optional query stats collector
