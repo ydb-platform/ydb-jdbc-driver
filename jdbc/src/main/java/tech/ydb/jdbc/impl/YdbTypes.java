@@ -35,15 +35,23 @@ public class YdbTypes {
     private final Map<Type, Integer> sqlTypeByPrimitiveNumId;
 
     private YdbTypes() {
-        typeBySqlType = new IntObjectHashMap<>(16);
+        typeBySqlType = new IntObjectHashMap<>(18 + PrimitiveType.values().length);
+
+        // Store custom type ids to use it for PrepaparedStatement.setObject
+        for (PrimitiveType type: PrimitiveType.values()) {
+            typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + type.ordinal(), type);
+        }
+
         typeBySqlType.put(Types.VARCHAR, PrimitiveType.Text);
         typeBySqlType.put(Types.BIGINT, PrimitiveType.Int64);
         typeBySqlType.put(Types.TINYINT, PrimitiveType.Int8);
         typeBySqlType.put(Types.SMALLINT, PrimitiveType.Int16);
+
         typeBySqlType.put(Types.INTEGER, PrimitiveType.Int32);
         typeBySqlType.put(Types.REAL, PrimitiveType.Float);
         typeBySqlType.put(Types.FLOAT, PrimitiveType.Float);
         typeBySqlType.put(Types.DOUBLE, PrimitiveType.Double);
+
         typeBySqlType.put(Types.BIT, PrimitiveType.Bool);
         typeBySqlType.put(Types.BOOLEAN, PrimitiveType.Bool);
         typeBySqlType.put(Types.BINARY, PrimitiveType.Bytes);

@@ -22,6 +22,11 @@ public class TypeDescription {
     }
 
     private final Type type;
+
+    private final boolean isTimestamp;
+    private final boolean isNumber;
+    private final boolean isNull;
+
     private final boolean optional;
     private final OptionalValue optionalValue;
 
@@ -41,15 +46,27 @@ public class TypeDescription {
         this.getters = Objects.requireNonNull(getters);
         this.setters = Objects.requireNonNull(setters);
         this.sqlType = Objects.requireNonNull(sqlType);
+
+        this.isTimestamp = type == PrimitiveType.Timestamp;
+        this.isNumber = type == PrimitiveType.Int8 || type == PrimitiveType.Uint8
+                || type == PrimitiveType.Int16 || type == PrimitiveType.Uint16
+                || type == PrimitiveType.Int32 || type == PrimitiveType.Uint32
+                || type == PrimitiveType.Int64 || type == PrimitiveType.Uint64;
+        this.isNull = type.getKind() == Type.Kind.NULL || type.getKind() == Type.Kind.VOID;
     }
 
-    public boolean isNullType() {
-        return type.getKind() == Type.Kind.NULL || type.getKind() == Type.Kind.VOID;
+    public boolean isNull() {
+        return isNull;
     }
 
     public boolean isTimestamp() {
-        return type == PrimitiveType.Timestamp;
+        return isTimestamp;
     }
+
+    public boolean isNumber() {
+        return isNumber;
+    }
+
     public boolean isOptional() {
         return optional;
     }

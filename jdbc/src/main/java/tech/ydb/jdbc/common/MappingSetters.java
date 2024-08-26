@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.SQLException;
+import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
@@ -23,6 +24,7 @@ import java.util.UUID;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CharStreams;
 
+import tech.ydb.jdbc.YdbConst;
 import tech.ydb.table.values.DecimalType;
 import tech.ydb.table.values.DecimalValue;
 import tech.ydb.table.values.ListType;
@@ -32,10 +34,6 @@ import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.table.values.PrimitiveValue;
 import tech.ydb.table.values.Type;
 import tech.ydb.table.values.Value;
-
-import static tech.ydb.jdbc.YdbConst.CANNOT_LOAD_DATA_FROM_IS;
-import static tech.ydb.jdbc.YdbConst.CANNOT_LOAD_DATA_FROM_READER;
-import static tech.ydb.jdbc.YdbConst.UNABLE_TO_CAST;
 
 public class MappingSetters {
     private MappingSetters() { }
@@ -123,15 +121,15 @@ public class MappingSetters {
     }
 
     private static SQLException castNotSupported(PrimitiveType type, Object x, Exception cause) {
-        return new SQLException(String.format(UNABLE_TO_CAST, toString(x), type), cause);
+        return new SQLException(String.format(YdbConst.UNABLE_TO_CAST, toString(x), type), cause);
     }
 
     private static SQLException castNotSupported(PrimitiveType type, Object x) {
-        return new SQLException(String.format(UNABLE_TO_CAST, toString(x), type));
+        return new SQLException(String.format(YdbConst.UNABLE_TO_CAST, toString(x), type));
     }
 
     private static SQLException castNotSupported(Type.Kind kind, Object x) {
-        return new SQLException(String.format(UNABLE_TO_CAST, toString(x), kind));
+        return new SQLException(String.format(YdbConst.UNABLE_TO_CAST, toString(x), kind));
     }
 
     private static ListValue castAsList(ListType type, Setters itemSetter, Object x) throws SQLException {
@@ -263,12 +261,20 @@ public class MappingSetters {
     private static int castAsInt(PrimitiveType type, Object x) throws SQLException {
         if (x instanceof Integer) {
             return (Integer) x;
+        } else if (x instanceof Long) {
+            return ((Long) x).intValue();
         } else if (x instanceof Short) {
             return (Short) x;
         } else if (x instanceof Byte) {
             return (Byte) x;
         } else if (x instanceof Boolean) {
             return ((Boolean) x) ? 1 : 0;
+        } else if (x instanceof Time) {
+            return ((Time) x).toLocalTime().toSecondOfDay();
+        } else if (x instanceof Date) {
+            return (int) ((Date) x).toLocalDate().toEpochDay();
+        } else if (x instanceof Timestamp) {
+            return (int) ((Timestamp) x).getTime();
         }
         throw castNotSupported(type, x);
     }
@@ -286,6 +292,12 @@ public class MappingSetters {
             return ((Boolean) x) ? 1L : 0L;
         } else if (x instanceof BigInteger) {
             return ((BigInteger) x).longValue();
+        } else if (x instanceof Time) {
+            return ((Time) x).toLocalTime().toSecondOfDay();
+        } else if (x instanceof Date) {
+            return ((Date) x).toLocalDate().toEpochDay();
+        } else if (x instanceof Timestamp) {
+            return ((Timestamp) x).getTime();
         }
         throw castNotSupported(type, x);
     }
@@ -480,7 +492,7 @@ public class MappingSetters {
                         return CharStreams.toString(reader);
                     }
                 } catch (IOException e) {
-                    throw new RuntimeException(CANNOT_LOAD_DATA_FROM_READER + e.getMessage(), e);
+                    throw new RuntimeException(YdbConst.CANNOT_LOAD_DATA_FROM_READER + e.getMessage(), e);
                 }
             };
         }
@@ -499,7 +511,7 @@ public class MappingSetters {
                         return ByteStreams.toByteArray(stream);
                     }
                 } catch (IOException e) {
-                    throw new RuntimeException(CANNOT_LOAD_DATA_FROM_IS + e.getMessage(), e);
+                    throw new RuntimeException(YdbConst.CANNOT_LOAD_DATA_FROM_IS + e.getMessage(), e);
                 }
             };
         }

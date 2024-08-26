@@ -30,6 +30,7 @@ public class SqlQueries {
     private static final String SELECT = YdbLookup.stringFileReference("classpath:sql/select.sql");
 
     private static final String SIMPLE_UPSERT = YdbLookup.stringFileReference("classpath:sql/upsert/simple.sql");
+    private static final String IN_MEMORY_UPSERT = YdbLookup.stringFileReference("classpath:sql/upsert/in_memory.sql");
     private static final String NAMED_UPSERT = YdbLookup.stringFileReference("classpath:sql/upsert/named.sql");
     private static final String TYPED_UPSERT = YdbLookup.stringFileReference("classpath:sql/upsert/typed.sql");
 
@@ -131,6 +132,8 @@ public class SqlQueries {
 
     public String upsertAll(JdbcQuery mode) {
         switch (mode) {
+            case IN_MEMORY:
+                return withTableName(IN_MEMORY_UPSERT, tableName);
             case BATCHED:
                 return withTableName(TYPED_BATCH, tableName);
             case TYPED:

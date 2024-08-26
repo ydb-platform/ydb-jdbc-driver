@@ -22,7 +22,10 @@ import java.sql.SQLXML;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoField;
 import java.util.Calendar;
 import java.util.Map;
 import java.util.Objects;
@@ -147,10 +150,21 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     @Override
     public Date getDate(int columnIndex) throws SQLException {
-        Instant instant = getInstant(columnIndex);
-        if (instant == null) {
+        initValueReader(columnIndex);
+        if (state.nullValue) {
             return null;
         }
+
+        if (state.description.isNumber()) {
+            long value = state.description.getters().readLong(state.value);
+            if (!ChronoField.EPOCH_DAY.range().isValidValue(value)) {
+                String msg = String.format(YdbConst.UNABLE_TO_CONVERT, state.description.ydbType(), value, Date.class);
+                throw new SQLException(msg);
+            }
+            return Date.valueOf(LocalDate.ofEpochDay(value));
+        }
+
+        Instant instant = state.description.getters().readInstant(state.value);
         if (state.description.isTimestamp()) {
             return new Date(instant.toEpochMilli());
         }
@@ -159,11 +173,57 @@ public class YdbResultSetImpl implements YdbResultSet {
     }
 
     @Override
-    public Time getTime(int columnIndex) throws SQLException {
-        Instant instant = getInstant(columnIndex);
-        if (instant == null) {
+    public Date getDate(String columnLabel) throws SQLException {
+        return getDate(getColumnIndex(columnLabel));
+    }
+
+    @Override
+    public Date getDate(int columnIndex, Calendar cal) throws SQLException {
+        initValueReader(columnIndex);
+        if (state.nullValue) {
             return null;
         }
+
+        if (state.description.isNumber()) {
+            long value = state.description.getters().readLong(state.value);
+            if (!ChronoField.EPOCH_DAY.range().isValidValue(value)) {
+                String msg = String.format(YdbConst.UNABLE_TO_CONVERT, state.description.ydbType(), value, Date.class);
+                throw new SQLException(msg);
+            }
+            return Date.valueOf(LocalDate.ofEpochDay(value));
+        }
+
+        Instant instant = state.description.getters().readInstant(state.value);
+        if (state.description.isTimestamp()) {
+            final TimeZone tz = cal != null ? cal.getTimeZone() : Calendar.getInstance().getTimeZone();
+            return Date.valueOf(instant.atZone(tz.toZoneId()).toLocalDate());
+        }
+
+        return Date.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalDate());
+    }
+
+    @Override
+    public Date getDate(String columnLabel, Calendar cal) throws SQLException {
+        return getDate(getColumnIndex(columnLabel), cal);
+    }
+
+    @Override
+    public Time getTime(int columnIndex) throws SQLException {
+        initValueReader(columnIndex);
+        if (state.nullValue) {
+            return null;
+        }
+
+        if (state.description.isNumber()) {
+            long value = state.description.getters().readLong(state.value);
+            if (!ChronoField.SECOND_OF_DAY.range().isValidValue(value)) {
+                String msg = String.format(YdbConst.UNABLE_TO_CONVERT, state.description.ydbType(), value, Time.class);
+                throw new SQLException(msg);
+            }
+            return Time.valueOf(LocalTime.ofSecondOfDay(value));
+        }
+
+        Instant instant = state.description.getters().readInstant(state.value);
         if (state.description.isTimestamp()) {
             return new Time(instant.toEpochMilli());
         }
@@ -172,16 +232,79 @@ public class YdbResultSetImpl implements YdbResultSet {
     }
 
     @Override
-    public Timestamp getTimestamp(int columnIndex) throws SQLException {
-        Instant instant = getInstant(columnIndex);
-        if (instant == null) {
+    public Time getTime(int columnIndex, Calendar cal) throws SQLException {
+        initValueReader(columnIndex);
+        if (state.nullValue) {
             return null;
         }
+
+        if (state.description.isNumber()) {
+            long value = state.description.getters().readLong(state.value);
+            if (!ChronoField.SECOND_OF_DAY.range().isValidValue(value)) {
+                String msg = String.format(YdbConst.UNABLE_TO_CONVERT, state.description.ydbType(), value, Time.class);
+                throw new SQLException(msg);
+            }
+            return Time.valueOf(LocalTime.ofSecondOfDay(value));
+        }
+
+        Instant instant = state.description.getters().readInstant(state.value);
+        if (state.description.isTimestamp()) {
+            final TimeZone tz = cal != null ? cal.getTimeZone() : Calendar.getInstance().getTimeZone();
+            return Time.valueOf(instant.atZone(tz.toZoneId()).toLocalTime());
+        }
+
+        return Time.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalTime());
+    }
+
+    @Override
+    public Time getTime(String columnLabel, Calendar cal) throws SQLException {
+        return getTime(getColumnIndex(columnLabel), cal);
+    }
+
+    @Override
+    public Timestamp getTimestamp(int columnIndex) throws SQLException {
+        initValueReader(columnIndex);
+        if (state.nullValue) {
+            return null;
+        }
+
+        if (state.description.isNumber()) {
+            long value = state.description.getters().readLong(state.value);
+            return new Timestamp(value);
+        }
+
+        Instant instant = state.description.getters().readInstant(state.value);
         if (state.description.isTimestamp()) {
             return Timestamp.from(instant);
         }
 
         return Timestamp.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalDateTime());
+    }
+
+    @Override
+    public Timestamp getTimestamp(int columnIndex, Calendar cal) throws SQLException {
+        initValueReader(columnIndex);
+        if (state.nullValue) {
+            return null;
+        }
+
+        if (state.description.isNumber()) {
+            long value = state.description.getters().readLong(state.value);
+            return new Timestamp(value);
+        }
+
+        Instant instant = state.description.getters().readInstant(state.value);
+        if (state.description.isTimestamp()) {
+            final TimeZone tz = cal != null ? cal.getTimeZone() : Calendar.getInstance().getTimeZone();
+            return Timestamp.valueOf(instant.atZone(tz.toZoneId()).toLocalDateTime());
+        }
+
+        return Timestamp.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalDateTime());
+    }
+
+    @Override
+    public Timestamp getTimestamp(String columnLabel, Calendar cal) throws SQLException {
+        return getTimestamp(getColumnIndex(columnLabel), cal);
     }
 
     @Deprecated
@@ -248,11 +371,6 @@ public class YdbResultSetImpl implements YdbResultSet {
     @Override
     public byte[] getBytes(String columnLabel) throws SQLException {
         return getBytes(getColumnIndex(columnLabel));
-    }
-
-    @Override
-    public Date getDate(String columnLabel) throws SQLException {
-        return getDate(getColumnIndex(columnLabel));
     }
 
     @Override
@@ -458,66 +576,6 @@ public class YdbResultSetImpl implements YdbResultSet {
     }
 
     @Override
-    public Date getDate(int columnIndex, Calendar cal) throws SQLException {
-        Instant instant = getInstant(columnIndex);
-        if (instant == null) {
-            return null;
-        }
-
-        if (state.description.isTimestamp()) {
-            final TimeZone tz = cal != null ? cal.getTimeZone() : Calendar.getInstance().getTimeZone();
-            return Date.valueOf(instant.atZone(tz.toZoneId()).toLocalDate());
-        }
-
-        return Date.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalDate());
-    }
-
-    @Override
-    public Date getDate(String columnLabel, Calendar cal) throws SQLException {
-        return getDate(getColumnIndex(columnLabel), cal);
-    }
-
-    @Override
-    public Time getTime(int columnIndex, Calendar cal) throws SQLException {
-        Instant instant = getInstant(columnIndex);
-        if (instant == null) {
-            return null;
-        }
-
-        if (state.description.isTimestamp()) {
-            final TimeZone tz = cal != null ? cal.getTimeZone() : Calendar.getInstance().getTimeZone();
-            return Time.valueOf(instant.atZone(tz.toZoneId()).toLocalTime());
-        }
-
-        return Time.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalTime());
-    }
-
-    @Override
-    public Time getTime(String columnLabel, Calendar cal) throws SQLException {
-        return getTime(getColumnIndex(columnLabel), cal);
-    }
-
-    @Override
-    public Timestamp getTimestamp(int columnIndex, Calendar cal) throws SQLException {
-        Instant instant = getInstant(columnIndex);
-        if (instant == null) {
-            return null;
-        }
-
-        if (state.description.isTimestamp()) {
-            final TimeZone tz = cal != null ? cal.getTimeZone() : Calendar.getInstance().getTimeZone();
-            return Timestamp.valueOf(instant.atZone(tz.toZoneId()).toLocalDateTime());
-        }
-
-        return Timestamp.valueOf(instant.atOffset(ZoneOffset.UTC).toLocalDateTime());
-    }
-
-    @Override
-    public Timestamp getTimestamp(String columnLabel, Calendar cal) throws SQLException {
-        return getTimestamp(getColumnIndex(columnLabel), cal);
-    }
-
-    @Override
     public URL getURL(int columnIndex) throws SQLException {
         initValueReader(columnIndex);
         String copy = state.description.getters().readURL(state.value);
@@ -600,18 +658,8 @@ public class YdbResultSetImpl implements YdbResultSet {
 
     //
 
-    private Instant getInstant(int columnIndex) throws SQLException {
-        initValueReader(columnIndex);
-        Instant instant = state.description.getters().readInstant(state.value);
-        if (state.nullValue) {
-            return null;
-        }
-        return instant;
-    }
-
-
     private boolean isNullValue(TypeDescription description, ValueReader value) {
-        return description.isNullType() || (description.isOptional() && !value.isOptionalItemPresent());
+        return description.isNull() || (description.isOptional() && !value.isOptionalItemPresent());
     }
 
     private void initValueReader(int columnIndex) throws SQLException {

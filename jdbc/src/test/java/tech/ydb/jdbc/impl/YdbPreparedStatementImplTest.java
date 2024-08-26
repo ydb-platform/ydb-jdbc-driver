@@ -96,11 +96,6 @@ public class YdbPreparedStatementImplTest {
                 .replaceAll("#tableName", TEST_TABLE_NAME);
     }
 
-    private YdbPreparedStatement prepareUpsert(YdbPrepareMode mode,String column, String type)
-            throws SQLException {
-        return jdbc.connection().unwrap(YdbConnection.class).prepareStatement(upsertSql(column, type), mode);
-    }
-
     private PreparedStatement prepareSimpleSelect(String column) throws SQLException {
         String sql = SIMPLE_SELECT_SQL
                 .replaceAll("#column", column)
