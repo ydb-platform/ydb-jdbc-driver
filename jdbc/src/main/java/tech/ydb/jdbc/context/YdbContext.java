@@ -3,12 +3,12 @@ package tech.ydb.jdbc.context;
 import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -191,18 +191,13 @@ public class YdbContext implements AutoCloseable {
         if (queryStatesCache == null) {
             return Collections.emptyList();
         }
-        Set<QueryStat> sortedByUsage = new TreeSet<>(Comparator.comparingLong(QueryStat::getUsageCounter).reversed());
-        sortedByUsage.addAll(queryStatesCache.asMap().values());
-        return sortedByUsage;
-    }
-
-    public void traceQueryExecution(YdbQuery query) {
-        if (queryStatesCache != null) {
-            QueryStat stat = queryStatesCache.getIfPresent(query.getOriginQuery());
-            if (stat != null) {
-                stat.incrementUsage();
-            }
-        }
+        List<QueryStat> sorted = new ArrayList<>(queryStatesCache.asMap().values());
+        Collections.sort(sorted,
+                Comparator
+                        .comparingLong(QueryStat::getUsageCounter).reversed()
+                        .thenComparing(QueryStat::getPreparedYQL)
+        );
+        return sorted;
     }
 
     public void register() {
@@ -308,26 +303,33 @@ public class YdbContext implements AutoCloseable {
             queriesCache.put(sql, cached);
         }
 
-        if (queryStatesCache != null) {
-            QueryStat stat = queryStatesCache.getIfPresent(sql);
-            if (stat == null) {
-                final String preparedYQL = cached.getPreparedYql();
-                final ExplainDataQuerySettings settings = withDefaultTimeout(new ExplainDataQuerySettings());
-                Result<ExplainDataQueryResult> res = retryCtx.supplyResult(
-                        session -> session.explainDataQuery(preparedYQL, settings)
-                ).join();
-
-                if (res.isSuccess()) {
-                    ExplainDataQueryResult exp = res.getValue();
-                    stat = new QueryStat(cached, exp.getQueryAst(), exp.getQueryPlan());
-                } else {
-                    stat = new QueryStat(cached, res.getStatus());
-                }
-                queryStatesCache.put(sql, stat);
-            }
-        }
 
         return cached;
+    }
+
+    public void traceQuery(YdbQuery query, String yql) {
+        if (queryStatesCache == null) {
+            return;
+        }
+
+        QueryStat stat = queryStatesCache.getIfPresent(yql);
+        if (stat == null) {
+            final ExplainDataQuerySettings settings = withDefaultTimeout(new ExplainDataQuerySettings());
+            Result<ExplainDataQueryResult> res = retryCtx.supplyResult(
+                    session -> session.explainDataQuery(yql, settings)
+            ).join();
+
+            if (res.isSuccess()) {
+                ExplainDataQueryResult exp = res.getValue();
+                stat = new QueryStat(query.getOriginQuery(), yql, exp.getQueryAst(), exp.getQueryPlan());
+            } else {
+                stat = new QueryStat(query.getOriginQuery(), yql, res.getStatus());
+            }
+
+            queryStatesCache.put(yql, stat);
+        }
+
+        stat.incrementUsage();
     }
 
     public YdbPreparedQuery findOrPrepareParams(YdbQuery query, YdbPrepareMode mode) throws SQLException {

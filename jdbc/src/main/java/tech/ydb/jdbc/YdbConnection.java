@@ -9,6 +9,7 @@ import javax.annotation.Nullable;
 import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbValidator;
 import tech.ydb.jdbc.query.ExplainedQuery;
+import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
 
@@ -36,7 +37,8 @@ public interface YdbConnection extends Connection {
     /**
      * Explicitly execute query as a data query
      *
-     * @param yql query to execute
+     * @param query query to execute
+     * @param yql YQL text to execute
      * @param params parameters for query
      * @param timeout timeout of operation
      * @param keepInCache flag to store query in server-side cache
@@ -44,19 +46,21 @@ public interface YdbConnection extends Connection {
      * @return list of result set
      * @throws SQLException if query cannot be executed
      */
-    List<ResultSetReader> executeDataQuery(String yql, YdbValidator validator,
+    List<ResultSetReader> executeDataQuery(YdbQuery query, String yql, YdbValidator validator,
             int timeout, boolean keepInCache, Params params) throws SQLException;
 
     /**
      * Explicitly execute query as a scan query
      *
-     * @param yql query to execute
+     * @param query query to execute
+     * @param yql YQL text to execute
      * @param params parameters for query
      * @param validator handler for logging and warnings
      * @return single result set with rows
      * @throws SQLException if query cannot be executed
      */
-    ResultSetReader executeScanQuery(String yql, YdbValidator validator, Params params) throws SQLException;
+    ResultSetReader executeScanQuery(YdbQuery query, String yql, YdbValidator validator, Params params)
+            throws SQLException;
 
     /**
      * Explicitly explain this query

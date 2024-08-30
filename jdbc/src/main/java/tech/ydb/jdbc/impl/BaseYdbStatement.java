@@ -189,14 +189,16 @@ public abstract class BaseYdbStatement implements YdbStatement {
         return Collections.singletonList(new YdbResult(new YdbResultSetImpl(this, result)));
     }
 
-    protected List<YdbResult> executeScanQuery(String yql, Params params) throws SQLException {
-        ResultSetReader result = connection.executeScanQuery(yql, validator, params);
+    protected List<YdbResult> executeScanQuery(YdbQuery query, String yql, Params params) throws SQLException {
+        connection.getCtx().traceQuery(query, yql);
+        ResultSetReader result = connection.executeScanQuery(query, yql, validator, params);
         return Collections.singletonList(new YdbResult(new YdbResultSetImpl(this, result)));
     }
 
     protected List<YdbResult> executeDataQuery(YdbQuery query, String yql, Params params) throws SQLException {
+        connection.getCtx().traceQuery(query, yql);
         List<ResultSetReader> resultSets = connection
-                .executeDataQuery(yql, validator, getQueryTimeout(), isPoolable(), params);
+                .executeDataQuery(query, yql, validator, getQueryTimeout(), isPoolable(), params);
 
         List<YdbResult> results = new ArrayList<>();
         int idx = 0;

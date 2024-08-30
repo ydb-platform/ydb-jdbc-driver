@@ -10,6 +10,7 @@ import java.util.List;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.query.ExplainedQuery;
 import tech.ydb.jdbc.query.QueryType;
+import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.Session;
 import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.ExplainDataQueryResult;
@@ -168,7 +169,8 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public List<ResultSetReader> executeDataQuery(
-            YdbContext ctx, YdbValidator validator, String yql, long timeout, boolean keepInCache, Params params
+            YdbContext ctx, YdbValidator validator, YdbQuery query,
+            String yql, long timeout, boolean keepInCache, Params params
     ) throws SQLException {
         ensureOpened();
 
