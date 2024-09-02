@@ -969,7 +969,6 @@ public class YdbConnectionImplTest {
                             .assertNoRows();
                 }
 
-                // scheme queries don't collect stats
                 ExceptionAssert.ydbException("Cannot find table", () -> st.execute(wrongQuery));
 
                 try (ResultSet rs = st.executeQuery("Print_JDBC_stats();\n")) {
@@ -1090,12 +1089,10 @@ public class YdbConnectionImplTest {
         String preparedSelectByColumn = QUERIES.selectAllByColumnValue("c_Text", "?");
 
         try (Connection connection = jdbc.createCustomConnection("jdbcFullScanDetector", "true")) {
-            try (Statement st = connection.createStatement()) {
-                try (ResultSet rs = st.executeQuery("print_JDBC_stats();")) {
-                    sa.check(rs)
-                            .assertMetaColumns()
-                            .assertNoRows();
-                }
+            try (PreparedStatement ps = connection.prepareStatement("print_JDBC_stats();")) {
+                sa.check(ps.executeQuery())
+                        .assertMetaColumns()
+                        .assertNoRows();
             }
 
             try (PreparedStatement ps = connection.prepareStatement(preparedSelectByKey)) {
@@ -1106,18 +1103,16 @@ public class YdbConnectionImplTest {
                 ps.execute();
             }
 
-            try (Statement st = connection.createStatement()) {
-                try (ResultSet rs = st.executeQuery("print_JDBC_stats();")) {
-                    TableAssert.ResultSetAssert check = sa.check(rs).assertMetaColumns();
+            try (PreparedStatement ps = connection.prepareStatement("print_JDBC_stats();")) {
+                TableAssert.ResultSetAssert check = sa.check(ps.executeQuery()).assertMetaColumns();
 
-                    check.nextRow(
-                            sa.sql("select * from ydb_connection_test where key = ?"),
-                            sa.yql("DECLARE $jp1 AS Int32;\nselect * from ydb_connection_test where key = $jp1"),
-                            sa.isNotFullScan(), sa.isNotError(), sa.executed(2), sa.hasAst(), sa.hasPlan()
-                    ).assertAll();
+                check.nextRow(
+                        sa.sql("select * from ydb_connection_test where key = ?"),
+                        sa.yql("DECLARE $jp1 AS Int32;\nselect * from ydb_connection_test where key = $jp1"),
+                        sa.isNotFullScan(), sa.isNotError(), sa.executed(2), sa.hasAst(), sa.hasPlan()
+                ).assertAll();
 
-                    check.assertNoRows();
-                }
+                check.assertNoRows();
             }
 
             try (PreparedStatement ps = connection.prepareStatement(preparedSelectByColumn)) {
@@ -1128,38 +1123,39 @@ public class YdbConnectionImplTest {
                 ps.execute();
             }
 
-            try (Statement st = connection.createStatement()) {
-                try (ResultSet rs = st.executeQuery("print_JDBC_stats();")) {
-                    TableAssert.ResultSetAssert check = sa.check(rs).assertMetaColumns();
+            try (PreparedStatement ps = connection.prepareStatement("print_JDBC_stats();")) {
+                TableAssert.ResultSetAssert check = sa.check(ps.executeQuery()).assertMetaColumns();
 
-                    check.nextRow(
-                            sa.sql("select * from ydb_connection_test where key = ?"),
-                            sa.yql("DECLARE $jp1 AS Int32;\nselect * from ydb_connection_test where key = $jp1"),
-                            sa.isNotFullScan(), sa.isNotError(), sa.executed(2), sa.hasAst(), sa.hasPlan()
-                    ).assertAll();
+                check.nextRow(
+                        sa.sql("select * from ydb_connection_test where key = ?"),
+                        sa.yql("DECLARE $jp1 AS Int32;\nselect * from ydb_connection_test where key = $jp1"),
+                        sa.isNotFullScan(), sa.isNotError(), sa.executed(2), sa.hasAst(), sa.hasPlan()
+                ).assertAll();
 
-                    check.nextRow(
-                            sa.sql("select * from ydb_connection_test where c_Text = ?"),
-                            sa.yql("DECLARE $jp1 AS Text;\nselect * from ydb_connection_test where c_Text = $jp1"),
-                            sa.isFullScan(), sa.isNotError(), sa.executed(1), sa.hasAst(), sa.hasPlan()
-                    ).assertAll();
+                check.nextRow(
+                        sa.sql("select * from ydb_connection_test where c_Text = ?"),
+                        sa.yql("DECLARE $jp1 AS Text;\nselect * from ydb_connection_test where c_Text = $jp1"),
+                        sa.isFullScan(), sa.isNotError(), sa.executed(1), sa.hasAst(), sa.hasPlan()
+                ).assertAll();
 
-                    check.nextRow(
-                            sa.sql("select * from ydb_connection_test where c_Text = ?"),
-                            sa.yql("DECLARE $jp1 AS Text?;\nselect * from ydb_connection_test where c_Text = $jp1"),
-                            sa.isFullScan(), sa.isNotError(), sa.executed(1), sa.hasAst(), sa.hasPlan()
-                    ).assertAll();
+                check.nextRow(
+                        sa.sql("select * from ydb_connection_test where c_Text = ?"),
+                        sa.yql("DECLARE $jp1 AS Text?;\nselect * from ydb_connection_test where c_Text = $jp1"),
+                        sa.isFullScan(), sa.isNotError(), sa.executed(1), sa.hasAst(), sa.hasPlan()
+                ).assertAll();
 
-                    check.assertNoRows();
-                }
+                check.assertNoRows();
+            }
 
-                Assertions.assertFalse(st.execute("reset_JDBC_stats();"));
-                try (ResultSet rs = st.executeQuery("print_JDBC_stats();")) {
-                    sa.check(rs)
-                            .assertMetaColumns()
-                            .assertNoRows();
+            try (PreparedStatement ps = connection.prepareStatement("reset_JDBC_stats();")) {
+                Assertions.assertFalse(ps.execute());
+            }
+
+            try (PreparedStatement ps = connection.prepareStatement("print_JDBC_stats();")) {
+                sa.check(ps.executeQuery())
+                        .assertMetaColumns()
+                        .assertNoRows();
             }
         }
     }
-}
 }

@@ -16,6 +16,8 @@ import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.common.FixedResultSetFactory;
+import tech.ydb.jdbc.context.QueryStat;
+import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbValidator;
 import tech.ydb.jdbc.query.ExplainedQuery;
 import tech.ydb.jdbc.query.QueryStatement;
@@ -196,7 +198,20 @@ public abstract class BaseYdbStatement implements YdbStatement {
     }
 
     protected List<YdbResult> executeDataQuery(YdbQuery query, String yql, Params params) throws SQLException {
-        connection.getCtx().traceQuery(query, yql);
+        YdbContext ctx = connection.getCtx();
+
+        if (ctx.queryStatsEnabled()) {
+            if (QueryStat.isPrint(yql)) {
+                YdbResultSet rs = new YdbResultSetImpl(this, QueryStat.toResultSetReader(ctx.getQueryStats()));
+                return Collections.singletonList(new YdbResult(rs));
+            }
+            if (QueryStat.isReset(yql)) {
+                getConnection().getCtx().resetQueryStats();
+                return null;
+            }
+        }
+
+        ctx.traceQuery(query, yql);
         List<ResultSetReader> resultSets = connection
                 .executeDataQuery(query, yql, validator, getQueryTimeout(), isPoolable(), params);
 

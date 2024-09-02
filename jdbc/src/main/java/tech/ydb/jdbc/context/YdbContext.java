@@ -339,6 +339,12 @@ public class YdbContext implements AutoCloseable {
     }
 
     public YdbPreparedQuery findOrPrepareParams(YdbQuery query, YdbPrepareMode mode) throws SQLException {
+        if (statsCache != null) {
+            if (QueryStat.isPrint(query.getOriginQuery()) || QueryStat.isReset(query.getOriginQuery())) {
+                return new InMemoryQuery(query, queryOptions.isDeclareJdbcParameters());
+            }
+        }
+
         if (query.getYqlBatcher() != null && mode == YdbPrepareMode.AUTO) {
             Map<String, Type> types = queryParamsCache.getIfPresent(query.getOriginQuery());
             if (types == null) {
