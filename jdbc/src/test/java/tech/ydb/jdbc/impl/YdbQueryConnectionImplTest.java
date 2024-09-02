@@ -29,6 +29,7 @@ import tech.ydb.jdbc.YdbDatabaseMetaData;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.SqlQueries;
+import tech.ydb.jdbc.impl.helper.StatsAssert;
 import tech.ydb.jdbc.impl.helper.TableAssert;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
@@ -930,84 +931,233 @@ public class YdbQueryConnectionImplTest {
     }
 
     @Test
-    public void testFullScanAnalyzer() throws SQLException {
-        try (Connection connection = jdbc.createCustomConnection("jdbcFullScanDetector", "true")) {
-            String selectAll = QUERIES.selectAllSQL();
-            String selectByKey = QUERIES.selectAllByKey("1");
-            String preparedSelect = QUERIES.selectAllByKey("?");
+    public void fullScanAnalyzerSchemeQueriesTest() throws SQLException {
+        StatsAssert sa = new StatsAssert();
 
+        String createTable = QUERIES.withTableName("CREATE TABLE #tableName_1(id Int32, value Int32, PRIMARY KEY(id))");
+        String dropTable = QUERIES.withTableName("DROP TABLE #tableName_1;");
+
+        try (Connection connection = jdbc.createCustomConnection("jdbcFullScanDetector", "true")) {
             try (Statement st = connection.createStatement()) {
                 try (ResultSet rs = st.executeQuery(" print_JDBC_stats();  ")) {
-                    Assertions.assertFalse(rs.next()); // not stats
+                    sa.check(rs)
+                            .assertMetaColumns()
+                            .assertNoRows();
                 }
 
-                try (ResultSet rs = st.executeQuery(selectAll)) {
-                    Assertions.assertFalse(rs.next());
-                }
+                // scheme queries don't collect stats
+                Assertions.assertFalse(st.execute(createTable));
+                Assertions.assertFalse(st.execute(dropTable));
 
                 try (ResultSet rs = st.executeQuery("Print_JDBC_stats();\n")) {
-                    Assertions.assertTrue(rs.next());
-                    Assertions.assertEquals(selectAll, rs.getString("sql"));
-                    Assertions.assertEquals(true, rs.getBoolean("is_fullscan"));
-                    Assertions.assertEquals(1l, rs.getLong("executed"));
+                    sa.check(rs)
+                            .assertMetaColumns()
+                            .assertNoRows();
+                }
+            }
+        }
+    }
 
-                    Assertions.assertFalse(rs.next());
+    @Test
+    public void fullScanAnalyzerSchemeWrongQueryTest() throws SQLException {
+        StatsAssert sa = new StatsAssert();
+
+        String wrongQuery = QUERIES.withTableName("select * from wrong_table;");
+
+        try (Connection connection = jdbc.createCustomConnection("jdbcFullScanDetector", "true")) {
+            try (Statement st = connection.createStatement()) {
+                try (ResultSet rs = st.executeQuery("print_JDBC_stats();")) {
+                    sa.check(rs)
+                            .assertMetaColumns()
+                            .assertNoRows();
                 }
 
+                ExceptionAssert.ydbException("Cannot find table", () -> st.execute(wrongQuery));
+
+                try (ResultSet rs = st.executeQuery("Print_JDBC_stats();\n")) {
+                    TableAssert.ResultSetAssert check = sa.check(rs).assertMetaColumns();
+
+                    check.nextRow(
+                            sa.sql("select * from wrong_table;"),
+                            sa.yql("select * from wrong_table;"),
+                            sa.isNotFullScan(), sa.isError(), sa.executed(1), sa.hasNoAst(), sa.hasPlan()
+                    ).assertAll();
+
+                    check.assertNoRows();
+                }
+
+                Assertions.assertFalse(st.execute("reset_jdbc_stats();\n"));
+                try (ResultSet rs = st.executeQuery("print_JDBC_stats();")) {
+                    sa.check(rs)
+                            .assertMetaColumns()
+                            .assertNoRows();
+                }
+            }
+        }
+    }
+
+    @Test
+    public void fullScanAnalyzerStatementTest() throws SQLException {
+        StatsAssert sa = new StatsAssert();
+
+        String selectAll = QUERIES.selectAllSQL();
+        String selectByKey = QUERIES.selectAllByKey("1");
+
+        try (Connection connection = jdbc.createCustomConnection("jdbcFullScanDetector", "true")) {
+            try (Statement st = connection.createStatement()) {
+                try (ResultSet rs = st.executeQuery(" print_JDBC_stats();  ")) {
+                    sa.check(rs)
+                            .assertMetaColumns()
+                            .assertNoRows();
+                }
+
+                // full scan query
                 try (ResultSet rs = st.executeQuery(selectAll)) {
                     Assertions.assertFalse(rs.next());
                 }
+
+                try (ResultSet rs = st.executeQuery("\tPrint_JDBC_staTs();")) {
+                    TableAssert.ResultSetAssert check = sa.check(rs).assertMetaColumns();
+
+                    check.nextRow(
+                            sa.sql("select * from ydb_connection_test"),
+                            sa.yql("select * from ydb_connection_test"),
+                            sa.isFullScan(), sa.isNotError(), sa.executed(1), sa.hasAst(), sa.hasPlan()
+                    ).assertAll();
+
+                    check.assertNoRows();
+                }
+
+                // key read query
                 try (ResultSet rs = st.executeQuery(selectByKey)) {
                     Assertions.assertFalse(rs.next());
                 }
 
-                try (ResultSet rs = st.executeQuery("Print_JDBC_stats();\n")) {
-                    Assertions.assertTrue(rs.next());
-                    Assertions.assertEquals(selectAll, rs.getString("sql"));
-                    Assertions.assertEquals(true, rs.getBoolean("is_fullscan"));
-                    Assertions.assertEquals(2l, rs.getLong("executed"));
+                try (ResultSet rs = st.executeQuery("print_JDBC_staTs();")) {
+                    TableAssert.ResultSetAssert check = sa.check(rs).assertMetaColumns();
 
-                    Assertions.assertTrue(rs.next());
-                    Assertions.assertEquals(selectByKey, rs.getString("sql"));
-                    Assertions.assertEquals(false, rs.getBoolean("is_fullscan"));
-                    Assertions.assertEquals(1l, rs.getLong("executed"));
+                    check.nextRow(
+                            sa.sql("select * from ydb_connection_test"),
+                            sa.yql("select * from ydb_connection_test"),
+                            sa.isFullScan(), sa.isNotError(), sa.executed(1), sa.hasAst(), sa.hasPlan()
+                    ).assertAll();
 
+                    check.nextRow(
+                            sa.sql("select * from ydb_connection_test where key = 1"),
+                            sa.yql("select * from ydb_connection_test where key = 1"),
+                            sa.isNotFullScan(), sa.isNotError(), sa.executed(1), sa.hasAst(), sa.hasPlan()
+                    ).assertAll();
+
+                    check.assertNoRows();
+                }
+
+                // key read query
+                try (ResultSet rs = st.executeQuery(selectByKey)) {
                     Assertions.assertFalse(rs.next());
                 }
 
-                try (PreparedStatement ps = connection.prepareStatement(preparedSelect)) {
-                    ps.setLong(1, 1);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        Assertions.assertFalse(rs.next());
-                    }
-                    ps.setLong(1, 2);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        Assertions.assertFalse(rs.next());
-                    }
-                    ps.setLong(1, 3);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        Assertions.assertFalse(rs.next());
-                    }
+                try (ResultSet rs = st.executeQuery("print_JDBC_staTs();")) {
+                    TableAssert.ResultSetAssert check = sa.check(rs).assertMetaColumns();
+
+                    check.nextRow(
+                            sa.sql("select * from ydb_connection_test where key = 1"),
+                            sa.yql("select * from ydb_connection_test where key = 1"),
+                            sa.isNotFullScan(), sa.isNotError(), sa.executed(2), sa.hasAst(), sa.hasPlan()
+                    ).assertAll();
+
+                    check.nextRow(
+                            sa.sql("select * from ydb_connection_test"),
+                            sa.yql("select * from ydb_connection_test"),
+                            sa.isFullScan(), sa.isNotError(), sa.executed(1), sa.hasAst(), sa.hasPlan()
+                    ).assertAll();
+
+                    check.assertNoRows();
                 }
 
-                try (ResultSet rs = st.executeQuery("Print_JDBC_stats();\n")) {
-                    Assertions.assertTrue(rs.next());
-                    Assertions.assertEquals(preparedSelect, rs.getString("sql"));
-                    Assertions.assertEquals(false, rs.getBoolean("is_fullscan"));
-                    Assertions.assertEquals(3l, rs.getLong("executed"));
-
-                    Assertions.assertTrue(rs.next());
-                    Assertions.assertEquals(selectAll, rs.getString("sql"));
-                    Assertions.assertEquals(true, rs.getBoolean("is_fullscan"));
-                    Assertions.assertEquals(2l, rs.getLong("executed"));
-
-                    Assertions.assertTrue(rs.next());
-                    Assertions.assertEquals(selectByKey, rs.getString("sql"));
-                    Assertions.assertEquals(false, rs.getBoolean("is_fullscan"));
-                    Assertions.assertEquals(1l, rs.getLong("executed"));
-
-                    Assertions.assertFalse(rs.next());
+                Assertions.assertFalse(st.execute("\t\treSet_jdbc_statS();"));
+                try (ResultSet rs = st.executeQuery("print_JDBC_stats();")) {
+                    sa.check(rs)
+                            .assertMetaColumns()
+                            .assertNoRows();
                 }
+            }
+        }
+    }
+
+    @Test
+    public void fullScanAnalyzerPreparedStatementTest() throws SQLException {
+        StatsAssert sa = new StatsAssert();
+
+        String preparedSelectByKey = QUERIES.selectAllByKey("?");
+        String preparedSelectByColumn = QUERIES.selectAllByColumnValue("c_Text", "?");
+
+        try (Connection connection = jdbc.createCustomConnection("jdbcFullScanDetector", "true")) {
+            try (PreparedStatement ps = connection.prepareStatement("print_JDBC_stats();")) {
+                sa.check(ps.executeQuery())
+                            .assertMetaColumns()
+                            .assertNoRows();
+            }
+
+            try (PreparedStatement ps = connection.prepareStatement(preparedSelectByKey)) {
+                ps.setInt(1, 1);
+                ps.execute();
+
+                ps.setInt(1, 2);
+                ps.execute();
+            }
+
+            try (PreparedStatement ps = connection.prepareStatement("print_JDBC_stats();")) {
+                TableAssert.ResultSetAssert check = sa.check(ps.executeQuery()).assertMetaColumns();
+
+                check.nextRow(
+                        sa.sql("select * from ydb_connection_test where key = ?"),
+                        sa.yql("DECLARE $jp1 AS Int32;\nselect * from ydb_connection_test where key = $jp1"),
+                        sa.isNotFullScan(), sa.isNotError(), sa.executed(2), sa.hasAst(), sa.hasPlan()
+                ).assertAll();
+
+                check.assertNoRows();
+            }
+
+            try (PreparedStatement ps = connection.prepareStatement(preparedSelectByColumn)) {
+                ps.setString(1, "v1");
+                ps.execute();
+
+                ps.setString(1, null);
+                ps.execute();
+            }
+
+            try (PreparedStatement ps = connection.prepareStatement("print_JDBC_stats();")) {
+                TableAssert.ResultSetAssert check = sa.check(ps.executeQuery()).assertMetaColumns();
+
+                check.nextRow(
+                        sa.sql("select * from ydb_connection_test where key = ?"),
+                        sa.yql("DECLARE $jp1 AS Int32;\nselect * from ydb_connection_test where key = $jp1"),
+                        sa.isNotFullScan(), sa.isNotError(), sa.executed(2), sa.hasAst(), sa.hasPlan()
+                ).assertAll();
+
+                check.nextRow(
+                        sa.sql("select * from ydb_connection_test where c_Text = ?"),
+                        sa.yql("DECLARE $jp1 AS Text;\nselect * from ydb_connection_test where c_Text = $jp1"),
+                        sa.isFullScan(), sa.isNotError(), sa.executed(1), sa.hasAst(), sa.hasPlan()
+                ).assertAll();
+
+                check.nextRow(
+                        sa.sql("select * from ydb_connection_test where c_Text = ?"),
+                        sa.yql("DECLARE $jp1 AS Text?;\nselect * from ydb_connection_test where c_Text = $jp1"),
+                        sa.isFullScan(), sa.isNotError(), sa.executed(1), sa.hasAst(), sa.hasPlan()
+                ).assertAll();
+
+                check.assertNoRows();
+            }
+
+            try (PreparedStatement ps = connection.prepareStatement("reset_JDBC_stats();")) {
+                Assertions.assertFalse(ps.execute());
+            }
+
+            try (PreparedStatement ps = connection.prepareStatement("print_JDBC_stats();")) {
+                sa.check(ps.executeQuery())
+                            .assertMetaColumns()
+                            .assertNoRows();
             }
         }
     }

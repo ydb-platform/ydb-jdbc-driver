@@ -9,6 +9,7 @@ import tech.ydb.core.Result;
 import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.jdbc.exception.ExceptionFactory;
 import tech.ydb.jdbc.query.QueryType;
+import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.Session;
 import tech.ydb.table.TableClient;
 import tech.ydb.table.query.Params;
@@ -50,8 +51,9 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
     }
 
     @Override
-    public ResultSetReader executeScanQuery(YdbContext ctx, YdbValidator validator, String yql, Params params)
-            throws SQLException {
+    public ResultSetReader executeScanQuery(
+            YdbContext ctx, YdbValidator validator, YdbQuery query, String yql, Params params
+    ) throws SQLException {
         ensureOpened();
 
         Collection<ResultSetReader> resultSets = new LinkedBlockingQueue<>();
@@ -59,6 +61,8 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
         ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()
                 .withRequestTimeout(scanQueryTimeout)
                 .build();
+
+        ctx.traceQuery(query, yql);
         try (Session session = createNewTableSession(validator)) {
             validator.execute(QueryType.SCAN_QUERY + " >>\n" + yql,
                     () -> session.executeScanQuery(yql, params, settings).start(resultSets::add));

@@ -91,7 +91,6 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
 
         try {
             for (Params prm: prepared.getBatchParams()) {
-                getConnection().getCtx().traceQueryExecution(query);
                 executeDataQuery(query, prepared.getQueryText(prm), prm);
             }
         } finally {
@@ -126,13 +125,12 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
         List<YdbResult> newState = null;
 
         Params prms = prepared.getCurrentParams();
-        getConnection().getCtx().traceQueryExecution(query);
         switch (query.getType()) {
             case DATA_QUERY:
                 newState = executeDataQuery(query, prepared.getQueryText(prms), prms);
                 break;
             case SCAN_QUERY:
-                newState = executeScanQuery(prepared.getQueryText(prms), prms);
+                newState = executeScanQuery(query, prepared.getQueryText(prms), prms);
                 break;
             default:
                 throw new IllegalStateException("Internal error. Unsupported query type " + query.getType());
@@ -146,7 +144,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
     public YdbResultSet executeScanQuery() throws SQLException {
         cleanState();
         Params prms = prepared.getCurrentParams();
-        List<YdbResult> state = executeScanQuery(prepared.getQueryText(prms), prms);
+        List<YdbResult> state = executeScanQuery(query, prepared.getQueryText(prms), prms);
         prepared.clearParameters();
         updateState(state);
         return getResultSet();

@@ -5,6 +5,7 @@ import java.util.List;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.query.ExplainedQuery;
+import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
 
@@ -34,10 +35,10 @@ public interface YdbExecutor {
 
     void executeSchemeQuery(YdbContext ctx, YdbValidator validator, String yql) throws SQLException;
 
-    List<ResultSetReader> executeDataQuery(YdbContext ctx, YdbValidator validator, String yql,
+    List<ResultSetReader> executeDataQuery(YdbContext ctx, YdbValidator validator, YdbQuery query, String yql,
             long timeout, boolean poolable, Params params) throws SQLException;
 
-    ResultSetReader executeScanQuery(YdbContext ctx, YdbValidator validator, String yql, Params params)
+    ResultSetReader executeScanQuery(YdbContext ctx, YdbValidator validator, YdbQuery query, String yql, Params params)
             throws SQLException;
 
     ExplainedQuery executeExplainQuery(YdbContext ctx, YdbValidator validator, String yql)

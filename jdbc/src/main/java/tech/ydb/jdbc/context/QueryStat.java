@@ -5,7 +5,6 @@ import java.util.concurrent.atomic.LongAdder;
 
 import tech.ydb.core.Status;
 import tech.ydb.jdbc.common.FixedResultSetFactory;
-import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.result.ResultSetReader;
 
 /**
@@ -13,11 +12,13 @@ import tech.ydb.table.result.ResultSetReader;
  * @author Aleksandr Gorshenin
  */
 public class QueryStat {
-    public static final String QUERY = "print_jdbc_stats();";
+    private static final String PRINT_QUERY = "print_jdbc_stats();";
+    private static final String RESET_QUERY = "reset_jdbc_stats();";
 
     private static final FixedResultSetFactory STATS_RS_FACTORY = FixedResultSetFactory.newBuilder()
             .addTextColumn("sql")
             .addBooleanColumn("is_fullscan")
+            .addBooleanColumn("is_error")
             .addLongColumn("executed")
             .addTextColumn("yql")
             .addTextColumn("ast")
@@ -31,23 +32,26 @@ public class QueryStat {
     private final String plan;
     private final LongAdder usage;
     private final boolean isFullScan;
+    private final boolean isError;
 
-    public QueryStat(YdbQuery query, String ast, String plan) {
-        this.originSQL = query.getOriginQuery();
-        this.preparedYQL = query.getPreparedYql();
+    public QueryStat(String sql, String yql, String ast, String plan) {
+        this.originSQL = sql;
+        this.preparedYQL = yql;
         this.ast = ast;
         this.plan = plan;
         this.usage = new LongAdder();
         this.isFullScan = plan.contains("\"Node Type\":\"TableFullScan\"");
+        this.isError = false;
     }
 
-    public QueryStat(YdbQuery query, Status error) {
-        this.originSQL = query.getOriginQuery();
-        this.preparedYQL = query.getPreparedYql();
-        this.ast = error.toString();
+    public QueryStat(String sql, String yql, Status error) {
+        this.originSQL = sql;
+        this.preparedYQL = yql;
+        this.ast = null;
         this.plan = error.toString();
         this.usage = new LongAdder();
         this.isFullScan = false;
+        this.isError = true;
     }
 
     public long getUsageCounter() {
@@ -74,6 +78,10 @@ public class QueryStat {
         return isFullScan;
     }
 
+    public boolean isError() {
+        return isError;
+    }
+
     public void incrementUsage() {
         this.usage.increment();
     }
@@ -84,6 +92,7 @@ public class QueryStat {
             builder.newRow()
                     .withTextValue("sql", stat.originSQL)
                     .withBoolValue("is_fullscan", stat.isFullScan)
+                    .withBoolValue("is_error", stat.isError)
                     .withLongValue("executed", stat.usage.longValue())
                     .withTextValue("yql", stat.preparedYQL)
                     .withTextValue("ast", stat.ast)
@@ -91,5 +100,13 @@ public class QueryStat {
                     .build();
         }
         return builder.build();
+    }
+
+    public static boolean isPrint(String sql) {
+        return sql != null && PRINT_QUERY.equalsIgnoreCase(sql.trim());
+    }
+
+    public static boolean isReset(String sql) {
+        return sql != null && RESET_QUERY.equalsIgnoreCase(sql.trim());
     }
 }

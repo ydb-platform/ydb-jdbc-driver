@@ -3,12 +3,12 @@ package tech.ydb.jdbc.context;
 import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -75,7 +75,7 @@ public class YdbContext implements AutoCloseable {
     private final SessionRetryContext retryCtx;
 
     private final Cache<String, YdbQuery> queriesCache;
-    private final Cache<String, QueryStat> queryStatesCache;
+    private final Cache<String, QueryStat> statsCache;
     private final Cache<String, Map<String, Type>> queryParamsCache;
 
     private final boolean autoResizeSessionPool;
@@ -107,13 +107,13 @@ public class YdbContext implements AutoCloseable {
             queriesCache = CacheBuilder.newBuilder().maximumSize(cacheSize).build();
             queryParamsCache = CacheBuilder.newBuilder().maximumSize(cacheSize).build();
             if (config.isFullScanDetectorEnabled()) {
-                queryStatesCache = CacheBuilder.newBuilder().maximumSize(cacheSize).build();
+                statsCache = CacheBuilder.newBuilder().maximumSize(cacheSize).build();
             } else {
-                queryStatesCache = null;
+                statsCache = null;
             }
         } else {
             queriesCache = null;
-            queryStatesCache = null;
+            statsCache = null;
             queryParamsCache = null;
         }
     }
@@ -184,25 +184,26 @@ public class YdbContext implements AutoCloseable {
     }
 
     public boolean queryStatsEnabled() {
-        return queryStatesCache != null;
+        return statsCache != null;
+    }
+
+    public void resetQueryStats() {
+        if (statsCache != null) {
+            statsCache.invalidateAll();
+        }
     }
 
     public Collection<QueryStat> getQueryStats() {
-        if (queryStatesCache == null) {
+        if (statsCache == null) {
             return Collections.emptyList();
         }
-        Set<QueryStat> sortedByUsage = new TreeSet<>(Comparator.comparingLong(QueryStat::getUsageCounter).reversed());
-        sortedByUsage.addAll(queryStatesCache.asMap().values());
-        return sortedByUsage;
-    }
-
-    public void traceQueryExecution(YdbQuery query) {
-        if (queryStatesCache != null) {
-            QueryStat stat = queryStatesCache.getIfPresent(query.getOriginQuery());
-            if (stat != null) {
-                stat.incrementUsage();
-            }
-        }
+        List<QueryStat> sorted = new ArrayList<>(statsCache.asMap().values());
+        Collections.sort(sorted,
+                Comparator
+                        .comparingLong(QueryStat::getUsageCounter).reversed()
+                        .thenComparing(QueryStat::getPreparedYQL)
+        );
+        return sorted;
     }
 
     public void register() {
@@ -308,29 +309,42 @@ public class YdbContext implements AutoCloseable {
             queriesCache.put(sql, cached);
         }
 
-        if (queryStatesCache != null) {
-            QueryStat stat = queryStatesCache.getIfPresent(sql);
-            if (stat == null) {
-                final String preparedYQL = cached.getPreparedYql();
-                final ExplainDataQuerySettings settings = withDefaultTimeout(new ExplainDataQuerySettings());
-                Result<ExplainDataQueryResult> res = retryCtx.supplyResult(
-                        session -> session.explainDataQuery(preparedYQL, settings)
-                ).join();
-
-                if (res.isSuccess()) {
-                    ExplainDataQueryResult exp = res.getValue();
-                    stat = new QueryStat(cached, exp.getQueryAst(), exp.getQueryPlan());
-                } else {
-                    stat = new QueryStat(cached, res.getStatus());
-                }
-                queryStatesCache.put(sql, stat);
-            }
-        }
 
         return cached;
     }
 
+    public void traceQuery(YdbQuery query, String yql) {
+        if (statsCache == null) {
+            return;
+        }
+
+        QueryStat stat = statsCache.getIfPresent(yql);
+        if (stat == null) {
+            final ExplainDataQuerySettings settings = withDefaultTimeout(new ExplainDataQuerySettings());
+            Result<ExplainDataQueryResult> res = retryCtx.supplyResult(
+                    session -> session.explainDataQuery(yql, settings)
+            ).join();
+
+            if (res.isSuccess()) {
+                ExplainDataQueryResult exp = res.getValue();
+                stat = new QueryStat(query.getOriginQuery(), yql, exp.getQueryAst(), exp.getQueryPlan());
+            } else {
+                stat = new QueryStat(query.getOriginQuery(), yql, res.getStatus());
+            }
+
+            statsCache.put(yql, stat);
+        }
+
+        stat.incrementUsage();
+    }
+
     public YdbPreparedQuery findOrPrepareParams(YdbQuery query, YdbPrepareMode mode) throws SQLException {
+        if (statsCache != null) {
+            if (QueryStat.isPrint(query.getOriginQuery()) || QueryStat.isReset(query.getOriginQuery())) {
+                return new InMemoryQuery(query, queryOptions.isDeclareJdbcParameters());
+            }
+        }
+
         if (query.getYqlBatcher() != null && mode == YdbPrepareMode.AUTO) {
             Map<String, Type> types = queryParamsCache.getIfPresent(query.getOriginQuery());
             if (types == null) {

@@ -17,6 +17,7 @@ import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.exception.ExceptionFactory;
 import tech.ydb.jdbc.query.ExplainedQuery;
 import tech.ydb.jdbc.query.QueryType;
+import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.query.QueryClient;
 import tech.ydb.query.QuerySession;
 import tech.ydb.query.QueryStream;
@@ -196,7 +197,8 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public List<ResultSetReader> executeDataQuery(
-            YdbContext ctx, YdbValidator validator, String yql, long timeout, boolean keepInCache, Params params
+            YdbContext ctx, YdbValidator validator, YdbQuery query,
+            String yql, long timeout, boolean keepInCache, Params params
     ) throws SQLException {
         ensureOpened();
 

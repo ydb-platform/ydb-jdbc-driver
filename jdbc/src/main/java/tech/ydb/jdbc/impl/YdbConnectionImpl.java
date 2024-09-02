@@ -205,13 +205,14 @@ public class YdbConnectionImpl implements YdbConnection {
     }
 
     @Override
-    public List<ResultSetReader> executeDataQuery(String yql, YdbValidator validator,
+    public List<ResultSetReader> executeDataQuery(YdbQuery query, String yql, YdbValidator validator,
             int timeout, boolean poolable, Params params) throws SQLException {
-        return executor.executeDataQuery(ctx, validator, yql, timeout, poolable, params);
+        return executor.executeDataQuery(ctx, validator, query, yql, timeout, poolable, params);
     }
 
     @Override
-    public ResultSetReader executeScanQuery(String yql, YdbValidator validator, Params params) throws SQLException {
+    public ResultSetReader executeScanQuery(YdbQuery query, String yql, YdbValidator validator, Params params)
+            throws SQLException {
         executor.ensureOpened();
 
         if (executor.isInsideTransaction()) {
@@ -227,7 +228,7 @@ public class YdbConnectionImpl implements YdbConnection {
             }
         }
 
-        return executor.executeScanQuery(ctx, validator, yql, params);
+        return executor.executeScanQuery(ctx, validator, query, yql, params);
     }
 
     @Override

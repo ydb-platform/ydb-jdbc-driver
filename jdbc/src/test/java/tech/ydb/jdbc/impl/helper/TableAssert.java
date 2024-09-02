@@ -233,6 +233,36 @@ public class TableAssert {
                 }
             };
         }
+
+        public ValueAssert isNull() {
+            return new ValueAssert(this) {
+                @Override
+                public void assertValue(ResultSet rs) throws SQLException {
+                    Assertions.assertNull(rs.getString(column.name),
+                            "Not null text value for column label " + column.name);
+                    Assertions.assertTrue(rs.wasNull(), "Not null value for column label " + column.name);
+
+                    Assertions.assertNull(rs.getString(column.index),
+                            "Not null value for column index " + column.index);
+                    Assertions.assertTrue(rs.wasNull(), "Not null text value of column index " + column.index);
+                }
+            };
+        }
+
+        public ValueAssert isNotEmpty() {
+            return new ValueAssert(this) {
+                @Override
+                public void assertValue(ResultSet rs) throws SQLException {
+                    String v1 = rs.getString(column.name);
+                    Assertions.assertFalse(rs.wasNull(), "Null value for column label " + column.name);
+                    Assertions.assertFalse(v1.isEmpty(), "Empty text value for column label " + column.name);
+
+                    String v2 = rs.getString(column.index);
+                    Assertions.assertFalse(rs.wasNull(), "Null value for column index " + column.index);
+                    Assertions.assertFalse(v2.isEmpty(), "Empty text value of column index " + column.index);
+                }
+            };
+        }
     }
 
     public class IntColumn extends Column {
