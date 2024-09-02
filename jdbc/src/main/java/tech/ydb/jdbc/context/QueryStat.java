@@ -12,7 +12,8 @@ import tech.ydb.table.result.ResultSetReader;
  * @author Aleksandr Gorshenin
  */
 public class QueryStat {
-    public static final String QUERY = "print_jdbc_stats();";
+    public static final String PRINT_QUERY = "print_jdbc_stats();";
+    public static final String RESET_QUERY = "reset_jdbc_stats();";
 
     private static final FixedResultSetFactory STATS_RS_FACTORY = FixedResultSetFactory.newBuilder()
             .addTextColumn("sql")

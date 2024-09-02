@@ -983,6 +983,13 @@ public class YdbConnectionImplTest {
 
                     check.assertNoRows();
                 }
+
+                Assertions.assertFalse(st.execute("reset_jdbc_stats();\n"));
+                try (ResultSet rs = st.executeQuery("print_JDBC_stats();")) {
+                    sa.check(rs)
+                            .assertMetaColumns()
+                            .assertNoRows();
+                }
             }
         }
     }
@@ -1064,6 +1071,13 @@ public class YdbConnectionImplTest {
 
                     check.assertNoRows();
                 }
+
+                Assertions.assertFalse(st.execute("\t\treSet_jdbc_statS();"));
+                try (ResultSet rs = st.executeQuery("print_JDBC_stats();")) {
+                    sa.check(rs)
+                            .assertMetaColumns()
+                            .assertNoRows();
+                }
             }
         }
     }
@@ -1138,7 +1152,14 @@ public class YdbConnectionImplTest {
 
                     check.assertNoRows();
                 }
+
+                Assertions.assertFalse(st.execute("reset_JDBC_stats();"));
+                try (ResultSet rs = st.executeQuery("print_JDBC_stats();")) {
+                    sa.check(rs)
+                            .assertMetaColumns()
+                            .assertNoRows();
             }
         }
     }
+}
 }

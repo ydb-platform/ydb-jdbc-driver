@@ -83,9 +83,15 @@ public class YdbStatementImpl extends BaseYdbStatement {
         cleanState();
 
         YdbContext ctx = getConnection().getCtx();
-        if (ctx.queryStatsEnabled() && sql != null && QueryStat.QUERY.equalsIgnoreCase(sql.trim())) {
-            YdbResultSet rs = new YdbResultSetImpl(this, QueryStat.toResultSetReader(ctx.getQueryStats()));
-            return updateState(Collections.singletonList(new YdbResult(rs)));
+        if (ctx.queryStatsEnabled() && sql != null) {
+            if (QueryStat.PRINT_QUERY.equalsIgnoreCase(sql.trim())) {
+                YdbResultSet rs = new YdbResultSetImpl(this, QueryStat.toResultSetReader(ctx.getQueryStats()));
+                return updateState(Collections.singletonList(new YdbResult(rs)));
+            }
+            if (QueryStat.RESET_QUERY.equalsIgnoreCase(sql.trim())) {
+                getConnection().getCtx().resetQueryStats();
+                return updateState(null);
+            }
         }
 
         YdbQuery query = ctx.parseYdbQuery(sql);

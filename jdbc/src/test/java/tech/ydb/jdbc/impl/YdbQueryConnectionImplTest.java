@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
+import org.junit.Assert;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -972,7 +973,6 @@ public class YdbQueryConnectionImplTest {
                             .assertNoRows();
                 }
 
-                // scheme queries don't collect stats
                 ExceptionAssert.ydbException("Cannot find table", () -> st.execute(wrongQuery));
 
                 try (ResultSet rs = st.executeQuery("Print_JDBC_stats();\n")) {
@@ -985,6 +985,13 @@ public class YdbQueryConnectionImplTest {
                     ).assertAll();
 
                     check.assertNoRows();
+                }
+
+                Assert.assertFalse(st.execute("reset_jdbc_stats();\n"));
+                try (ResultSet rs = st.executeQuery("print_JDBC_stats();")) {
+                    sa.check(rs)
+                            .assertMetaColumns()
+                            .assertNoRows();
                 }
             }
         }
@@ -1067,6 +1074,13 @@ public class YdbQueryConnectionImplTest {
 
                     check.assertNoRows();
                 }
+
+                Assert.assertFalse(st.execute("\t\treSet_jdbc_statS();"));
+                try (ResultSet rs = st.executeQuery("print_JDBC_stats();")) {
+                    sa.check(rs)
+                            .assertMetaColumns()
+                            .assertNoRows();
+                }
             }
         }
     }
@@ -1140,6 +1154,13 @@ public class YdbQueryConnectionImplTest {
                     ).assertAll();
 
                     check.assertNoRows();
+                }
+
+                Assert.assertFalse(st.execute("reset_JDBC_stats();"));
+                try (ResultSet rs = st.executeQuery("print_JDBC_stats();")) {
+                    sa.check(rs)
+                            .assertMetaColumns()
+                            .assertNoRows();
                 }
             }
         }
