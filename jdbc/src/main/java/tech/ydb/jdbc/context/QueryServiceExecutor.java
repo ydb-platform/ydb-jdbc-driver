@@ -208,7 +208,6 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         }
         final ExecuteQuerySettings settings = builder.build();
 
-        ctx.traceQuery(query, yql);
         if (tx == null) {
             tx = createNewQuerySession(validator).createNewTransaction(txMode);
         }
