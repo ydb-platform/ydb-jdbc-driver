@@ -195,20 +195,27 @@ public class YdbTypes {
 
     private int toSqlTypeImpl(Type type) {
         switch (type.getKind()) {
-            case OPTIONAL:
-                return toSqlTypeImpl(type.unwrapOptional());
-            case DECIMAL:
-                return Types.DECIMAL;
-            case NULL:
-            case VOID:
-                return Types.NULL;
-            case PG_TYPE:
-                return Types.OTHER;
             case PRIMITIVE:
                 if (!sqlTypeByPrimitiveNumId.containsKey(type)) {
                     throw new RuntimeException("Internal error. Unsupported YDB type: " + type);
                 }
                 return sqlTypeByPrimitiveNumId.get(type);
+            case OPTIONAL:
+                return toSqlTypeImpl(type.unwrapOptional());
+            case DECIMAL:
+                return Types.DECIMAL;
+            case STRUCT:
+                return Types.STRUCT;
+            case LIST:
+                return Types.ARRAY;
+            case NULL:
+            case VOID:
+                return Types.NULL;
+            case PG_TYPE:
+            case TUPLE:
+            case DICT:
+            case VARIANT:
+                return Types.OTHER;
             default:
                 throw new RuntimeException("Internal error. Unsupported YDB kind: " + type);
         }
