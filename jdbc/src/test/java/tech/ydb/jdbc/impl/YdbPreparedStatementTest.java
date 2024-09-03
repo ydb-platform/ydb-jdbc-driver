@@ -21,8 +21,10 @@ import java.time.temporal.ChronoUnit;
 
 import org.junit.Assert;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -33,6 +35,11 @@ import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.SqlQueries;
 import tech.ydb.jdbc.impl.helper.TextSelectAssert;
 import tech.ydb.table.values.PrimitiveType;
+import tech.ydb.table.values.PrimitiveValue;
+import tech.ydb.table.values.StructValue;
+import static tech.ydb.table.values.Type.Kind.OPTIONAL;
+import static tech.ydb.table.values.Type.Kind.PRIMITIVE;
+import tech.ydb.table.values.Value;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
 /**
@@ -294,6 +301,75 @@ public class YdbPreparedStatementTest {
         Assert.assertTrue(rs.wasNull());
     }
 
+    private void assertStructMember(PrimitiveValue value, StructValue sv, String name) {
+        int index = sv.getType().getMemberIndex(name);
+        Assertions.assertTrue(index >= 0);
+        Value<?> member = sv.getMemberValue(index);
+
+        switch (member.getType().getKind()) {
+            case OPTIONAL:
+                if (value == null) {
+                    Assertions.assertFalse(member.asOptional().isPresent());
+                } else {
+                    Assertions.assertEquals(value, (PrimitiveValue) member.asOptional().get());
+                }
+                break;
+            case PRIMITIVE:
+                Assertions.assertEquals(value, member.asData());
+                break;
+            default:
+                throw new AssertionError("Unsupported type " + member.getType());
+        }
+    }
+
+    private void assertTableRow(ResultSet rs, int id) throws SQLException {
+        Assert.assertTrue(rs.next());
+
+        Object obj = rs.getObject(1);
+        Assertions.assertNotNull(obj);
+        Assertions.assertFalse(rs.wasNull());
+        Assertions.assertEquals(obj, rs.getObject("column0")); // default name of column
+
+        Assertions.assertTrue(obj instanceof StructValue);
+        StructValue sv = (StructValue) obj;
+
+        Assertions.assertEquals(22, sv.getType().getMembersCount());
+
+        assertStructMember(PrimitiveValue.newInt32(id), sv, "key");
+        assertStructMember(PrimitiveValue.newBool(id % 2 == 0), sv, "c_Bool");
+
+        assertStructMember(PrimitiveValue.newInt8((byte)(id + 1)), sv, "c_Int8");
+        assertStructMember(PrimitiveValue.newInt16((short)(id + 2)), sv, "c_Int16");
+        assertStructMember(PrimitiveValue.newInt32(id + 3), sv, "c_Int32");
+        assertStructMember(PrimitiveValue.newInt64(id + 4), sv, "c_Int64");
+
+        assertStructMember(PrimitiveValue.newUint8(id + 5), sv, "c_Uint8");
+        assertStructMember(PrimitiveValue.newUint16(id + 6), sv, "c_Uint16");
+        assertStructMember(PrimitiveValue.newUint32(id + 7), sv, "c_Uint32");
+        assertStructMember(PrimitiveValue.newUint64(id + 8), sv, "c_Uint64");
+
+        assertStructMember(PrimitiveValue.newFloat(1.5f * id), sv, "c_Float");
+        assertStructMember(PrimitiveValue.newDouble(2.5d * id), sv, "c_Double");
+
+        assertStructMember(PrimitiveValue.newBytes(new byte[] { (byte)id }), sv, "c_Bytes");
+        assertStructMember(PrimitiveValue.newText("Text_" + id), sv, "c_Text");
+        assertStructMember(PrimitiveValue.newJson("{\"json\": " + id + "}"), sv, "c_Json");
+        assertStructMember(PrimitiveValue.newJsonDocument("{\"jsonDoc\":" + id + "}"), sv, "c_JsonDocument");
+        assertStructMember(PrimitiveValue.newYson(("{yson=" + id + "}").getBytes()), sv, "c_Yson");
+
+
+        Date sqlDate = new Date(TEST_TS.toEpochMilli());
+        LocalDateTime dateTime = LocalDateTime.ofInstant(TEST_TS, ZoneOffset.UTC).plusMinutes(id)
+                .truncatedTo(ChronoUnit.SECONDS);
+
+        assertStructMember(PrimitiveValue.newDate(sqlDate.toLocalDate()), sv, "c_Date");
+        assertStructMember(PrimitiveValue.newDatetime(dateTime), sv, "c_Datetime");
+        assertStructMember(PrimitiveValue.newTimestamp(truncToMicros(TEST_TS.plusSeconds(id))), sv, "c_Timestamp");
+        assertStructMember(PrimitiveValue.newInterval(Duration.ofMinutes(id)), sv, "c_Interval");
+
+        assertStructMember(null, sv, "c_Decimal");
+    }
+
     @ParameterizedTest(name = "with {0}")
     @EnumSource(SqlQueries.JdbcQuery.class)
     public void batchUpsertAllTest(SqlQueries.JdbcQuery query) throws SQLException {
@@ -331,6 +407,28 @@ public class YdbPreparedStatementTest {
                 assertRowValues(rs, 3);
                 assertRowValues(rs, 6);
 
+                Assert.assertFalse(rs.next());
+            }
+        }
+    };
+
+    @Test
+    public void tableRowTest() throws SQLException {
+        String upsert = TEST_TABLE.upsertAll(SqlQueries.JdbcQuery.BATCHED);
+        String selectTableRow = TEST_TABLE.withTableName("select TableRow() from #tableName");
+
+        try (PreparedStatement statement = jdbc.connection().prepareStatement(upsert)) {
+            fillRowValues(statement, 1);
+            statement.addBatch();
+            fillRowValues(statement, 2);
+            statement.addBatch();
+            statement.executeBatch();
+        }
+
+        try (Statement statement = jdbc.connection().createStatement()) {
+            try (ResultSet rs = statement.executeQuery(selectTableRow)) {
+                assertTableRow(rs, 1);
+                assertTableRow(rs, 2);
                 Assert.assertFalse(rs.next());
             }
         }
