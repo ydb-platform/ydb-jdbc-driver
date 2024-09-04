@@ -19,10 +19,11 @@ import java.time.ZoneOffset;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
 
-import org.junit.Assert;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -33,6 +34,9 @@ import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.SqlQueries;
 import tech.ydb.jdbc.impl.helper.TextSelectAssert;
 import tech.ydb.table.values.PrimitiveType;
+import tech.ydb.table.values.PrimitiveValue;
+import tech.ydb.table.values.StructValue;
+import tech.ydb.table.values.Value;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
 /**
@@ -254,30 +258,30 @@ public class YdbPreparedStatementTest {
     }
 
     private void assertRowValues(ResultSet rs, int id) throws SQLException {
-        Assert.assertTrue(rs.next());
+        Assertions.assertTrue(rs.next());
 
-        Assert.assertEquals(id, rs.getInt("key"));
+        Assertions.assertEquals(id, rs.getInt("key"));
 
-        Assert.assertEquals(id % 2 == 0, rs.getBoolean("c_Bool"));
+        Assertions.assertEquals(id % 2 == 0, rs.getBoolean("c_Bool"));
 
-        Assert.assertEquals(id + 1, rs.getByte("c_Int8"));
-        Assert.assertEquals(id + 2, rs.getShort("c_Int16"));
-        Assert.assertEquals(id + 3, rs.getInt("c_Int32"));
-        Assert.assertEquals(id + 4, rs.getLong("c_Int64"));
+        Assertions.assertEquals(id + 1, rs.getByte("c_Int8"));
+        Assertions.assertEquals(id + 2, rs.getShort("c_Int16"));
+        Assertions.assertEquals(id + 3, rs.getInt("c_Int32"));
+        Assertions.assertEquals(id + 4, rs.getLong("c_Int64"));
 
-        Assert.assertEquals(id + 5, rs.getByte("c_Uint8"));
-        Assert.assertEquals(id + 6, rs.getShort("c_Uint16"));
-        Assert.assertEquals(id + 7, rs.getInt("c_Uint32"));
-        Assert.assertEquals(id + 8, rs.getLong("c_Uint64"));
+        Assertions.assertEquals(id + 5, rs.getByte("c_Uint8"));
+        Assertions.assertEquals(id + 6, rs.getShort("c_Uint16"));
+        Assertions.assertEquals(id + 7, rs.getInt("c_Uint32"));
+        Assertions.assertEquals(id + 8, rs.getLong("c_Uint64"));
 
-        Assert.assertEquals(1.5f * id, rs.getFloat("c_Float"), 0.001f);
-        Assert.assertEquals(2.5d * id, rs.getDouble("c_Double"), 0.001d);
+        Assertions.assertEquals(1.5f * id, rs.getFloat("c_Float"), 0.001f);
+        Assertions.assertEquals(2.5d * id, rs.getDouble("c_Double"), 0.001d);
 
-        Assert.assertArrayEquals(new byte[] { (byte)id }, rs.getBytes("c_Bytes"));
-        Assert.assertEquals("Text_" + id, rs.getString("c_Text"));
-        Assert.assertEquals("{\"json\": " + id + "}", rs.getString("c_Json"));
-        Assert.assertEquals("{\"jsonDoc\":" + id + "}", rs.getString("c_JsonDocument"));
-        Assert.assertEquals("{yson=" + id + "}", rs.getString("c_Yson"));
+        Assertions.assertArrayEquals(new byte[] { (byte)id }, rs.getBytes("c_Bytes"));
+        Assertions.assertEquals("Text_" + id, rs.getString("c_Text"));
+        Assertions.assertEquals("{\"json\": " + id + "}", rs.getString("c_Json"));
+        Assertions.assertEquals("{\"jsonDoc\":" + id + "}", rs.getString("c_JsonDocument"));
+        Assertions.assertEquals("{yson=" + id + "}", rs.getString("c_Yson"));
 
 
         Date sqlDate = new Date(TEST_TS.toEpochMilli());
@@ -285,13 +289,82 @@ public class YdbPreparedStatementTest {
                 .truncatedTo(ChronoUnit.SECONDS);
         Timestamp timestamp = Timestamp.from(truncToMicros(TEST_TS.plusSeconds(id)));
 
-        Assert.assertEquals(sqlDate.toLocalDate(), rs.getDate("c_Date").toLocalDate());
-        Assert.assertEquals(dateTime, rs.getObject("c_Datetime"));
-        Assert.assertEquals(timestamp, rs.getTimestamp("c_Timestamp"));
-        Assert.assertEquals(Duration.ofMinutes(id), rs.getObject("c_Interval"));
+        Assertions.assertEquals(sqlDate.toLocalDate(), rs.getDate("c_Date").toLocalDate());
+        Assertions.assertEquals(dateTime, rs.getObject("c_Datetime"));
+        Assertions.assertEquals(timestamp, rs.getTimestamp("c_Timestamp"));
+        Assertions.assertEquals(Duration.ofMinutes(id), rs.getObject("c_Interval"));
 
-        Assert.assertNull(rs.getString("c_Decimal"));
-        Assert.assertTrue(rs.wasNull());
+        Assertions.assertNull(rs.getString("c_Decimal"));
+        Assertions.assertTrue(rs.wasNull());
+    }
+
+    private void assertStructMember(PrimitiveValue value, StructValue sv, String name) {
+        int index = sv.getType().getMemberIndex(name);
+        Assertions.assertTrue(index >= 0);
+        Value<?> member = sv.getMemberValue(index);
+
+        switch (member.getType().getKind()) {
+            case OPTIONAL:
+                if (value == null) {
+                    Assertions.assertFalse(member.asOptional().isPresent());
+                } else {
+                    Assertions.assertEquals(value, (PrimitiveValue) member.asOptional().get());
+                }
+                break;
+            case PRIMITIVE:
+                Assertions.assertEquals(value, member.asData());
+                break;
+            default:
+                throw new AssertionError("Unsupported type " + member.getType());
+        }
+    }
+
+    private void assertTableRow(ResultSet rs, int id) throws SQLException {
+        Assertions.assertTrue(rs.next());
+
+        Object obj = rs.getObject(1);
+        Assertions.assertNotNull(obj);
+        Assertions.assertFalse(rs.wasNull());
+        Assertions.assertEquals(obj, rs.getObject("column0")); // default name of column
+
+        Assertions.assertTrue(obj instanceof StructValue);
+        StructValue sv = (StructValue) obj;
+
+        Assertions.assertEquals(22, sv.getType().getMembersCount());
+
+        assertStructMember(PrimitiveValue.newInt32(id), sv, "key");
+        assertStructMember(PrimitiveValue.newBool(id % 2 == 0), sv, "c_Bool");
+
+        assertStructMember(PrimitiveValue.newInt8((byte)(id + 1)), sv, "c_Int8");
+        assertStructMember(PrimitiveValue.newInt16((short)(id + 2)), sv, "c_Int16");
+        assertStructMember(PrimitiveValue.newInt32(id + 3), sv, "c_Int32");
+        assertStructMember(PrimitiveValue.newInt64(id + 4), sv, "c_Int64");
+
+        assertStructMember(PrimitiveValue.newUint8(id + 5), sv, "c_Uint8");
+        assertStructMember(PrimitiveValue.newUint16(id + 6), sv, "c_Uint16");
+        assertStructMember(PrimitiveValue.newUint32(id + 7), sv, "c_Uint32");
+        assertStructMember(PrimitiveValue.newUint64(id + 8), sv, "c_Uint64");
+
+        assertStructMember(PrimitiveValue.newFloat(1.5f * id), sv, "c_Float");
+        assertStructMember(PrimitiveValue.newDouble(2.5d * id), sv, "c_Double");
+
+        assertStructMember(PrimitiveValue.newBytes(new byte[] { (byte)id }), sv, "c_Bytes");
+        assertStructMember(PrimitiveValue.newText("Text_" + id), sv, "c_Text");
+        assertStructMember(PrimitiveValue.newJson("{\"json\": " + id + "}"), sv, "c_Json");
+        assertStructMember(PrimitiveValue.newJsonDocument("{\"jsonDoc\":" + id + "}"), sv, "c_JsonDocument");
+        assertStructMember(PrimitiveValue.newYson(("{yson=" + id + "}").getBytes()), sv, "c_Yson");
+
+
+        Date sqlDate = new Date(TEST_TS.toEpochMilli());
+        LocalDateTime dateTime = LocalDateTime.ofInstant(TEST_TS, ZoneOffset.UTC).plusMinutes(id)
+                .truncatedTo(ChronoUnit.SECONDS);
+
+        assertStructMember(PrimitiveValue.newDate(sqlDate.toLocalDate()), sv, "c_Date");
+        assertStructMember(PrimitiveValue.newDatetime(dateTime), sv, "c_Datetime");
+        assertStructMember(PrimitiveValue.newTimestamp(truncToMicros(TEST_TS.plusSeconds(id))), sv, "c_Timestamp");
+        assertStructMember(PrimitiveValue.newInterval(Duration.ofMinutes(id)), sv, "c_Interval");
+
+        assertStructMember(null, sv, "c_Decimal");
     }
 
     @ParameterizedTest(name = "with {0}")
@@ -331,7 +404,29 @@ public class YdbPreparedStatementTest {
                 assertRowValues(rs, 3);
                 assertRowValues(rs, 6);
 
-                Assert.assertFalse(rs.next());
+                Assertions.assertFalse(rs.next());
+            }
+        }
+    };
+
+    @Test
+    public void tableRowTest() throws SQLException {
+        String upsert = TEST_TABLE.upsertAll(SqlQueries.JdbcQuery.BATCHED);
+        String selectTableRow = TEST_TABLE.withTableName("select TableRow() from #tableName");
+
+        try (PreparedStatement statement = jdbc.connection().prepareStatement(upsert)) {
+            fillRowValues(statement, 1);
+            statement.addBatch();
+            fillRowValues(statement, 2);
+            statement.addBatch();
+            statement.executeBatch();
+        }
+
+        try (Statement statement = jdbc.connection().createStatement()) {
+            try (ResultSet rs = statement.executeQuery(selectTableRow)) {
+                assertTableRow(rs, 1);
+                assertTableRow(rs, 2);
+                Assertions.assertFalse(rs.next());
             }
         }
     };
@@ -412,45 +507,45 @@ public class YdbPreparedStatementTest {
                 assertNextInt32(rs, 8, (int) TEST_TS.atZone(ZoneId.systemDefault()).toLocalDate().toEpochDay());
                 assertNextInt32(rs, 9, (int) TEST_TS.toEpochMilli());
 
-                Assert.assertFalse(rs.next());
+                Assertions.assertFalse(rs.next());
             }
         }
     };
 
     private void assertNextInt32(ResultSet rs, int key, Integer value) throws SQLException {
-        Assert.assertTrue(rs.next());
-        Assert.assertEquals(key, rs.getInt("key"));
+        Assertions.assertTrue(rs.next());
+        Assertions.assertEquals(key, rs.getInt("key"));
 
         Object obj = rs.getObject("c_Int32");
-        Assert.assertTrue(obj instanceof Integer);
-        Assert.assertEquals(value, obj);
+        Assertions.assertTrue(obj instanceof Integer);
+        Assertions.assertEquals(value, obj);
 
         if (value.byteValue() == value.intValue()) {
-            Assert.assertEquals(value.intValue(), rs.getByte("c_Int32"));
+            Assertions.assertEquals(value.intValue(), rs.getByte("c_Int32"));
         } else {
             String msg = String.format("Cannot cast [Int32] with value [%s] to [byte]", value);
             ExceptionAssert.sqlException(msg, () -> rs.getByte("c_Int32"));
         }
 
         if (value.shortValue() == value.intValue()) {
-            Assert.assertEquals(value.intValue(), rs.getShort("c_Int32"));
+            Assertions.assertEquals(value.intValue(), rs.getShort("c_Int32"));
         } else {
             String msg = String.format("Cannot cast [Int32] with value [%s] to [short]", value);
             ExceptionAssert.sqlException(msg, () -> rs.getShort("c_Int32"));
         }
 
-        Assert.assertEquals(value.intValue(), rs.getInt("c_Int32"));
-        Assert.assertEquals(value.longValue(), rs.getLong("c_Int32"));
+        Assertions.assertEquals(value.intValue(), rs.getInt("c_Int32"));
+        Assertions.assertEquals(value.longValue(), rs.getLong("c_Int32"));
 
         if (value >= 0 && value < 24 * 3600) {
-            Assert.assertEquals(Time.valueOf(LocalTime.ofSecondOfDay(value)), rs.getTime("c_Int32"));
+            Assertions.assertEquals(Time.valueOf(LocalTime.ofSecondOfDay(value)), rs.getTime("c_Int32"));
         } else {
             String msg = String.format("Cannot cast [Int32] with value [%s] to [class java.sql.Time]", value);
             ExceptionAssert.sqlException(msg, () -> rs.getTime("c_Int32"));
         }
 
-        Assert.assertEquals(Date.valueOf(LocalDate.ofEpochDay(value)), rs.getDate("c_Int32"));
-        Assert.assertEquals(new Timestamp(value), rs.getTimestamp("c_Int32"));
+        Assertions.assertEquals(Date.valueOf(LocalDate.ofEpochDay(value)), rs.getDate("c_Int32"));
+        Assertions.assertEquals(new Timestamp(value), rs.getTimestamp("c_Int32"));
     }
 
     @ParameterizedTest(name = "with {0}")
@@ -534,57 +629,57 @@ public class YdbPreparedStatementTest {
                 assertNextInt64(rs, 9, TEST_TS.atZone(ZoneId.systemDefault()).toLocalDate().toEpochDay());
                 assertNextInt64(rs, 10, TEST_TS.toEpochMilli());
 
-                Assert.assertFalse(rs.next());
+                Assertions.assertFalse(rs.next());
             }
         }
     };
 
     private void assertNextInt64(ResultSet rs, int key, Long value) throws SQLException {
-        Assert.assertTrue(rs.next());
-        Assert.assertEquals(key, rs.getInt("key"));
+        Assertions.assertTrue(rs.next());
+        Assertions.assertEquals(key, rs.getInt("key"));
 
         Object obj = rs.getObject("c_Int64");
-        Assert.assertTrue(obj instanceof Long);
-        Assert.assertEquals(value, obj);
+        Assertions.assertTrue(obj instanceof Long);
+        Assertions.assertEquals(value, obj);
 
         if (value.byteValue() == value.intValue()) {
-            Assert.assertEquals(value.intValue(), rs.getByte("c_Int64"));
+            Assertions.assertEquals(value.intValue(), rs.getByte("c_Int64"));
         } else {
             String msg = String.format("Cannot cast [Int64] with value [%s] to [byte]", value);
             ExceptionAssert.sqlException(msg, () -> rs.getByte("c_Int64"));
         }
 
         if (value.shortValue() == value.intValue()) {
-            Assert.assertEquals(value.intValue(), rs.getShort("c_Int64"));
+            Assertions.assertEquals(value.intValue(), rs.getShort("c_Int64"));
         } else {
             String msg = String.format("Cannot cast [Int64] with value [%s] to [short]", value);
             ExceptionAssert.sqlException(msg, () -> rs.getShort("c_Int64"));
         }
 
         if (value.intValue() == value.longValue()) {
-            Assert.assertEquals(value.intValue(), rs.getInt("c_Int64"));
+            Assertions.assertEquals(value.intValue(), rs.getInt("c_Int64"));
         } else {
             String msg = String.format("Cannot cast [Int64] with value [%s] to [int]", value);
             ExceptionAssert.sqlException(msg, () -> rs.getInt("c_Int64"));
         }
 
-        Assert.assertEquals(value.longValue(), rs.getLong("c_Int64"));
+        Assertions.assertEquals(value.longValue(), rs.getLong("c_Int64"));
 
         if (value >= 0 && value < 24 * 3600) {
-            Assert.assertEquals(Time.valueOf(LocalTime.ofSecondOfDay(value)), rs.getTime("c_Int64"));
+            Assertions.assertEquals(Time.valueOf(LocalTime.ofSecondOfDay(value)), rs.getTime("c_Int64"));
         } else {
             String msg = String.format("Cannot cast [Int64] with value [%s] to [class java.sql.Time]", value);
             ExceptionAssert.sqlException(msg, () -> rs.getTime("c_Int64"));
         }
 
         if (ChronoField.EPOCH_DAY.range().isValidValue(value)) {
-            Assert.assertEquals(Date.valueOf(LocalDate.ofEpochDay(value)), rs.getDate("c_Int64"));
+            Assertions.assertEquals(Date.valueOf(LocalDate.ofEpochDay(value)), rs.getDate("c_Int64"));
         } else {
             String msg = String.format("Cannot cast [Int64] with value [%s] to [class java.sql.Date]", value);
             ExceptionAssert.sqlException(msg, () -> rs.getDate("c_Int64"));
         }
 
-        Assert.assertEquals(new Timestamp(value), rs.getTimestamp("c_Int64"));
+        Assertions.assertEquals(new Timestamp(value), rs.getTimestamp("c_Int64"));
     }
 
     @ParameterizedTest(name = "with {0}")
@@ -644,30 +739,30 @@ public class YdbPreparedStatementTest {
                 assertNextTimestamp(rs, 6, Instant.ofEpochMilli(1585932011123l));
                 assertNextTimestamp(rs, 7, Instant.parse("2011-12-03T10:15:30.456789000Z"));
 
-                Assert.assertFalse(rs.next());
+                Assertions.assertFalse(rs.next());
             }
         }
     };
 
     private void assertNextTimestamp(ResultSet rs, int key, Instant ts) throws SQLException {
-        Assert.assertTrue(rs.next());
-        Assert.assertEquals(key, rs.getInt("key"));
+        Assertions.assertTrue(rs.next());
+        Assertions.assertEquals(key, rs.getInt("key"));
 
         Object obj = rs.getObject("c_Timestamp");
-        Assert.assertTrue(obj instanceof Instant);
-        Assert.assertEquals(ts, obj);
+        Assertions.assertTrue(obj instanceof Instant);
+        Assertions.assertEquals(ts, obj);
 
-        Assert.assertEquals(ts.toEpochMilli(), rs.getLong("c_Timestamp"));
+        Assertions.assertEquals(ts.toEpochMilli(), rs.getLong("c_Timestamp"));
 
-        Assert.assertEquals(new Date(ts.toEpochMilli()), rs.getDate("c_Timestamp"));
-        Assert.assertEquals(Timestamp.from(ts), rs.getTimestamp("c_Timestamp"));
-        Assert.assertEquals(ts.toString(), rs.getString("c_Timestamp"));
+        Assertions.assertEquals(new Date(ts.toEpochMilli()), rs.getDate("c_Timestamp"));
+        Assertions.assertEquals(Timestamp.from(ts), rs.getTimestamp("c_Timestamp"));
+        Assertions.assertEquals(ts.toString(), rs.getString("c_Timestamp"));
 
         LocalDateTime ldt = LocalDateTime.ofInstant(ts, ZoneId.systemDefault());
-        Assert.assertEquals(Long.valueOf(ts.toEpochMilli()), rs.getObject("c_Timestamp", Long.class));
-        Assert.assertEquals(ldt.toLocalDate(), rs.getObject("c_Timestamp", LocalDate.class));
-        Assert.assertEquals(ldt, rs.getObject("c_Timestamp", LocalDateTime.class));
-        Assert.assertEquals(ts, rs.getObject("c_Timestamp", Instant.class));
+        Assertions.assertEquals(Long.valueOf(ts.toEpochMilli()), rs.getObject("c_Timestamp", Long.class));
+        Assertions.assertEquals(ldt.toLocalDate(), rs.getObject("c_Timestamp", LocalDate.class));
+        Assertions.assertEquals(ldt, rs.getObject("c_Timestamp", LocalDateTime.class));
+        Assertions.assertEquals(ts, rs.getObject("c_Timestamp", Instant.class));
     }
 
     @ParameterizedTest(name = "with {0}")
@@ -739,29 +834,29 @@ public class YdbPreparedStatementTest {
                 assertNextDatetime(rs, 5, LocalDateTime.of(2021, Month.JULY, 21, 0, 0, 0));
                 assertNextDatetime(rs, 6, LocalDateTime.of(2011, Month.DECEMBER, 3, 10, 15, 30));
                 assertNextDatetime(rs, 7, ts);
-                Assert.assertFalse(rs.next());
+                Assertions.assertFalse(rs.next());
             }
         }
     };
 
     private void assertNextDatetime(ResultSet rs, int key, LocalDateTime ldt) throws SQLException {
-        Assert.assertTrue(rs.next());
-        Assert.assertEquals(key, rs.getInt("key"));
+        Assertions.assertTrue(rs.next());
+        Assertions.assertEquals(key, rs.getInt("key"));
 
         Object obj = rs.getObject("c_Datetime");
-        Assert.assertTrue(obj instanceof LocalDateTime);
-        Assert.assertEquals(ldt, obj);
+        Assertions.assertTrue(obj instanceof LocalDateTime);
+        Assertions.assertEquals(ldt, obj);
 
-        Assert.assertEquals(ldt.toEpochSecond(ZoneOffset.UTC), rs.getLong("c_Datetime"));
+        Assertions.assertEquals(ldt.toEpochSecond(ZoneOffset.UTC), rs.getLong("c_Datetime"));
 
-        Assert.assertEquals(Date.valueOf(ldt.toLocalDate()), rs.getDate("c_Datetime"));
-        Assert.assertEquals(Timestamp.valueOf(ldt), rs.getTimestamp("c_Datetime"));
-        Assert.assertEquals(ldt.toString(), rs.getString("c_Datetime"));
+        Assertions.assertEquals(Date.valueOf(ldt.toLocalDate()), rs.getDate("c_Datetime"));
+        Assertions.assertEquals(Timestamp.valueOf(ldt), rs.getTimestamp("c_Datetime"));
+        Assertions.assertEquals(ldt.toString(), rs.getString("c_Datetime"));
 
-        Assert.assertEquals(Long.valueOf(ldt.toEpochSecond(ZoneOffset.UTC)), rs.getObject("c_Datetime", Long.class));
-        Assert.assertEquals(ldt.toLocalDate(), rs.getObject("c_Datetime", LocalDate.class));
-        Assert.assertEquals(ldt, rs.getObject("c_Datetime", LocalDateTime.class));
-        Assert.assertEquals(ldt.atZone(ZoneId.systemDefault()).toInstant(), rs.getObject("c_Datetime", Instant.class));
+        Assertions.assertEquals(Long.valueOf(ldt.toEpochSecond(ZoneOffset.UTC)), rs.getObject("c_Datetime", Long.class));
+        Assertions.assertEquals(ldt.toLocalDate(), rs.getObject("c_Datetime", LocalDate.class));
+        Assertions.assertEquals(ldt, rs.getObject("c_Datetime", LocalDateTime.class));
+        Assertions.assertEquals(ldt.atZone(ZoneId.systemDefault()).toInstant(), rs.getObject("c_Datetime", Instant.class));
     }
 
     @ParameterizedTest(name = "with {0}")
@@ -842,29 +937,29 @@ public class YdbPreparedStatementTest {
                 assertNextDate(rs, 7, LocalDate.of(2011, Month.DECEMBER, 3));
                 assertNextDate(rs, 8, LocalDate.of(2020, Month.MARCH, 3));
 
-                Assert.assertFalse(rs.next());
+                Assertions.assertFalse(rs.next());
             }
         }
     };
 
     private void assertNextDate(ResultSet rs, int key, LocalDate ld) throws SQLException {
-        Assert.assertTrue(rs.next());
-        Assert.assertEquals(key, rs.getInt("key"));
+        Assertions.assertTrue(rs.next());
+        Assertions.assertEquals(key, rs.getInt("key"));
 
         Object obj = rs.getObject("c_Date");
-        Assert.assertTrue(obj instanceof LocalDate);
-        Assert.assertEquals(ld, obj);
+        Assertions.assertTrue(obj instanceof LocalDate);
+        Assertions.assertEquals(ld, obj);
 
-        Assert.assertEquals(ld.toEpochDay(), rs.getInt("c_Date"));
-        Assert.assertEquals(ld.toEpochDay(), rs.getLong("c_Date"));
+        Assertions.assertEquals(ld.toEpochDay(), rs.getInt("c_Date"));
+        Assertions.assertEquals(ld.toEpochDay(), rs.getLong("c_Date"));
 
-        Assert.assertEquals(Date.valueOf(ld), rs.getDate("c_Date"));
-        Assert.assertEquals(Timestamp.valueOf(ld.atStartOfDay()), rs.getTimestamp("c_Date"));
-        Assert.assertEquals(ld.toString(), rs.getString("c_Date"));
+        Assertions.assertEquals(Date.valueOf(ld), rs.getDate("c_Date"));
+        Assertions.assertEquals(Timestamp.valueOf(ld.atStartOfDay()), rs.getTimestamp("c_Date"));
+        Assertions.assertEquals(ld.toString(), rs.getString("c_Date"));
 
-        Assert.assertEquals(Long.valueOf(ld.toEpochDay()), rs.getObject("c_Date", Long.class));
-        Assert.assertEquals(ld, rs.getObject("c_Date", LocalDate.class));
-        Assert.assertEquals(ld.atStartOfDay(), rs.getObject("c_Date", LocalDateTime.class));
-        Assert.assertEquals(ld.atStartOfDay(ZoneId.systemDefault()).toInstant(), rs.getObject("c_Date", Instant.class));
+        Assertions.assertEquals(Long.valueOf(ld.toEpochDay()), rs.getObject("c_Date", Long.class));
+        Assertions.assertEquals(ld, rs.getObject("c_Date", LocalDate.class));
+        Assertions.assertEquals(ld.atStartOfDay(), rs.getObject("c_Date", LocalDateTime.class));
+        Assertions.assertEquals(ld.atStartOfDay(ZoneId.systemDefault()).toInstant(), rs.getObject("c_Date", Instant.class));
     }
 }
