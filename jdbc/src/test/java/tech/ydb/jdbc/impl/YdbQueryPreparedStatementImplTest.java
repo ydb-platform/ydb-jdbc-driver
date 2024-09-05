@@ -61,16 +61,16 @@ public class YdbQueryPreparedStatementImplTest {
 
     @BeforeAll
     public static void initTable() throws SQLException {
-        try (Statement statement = jdbc.connection().createStatement();) {
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(TEST_TABLE.createTableSQL())) {
             // create test table
-            statement.execute(TEST_TABLE.createTableSQL());
+            ps.execute();
         }
     }
 
     @AfterAll
     public static void dropTable() throws SQLException {
-        try (Statement statement = jdbc.connection().createStatement();) {
-            statement.execute(TEST_TABLE.dropTableSQL());
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(TEST_TABLE.dropTableSQL())) {
+            ps.execute();
         }
     }
 
@@ -80,8 +80,8 @@ public class YdbQueryPreparedStatementImplTest {
             return;
         }
 
-        try (Statement statement = jdbc.connection().createStatement()) {
-            statement.execute(TEST_TABLE.deleteAllSQL());
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(TEST_TABLE.deleteAllSQL())) {
+            ps.execute();
         }
 
         jdbc.connection().close();
@@ -92,11 +92,6 @@ public class YdbQueryPreparedStatementImplTest {
                 .replaceAll("#column", column)
                 .replaceAll("#type", type)
                 .replaceAll("#tableName", TEST_TABLE_NAME);
-    }
-
-    private YdbPreparedStatement prepareUpsert(YdbPrepareMode mode,String column, String type)
-            throws SQLException {
-        return jdbc.connection().unwrap(YdbConnection.class).prepareStatement(upsertSql(column, type), mode);
     }
 
     private PreparedStatement prepareSimpleSelect(String column) throws SQLException {
@@ -373,19 +368,6 @@ public class YdbQueryPreparedStatementImplTest {
             ExceptionAssert.ydbException("Scan query should have a single result set",
                     statement::executeScanQuery);
         }
-    }
-
-    @Test
-    public void executeUnsupportedModes() throws SQLException {
-        ExceptionAssert.sqlException("Query type in prepared statement not supported: SCHEME_QUERY", () -> {
-            String sql = "DROP TABLE test_table;";
-            jdbc.connection().prepareStatement(sql);
-        });
-
-        ExceptionAssert.sqlException("Query type in prepared statement not supported: EXPLAIN_QUERY", () -> {
-            String sql = "EXPLAIN " + prepareSelectAll();
-            jdbc.connection().prepareStatement(sql);
-        });
     }
 
     @ParameterizedTest(name = "with {0}")
