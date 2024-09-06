@@ -132,6 +132,12 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
             case SCAN_QUERY:
                 newState = executeScanQuery(query, prepared.getQueryText(prms), prms);
                 break;
+            case SCHEME_QUERY:
+                newState = executeSchemeQuery(query);
+                break;
+            case EXPLAIN_QUERY:
+                newState = executeExplainQuery(query);
+                break;
             default:
                 throw new IllegalStateException("Internal error. Unsupported query type " + query.getType());
         }

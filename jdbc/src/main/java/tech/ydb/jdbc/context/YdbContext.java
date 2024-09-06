@@ -26,6 +26,7 @@ import tech.ydb.core.settings.BaseRequestSettings;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.exception.ExceptionFactory;
+import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbPreparedQuery;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.query.params.BatchedQuery;
@@ -343,6 +344,10 @@ public class YdbContext implements AutoCloseable {
             if (QueryStat.isPrint(query.getOriginQuery()) || QueryStat.isReset(query.getOriginQuery())) {
                 return new InMemoryQuery(query, queryOptions.isDeclareJdbcParameters());
             }
+        }
+
+        if (query.getType() == QueryType.EXPLAIN_QUERY || query.getType() == QueryType.SCHEME_QUERY) {
+            return new InMemoryQuery(query, queryOptions.isDeclareJdbcParameters());
         }
 
         if (query.getYqlBatcher() != null && mode == YdbPrepareMode.AUTO) {
