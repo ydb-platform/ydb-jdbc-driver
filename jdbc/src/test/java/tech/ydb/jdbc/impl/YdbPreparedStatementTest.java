@@ -1,5 +1,6 @@
 package tech.ydb.jdbc.impl;
 
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -7,7 +8,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
-import java.sql.Types;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -272,7 +272,7 @@ public class YdbPreparedStatementTest {
         statement.setTimestamp(20, timestamp); // c_Timestamp
         statement.setObject(21, duration);     // c_Interval
 
-        statement.setNull(22, Types.DECIMAL); // c_Decimal
+        statement.setBigDecimal(22, BigDecimal.valueOf(10000 + id, 3)); // c_Decimal
     }
 
     private void assertRowValues(ResultSet rs, int id) throws SQLException {
@@ -312,8 +312,7 @@ public class YdbPreparedStatementTest {
         Assertions.assertEquals(timestamp, rs.getTimestamp("c_Timestamp"));
         Assertions.assertEquals(Duration.ofMinutes(id), rs.getObject("c_Interval"));
 
-        Assertions.assertNull(rs.getString("c_Decimal"));
-        Assertions.assertTrue(rs.wasNull());
+        Assertions.assertEquals(BigDecimal.valueOf(1000000l * (10000 + id), 9), rs.getBigDecimal("c_Decimal"));
     }
 
     private void assertStructMember(PrimitiveValue value, StructValue sv, String name) {
