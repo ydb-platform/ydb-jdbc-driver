@@ -44,10 +44,12 @@ public class SqlQueries {
     private static final String SELECT_COLUMN = "select key, #column from #tableName";
     private static final String WRONG_SELECT = "select key2 from #tableName";
 
-    private static final Map<JdbcQuery, String> JDBC_UPSERT_ONE = ImmutableMap.of(JdbcQuery.STANDARD, "" +
+    private static final Map<JdbcQuery, String> JDBC_UPSERT_ONE = ImmutableMap.of(
+            JdbcQuery.STANDARD, "" +
                     "upsert into #tableName (key, #column) values (?, ?)",
 
             JdbcQuery.IN_MEMORY, "" +
+                    "$ignored = select 1;\n" +
                     "upsert into #tableName (key, #column) values (?, ?); select 1;",
 
             JdbcQuery.TYPED, "" +

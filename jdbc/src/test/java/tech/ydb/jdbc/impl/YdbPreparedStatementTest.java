@@ -219,7 +219,11 @@ public class YdbPreparedStatementTest {
         }
     };
 
-    private void fillRowValues(PreparedStatement statement, int id) throws SQLException {
+    private int ydbType(PrimitiveType type) {
+        return YdbConst.SQL_KIND_PRIMITIVE + type.ordinal();
+    }
+
+    private void fillRowValues(PreparedStatement statement, int id, boolean castingSupported) throws SQLException {
         statement.setInt(1, id);                // id
 
         statement.setBoolean(2, id % 2 == 0);   // c_Bool
@@ -229,19 +233,33 @@ public class YdbPreparedStatementTest {
         statement.setInt(5, id + 3);            // c_Int32
         statement.setLong(6, id + 4);           // c_Int64
 
-        statement.setByte(7, (byte)(id + 5));   // c_Uint8
-        statement.setShort(8, (short)(id + 6)); // c_Uint16
-        statement.setInt(9, id + 7);            // c_Uint32
-        statement.setLong(10, id + 8);          // c_Uint64
+        if (castingSupported) {
+            statement.setByte(7, (byte)(id + 5));   // c_Uint8
+            statement.setShort(8, (short)(id + 6)); // c_Uint16
+            statement.setInt(9, id + 7);            // c_Uint32
+            statement.setLong(10, id + 8);          // c_Uint64
+        } else {
+            statement.setObject(7, id + 5, ydbType(PrimitiveType.Uint8));   // c_Uint8
+            statement.setObject(8, id + 6, ydbType(PrimitiveType.Uint16));  // c_Uint16
+            statement.setObject(9, id + 7, ydbType(PrimitiveType.Uint32));  // c_Uint32
+            statement.setObject(10, id + 8, ydbType(PrimitiveType.Uint64)); // c_Uint64
+        }
 
         statement.setFloat(11, 1.5f * id);      // c_Float
         statement.setDouble(12, 2.5d * id);     // c_Double
 
         statement.setBytes(13, new byte[] { (byte)id });      // c_Bytes
         statement.setString(14, "Text_" + id);                // c_Text
-        statement.setString(15, "{\"json\": " + id + "}");    // c_Json
-        statement.setString(16, "{\"jsonDoc\": " + id + "}"); // c_JsonDocument
-        statement.setString(17, "{yson=" + id + "}");         // c_Yson
+
+        if (castingSupported) {
+            statement.setString(15, "{\"json\": " + id + "}");    // c_Json
+            statement.setString(16, "{\"jsonDoc\": " + id + "}"); // c_JsonDocument
+            statement.setString(17, "{yson=" + id + "}");         // c_Yson
+        } else {
+            statement.setObject(15, "{\"json\": " + id + "}",    ydbType(PrimitiveType.Json));         // c_Json
+            statement.setObject(16, "{\"jsonDoc\": " + id + "}", ydbType(PrimitiveType.JsonDocument)); // c_JsonDocument
+            statement.setObject(17, "{yson=" + id + "}",         ydbType(PrimitiveType.Yson));         // c_Yson
+        }
 
 
         Date sqlDate = new Date(TEST_TS.toEpochMilli());
@@ -371,29 +389,30 @@ public class YdbPreparedStatementTest {
     @EnumSource(SqlQueries.JdbcQuery.class)
     public void batchUpsertAllTest(SqlQueries.JdbcQuery query) throws SQLException {
         String upsert = TEST_TABLE.upsertAll(query);
+        boolean castingSupported = query != SqlQueries.JdbcQuery.IN_MEMORY;
 
         try (PreparedStatement statement = jdbc.connection().prepareStatement(upsert)) {
             // ----- base usage -----
-            fillRowValues(statement, 1);
+            fillRowValues(statement, 1, castingSupported);
             statement.addBatch();
 
-            fillRowValues(statement, 2);
+            fillRowValues(statement, 2, castingSupported);
             statement.addBatch();
 
             statement.executeBatch();
 
             // ----- executeBatch without addBatch -----
-            fillRowValues(statement, 3);
+            fillRowValues(statement, 3, castingSupported);
             statement.addBatch();
 
-            fillRowValues(statement, 4);
+            fillRowValues(statement, 4, castingSupported);
             statement.executeBatch();
 
             // ----- execute instead of executeBatch -----
-            fillRowValues(statement, 5);
+            fillRowValues(statement, 5, castingSupported);
             statement.addBatch();
 
-            fillRowValues(statement, 6);
+            fillRowValues(statement, 6, castingSupported);
             statement.execute();
         }
 
@@ -415,9 +434,9 @@ public class YdbPreparedStatementTest {
         String selectTableRow = TEST_TABLE.withTableName("select TableRow() from #tableName");
 
         try (PreparedStatement statement = jdbc.connection().prepareStatement(upsert)) {
-            fillRowValues(statement, 1);
+            fillRowValues(statement, 1, true);
             statement.addBatch();
-            fillRowValues(statement, 2);
+            fillRowValues(statement, 2, true);
             statement.addBatch();
             statement.executeBatch();
         }
