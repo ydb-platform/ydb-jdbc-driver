@@ -33,6 +33,7 @@ import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.SqlQueries;
 import tech.ydb.jdbc.impl.helper.TextSelectAssert;
+import tech.ydb.table.values.DecimalType;
 import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.table.values.PrimitiveValue;
 import tech.ydb.table.values.StructValue;
@@ -315,7 +316,7 @@ public class YdbPreparedStatementTest {
         Assertions.assertEquals(BigDecimal.valueOf(1000000l * (10000 + id), 9), rs.getBigDecimal("c_Decimal"));
     }
 
-    private void assertStructMember(PrimitiveValue value, StructValue sv, String name) {
+    private void assertStructMember(Value<?> value, StructValue sv, String name) {
         int index = sv.getType().getMemberIndex(name);
         Assertions.assertTrue(index >= 0);
         Value<?> member = sv.getMemberValue(index);
@@ -325,11 +326,12 @@ public class YdbPreparedStatementTest {
                 if (value == null) {
                     Assertions.assertFalse(member.asOptional().isPresent());
                 } else {
-                    Assertions.assertEquals(value, (PrimitiveValue) member.asOptional().get());
+                    Assertions.assertTrue(value.equals(member.asOptional().get()));
                 }
                 break;
             case PRIMITIVE:
-                Assertions.assertEquals(value, member.asData());
+            case DECIMAL:
+                Assertions.assertTrue(value.equals(member.asOptional().get()));
                 break;
             default:
                 throw new AssertionError("Unsupported type " + member.getType());
@@ -381,7 +383,7 @@ public class YdbPreparedStatementTest {
         assertStructMember(PrimitiveValue.newTimestamp(truncToMicros(TEST_TS.plusSeconds(id))), sv, "c_Timestamp");
         assertStructMember(PrimitiveValue.newInterval(Duration.ofMinutes(id)), sv, "c_Interval");
 
-        assertStructMember(null, sv, "c_Decimal");
+        assertStructMember(DecimalType.getDefault().newValue(BigDecimal.valueOf(10000 + id, 3)), sv, "c_Decimal");
     }
 
     @ParameterizedTest(name = "with {0}")
