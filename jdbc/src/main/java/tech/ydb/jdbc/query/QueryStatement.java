@@ -15,13 +15,17 @@ public class QueryStatement {
     private final List<ParamDescription> parameters = new ArrayList<>();
     private boolean hasReturinng = false;
 
-    public QueryStatement(QueryType type, QueryCmd command) {
-        this.queryType = type;
+    public QueryStatement(QueryType custom, QueryType baseType, QueryCmd command) {
+        this.queryType = custom != null ? custom : baseType;
         this.command = command;
     }
 
     public QueryType getType() {
         return queryType;
+    }
+
+    public QueryCmd getCmd() {
+        return command;
     }
 
     public List<ParamDescription> getParams() {

@@ -60,7 +60,8 @@ public class YdbQueryParser {
         int fragmentStart = 0;
         boolean detectJdbcArgs = false;
 
-        QueryStatement currStatement = null;
+        QueryStatement statement = null;
+        QueryType type = null;
 
         int parenLevel = 0;
         int keywordStart = -1;
@@ -102,7 +103,7 @@ public class YdbQueryParser {
                     i = parseBlockComment(chars, i);
                     break;
                 case '?':
-                    if (detectJdbcArgs && currStatement != null) {
+                    if (detectJdbcArgs && statement != null) {
                         parsed.append(chars, fragmentStart, i - fragmentStart);
                         if (i + 1 < chars.length && chars[i + 1] == '?') /* replace ?? with ? */ {
                             parsed.append('?');
@@ -111,10 +112,10 @@ public class YdbQueryParser {
                         } else {
                             String binded = argNameGenerator.createArgName(origin);
                             // force type UInt64 for OFFSET and LIMIT parameters
-                            TypeDescription type = lastKeywordIsOffsetLimit
+                            TypeDescription forcedType = lastKeywordIsOffsetLimit
                                     ? TypeDescription.of(PrimitiveType.Uint64)
                                     : null;
-                            currStatement.addParameter(binded, type);
+                            statement.addParameter(binded, forcedType);
                             parsed.append(binded);
 
                             batcher.readParameter();
@@ -139,74 +140,87 @@ public class YdbQueryParser {
                 lastKeywordIsOffsetLimit = false;
                 int keywordLength = (isInsideKeyword ? i + 1 : keywordEnd) - keywordStart;
 
-                if (currStatement != null) {
+                if (statement != null) {
                     batcher.readIdentifier(chars, keywordStart, keywordLength);
 
                     // Detect RETURNING keyword
                     if (parenLevel == 0 && parseReturningKeyword(chars, keywordStart)) {
-                        currStatement.setHasReturning(true);
+                        statement.setHasReturning(true);
                     }
 
                     if (parseOffsetKeyword(chars, keywordStart) || parseLimitKeyword(chars, keywordStart)) {
                         lastKeywordIsOffsetLimit = true;
                     }
                 } else {
-                    // Detecting type of statement by the first keyword
-                    currStatement = new QueryStatement(QueryType.UNKNOWN, QueryCmd.UNKNOWN);
-                    // Detect data query expression - starts with SELECT, , UPSERT, DELETE, REPLACE
-                    // starts with SELECT
-                    if (parseSelectKeyword(chars, keywordStart)) {
-                        currStatement = new QueryStatement(QueryType.DATA_QUERY, QueryCmd.SELECT);
-                        batcher.readIdentifier(chars, keywordStart, keywordLength);
-                    }
-
-                    // starts with INSERT, UPSERT
-                    if (parseInsertKeyword(chars, keywordStart)) {
-                        currStatement = new QueryStatement(QueryType.DATA_QUERY, QueryCmd.INSERT_UPSERT);
-                        batcher.readInsert();
-                    }
-                    if (parseUpsertKeyword(chars, keywordStart)) {
-                        currStatement = new QueryStatement(QueryType.DATA_QUERY, QueryCmd.INSERT_UPSERT);
-                        batcher.readUpsert();
-                    }
-
-                    // starts with UPDATE, REPLACE, DELETE
-                    if (parseUpdateKeyword(chars, keywordStart)
-                            || parseDeleteKeyword(chars, keywordStart)
-                            || parseReplaceKeyword(chars, keywordStart)) {
-                        currStatement = new QueryStatement(QueryType.DATA_QUERY, QueryCmd.UPDATE_REPLACE_DELETE);
-                        batcher.readIdentifier(chars, keywordStart, keywordLength);
-                    }
-
-                    // Detect scheme expression - starts with ALTER, DROP, CREATE
-                    if (parseAlterKeyword(chars, keywordStart)
-                            || parseCreateKeyword(chars, keywordStart)
-                            || parseDropKeyword(chars, keywordStart)) {
-                        currStatement = new QueryStatement(QueryType.SCHEME_QUERY, QueryCmd.CREATE_ALTER_DROP);
-                        batcher.readIdentifier(chars, keywordStart, keywordLength);
-                    }
-
+                    boolean skipped = false;
                     if (isDetectQueryType) {
                         // Detect scan expression - starts with SCAN
                         if (parseScanKeyword(chars, keywordStart)) {
-                            currStatement = new QueryStatement(QueryType.SCAN_QUERY, QueryCmd.SELECT);
+                            type = QueryType.SCAN_QUERY;
                             // Skip SCAN prefix
                             parsed.append(chars, fragmentStart, keywordStart - fragmentStart);
                             fragmentStart = isInsideKeyword ? keywordEnd + 1 : keywordEnd;
+                            skipped = true;
                         }
                         // Detect explain expression - starts with EXPLAIN
                         if (parseExplainKeyword(chars, keywordStart)) {
-                            currStatement = new QueryStatement(QueryType.EXPLAIN_QUERY, QueryCmd.SELECT);
+                            type = QueryType.EXPLAIN_QUERY;
                             // Skip EXPLAIN prefix
                             parsed.append(chars, fragmentStart, keywordStart - fragmentStart);
                             fragmentStart = isInsideKeyword ? keywordEnd + 1 : keywordEnd;
+                            skipped = true;
+                        }
+                        // Detect bulk upsert expression - starts with BULK
+                        if (parseBulkKeyword(chars, keywordStart)) {
+                            type = QueryType.BULK_QUERY;
+                            // Skip BULK prefix
+                            parsed.append(chars, fragmentStart, keywordStart - fragmentStart);
+                            fragmentStart = isInsideKeyword ? keywordEnd + 1 : keywordEnd;
+                            skipped = true;
                         }
                     }
 
-                    statements.add(currStatement);
-                    detectJdbcArgs = currStatement.getType() != QueryType.SCHEME_QUERY
-                            && currStatement.getType() != QueryType.UNKNOWN
-                            && isDetectJdbcParameters;
+                    if (!skipped) {
+                        // Detecting type of statement by the first keyword
+                        statement = new QueryStatement(type, QueryType.UNKNOWN, QueryCmd.UNKNOWN);
+                        // Detect data query expression - starts with SELECT, , UPSERT, DELETE, REPLACE
+                        // starts with SELECT
+                        if (parseSelectKeyword(chars, keywordStart)) {
+                            statement = new QueryStatement(type, QueryType.DATA_QUERY, QueryCmd.SELECT);
+                            batcher.readIdentifier(chars, keywordStart, keywordLength);
+                        }
+
+                        // starts with INSERT, UPSERT
+                        if (parseInsertKeyword(chars, keywordStart)) {
+                            statement = new QueryStatement(type, QueryType.DATA_QUERY, QueryCmd.INSERT_UPSERT);
+                            batcher.readInsert();
+                        }
+                        if (parseUpsertKeyword(chars, keywordStart)) {
+                            statement = new QueryStatement(type, QueryType.DATA_QUERY, QueryCmd.INSERT_UPSERT);
+                            batcher.readUpsert();
+                        }
+
+                        // starts with UPDATE, REPLACE, DELETE
+                        if (parseUpdateKeyword(chars, keywordStart)
+                                || parseDeleteKeyword(chars, keywordStart)
+                                || parseReplaceKeyword(chars, keywordStart)) {
+                            statement = new QueryStatement(type, QueryType.DATA_QUERY, QueryCmd.UPDATE_REPLACE_DELETE);
+                            batcher.readIdentifier(chars, keywordStart, keywordLength);
+                        }
+
+                        // Detect scheme expression - starts with ALTER, DROP, CREATE
+                        if (parseAlterKeyword(chars, keywordStart)
+                                || parseCreateKeyword(chars, keywordStart)
+                                || parseDropKeyword(chars, keywordStart)) {
+                            statement = new QueryStatement(type, QueryType.SCHEME_QUERY, QueryCmd.CREATE_ALTER_DROP);
+                            batcher.readIdentifier(chars, keywordStart, keywordLength);
+                        }
+
+                        statements.add(statement);
+                        detectJdbcArgs = statement.getType() != QueryType.SCHEME_QUERY
+                                && statement.getType() != QueryType.UNKNOWN
+                                && isDetectJdbcParameters;
+                    }
                 }
 
                 keywordStart = -1;
@@ -227,7 +241,8 @@ public class YdbQueryParser {
                 case ';':
                     batcher.readSemiColon();
                     if (parenLevel == 0) {
-                        currStatement = null;
+                        statement = null;
+                        type = null;
                         detectJdbcArgs = false;
                     }
                     break;
@@ -379,6 +394,17 @@ public class YdbQueryParser {
                 && (query[offset + 1] | 32) == 'c'
                 && (query[offset + 2] | 32) == 'a'
                 && (query[offset + 3] | 32) == 'n';
+    }
+
+    private static boolean parseBulkKeyword(char[] query, int offset) {
+        if (query.length < (offset + 4)) {
+            return false;
+        }
+
+        return (query[offset] | 32) == 'b'
+                && (query[offset + 1] | 32) == 'u'
+                && (query[offset + 2] | 32) == 'l'
+                && (query[offset + 3] | 32) == 'k';
     }
 
     private static boolean parseExplainKeyword(char[] query, int offset) {

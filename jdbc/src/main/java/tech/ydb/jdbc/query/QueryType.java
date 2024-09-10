@@ -11,5 +11,8 @@ public enum QueryType {
     SCAN_QUERY,
 
     // EXPLAIN
-    EXPLAIN_QUERY;
+    EXPLAIN_QUERY,
+
+    // BULK UPSERT
+    BULK_QUERY,
 }
