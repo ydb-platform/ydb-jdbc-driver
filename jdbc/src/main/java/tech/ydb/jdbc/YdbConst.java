@@ -65,8 +65,7 @@ public final class YdbConst {
     public static final String PARAMETER_NOT_FOUND = "Parameter not found: ";
     public static final String PARAMETER_TYPE_UNKNOWN = "Unable to convert sqlType %s to YDB type for parameter: %s";
     public static final String INVALID_ROW = "Current row index is out of bounds: ";
-    public static final String BATCH_UNSUPPORTED = "Batches are not supported in simple prepared statements";
-    public static final String BATCH_INVALID = "Batches are not supported for query type: ";
+    public static final String BULKS_UNSUPPORTED = "Bulk upserts are supported only in prepared statements";
     public static final String METADATA_RS_UNSUPPORTED_IN_PS = "ResultSet metadata is not supported " +
             "in prepared statements";
     public static final String CANNOT_UNWRAP_TO = "Cannot unwrap to ";
@@ -92,6 +91,8 @@ public final class YdbConst {
             + "transaction. This behavior may be changed by property scanQueryTxMode";
     public static final String SCHEME_QUERY_INSIDE_TRANSACTION = "Scheme query cannot be executed inside active "
             + "transaction. This behavior may be changed by property schemeQueryTxMode";
+    public static final String BULK_QUERY_INSIDE_TRANSACTION = "Bulk upsert query cannot be executed inside active "
+            + "transaction. This behavior may be changed by property bulkUpsertQueryTxMode";
 
     // Cast errors
 

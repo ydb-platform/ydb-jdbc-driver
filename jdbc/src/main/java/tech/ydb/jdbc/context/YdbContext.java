@@ -144,6 +144,10 @@ public class YdbContext implements AutoCloseable {
         return queryClient;
     }
 
+    public SessionRetryContext getRetryCtx() {
+        return retryCtx;
+    }
+
     public String getUrl() {
         return config.getUrl();
     }

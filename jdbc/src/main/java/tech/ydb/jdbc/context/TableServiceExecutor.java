@@ -7,11 +7,15 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
+import tech.ydb.core.Result;
+import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.exception.ExceptionFactory;
 import tech.ydb.jdbc.query.ExplainedQuery;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.Session;
+import tech.ydb.table.TableClient;
 import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.query.Params;
@@ -28,10 +32,14 @@ import tech.ydb.table.transaction.TxControl;
  * @author Aleksandr Gorshenin
  */
 public class TableServiceExecutor extends BaseYdbExecutor {
+    private final Duration sessionTimeout;
+    private final TableClient tableClient;
     private volatile TxState tx;
 
     public TableServiceExecutor(YdbContext ctx, int transactionLevel, boolean autoCommit) throws SQLException {
         super(ctx);
+        this.sessionTimeout = ctx.getOperationProperties().getSessionTimeout();
+        this.tableClient = ctx.getTableClient();
         this.tx = createTx(transactionLevel, autoCommit);
     }
 
@@ -45,6 +53,16 @@ public class TableServiceExecutor extends BaseYdbExecutor {
             return;
         }
         this.tx = newTx;
+    }
+
+    protected Session createNewTableSession(YdbValidator validator) throws SQLException {
+        try {
+            Result<Session> session = tableClient.createSession(sessionTimeout).join();
+            validator.addStatusIssues(session.getStatus());
+            return session.getValue();
+        } catch (UnexpectedResultException ex) {
+            throw ExceptionFactory.createException("Cannot create session with " + ex.getStatus(), ex);
+        }
     }
 
     @Override
