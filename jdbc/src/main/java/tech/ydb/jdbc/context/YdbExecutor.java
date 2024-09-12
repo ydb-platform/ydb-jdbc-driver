@@ -36,7 +36,7 @@ public interface YdbExecutor {
 
     void executeSchemeQuery(YdbContext ctx, YdbValidator validator, String yql) throws SQLException;
 
-    void executeBulkUpsert(YdbContext ctx, YdbValidator validator, String tablePath, ListValue rows)
+    void executeBulkUpsert(YdbContext ctx, YdbValidator validator, String yql, String tablePath, ListValue rows)
             throws SQLException;
 
     List<ResultSetReader> executeDataQuery(YdbContext ctx, YdbValidator validator, YdbQuery query, String yql,

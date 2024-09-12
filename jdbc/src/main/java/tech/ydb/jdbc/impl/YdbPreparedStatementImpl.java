@@ -32,8 +32,10 @@ import tech.ydb.jdbc.YdbParameterMetaData;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.common.MappingSetters;
+import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbPreparedQuery;
 import tech.ydb.jdbc.query.YdbQuery;
+import tech.ydb.jdbc.query.params.BulkUpsertQuery;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Type;
 
@@ -90,8 +92,14 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
         }
 
         try {
-            for (Params prm: prepared.getBatchParams()) {
-                executeDataQuery(query, prepared.getQueryText(prm), prm);
+            if (query.getType() == QueryType.BULK_QUERY && (prepared instanceof BulkUpsertQuery)) {
+                BulkUpsertQuery bulk = (BulkUpsertQuery) prepared;
+                String yql = bulk.getQueryText(null);
+                executeBulkUpsert(query, yql, bulk.getTablePath(), bulk.getBatchedBulk());
+            } else {
+                for (Params prm: prepared.getBatchParams()) {
+                    executeDataQuery(query, prepared.getQueryText(prm), prm);
+                }
             }
         } finally {
             clearBatch();
@@ -137,6 +145,17 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
                 break;
             case EXPLAIN_QUERY:
                 newState = executeExplainQuery(query);
+                break;
+            case BULK_QUERY:
+                if (prepared instanceof BulkUpsertQuery) {
+                    BulkUpsertQuery bulk = (BulkUpsertQuery) prepared;
+                    String yql = bulk.getQueryText(null);
+                    newState = executeBulkUpsert(query, yql, bulk.getTablePath(), bulk.getCurrentBulk());
+                } else {
+                    throw new IllegalStateException(
+                            "Internal error. Incorrect class of bulk prepared query " + prepared.getClass()
+                    );
+                }
                 break;
             default:
                 throw new IllegalStateException("Internal error. Unsupported query type " + query.getType());

@@ -38,10 +38,10 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
     }
 
     @Override
-    public void executeBulkUpsert(YdbContext ctx, YdbValidator validator, String tablePath, ListValue rows)
+    public void executeBulkUpsert(YdbContext ctx, YdbValidator validator, String yql, String tablePath, ListValue rows)
             throws SQLException {
         ensureOpened();
-        validator.execute(QueryType.BULK_QUERY + " >>\n" + tablePath,
+        validator.execute(QueryType.BULK_QUERY + " >>\n" + yql,
                 () -> retryCtx.supplyStatus(session -> session.executeBulkUpsert(tablePath, rows))
         );
     }

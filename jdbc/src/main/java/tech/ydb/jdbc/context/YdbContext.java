@@ -30,6 +30,7 @@ import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbPreparedQuery;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.query.params.BatchedQuery;
+import tech.ydb.jdbc.query.params.BulkUpsertQuery;
 import tech.ydb.jdbc.query.params.InMemoryQuery;
 import tech.ydb.jdbc.query.params.PreparedQuery;
 import tech.ydb.jdbc.settings.YdbClientProperties;
@@ -350,16 +351,23 @@ public class YdbContext implements AutoCloseable {
             }
         }
 
-        if (query.getType() == QueryType.EXPLAIN_QUERY || query.getType() == QueryType.SCHEME_QUERY) {
+        QueryType type = query.getType();
+
+        if (type == QueryType.BULK_QUERY) {
+            if (query.getYqlBatcher() == null || query.getYqlBatcher().isInsert()) {
+                throw new SQLException(YdbConst.BULKS_UNSUPPORTED);
+            }
+        }
+
+        if (type == QueryType.EXPLAIN_QUERY || type == QueryType.SCHEME_QUERY) {
             return new InMemoryQuery(query, queryOptions.isDeclareJdbcParameters());
         }
 
-        if (query.getYqlBatcher() != null && mode == YdbPrepareMode.AUTO) {
+        if (query.getYqlBatcher() != null && (mode == YdbPrepareMode.AUTO || type == QueryType.BULK_QUERY)) {
+            String tableName = query.getYqlBatcher().getTableName();
+            String tablePath = tableName.startsWith("/") ? tableName : getDatabase() + "/" + tableName;
             Map<String, Type> types = queryParamsCache.getIfPresent(query.getOriginQuery());
             if (types == null) {
-                String tableName = query.getYqlBatcher().getTableName();
-                String tablePath = tableName.startsWith("/") ? tableName : getDatabase() + "/" + tableName;
-
                 DescribeTableSettings settings = withDefaultTimeout(new DescribeTableSettings());
                 Result<TableDescription> result = retryCtx.supplyResult(
                         session -> session.describeTable(tablePath, settings)
@@ -370,8 +378,16 @@ public class YdbContext implements AutoCloseable {
                     types = descrtiption.getColumns().stream()
                             .collect(Collectors.toMap(TableColumn::getName, TableColumn::getType));
                     queryParamsCache.put(query.getOriginQuery(), types);
+                } else {
+                    if (type == QueryType.BULK_QUERY) {
+                        throw new SQLException(YdbConst.BULKS_DESCRIBE_ERROR + result.getStatus());
+                    }
                 }
             }
+            if (type == QueryType.BULK_QUERY) {
+                return BulkUpsertQuery.build(tablePath, query.getYqlBatcher().getColumns(), types);
+            }
+
             if (types != null) {
                 BatchedQuery params = BatchedQuery.createAutoBatched(query.getYqlBatcher(), types);
                 if (params != null) {

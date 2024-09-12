@@ -16,6 +16,7 @@ public class SqlQueries {
         IN_MEMORY,
         TYPED,
         BATCHED,
+        BULK,
     }
 
     public enum YqlQuery {
@@ -33,6 +34,7 @@ public class SqlQueries {
     private static final String IN_MEMORY_UPSERT = YdbLookup.stringFileReference("classpath:sql/upsert/in_memory.sql");
     private static final String NAMED_UPSERT = YdbLookup.stringFileReference("classpath:sql/upsert/named.sql");
     private static final String TYPED_UPSERT = YdbLookup.stringFileReference("classpath:sql/upsert/typed.sql");
+    private static final String BULK_UPSERT = YdbLookup.stringFileReference("classpath:sql/upsert/bulk.sql");
 
     private static final String NAMED_BATCH = YdbLookup.stringFileReference("classpath:sql/upsert/named_batch.sql");
     private static final String TYPED_BATCH = YdbLookup.stringFileReference("classpath:sql/upsert/typed_batch.sql");
@@ -47,6 +49,9 @@ public class SqlQueries {
     private static final Map<JdbcQuery, String> JDBC_UPSERT_ONE = ImmutableMap.of(
             JdbcQuery.STANDARD, "" +
                     "upsert into #tableName (key, #column) values (?, ?)",
+
+            JdbcQuery.BULK, "" +
+                    "bulk upsert into #tableName (key, #column) values (?, ?)",
 
             JdbcQuery.IN_MEMORY, "" +
                     "$ignored = select 1;\n" +
@@ -153,6 +158,8 @@ public class SqlQueries {
                 return withTableName(TYPED_BATCH, tableName);
             case TYPED:
                 return withTableName(TYPED_UPSERT, tableName);
+            case BULK:
+                return withTableName(BULK_UPSERT, tableName);
             case STANDARD:
             default:
                 return withTableName(SIMPLE_UPSERT, tableName);

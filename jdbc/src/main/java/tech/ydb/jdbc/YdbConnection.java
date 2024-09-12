@@ -38,12 +38,14 @@ public interface YdbConnection extends Connection {
     /**
      * Explicitly execute bulk upsert to the table
      *
+     * @param yql description of request
      * @param tablePath path to table
      * @param validator handler for logging and warnings
      * @param rows bulk rows
      * @throws SQLException if query cannot be executed
      */
-    void executeBulkUpsertQuery(String tablePath, YdbValidator validator, ListValue rows) throws SQLException;
+    void executeBulkUpsertQuery(String yql, String tablePath, YdbValidator validator, ListValue rows)
+            throws SQLException;
 
     /**
      * Explicitly execute query as a data query

@@ -13,6 +13,6 @@ public enum QueryType {
     // EXPLAIN
     EXPLAIN_QUERY,
 
-    // BULK UPSERT
-    BULK_QUERY,
+    // BULK
+    BULK_QUERY;
 }

@@ -25,6 +25,7 @@ import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
+import tech.ydb.table.values.ListValue;
 
 /**
  *
@@ -165,6 +166,18 @@ public abstract class BaseYdbStatement implements YdbStatement {
     protected boolean updateState(List<YdbResult> results) {
         state = results == null ? EMPTY_STATE : new ResultState(results);
         return state.hasResultSets();
+    }
+
+    protected List<YdbResult> executeBulkUpsert(YdbQuery query, String yql, String tablePath, ListValue rows)
+            throws SQLException {
+        connection.executeBulkUpsertQuery(yql, tablePath, validator, rows);
+
+        int expressionsCount = query.getStatements().isEmpty() ? 1 : query.getStatements().size();
+        List<YdbResult> results = new ArrayList<>();
+        for (int i = 0; i < expressionsCount; i++) {
+            results.add(HAS_UPDATED);
+        }
+        return results;
     }
 
     protected List<YdbResult> executeSchemeQuery(YdbQuery query) throws SQLException {

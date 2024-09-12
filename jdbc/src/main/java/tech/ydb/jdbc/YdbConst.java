@@ -65,7 +65,9 @@ public final class YdbConst {
     public static final String PARAMETER_NOT_FOUND = "Parameter not found: ";
     public static final String PARAMETER_TYPE_UNKNOWN = "Unable to convert sqlType %s to YDB type for parameter: %s";
     public static final String INVALID_ROW = "Current row index is out of bounds: ";
-    public static final String BULKS_UNSUPPORTED = "Bulk upserts are supported only in prepared statements";
+    public static final String BULKS_UNSUPPORTED = "BULK mode is available only for prepared statement with one UPSERT";
+    public static final String INVALID_BATCH_COLUMN = "Cannot prepared batch request: cannot find a column";
+    public static final String BULKS_DESCRIBE_ERROR = "Cannot parse BULK upsert: ";
     public static final String METADATA_RS_UNSUPPORTED_IN_PS = "ResultSet metadata is not supported " +
             "in prepared statements";
     public static final String CANNOT_UNWRAP_TO = "Cannot unwrap to ";

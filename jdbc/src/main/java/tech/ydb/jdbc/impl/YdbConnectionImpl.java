@@ -235,7 +235,8 @@ public class YdbConnectionImpl implements YdbConnection {
     }
 
     @Override
-    public void executeBulkUpsertQuery(String tablePath, YdbValidator validator, ListValue rows) throws SQLException {
+    public void executeBulkUpsertQuery(String yql, String tablePath, YdbValidator validator, ListValue rows)
+            throws SQLException {
         executor.ensureOpened();
 
         if (executor.isInsideTransaction()) {
@@ -251,7 +252,7 @@ public class YdbConnectionImpl implements YdbConnection {
             }
         }
 
-        executor.executeBulkUpsert(ctx, validator, tablePath, rows);
+        executor.executeBulkUpsert(ctx, validator, yql, tablePath, rows);
     }
 
     @Override
