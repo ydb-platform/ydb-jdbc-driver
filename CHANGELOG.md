@@ -1,3 +1,8 @@
+## 2.2.4 ##
+
+* Added support of BulkUpsert
+* Upgraded to YDB Java SDK v2.3.0
+
 ## 2.2.3 ##
 
 * Added custom sql types for usage of native YDB types
