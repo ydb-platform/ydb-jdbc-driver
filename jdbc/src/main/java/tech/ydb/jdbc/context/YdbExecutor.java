@@ -8,6 +8,7 @@ import tech.ydb.jdbc.query.ExplainedQuery;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
+import tech.ydb.table.values.ListValue;
 
 /**
  *
@@ -34,6 +35,9 @@ public interface YdbExecutor {
     void setAutoCommit(boolean autoCommit) throws SQLException;
 
     void executeSchemeQuery(YdbContext ctx, YdbValidator validator, String yql) throws SQLException;
+
+    void executeBulkUpsert(YdbContext ctx, YdbValidator validator, String yql, String tablePath, ListValue rows)
+            throws SQLException;
 
     List<ResultSetReader> executeDataQuery(YdbContext ctx, YdbValidator validator, YdbQuery query, String yql,
             long timeout, boolean poolable, Params params) throws SQLException;

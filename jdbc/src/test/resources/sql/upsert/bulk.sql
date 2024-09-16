@@ -1,5 +1,4 @@
-$ignored = select 1;
-UPSERT INTO #tableName (
+BULK UPSERT INTO #tableName (
     key,
 
     c_Bool,

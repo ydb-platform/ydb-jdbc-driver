@@ -241,6 +241,12 @@ public class MappingSetters {
     private static byte castAsByte(PrimitiveType type, Object x) throws SQLException {
         if (x instanceof Byte) {
             return (Byte) x;
+        } else if (x instanceof Short) {
+            return ((Short) x).byteValue();
+        } else if (x instanceof Integer) {
+            return ((Integer) x).byteValue();
+        } else if (x instanceof Long) {
+            return ((Long) x).byteValue();
         } else if (x instanceof Boolean) {
             return (byte) (((Boolean) x) ? 1 : 0);
         }
@@ -252,6 +258,10 @@ public class MappingSetters {
             return (Short) x;
         } else if (x instanceof Byte) {
             return (Byte) x;
+        } else if (x instanceof Integer) {
+            return ((Integer) x).shortValue();
+        } else if (x instanceof Long) {
+            return ((Long) x).shortValue();
         } else if (x instanceof Boolean) {
             return (short) (((Boolean) x) ? 1 : 0);
         }

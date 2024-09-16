@@ -12,6 +12,7 @@ import tech.ydb.jdbc.query.ExplainedQuery;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
+import tech.ydb.table.values.ListValue;
 
 public interface YdbConnection extends Connection {
     /**
@@ -33,6 +34,18 @@ public interface YdbConnection extends Connection {
      * @throws SQLException if query cannot be executed
      */
     void executeSchemeQuery(String yql, YdbValidator validator) throws SQLException;
+
+    /**
+     * Explicitly execute bulk upsert to the table
+     *
+     * @param yql description of request
+     * @param tablePath path to table
+     * @param validator handler for logging and warnings
+     * @param rows bulk rows
+     * @throws SQLException if query cannot be executed
+     */
+    void executeBulkUpsertQuery(String yql, String tablePath, YdbValidator validator, ListValue rows)
+            throws SQLException;
 
     /**
      * Explicitly execute query as a data query

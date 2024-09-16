@@ -37,6 +37,7 @@ import tech.ydb.jdbc.settings.FakeTxMode;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
+import tech.ydb.table.values.ListValue;
 
 public class YdbConnectionImpl implements YdbConnection {
     private static final Logger LOGGER = Logger.getLogger(YdbConnectionImpl.class.getName());
@@ -46,6 +47,7 @@ public class YdbConnectionImpl implements YdbConnection {
     private final YdbExecutor executor;
     private final FakeTxMode scanQueryTxMode;
     private final FakeTxMode schemeQueryTxMode;
+    private final FakeTxMode bulkQueryTxMode;
 
     public YdbConnectionImpl(YdbContext context) throws SQLException {
         this.ctx = context;
@@ -53,6 +55,7 @@ public class YdbConnectionImpl implements YdbConnection {
         YdbOperationProperties props = ctx.getOperationProperties();
         this.scanQueryTxMode = props.getScanQueryTxMode();
         this.schemeQueryTxMode = props.getSchemeQueryTxMode();
+        this.bulkQueryTxMode = props.getBulkQueryTxMode();
 
         this.validator = new YdbValidator(LOGGER);
         this.executor = ctx.createExecutor();
@@ -206,6 +209,7 @@ public class YdbConnectionImpl implements YdbConnection {
     @Override
     public List<ResultSetReader> executeDataQuery(YdbQuery query, String yql, YdbValidator validator,
             int timeout, boolean poolable, Params params) throws SQLException {
+        executor.ensureOpened();
         return executor.executeDataQuery(ctx, validator, query, yql, timeout, poolable, params);
     }
 
@@ -231,7 +235,29 @@ public class YdbConnectionImpl implements YdbConnection {
     }
 
     @Override
+    public void executeBulkUpsertQuery(String yql, String tablePath, YdbValidator validator, ListValue rows)
+            throws SQLException {
+        executor.ensureOpened();
+
+        if (executor.isInsideTransaction()) {
+            switch (bulkQueryTxMode) {
+                case FAKE_TX:
+                    break;
+                case SHADOW_COMMIT:
+                    commit();
+                    break;
+                case ERROR:
+                default:
+                    throw new SQLException(YdbConst.BULK_QUERY_INSIDE_TRANSACTION);
+            }
+        }
+
+        executor.executeBulkUpsert(ctx, validator, yql, tablePath, rows);
+    }
+
+    @Override
     public ExplainedQuery executeExplainQuery(String yql, YdbValidator validator) throws SQLException {
+        executor.ensureOpened();
         return executor.executeExplainQuery(ctx, validator, yql);
     }
 

@@ -94,6 +94,8 @@ public class YdbStatementImpl extends BaseYdbStatement {
             case EXPLAIN_QUERY:
                 newState = executeExplainQuery(query);
                 break;
+            case BULK_QUERY:
+                throw new SQLException(YdbConst.BULKS_UNSUPPORTED);
             default:
                 throw new IllegalStateException("Internal error. Unsupported query type " + query.getType());
         }

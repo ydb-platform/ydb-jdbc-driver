@@ -46,6 +46,13 @@ public class YdbOperationProperties {
             FakeTxMode.ERROR
     );
 
+    static final YdbProperty<FakeTxMode> BULK_QUERY_TX_MODE = YdbProperty.enums("bulkUpsertQueryTxMode",
+            FakeTxMode.class,
+            "Mode of execution bulk upsert query inside transaction. Possible values - "
+                    + "ERROR(by default), FAKE_TX and SHADOW_COMMIT",
+            FakeTxMode.ERROR
+    );
+
     private static final int MAX_ROWS = 1000; // TODO: how to figure out the max rows of current connection?
 
     private final YdbValue<Duration> joinDuration;
@@ -59,6 +66,7 @@ public class YdbOperationProperties {
 
     private final YdbValue<FakeTxMode> scanQueryTxMode;
     private final YdbValue<FakeTxMode> schemeQueryTxMode;
+    private final YdbValue<FakeTxMode> bulkQueryTxMode;
 
     public YdbOperationProperties(YdbConfig config) throws SQLException {
         Properties props = config.getProperties();
@@ -74,6 +82,7 @@ public class YdbOperationProperties {
 
         this.scanQueryTxMode = SCAN_QUERY_TX_MODE.readValue(props);
         this.schemeQueryTxMode = SCHEME_QUERY_TX_MODE.readValue(props);
+        this.bulkQueryTxMode = BULK_QUERY_TX_MODE.readValue(props);
     }
 
     public Duration getJoinDuration() {
@@ -98,6 +107,10 @@ public class YdbOperationProperties {
 
     public FakeTxMode getSchemeQueryTxMode() {
         return schemeQueryTxMode.getValue();
+    }
+
+    public FakeTxMode getBulkQueryTxMode() {
+        return bulkQueryTxMode.getValue();
     }
 
     public Duration getSessionTimeout() {
