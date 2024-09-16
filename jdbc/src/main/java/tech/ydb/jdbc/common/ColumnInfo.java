@@ -28,12 +28,12 @@ public class ColumnInfo {
         this.isOptional = desc.isOptional();
         this.ydbType = desc.ydbType();
 
-        this.isTimestamp = type == PrimitiveType.Timestamp;
-        this.isNumber = type == PrimitiveType.Int8 || type == PrimitiveType.Uint8
-                || type == PrimitiveType.Int16 || type == PrimitiveType.Uint16
-                || type == PrimitiveType.Int32 || type == PrimitiveType.Uint32
-                || type == PrimitiveType.Int64 || type == PrimitiveType.Uint64;
-        this.isNull = type.getKind() == Type.Kind.NULL || type.getKind() == Type.Kind.VOID;
+        this.isTimestamp = ydbType == PrimitiveType.Timestamp;
+        this.isNumber = ydbType == PrimitiveType.Int8 || ydbType == PrimitiveType.Uint8
+                || ydbType == PrimitiveType.Int16 || ydbType == PrimitiveType.Uint16
+                || ydbType == PrimitiveType.Int32 || ydbType == PrimitiveType.Uint32
+                || ydbType == PrimitiveType.Int64 || ydbType == PrimitiveType.Uint64;
+        this.isNull = ydbType.getKind() == Type.Kind.NULL || ydbType.getKind() == Type.Kind.VOID;
     }
 
     public String getName() {

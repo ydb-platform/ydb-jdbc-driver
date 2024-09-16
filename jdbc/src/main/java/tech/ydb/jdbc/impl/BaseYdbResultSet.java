@@ -38,6 +38,7 @@ import tech.ydb.jdbc.YdbResultSetMetaData;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.common.ColumnInfo;
 import tech.ydb.table.result.ValueReader;
+import tech.ydb.table.values.Type;
 import tech.ydb.table.values.Value;
 
 /**
@@ -593,8 +594,9 @@ public abstract class BaseYdbResultSet implements YdbResultSet {
         if (wasNull) {
             return null;
         }
-        // It's just a bug in implementation - actualValue could be optional, but without flag
-        // I.e. the optional object looks like empty, not null
+        while (value.getType().getKind() == Type.Kind.OPTIONAL) {
+            value = value.getOptionalItem();
+        }
         return value.getValue();
     }
 
