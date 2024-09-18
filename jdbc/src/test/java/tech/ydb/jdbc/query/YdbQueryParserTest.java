@@ -71,6 +71,26 @@ public class YdbQueryParserTest {
         Assertions.assertEquals(QueryCmd.CREATE_ALTER_DROP, statement.getCmd());
     }
 
+    @ParameterizedTest(name = "[{index}] {0} is data query")
+    @ValueSource(strings = {
+        "ALTERED;",
+        "SCANER SELECT 1;",
+        "bulked select 1;",
+        "\ndrops;",
+        "BuLK_INSERT;",
+    })
+    public void unknownQueryTest(String sql) throws SQLException {
+        YdbQueryParser parser = new YdbQueryParser(true, true);
+        String parsed = parser.parseSQL(sql);
+
+        Assertions.assertEquals(sql, parsed);
+
+        Assertions.assertEquals(1, parser.getStatements().size());
+        QueryStatement statement = parser.getStatements().get(0);
+        Assertions.assertEquals(QueryType.UNKNOWN, statement.getType());
+        Assertions.assertEquals(QueryCmd.UNKNOWN, statement.getCmd());
+    }
+
     @Test
     public void wrongSqlCommandTest() throws SQLException {
         String query = "SC;";
