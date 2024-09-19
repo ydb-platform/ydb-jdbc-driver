@@ -22,7 +22,6 @@ import java.util.Collection;
 import java.util.UUID;
 
 import com.google.common.io.ByteStreams;
-import com.google.common.io.CharStreams;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.table.values.DecimalType;
@@ -36,6 +35,8 @@ import tech.ydb.table.values.Type;
 import tech.ydb.table.values.Value;
 
 public class MappingSetters {
+    private static final int DEFAULT_BUF_SIZE = 0x800;
+
     private MappingSetters() { }
 
     static Setters buildSetters(Type type) {
@@ -496,11 +497,20 @@ public class MappingSetters {
         static CharStream fromReader(Reader reader, long length) {
             return () -> {
                 try {
-                    if (length >= 0) {
-                        return CharStreams.toString(new LimitedReader(reader, length));
-                    } else {
-                        return CharStreams.toString(reader);
+                    char[] buf = new char[DEFAULT_BUF_SIZE];
+                    StringBuilder sb = new StringBuilder();
+                    int nRead;
+                    long total = 0;
+                    while ((nRead = reader.read(buf)) != -1) {
+                        total += nRead;
+                        if (length < 0 || total < length) {
+                            sb.append(buf, 0, nRead);
+                        } else {
+                            sb.append(buf, 0, nRead - (int) (total - length));
+                            break;
+                        }
                     }
+                    return sb.toString();
                 } catch (IOException e) {
                     throw new RuntimeException(YdbConst.CANNOT_LOAD_DATA_FROM_READER + e.getMessage(), e);
                 }

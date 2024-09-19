@@ -9,9 +9,13 @@ import java.util.List;
 
 import tech.ydb.core.Result;
 import tech.ydb.core.UnexpectedResultException;
+import tech.ydb.core.grpc.GrpcReadStream;
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.YdbResultSet;
+import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.exception.ExceptionFactory;
-import tech.ydb.jdbc.query.ExplainedQuery;
+import tech.ydb.jdbc.impl.YdbQueryResult;
+import tech.ydb.jdbc.impl.YdbStaticResultSet;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.Session;
@@ -22,6 +26,7 @@ import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.settings.CommitTxSettings;
 import tech.ydb.table.settings.ExecuteDataQuerySettings;
+import tech.ydb.table.settings.ExecuteScanQuerySettings;
 import tech.ydb.table.settings.ExplainDataQuerySettings;
 import tech.ydb.table.settings.KeepAliveSessionSettings;
 import tech.ydb.table.settings.RollbackTxSettings;
@@ -34,6 +39,7 @@ import tech.ydb.table.transaction.TxControl;
 public class TableServiceExecutor extends BaseYdbExecutor {
     private final Duration sessionTimeout;
     private final TableClient tableClient;
+    private final boolean failOnTruncatedResult;
     private volatile TxState tx;
 
     public TableServiceExecutor(YdbContext ctx, int transactionLevel, boolean autoCommit) throws SQLException {
@@ -41,6 +47,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         this.sessionTimeout = ctx.getOperationProperties().getSessionTimeout();
         this.tableClient = ctx.getTableClient();
         this.tx = createTx(transactionLevel, autoCommit);
+        this.failOnTruncatedResult = ctx.getOperationProperties().isFailOnTruncatedResult();
     }
 
     @Override
@@ -173,25 +180,27 @@ public class TableServiceExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    public ExplainedQuery executeExplainQuery(YdbContext ctx, YdbValidator validator, String yql)
-            throws SQLException {
+    public YdbQueryResult executeExplainQuery(YdbStatement statement, YdbQuery query) throws SQLException {
         ensureOpened();
+
+        YdbContext ctx = statement.getConnection().getCtx();
+        YdbValidator validator = statement.getValidator();
+        String yql = query.getPreparedYql();
 
         ExplainDataQuerySettings settings = ctx.withDefaultTimeout(new ExplainDataQuerySettings());
         try (Session session = createNewTableSession(validator)) {
             String msg = QueryType.EXPLAIN_QUERY + " >>\n" + yql;
             ExplainDataQueryResult res = validator.call(msg, () -> session.explainDataQuery(yql, settings));
-            return new ExplainedQuery(res.getQueryAst(), res.getQueryPlan());
+            return new StaticQueryResult(statement, res.getQueryAst(), res.getQueryPlan());
         }
     }
 
     @Override
-    public List<ResultSetReader> executeDataQuery(
-            YdbContext ctx, YdbValidator validator, YdbQuery query,
-            String yql, long timeout, boolean keepInCache, Params params
-    ) throws SQLException {
+    public YdbQueryResult executeDataQuery(YdbStatement statement, YdbQuery query, String yql, Params params,
+            long timeout, boolean keepInCache) throws SQLException {
         ensureOpened();
 
+        YdbValidator validator = statement.getValidator();
         final Session session = tx.getSession(validator);
         try {
             DataQueryResult result = validator.call(
@@ -200,16 +209,44 @@ public class TableServiceExecutor extends BaseYdbExecutor {
             );
             updateState(tx.withDataQuery(session, result.getTxId()));
 
-            List<ResultSetReader> readers = new ArrayList<>();
+            List<YdbResultSet> readers = new ArrayList<>();
             for (int idx = 0; idx < result.getResultSetCount(); idx += 1) {
-                readers.add(result.getResultSet(idx));
+                ResultSetReader rs = result.getResultSet(idx);
+                if (failOnTruncatedResult && rs.isTruncated()) {
+                    String msg = String.format(YdbConst.RESULT_IS_TRUNCATED, idx, rs.getRowCount());
+                    throw new SQLException(msg);
+                }
+
+                readers.add(new YdbStaticResultSet(statement, rs));
             }
 
-            return readers;
+            return new StaticQueryResult(query, readers);
         } catch (SQLException | RuntimeException ex) {
             updateState(tx.withRollback(session));
             throw ex;
         }
+    }
+
+    @Override
+    public YdbQueryResult executeScanQuery(YdbStatement statement, YdbQuery query, String yql, Params params)
+            throws SQLException {
+        ensureOpened();
+
+        YdbContext ctx = statement.getConnection().getCtx();
+        YdbValidator validator = statement.getValidator();
+        Duration scanQueryTimeout = ctx.getOperationProperties().getScanQueryTimeout();
+        ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()
+                .withRequestTimeout(scanQueryTimeout)
+                .build();
+
+        final Session session = tx.getSession(validator);
+
+        String msg = QueryType.SCAN_QUERY + " >>\n" + yql;
+        return validator.call(msg, () -> {
+            GrpcReadStream<ResultSetReader> stream = session.executeScanQuery(yql, params, settings);
+            StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
+            return result.execute(stream);
+        });
     }
 
     @Override

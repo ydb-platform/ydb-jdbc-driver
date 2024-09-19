@@ -26,7 +26,6 @@ import org.junit.jupiter.params.provider.EnumSource;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbParameterMetaData;
-import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
@@ -48,11 +47,6 @@ public class YdbQueryPreparedStatementImplTest {
 
     private static final String TEST_TABLE_NAME = "ydb_prepared_statement_test";
     private static final SqlQueries TEST_TABLE = new SqlQueries(TEST_TABLE_NAME);
-
-    private static final String UPSERT_SQL = ""
-            + "declare $key as Int32;\n"
-            + "declare $#column as #type;\n"
-            + "upsert into #tableName (key, #column) values ($key, $#column)";
 
     private static final String SIMPLE_SELECT_SQL = "select key, #column from #tableName";
     private static final String SELECT_BY_KEY_SQL = ""
@@ -85,13 +79,6 @@ public class YdbQueryPreparedStatementImplTest {
         }
 
         jdbc.connection().close();
-    }
-
-    private String upsertSql(String column, String type) {
-        return UPSERT_SQL
-                .replaceAll("#column", column)
-                .replaceAll("#type", type)
-                .replaceAll("#tableName", TEST_TABLE_NAME);
     }
 
     private PreparedStatement prepareSimpleSelect(String column) throws SQLException {
@@ -357,16 +344,13 @@ public class YdbQueryPreparedStatementImplTest {
 
     @Test
     public void executeScanQueryAsUpdate() throws SQLException {
-        String sql = upsertSql("c_Text", "Optional<Text>");
+        String sql = "SCAN " + TEST_TABLE.upsertOne(SqlQueries.JdbcQuery.STANDARD, "c_Text", "Optional<Text>");
 
-        try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class)
-                .prepareStatement(sql, YdbPrepareMode.IN_MEMORY)
-                .unwrap(YdbPreparedStatement.class)) {
-            statement.setInt("key", 1);
-            statement.setString("c_Text", "value-1");
+        try (PreparedStatement statement = jdbc.connection().prepareStatement(sql)) {
+            statement.setInt(1, 1);
+            statement.setString(2, "value-1");
 
-            ExceptionAssert.ydbException("Scan query should have a single result set",
-                    statement::executeScanQuery);
+            statement.executeUpdate();
         }
     }
 

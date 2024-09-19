@@ -376,6 +376,9 @@ public class YdbStatementImplTest {
         Assertions.assertTrue(statement.execute("select 2 + 2"));
         Assertions.assertEquals(-1, statement.getUpdateCount());
 
+        Assertions.assertTrue(statement.execute("scan select 2 + 2"));
+        Assertions.assertEquals(-1, statement.getUpdateCount());
+
         statement.execute(TEST_UPSERT1_SQL);
         Assertions.assertEquals(1, statement.getUpdateCount());
         Assertions.assertFalse(statement.getMoreResults());
@@ -403,6 +406,9 @@ public class YdbStatementImplTest {
         Assertions.assertNotNull(statement.getResultSet());
         Assertions.assertFalse(statement.getMoreResults());
 
+        statement.execute("scan select 2 + 2");
+        Assertions.assertNotNull(statement.getResultSet());
+        Assertions.assertFalse(statement.getMoreResults());
 
         statement.execute("select 1 + 2; select 2 + 3; select 3 + 4");
         ResultSet rs0 = statement.getResultSet();
@@ -414,10 +420,6 @@ public class YdbStatementImplTest {
 
         Assertions.assertNotSame(rs0, rs1);
         Assertions.assertNotSame(rs0, rs2);
-
-        Assertions.assertSame(rs0, statement.unwrap(YdbStatement.class).getResultSetAt(0));
-        Assertions.assertSame(rs1, statement.unwrap(YdbStatement.class).getResultSetAt(1));
-        Assertions.assertSame(rs2, statement.unwrap(YdbStatement.class).getResultSetAt(2));
     }
 
     @Test
@@ -462,17 +464,17 @@ public class YdbStatementImplTest {
 
         ResultSet rs0 = statement.getResultSet();
         Assertions.assertTrue(statement.getMoreResults(Statement.CLOSE_CURRENT_RESULT));
-        Assertions.assertTrue(statement.unwrap(YdbStatement.class).getResultSetAt(0).isClosed());
+        Assertions.assertTrue(rs0.isClosed());
 
         ResultSet rs1 = statement.getResultSet();
         Assertions.assertTrue(statement.getMoreResults(Statement.KEEP_CURRENT_RESULT));
-        Assertions.assertSame(rs1, statement.unwrap(YdbStatement.class).getResultSetAt(1));
+        Assertions.assertFalse(rs1.isClosed());
 
         ResultSet rs2 = statement.getResultSet();
         Assertions.assertFalse(statement.getMoreResults(Statement.CLOSE_ALL_RESULTS));
 
-        Assertions.assertTrue(statement.unwrap(YdbStatement.class).getResultSetAt(1).isClosed());
-        Assertions.assertSame(rs2, statement.unwrap(YdbStatement.class).getResultSetAt(2));
+        Assertions.assertTrue(rs1.isClosed());
+        Assertions.assertTrue(rs2.isClosed());
 
         Assertions.assertNotSame(rs0, rs1);
         Assertions.assertNotSame(rs0, rs2);
@@ -494,7 +496,10 @@ public class YdbStatementImplTest {
         jdbc.connection().commit();
 
         try (YdbResultSet result = statement.executeQuery(TEST_TABLE.selectSQL()).unwrap(YdbResultSet.class)) {
-            Assertions.assertEquals(3, result.getYdbResultSetReader().getRowCount());
+            Assertions.assertTrue(result.next());
+            Assertions.assertTrue(result.next());
+            Assertions.assertTrue(result.next());
+            Assertions.assertFalse(result.next());
         }
     }
 

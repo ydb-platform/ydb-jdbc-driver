@@ -14,10 +14,10 @@ import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -30,14 +30,8 @@ import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbExecutor;
 import tech.ydb.jdbc.context.YdbValidator;
-import tech.ydb.jdbc.query.ExplainedQuery;
 import tech.ydb.jdbc.query.YdbPreparedQuery;
 import tech.ydb.jdbc.query.YdbQuery;
-import tech.ydb.jdbc.settings.FakeTxMode;
-import tech.ydb.jdbc.settings.YdbOperationProperties;
-import tech.ydb.table.query.Params;
-import tech.ydb.table.result.ResultSetReader;
-import tech.ydb.table.values.ListValue;
 
 public class YdbConnectionImpl implements YdbConnection {
     private static final Logger LOGGER = Logger.getLogger(YdbConnectionImpl.class.getName());
@@ -45,17 +39,10 @@ public class YdbConnectionImpl implements YdbConnection {
     private final YdbContext ctx;
     private final YdbValidator validator;
     private final YdbExecutor executor;
-    private final FakeTxMode scanQueryTxMode;
-    private final FakeTxMode schemeQueryTxMode;
-    private final FakeTxMode bulkQueryTxMode;
+    private final AtomicReference<YdbStatement> currState = new AtomicReference<>();
 
     public YdbConnectionImpl(YdbContext context) throws SQLException {
         this.ctx = context;
-
-        YdbOperationProperties props = ctx.getOperationProperties();
-        this.scanQueryTxMode = props.getScanQueryTxMode();
-        this.schemeQueryTxMode = props.getSchemeQueryTxMode();
-        this.bulkQueryTxMode = props.getBulkQueryTxMode();
 
         this.validator = new YdbValidator(LOGGER);
         this.executor = ctx.createExecutor();
@@ -98,6 +85,21 @@ public class YdbConnectionImpl implements YdbConnection {
         executor.setAutoCommit(autoCommit);
     }
 
+    private <T extends YdbStatement> T updateStatement(T statement) throws SQLException {
+        Statement prev = currState.getAndSet(statement);
+        if (prev != null) {
+            prev.close();
+        }
+        return statement;
+    }
+
+    private void waitStatementReady() throws SQLException {
+        YdbStatement curr = currState.get();
+        if (curr != null) {
+            curr.waitReady();
+        }
+    }
+
     @Override
     public boolean getAutoCommit() throws SQLException {
         return executor.isAutoCommit();
@@ -105,11 +107,13 @@ public class YdbConnectionImpl implements YdbConnection {
 
     @Override
     public void commit() throws SQLException {
+        waitStatementReady();
         executor.commit(ctx, validator);
     }
 
     @Override
     public void rollback() throws SQLException {
+        waitStatementReady();
         executor.rollback(ctx, validator);
     }
 
@@ -182,83 +186,9 @@ public class YdbConnectionImpl implements YdbConnection {
     @Override
     public void clearWarnings() throws SQLException {
         executor.ensureOpened();
+
+        waitStatementReady();
         validator.clearWarnings();
-    }
-
-    @Override
-    public void executeSchemeQuery(String yql, YdbValidator validator) throws SQLException {
-        executor.ensureOpened();
-
-        if (executor.isInsideTransaction()) {
-            switch (schemeQueryTxMode) {
-                case FAKE_TX:
-                    break;
-                case SHADOW_COMMIT:
-                    commit();
-                    break;
-                case ERROR:
-                default:
-                    throw new SQLException(YdbConst.SCHEME_QUERY_INSIDE_TRANSACTION);
-
-            }
-        }
-
-        executor.executeSchemeQuery(ctx, validator, yql);
-    }
-
-    @Override
-    public List<ResultSetReader> executeDataQuery(YdbQuery query, String yql, YdbValidator validator,
-            int timeout, boolean poolable, Params params) throws SQLException {
-        executor.ensureOpened();
-        return executor.executeDataQuery(ctx, validator, query, yql, timeout, poolable, params);
-    }
-
-    @Override
-    public ResultSetReader executeScanQuery(YdbQuery query, String yql, YdbValidator validator, Params params)
-            throws SQLException {
-        executor.ensureOpened();
-
-        if (executor.isInsideTransaction()) {
-            switch (scanQueryTxMode) {
-                case FAKE_TX:
-                    break;
-                case SHADOW_COMMIT:
-                    commit();
-                    break;
-                case ERROR:
-                default:
-                    throw new SQLException(YdbConst.SCAN_QUERY_INSIDE_TRANSACTION);
-            }
-        }
-
-        return executor.executeScanQuery(ctx, validator, query, yql, params);
-    }
-
-    @Override
-    public void executeBulkUpsertQuery(String yql, String tablePath, YdbValidator validator, ListValue rows)
-            throws SQLException {
-        executor.ensureOpened();
-
-        if (executor.isInsideTransaction()) {
-            switch (bulkQueryTxMode) {
-                case FAKE_TX:
-                    break;
-                case SHADOW_COMMIT:
-                    commit();
-                    break;
-                case ERROR:
-                default:
-                    throw new SQLException(YdbConst.BULK_QUERY_INSIDE_TRANSACTION);
-            }
-        }
-
-        executor.executeBulkUpsert(ctx, validator, yql, tablePath, rows);
-    }
-
-    @Override
-    public ExplainedQuery executeExplainQuery(String yql, YdbValidator validator) throws SQLException {
-        executor.ensureOpened();
-        return executor.executeExplainQuery(ctx, validator, yql);
     }
 
     @Override
@@ -301,7 +231,7 @@ public class YdbConnectionImpl implements YdbConnection {
             int resultSetHoldability) throws SQLException {
         executor.ensureOpened();
         checkStatementParams(resultSetType, resultSetConcurrency, resultSetHoldability);
-        return new YdbStatementImpl(this, resultSetType);
+        return updateStatement(new YdbStatementImpl(this, resultSetType));
     }
 
     @Override
@@ -333,7 +263,7 @@ public class YdbConnectionImpl implements YdbConnection {
         YdbQuery query = ctx.findOrParseYdbQuery(sql);
 
         YdbPreparedQuery params = ctx.findOrPrepareParams(query, mode);
-        return new YdbPreparedStatementImpl(this, query, params, resultSetType);
+        return updateStatement(new YdbPreparedStatementImpl(this, query, params, resultSetType));
     }
 
     @Override
@@ -378,13 +308,19 @@ public class YdbConnectionImpl implements YdbConnection {
     }
 
     @Override
-    public String getYdbTxId() {
+    public String getYdbTxId() throws SQLException {
+        waitStatementReady();
         return executor.txID();
     }
 
     @Override
     public YdbContext getCtx() {
         return ctx;
+    }
+
+    @Override
+    public YdbExecutor getExecutor() {
+        return executor;
     }
 
     private void checkStatementParams(int resultSetType, int resultSetConcurrency,

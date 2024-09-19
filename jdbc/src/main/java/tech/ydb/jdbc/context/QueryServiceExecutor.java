@@ -6,6 +6,7 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -14,8 +15,11 @@ import tech.ydb.core.Issue;
 import tech.ydb.core.Result;
 import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.YdbResultSet;
+import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.exception.ExceptionFactory;
-import tech.ydb.jdbc.query.ExplainedQuery;
+import tech.ydb.jdbc.impl.YdbQueryResult;
+import tech.ydb.jdbc.impl.YdbStaticResultSet;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.query.QueryClient;
@@ -196,11 +200,12 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    public List<ResultSetReader> executeDataQuery(
-            YdbContext ctx, YdbValidator validator, YdbQuery query,
-            String yql, long timeout, boolean keepInCache, Params params
+    public YdbQueryResult executeDataQuery(
+            YdbStatement statement, YdbQuery query, String yql, Params params, long timeout, boolean keepInCache
     ) throws SQLException {
         ensureOpened();
+
+        YdbValidator validator = statement.getValidator();
 
         ExecuteQuerySettings.Builder builder = ExecuteQuerySettings.newBuilder();
         if (timeout > 0) {
@@ -218,9 +223,11 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             );
             validator.addStatusIssues(result.getIssueList());
 
-            List<ResultSetReader> readers = new ArrayList<>();
-            result.forEach(readers::add);
-            return readers;
+            List<YdbResultSet> readers = new ArrayList<>();
+            for (ResultSetReader rst: result) {
+                readers.add(new YdbStaticResultSet(statement, rst));
+            }
+            return new StaticQueryResult(query, readers);
         } finally {
             if (!tx.isActive()) {
                 cleanTx();
@@ -229,8 +236,41 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    public void executeSchemeQuery(YdbContext ctx, YdbValidator validator, String yql) throws SQLException {
+    public YdbQueryResult executeScanQuery(YdbStatement statement, YdbQuery query, String yql, Params params)
+            throws SQLException {
         ensureOpened();
+
+        YdbContext ctx = statement.getConnection().getCtx();
+        YdbValidator validator = statement.getValidator();
+
+        Duration scanQueryTimeout = ctx.getOperationProperties().getScanQueryTimeout();
+        ExecuteQuerySettings settings = ExecuteQuerySettings.newBuilder()
+                .withRequestTimeout(scanQueryTimeout)
+                .build();
+
+        if (tx == null) {
+            tx = createNewQuerySession(validator).createNewTransaction(txMode);
+        }
+
+        String msg = "STREAM_QUERY >>\n" + yql;
+        return validator.call(msg, () -> {
+            QueryStream stream = tx.createQuery(yql, isAutoCommit, params, settings);
+            StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
+            return result.execute(stream, () -> {
+                if (!tx.isActive()) {
+                    cleanTx();
+                }
+            });
+        });
+    }
+
+    @Override
+    public YdbQueryResult executeSchemeQuery(YdbStatement statement, YdbQuery query) throws SQLException {
+        ensureOpened();
+
+        String yql = query.getPreparedYql();
+        YdbContext ctx = statement.getConnection().getCtx();
+        YdbValidator validator = statement.getValidator();
 
         // Scheme query does not affect transactions or result sets
         ExecuteQuerySettings settings = ctx.withRequestTimeout(ExecuteQuerySettings.newBuilder()).build();
@@ -240,12 +280,17 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
                     .execute(new IssueHandler(validator))
             );
         }
+
+        return new StaticQueryResult(query, Collections.emptyList());
     }
 
     @Override
-    public ExplainedQuery executeExplainQuery(YdbContext ctx, YdbValidator validator, String yql)
-            throws SQLException {
+    public YdbQueryResult executeExplainQuery(YdbStatement statement, YdbQuery query) throws SQLException {
         ensureOpened();
+
+        String yql = query.getPreparedYql();
+        YdbContext ctx = statement.getConnection().getCtx();
+        YdbValidator validator = statement.getValidator();
 
         // Scheme query does not affect transactions or result sets
         ExecuteQuerySettings settings = ctx.withRequestTimeout(ExecuteQuerySettings.newBuilder())
@@ -261,7 +306,8 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             if (!res.hasStats()) {
                 throw new SQLException("No explain data");
             }
-            return new ExplainedQuery(res.getStats().getQueryAst(), res.getStats().getQueryPlan());
+
+            return new StaticQueryResult(statement, res.getStats().getQueryAst(), res.getStats().getQueryPlan());
         }
     }
 

@@ -1,33 +1,22 @@
 package tech.ydb.jdbc.impl;
 
 import java.sql.SQLException;
-import java.util.Objects;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSetMetaData;
-import tech.ydb.jdbc.common.TypeDescription;
-import tech.ydb.table.result.ResultSetReader;
+import tech.ydb.jdbc.common.ColumnInfo;
 import tech.ydb.table.values.Type;
 
 public class YdbResultSetMetaDataImpl implements YdbResultSetMetaData {
-    private final ResultSetReader result;
-    private final TypeDescription[] descriptions;
-    private final String[] names;
+    private final BaseYdbResultSet rs;
 
-    YdbResultSetMetaDataImpl(ResultSetReader result) {
-        this.result = Objects.requireNonNull(result);
-        this.descriptions = new TypeDescription[result.getColumnCount()];
-        this.names = new String[result.getColumnCount()];
-
-        for (int i = 0; i < result.getColumnCount(); i++) {
-            descriptions[i] = TypeDescription.of(result.getColumnType(i));
-            names[i] = result.getColumnName(i);
-        }
+    public YdbResultSetMetaDataImpl(BaseYdbResultSet rs) {
+        this.rs = rs;
     }
 
     @Override
     public int getColumnCount() {
-        return descriptions.length;
+        return rs.getColumnsLength();
     }
 
     @Override
@@ -52,9 +41,8 @@ public class YdbResultSetMetaDataImpl implements YdbResultSetMetaData {
 
     @Override
     public int isNullable(int column) throws SQLException {
-        return getDescription(column).isOptional() ?
-                columnNullable :
-                columnNoNulls;
+        ColumnInfo info = rs.getColumnInfo(column);
+        return info.isOptional() || info.isNull() ? columnNullable : columnNoNulls;
     }
 
     @Override
@@ -74,7 +62,7 @@ public class YdbResultSetMetaDataImpl implements YdbResultSetMetaData {
 
     @Override
     public String getColumnName(int column) throws SQLException {
-        return names[getIndex(column)];
+        return rs.getColumnInfo(column).getName();
     }
 
     @Override
@@ -104,12 +92,12 @@ public class YdbResultSetMetaDataImpl implements YdbResultSetMetaData {
 
     @Override
     public int getColumnType(int column) throws SQLException {
-        return getDescription(column).sqlType().getSqlType();
+        return rs.getColumnInfo(column).getSqlType().getSqlType();
     }
 
     @Override
     public String getColumnTypeName(int column) throws SQLException {
-        return getDescription(column).ydbType().toString();
+        return rs.getColumnInfo(column).getYdbType().toString();
     }
 
     @Override
@@ -129,38 +117,13 @@ public class YdbResultSetMetaDataImpl implements YdbResultSetMetaData {
 
     @Override
     public String getColumnClassName(int column) throws SQLException {
-        return getDescription(column).sqlType().getJavaType().getName();
+        return rs.getColumnInfo(column).getSqlType().getJavaType().getName();
     }
 
     @Override
     public Type getYdbType(int column) throws SQLException {
-        return getDescription(column).ydbType();
+        return rs.getColumnInfo(column).getYdbType();
     }
-
-    @Override
-    public int getColumnIndex(String columnName) throws SQLException {
-        int index = result.getColumnIndex(columnName);
-        if (index >= 0) {
-            return index + 1;
-        } else {
-            throw new SQLException(YdbConst.COLUMN_NOT_FOUND + columnName);
-        }
-    }
-
-
-    //
-
-    private int getIndex(int column) throws SQLException {
-        if (column <= 0 || column > descriptions.length) {
-            throw new SQLException(YdbConst.COLUMN_NUMBER_NOT_FOUND + column);
-        }
-        return column - 1;
-    }
-
-    private TypeDescription getDescription(int column) throws SQLException {
-        return descriptions[getIndex(column)];
-    }
-
 
     @Override
     public <T> T unwrap(Class<T> iface) throws SQLException {
@@ -174,5 +137,4 @@ public class YdbResultSetMetaDataImpl implements YdbResultSetMetaData {
     public boolean isWrapperFor(Class<?> iface) {
         return iface.isAssignableFrom(getClass());
     }
-
 }
