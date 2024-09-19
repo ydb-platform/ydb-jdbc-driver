@@ -328,12 +328,14 @@ public class YdbDriverProperitesTest {
             new DriverPropertyInfo("transactionLevel", "8"),
             new DriverPropertyInfo("schemeQueryTxMode", "ERROR"),
             new DriverPropertyInfo("scanQueryTxMode", "ERROR"),
+            new DriverPropertyInfo("bulkUpsertQueryTxMode", "ERROR"),
             new DriverPropertyInfo("disablePrepareDataQuery", "false"),
             new DriverPropertyInfo("disableAutoPreparedBatches", "false"),
             new DriverPropertyInfo("disableDetectSqlOperations", "false"),
             new DriverPropertyInfo("disableJdbcParameters", "false"),
             new DriverPropertyInfo("disableJdbcParameterDeclare", "false"),
             new DriverPropertyInfo("forceQueryMode", ""),
+            new DriverPropertyInfo("forceScanAndBulk", "false"),
         };
     }
 
@@ -365,12 +367,14 @@ public class YdbDriverProperitesTest {
             new DriverPropertyInfo("transactionLevel", "16"),
             new DriverPropertyInfo("schemeQueryTxMode", "SHADOW_COMMIT"),
             new DriverPropertyInfo("scanQueryTxMode", "FAKE_TX"),
+            new DriverPropertyInfo("bulkUpsertQueryTxMode", "SHADOW_COMMIT"),
             new DriverPropertyInfo("disablePrepareDataQuery", "true"),
             new DriverPropertyInfo("disableAutoPreparedBatches", "true"),
             new DriverPropertyInfo("disableDetectSqlOperations", "true"),
             new DriverPropertyInfo("disableJdbcParameters", "true"),
             new DriverPropertyInfo("disableJdbcParameterDeclare", "true"),
             new DriverPropertyInfo("forceQueryMode", "SCAN_QUERY"),
+            new DriverPropertyInfo("forceScanAndBulk", "true"),
         };
     }
 
