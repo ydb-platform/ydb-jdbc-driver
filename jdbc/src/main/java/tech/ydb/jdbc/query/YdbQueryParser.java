@@ -124,6 +124,8 @@ public class YdbQueryParser {
                     }
                     break;
                 default:
+                    lastKeywordIsOffsetLimit = lastKeywordIsOffsetLimit && Character.isWhitespace(ch);
+
                     if (keywordStart >= 0) {
                         isInsideKeyword = Character.isJavaIdentifierPart(ch);
                         break;
@@ -135,6 +137,7 @@ public class YdbQueryParser {
                     }
                     break;
             }
+
 
             if (keywordStart >= 0 && (!isInsideKeyword || (i == chars.length - 1))) {
                 lastKeywordIsOffsetLimit = false;
@@ -150,7 +153,7 @@ public class YdbQueryParser {
 
                     if (parseOffsetKeyword(chars, keywordStart, keywordLength)
                             || parseLimitKeyword(chars, keywordStart, keywordLength)) {
-                        lastKeywordIsOffsetLimit = true;
+                        lastKeywordIsOffsetLimit = Character.isWhitespace(ch);
                     }
                 } else {
                     boolean skipped = false;
