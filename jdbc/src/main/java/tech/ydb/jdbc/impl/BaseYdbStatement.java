@@ -148,11 +148,18 @@ public abstract class BaseYdbStatement implements YdbStatement {
         }
     }
 
+    @Override
+    public void waitReady() throws SQLException {
+        state.close();
+    }
+
     protected void cleanState() throws SQLException {
         ensureOpened();
-        clearWarnings();
+
         state.close();
         state = YdbQueryResult.EMPTY;
+
+        clearWarnings();
     }
 
     protected boolean updateState(YdbQueryResult result) throws SQLException {

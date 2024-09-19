@@ -9,13 +9,8 @@ import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbExecutor;
 
 public interface YdbConnection extends Connection {
-    /**
-     * Return current YDB transaction, if exists
-     *
-     * @return YDB transaction ID or null, if no transaction started
-     */
     @Nullable
-    String getYdbTxId();
+    String getYdbTxId() throws SQLException;
 
     YdbContext getCtx();
 
