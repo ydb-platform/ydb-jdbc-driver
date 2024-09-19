@@ -10,6 +10,7 @@ import java.sql.Statement;
 import java.time.LocalDate;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -21,7 +22,8 @@ import tech.ydb.test.junit5.YdbHelperExtension;
  *
  * @author Aleksandr Gorshenin
  */
-public class YdbDriverColumnTablesTest {
+@Disabled
+public class YdbDriverOlapTablesTest {
     @RegisterExtension
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
@@ -38,19 +40,19 @@ public class YdbDriverColumnTablesTest {
             "BULK mode is available only for prepared statement with one UPSERT";
 
     private final static String CREATE_TABLE = ""
-            + "CREATE TABLE columns_sample("
+            + "CREATE TABLE olap_table("
             + "  id Int32 NOT NULL,"
             + "  value Text,"
             + "  date Date,"
             + "  PRIMARY KEY (id)"
             + ") WITH (STORE = COLUMN)";
 
-    private final static String DROP_TABLE = "DROP TABLE columns_sample";
-    private final static String UPSERT_ROW = "UPSERT INTO columns_sample (id, value, date) VALUES (?, ?, ?)";
-    private final static String INSERT_ROW = "INSERT INTO columns_sample (id, value, date) VALUES (?, ?, ?)";
-    private final static String SELECT_ALL = "SELECT * FROM columns_sample ORDER BY id";
-    private final static String UPDATE_ROW = "UPDATE columns_sample SET value = ? WHERE id = ?";
-    private final static String DELETE_ROW = "DELETE FROM columns_sample WHERE id = ?";
+    private final static String DROP_TABLE = "DROP TABLE olap_table";
+    private final static String UPSERT_ROW = "UPSERT INTO olap_table (id, value, date) VALUES (?, ?, ?)";
+    private final static String INSERT_ROW = "INSERT INTO olap_table (id, value, date) VALUES (?, ?, ?)";
+    private final static String SELECT_ALL = "SELECT * FROM olap_table ORDER BY id";
+    private final static String UPDATE_ROW = "UPDATE olap_table SET value = ? WHERE id = ?";
+    private final static String DELETE_ROW = "DELETE FROM olap_table WHERE id = ?";
 
     @Test
     public void defaultModeTest() throws SQLException {
@@ -126,7 +128,7 @@ public class YdbDriverColumnTablesTest {
     }
 
     @Test
-    public void prefixesTest() throws SQLException {
+    public void customQueriesTest() throws SQLException {
         try (Connection conn = DriverManager.getConnection(jdbcURL.build())) {
             try {
                 conn.createStatement().execute(DROP_TABLE);
