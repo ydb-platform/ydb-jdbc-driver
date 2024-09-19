@@ -1,3 +1,9 @@
+## 2.2.5 ##
+
+* Added lazy result set implementation
+* Added flag to forced usage of BulkUpsert and ScanQuery
+* Fixed error of LIMIT & OFFSET keywords parsing
+
 ## 2.2.4 ##
 
 * Added support of BulkUpsert
