@@ -178,7 +178,6 @@ public class YdbConfig {
             YdbOperationProperties.SCHEME_QUERY_TX_MODE.toInfo(properties),
             YdbOperationProperties.SCAN_QUERY_TX_MODE.toInfo(properties),
             YdbOperationProperties.BULK_QUERY_TX_MODE.toInfo(properties),
-            YdbOperationProperties.FORCE_SCAN_BULKS.toInfo(properties),
 
             YdbQueryProperties.DISABLE_PREPARE_DATAQUERY.toInfo(properties),
             YdbQueryProperties.DISABLE_AUTO_PREPARED_BATCHES.toInfo(properties),
@@ -186,6 +185,7 @@ public class YdbConfig {
             YdbQueryProperties.DISABLE_JDBC_PARAMETERS.toInfo(properties),
             YdbQueryProperties.DISABLE_JDBC_PARAMETERS_DECLARE.toInfo(properties),
             YdbQueryProperties.FORCE_QUERY_MODE.toInfo(properties),
+            YdbQueryProperties.FORCE_SCAN_BULKS.toInfo(properties),
         };
     }
 

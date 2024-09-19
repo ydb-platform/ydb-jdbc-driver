@@ -31,6 +31,9 @@ public class YdbDriverColumnTablesTest {
             "Data manipulation queries do not support column shard tables. (S_ERROR)";
     private final static String ERROR_TRANSACTIONS =
             "Transactions between column and row tables are disabled at current time. (S_ERROR)";
+    private final static String ERROR_SCAN_QUERY =
+            "Scan query should have a single result set. (S_ERROR)";
+
     private final static String ERROR_BULK_UNSUPPORTED =
             "BULK mode is available only for prepared statement with one UPSERT";
 
@@ -88,7 +91,7 @@ public class YdbDriverColumnTablesTest {
                     ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
                     ps.addBatch();
                 }
-                ExceptionAssert.ydbException(ERROR_TRANSACTIONS, ps::executeBatch);
+                ExceptionAssert.ydbException(ERROR_DATA_MANIPULATION, ps::executeBatch);
             }
 
             // batch insert
@@ -99,7 +102,7 @@ public class YdbDriverColumnTablesTest {
                     ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
                     ps.addBatch();
                 }
-                ExceptionAssert.ydbException(ERROR_TRANSACTIONS, ps::executeBatch);
+                ExceptionAssert.ydbException(ERROR_DATA_MANIPULATION, ps::executeBatch);
             }
 
             // read all
@@ -206,6 +209,114 @@ public class YdbDriverColumnTablesTest {
 
             // single delete
             ExceptionAssert.sqlException(ERROR_BULK_UNSUPPORTED, () -> conn.prepareStatement("BULK " + DELETE_ROW));
+        }
+    }
+
+    @Test
+    public void forceScanAndBulkTest() throws SQLException {
+        try (Connection conn = DriverManager.getConnection(jdbcURL.withArg("forceScanAndBulk", "true").build())) {
+            try {
+                conn.createStatement().execute(DROP_TABLE);
+            } catch (SQLException e) {
+                // ignore
+            }
+
+            conn.createStatement().execute(CREATE_TABLE);
+
+            LocalDate ld = LocalDate.of(2017, 12, 3);
+            String prefix = "text-value-";
+            int idx = 0;
+
+            // single bulk upsert
+            try (PreparedStatement ps = conn.prepareStatement(UPSERT_ROW)) {
+                ps.setInt(1, ++idx);
+                ps.setString(2, prefix + idx);
+                ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
+                ps.executeUpdate();
+            }
+
+            // single bulk insert
+            try (PreparedStatement ps = conn.prepareStatement(INSERT_ROW)) {
+                ps.setInt(1, ++idx);
+                ps.setString(2, prefix + idx);
+                ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
+                ps.executeUpdate();
+            }
+
+            // scan read
+            try (Statement st = conn.createStatement()) {
+                int readed = 0;
+                try (ResultSet rs = st.executeQuery(SELECT_ALL)) {
+                    while (rs.next()) {
+                        readed++;
+                        Assertions.assertEquals(readed, rs.getInt("id"));
+                        Assertions.assertEquals(prefix + readed, rs.getString("value"));
+                        Assertions.assertEquals(Date.valueOf(ld.plusDays(readed)), rs.getDate("date"));
+                    }
+                }
+                Assertions.assertEquals(2, readed);
+            }
+
+            // batch bulk upsert
+            try (PreparedStatement ps = conn.prepareStatement(UPSERT_ROW)) {
+                for (int j = 0; j < 2000; j++) {
+                    ps.setInt(1, ++idx);
+                    ps.setString(2, prefix + idx);
+                    ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+
+                // single row upsert
+                ps.setInt(1, ++idx);
+                ps.setString(2, prefix + idx);
+                ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
+                ps.execute();
+            }
+
+            // batch bulk inserts
+            try (PreparedStatement ps = conn.prepareStatement(INSERT_ROW)) {
+                for (int j = 0; j < 2000; j++) {
+                    ps.setInt(1, ++idx);
+                    ps.setString(2, prefix + idx);
+                    ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+
+                // single row insert
+                ps.setInt(1, ++idx);
+                ps.setString(2, prefix + idx);
+                ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
+                ps.execute();
+            }
+
+            // read all
+            try (Statement st = conn.createStatement()) {
+                int readed = 0;
+                try (ResultSet rs = st.executeQuery(SELECT_ALL)) {
+                    while (rs.next()) {
+                        readed++;
+                        Assertions.assertEquals(readed, rs.getInt("id"));
+                        Assertions.assertEquals(prefix + readed, rs.getString("value"));
+                        Assertions.assertEquals(Date.valueOf(ld.plusDays(readed)), rs.getDate("date"));
+                    }
+                }
+                Assertions.assertEquals(4004, readed);
+            }
+
+            // single update
+            try (PreparedStatement ps = conn.prepareStatement(UPDATE_ROW)) {
+                ps.setString(1, "updated-value");
+                ps.setInt(2, 1);
+                ExceptionAssert.ydbException(ERROR_SCAN_QUERY, ps::execute);
+            }
+
+            // single delete
+            try (PreparedStatement ps = conn.prepareStatement(DELETE_ROW)) {
+                ps.setInt(1, 2);
+                ExceptionAssert.ydbException(ERROR_SCAN_QUERY, ps::execute);
+            }
         }
     }
 }

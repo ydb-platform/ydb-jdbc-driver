@@ -53,11 +53,6 @@ public class YdbOperationProperties {
             FakeTxMode.ERROR
     );
 
-    static final YdbProperty<Boolean> FORCE_SCAN_BULKS = YdbProperty.bool("forceScanAndBulk",
-            "Force usage of bulk upserts instead of upserts/inserts and scan query for selects",
-            false
-    );
-
     private static final int MAX_ROWS = 1000; // TODO: how to figure out the max rows of current connection?
 
     private final YdbValue<Duration> joinDuration;
@@ -72,8 +67,6 @@ public class YdbOperationProperties {
     private final YdbValue<FakeTxMode> scanQueryTxMode;
     private final YdbValue<FakeTxMode> schemeQueryTxMode;
     private final YdbValue<FakeTxMode> bulkQueryTxMode;
-
-    private final YdbValue<Boolean> forceScanBulks;
 
     public YdbOperationProperties(YdbConfig config) throws SQLException {
         Properties props = config.getProperties();
@@ -90,8 +83,6 @@ public class YdbOperationProperties {
         this.scanQueryTxMode = SCAN_QUERY_TX_MODE.readValue(props);
         this.schemeQueryTxMode = SCHEME_QUERY_TX_MODE.readValue(props);
         this.bulkQueryTxMode = BULK_QUERY_TX_MODE.readValue(props);
-
-        this.forceScanBulks = FORCE_SCAN_BULKS.readValue(props);
     }
 
     public Duration getJoinDuration() {
@@ -120,10 +111,6 @@ public class YdbOperationProperties {
 
     public FakeTxMode getBulkQueryTxMode() {
         return bulkQueryTxMode.getValue();
-    }
-
-    public boolean getForceScanBulks() {
-        return forceScanBulks.getValue();
     }
 
     public Duration getSessionTimeout() {

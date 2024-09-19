@@ -34,6 +34,10 @@ public class YqlBatcher {
     private final List<String> columns = new ArrayList<>();
     private final List<String> values = new ArrayList<>();
 
+    public void setForcedUpsert() {
+        cmd = Cmd.UPSERT;
+    }
+
     public boolean isInsert() {
         return cmd == Cmd.INSERT;
     }
