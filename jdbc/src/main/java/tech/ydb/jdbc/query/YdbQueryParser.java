@@ -124,6 +124,8 @@ public class YdbQueryParser {
                     }
                     break;
                 default:
+                    lastKeywordIsOffsetLimit = lastKeywordIsOffsetLimit && Character.isWhitespace(ch);
+
                     if (keywordStart >= 0) {
                         isInsideKeyword = Character.isJavaIdentifierPart(ch);
                         break;
@@ -136,6 +138,7 @@ public class YdbQueryParser {
                     break;
             }
 
+
             if (keywordStart >= 0 && (!isInsideKeyword || (i == chars.length - 1))) {
                 lastKeywordIsOffsetLimit = false;
                 int keywordLength = (isInsideKeyword ? i + 1 : keywordEnd) - keywordStart;
@@ -144,18 +147,19 @@ public class YdbQueryParser {
                     batcher.readIdentifier(chars, keywordStart, keywordLength);
 
                     // Detect RETURNING keyword
-                    if (parenLevel == 0 && parseReturningKeyword(chars, keywordStart)) {
+                    if (parenLevel == 0 && parseReturningKeyword(chars, keywordStart, keywordLength)) {
                         statement.setHasReturning(true);
                     }
 
-                    if (parseOffsetKeyword(chars, keywordStart) || parseLimitKeyword(chars, keywordStart)) {
-                        lastKeywordIsOffsetLimit = true;
+                    if (parseOffsetKeyword(chars, keywordStart, keywordLength)
+                            || parseLimitKeyword(chars, keywordStart, keywordLength)) {
+                        lastKeywordIsOffsetLimit = Character.isWhitespace(ch);
                     }
                 } else {
                     boolean skipped = false;
                     if (isDetectQueryType) {
                         // Detect scan expression - starts with SCAN
-                        if (parseScanKeyword(chars, keywordStart)) {
+                        if (parseScanKeyword(chars, keywordStart, keywordLength)) {
                             type = QueryType.SCAN_QUERY;
                             // Skip SCAN prefix
                             parsed.append(chars, fragmentStart, keywordStart - fragmentStart);
@@ -163,7 +167,7 @@ public class YdbQueryParser {
                             skipped = true;
                         }
                         // Detect explain expression - starts with EXPLAIN
-                        if (parseExplainKeyword(chars, keywordStart)) {
+                        if (parseExplainKeyword(chars, keywordStart, keywordLength)) {
                             type = QueryType.EXPLAIN_QUERY;
                             // Skip EXPLAIN prefix
                             parsed.append(chars, fragmentStart, keywordStart - fragmentStart);
@@ -171,7 +175,7 @@ public class YdbQueryParser {
                             skipped = true;
                         }
                         // Detect bulk upsert expression - starts with BULK
-                        if (parseBulkKeyword(chars, keywordStart)) {
+                        if (parseBulkKeyword(chars, keywordStart, keywordLength)) {
                             type = QueryType.BULK_QUERY;
                             // Skip BULK prefix
                             parsed.append(chars, fragmentStart, keywordStart - fragmentStart);
@@ -185,33 +189,33 @@ public class YdbQueryParser {
                         statement = new QueryStatement(type, QueryType.UNKNOWN, QueryCmd.UNKNOWN);
                         // Detect data query expression - starts with SELECT, , UPSERT, DELETE, REPLACE
                         // starts with SELECT
-                        if (parseSelectKeyword(chars, keywordStart)) {
+                        if (parseSelectKeyword(chars, keywordStart, keywordLength)) {
                             statement = new QueryStatement(type, QueryType.DATA_QUERY, QueryCmd.SELECT);
                             batcher.readIdentifier(chars, keywordStart, keywordLength);
                         }
 
                         // starts with INSERT, UPSERT
-                        if (parseInsertKeyword(chars, keywordStart)) {
+                        if (parseInsertKeyword(chars, keywordStart, keywordLength)) {
                             statement = new QueryStatement(type, QueryType.DATA_QUERY, QueryCmd.INSERT_UPSERT);
                             batcher.readInsert();
                         }
-                        if (parseUpsertKeyword(chars, keywordStart)) {
+                        if (parseUpsertKeyword(chars, keywordStart, keywordLength)) {
                             statement = new QueryStatement(type, QueryType.DATA_QUERY, QueryCmd.INSERT_UPSERT);
                             batcher.readUpsert();
                         }
 
                         // starts with UPDATE, REPLACE, DELETE
-                        if (parseUpdateKeyword(chars, keywordStart)
-                                || parseDeleteKeyword(chars, keywordStart)
-                                || parseReplaceKeyword(chars, keywordStart)) {
+                        if (parseUpdateKeyword(chars, keywordStart, keywordLength)
+                                || parseDeleteKeyword(chars, keywordStart, keywordLength)
+                                || parseReplaceKeyword(chars, keywordStart, keywordLength)) {
                             statement = new QueryStatement(type, QueryType.DATA_QUERY, QueryCmd.UPDATE_REPLACE_DELETE);
                             batcher.readIdentifier(chars, keywordStart, keywordLength);
                         }
 
                         // Detect scheme expression - starts with ALTER, DROP, CREATE
-                        if (parseAlterKeyword(chars, keywordStart)
-                                || parseCreateKeyword(chars, keywordStart)
-                                || parseDropKeyword(chars, keywordStart)) {
+                        if (parseAlterKeyword(chars, keywordStart, keywordLength)
+                                || parseCreateKeyword(chars, keywordStart, keywordLength)
+                                || parseDropKeyword(chars, keywordStart, keywordLength)) {
                             statement = new QueryStatement(type, QueryType.SCHEME_QUERY, QueryCmd.CREATE_ALTER_DROP);
                             batcher.readIdentifier(chars, keywordStart, keywordLength);
                         }
@@ -349,8 +353,8 @@ public class YdbQueryParser {
         return offset;
     }
 
-    private static boolean parseAlterKeyword(char[] query, int offset) {
-        if (query.length < (offset + 5)) {
+    private static boolean parseAlterKeyword(char[] query, int offset, int length) {
+        if (length != 5) {
             return false;
         }
 
@@ -361,8 +365,8 @@ public class YdbQueryParser {
                 && (query[offset + 4] | 32) == 'r';
     }
 
-    private static boolean parseCreateKeyword(char[] query, int offset) {
-        if (query.length < (offset + 6)) {
+    private static boolean parseCreateKeyword(char[] query, int offset, int length) {
+        if (length != 6) {
             return false;
         }
 
@@ -374,8 +378,8 @@ public class YdbQueryParser {
                 && (query[offset + 5] | 32) == 'e';
     }
 
-    private static boolean parseDropKeyword(char[] query, int offset) {
-        if (query.length < (offset + 4)) {
+    private static boolean parseDropKeyword(char[] query, int offset, int length) {
+        if (length != 4) {
             return false;
         }
 
@@ -385,8 +389,8 @@ public class YdbQueryParser {
                 && (query[offset + 3] | 32) == 'p';
     }
 
-    private static boolean parseScanKeyword(char[] query, int offset) {
-        if (query.length < (offset + 4)) {
+    private static boolean parseScanKeyword(char[] query, int offset, int length) {
+        if (length != 4) {
             return false;
         }
 
@@ -396,8 +400,8 @@ public class YdbQueryParser {
                 && (query[offset + 3] | 32) == 'n';
     }
 
-    private static boolean parseBulkKeyword(char[] query, int offset) {
-        if (query.length < (offset + 4)) {
+    private static boolean parseBulkKeyword(char[] query, int offset, int length) {
+        if (length != 4) {
             return false;
         }
 
@@ -407,8 +411,8 @@ public class YdbQueryParser {
                 && (query[offset + 3] | 32) == 'k';
     }
 
-    private static boolean parseExplainKeyword(char[] query, int offset) {
-        if (query.length < (offset + 7)) {
+    private static boolean parseExplainKeyword(char[] query, int offset, int length) {
+        if (length != 7) {
             return false;
         }
 
@@ -421,8 +425,8 @@ public class YdbQueryParser {
                 && (query[offset + 6] | 32) == 'n';
     }
 
-    private static boolean parseSelectKeyword(char[] query, int offset) {
-        if (query.length < (offset + 6)) {
+    private static boolean parseSelectKeyword(char[] query, int offset, int length) {
+        if (length != 6) {
             return false;
         }
 
@@ -434,8 +438,8 @@ public class YdbQueryParser {
                 && (query[offset + 5] | 32) == 't';
     }
 
-    private static boolean parseUpdateKeyword(char[] query, int offset) {
-        if (query.length < (offset + 6)) {
+    private static boolean parseUpdateKeyword(char[] query, int offset, int length) {
+        if (length != 6) {
             return false;
         }
 
@@ -447,8 +451,8 @@ public class YdbQueryParser {
                 && (query[offset + 5] | 32) == 'e';
     }
 
-    private static boolean parseUpsertKeyword(char[] query, int offset) {
-        if (query.length < (offset + 6)) {
+    private static boolean parseUpsertKeyword(char[] query, int offset, int length) {
+        if (length != 6) {
             return false;
         }
 
@@ -460,8 +464,8 @@ public class YdbQueryParser {
                 && (query[offset + 5] | 32) == 't';
     }
 
-    private static boolean parseInsertKeyword(char[] query, int offset) {
-        if (query.length < (offset + 6)) {
+    private static boolean parseInsertKeyword(char[] query, int offset, int length) {
+        if (length != 6) {
             return false;
         }
 
@@ -473,8 +477,8 @@ public class YdbQueryParser {
                 && (query[offset + 5] | 32) == 't';
     }
 
-    private static boolean parseDeleteKeyword(char[] query, int offset) {
-        if (query.length < (offset + 6)) {
+    private static boolean parseDeleteKeyword(char[] query, int offset, int length) {
+        if (length != 6) {
             return false;
         }
 
@@ -486,8 +490,8 @@ public class YdbQueryParser {
                 && (query[offset + 5] | 32) == 'e';
     }
 
-    private static boolean parseReplaceKeyword(char[] query, int offset) {
-        if (query.length < (offset + 7)) {
+    private static boolean parseReplaceKeyword(char[] query, int offset, int length) {
+        if (length != 7) {
             return false;
         }
 
@@ -500,8 +504,8 @@ public class YdbQueryParser {
                 && (query[offset + 6] | 32) == 'e';
     }
 
-    private static boolean parseReturningKeyword(char[] query, int offset) {
-        if (query.length < (offset + 9)) {
+    private static boolean parseReturningKeyword(char[] query, int offset, int length) {
+        if (length != 9) {
             return false;
         }
 
@@ -516,8 +520,8 @@ public class YdbQueryParser {
                 && (query[offset + 8] | 32) == 'g';
     }
 
-    private static boolean parseOffsetKeyword(char[] query, int offset) {
-        if (query.length < (offset + 6)) {
+    private static boolean parseOffsetKeyword(char[] query, int offset, int length) {
+        if (length != 6) {
             return false;
         }
 
@@ -529,8 +533,8 @@ public class YdbQueryParser {
                 && (query[offset + 5] | 32) == 't';
     }
 
-    private static boolean parseLimitKeyword(char[] query, int offset) {
-        if (query.length < (offset + 5)) {
+    private static boolean parseLimitKeyword(char[] query, int offset, int length) {
+        if (length != 5) {
             return false;
         }
 

@@ -71,6 +71,26 @@ public class YdbQueryParserTest {
         Assertions.assertEquals(QueryCmd.CREATE_ALTER_DROP, statement.getCmd());
     }
 
+    @ParameterizedTest(name = "[{index}] {0} is data query")
+    @ValueSource(strings = {
+        "ALTERED;",
+        "SCANER SELECT 1;",
+        "bulked select 1;",
+        "\ndrops;",
+        "BuLK_INSERT;",
+    })
+    public void unknownQueryTest(String sql) throws SQLException {
+        YdbQueryParser parser = new YdbQueryParser(true, true);
+        String parsed = parser.parseSQL(sql);
+
+        Assertions.assertEquals(sql, parsed);
+
+        Assertions.assertEquals(1, parser.getStatements().size());
+        QueryStatement statement = parser.getStatements().get(0);
+        Assertions.assertEquals(QueryType.UNKNOWN, statement.getType());
+        Assertions.assertEquals(QueryCmd.UNKNOWN, statement.getCmd());
+    }
+
     @Test
     public void wrongSqlCommandTest() throws SQLException {
         String query = "SC;";
@@ -134,29 +154,55 @@ public class YdbQueryParserTest {
         Assertions.assertEquals(QueryType.SCAN_QUERY, parser.detectQueryType());
     }
 
-    @Test
-    public void offsetParameterTest() throws SQLException {
-        String query = ""
-                + "select * from test_table where true=true -- test request\n"
-                + " offset /* comment */ ? limit 20";
-
+    @ParameterizedTest(name = "[{index}] {0} has offset or limit parameter")
+    @ValueSource(strings = {
+        "select * from test_table where true=true -- test request\noffset /* comment */ ? limit 20",
+        "select * from test_table where true=true /*comm*/offset ?\tlimit\t\n?;",
+        "select offset, limit from test_table  offset 20 limit -- comment\n?;",
+    })
+    public void offsetParameterTest(String query) throws SQLException {
         YdbQueryParser parser = new YdbQueryParser(true, true);
-        String parsed = parser.parseSQL(query);
-        Assertions.assertEquals(""
-                + "select * from test_table where true=true -- test request\n"
-                + " offset /* comment */ $jp1 limit 20",
-                parsed);
+        parser.parseSQL(query);
 
         Assertions.assertEquals(1, parser.getStatements().size());
 
         QueryStatement statement = parser.getStatements().get(0);
         Assertions.assertEquals(QueryType.DATA_QUERY, statement.getType());
-        Assertions.assertEquals(1, statement.getParams().size());
 
-        ParamDescription prm1 = statement.getParams().get(0);
-        Assertions.assertEquals("$jp1", prm1.name());
-        Assertions.assertNotNull(prm1.type());
-        Assertions.assertEquals(PrimitiveType.Uint64, prm1.type().ydbType());
+        Assertions.assertFalse(statement.getParams().isEmpty());
+        int idx = 0;
+        for (ParamDescription prm : statement.getParams()) {
+            idx++;
+            Assertions.assertEquals("$jp" + idx, prm.name());
+            Assertions.assertNotNull(prm.type()); // forced UInt64 type
+            Assertions.assertEquals(PrimitiveType.Uint64, prm.type().ydbType()); // forced UInt64 type
+        }
+    }
+
+    @ParameterizedTest(name = "[{index}] {0} hasn't offset or limit parameter")
+    @ValueSource(strings = {
+        "select * from test_table where limit = ? or offset = ?",
+        "update test_table set limit = ?, offset = ? where id = ?",
+        "select * from test_table where limit=? or offset=?",
+        "update test_table set limit=?, offset=? where id=?",
+        "select * from test_table where limit? or offset?",
+    })
+    public void noOffsetParameterTest(String query) throws SQLException {
+        YdbQueryParser parser = new YdbQueryParser(true, true);
+        parser.parseSQL(query);
+
+        Assertions.assertEquals(1, parser.getStatements().size());
+
+        QueryStatement statement = parser.getStatements().get(0);
+        Assertions.assertEquals(QueryType.DATA_QUERY, statement.getType());
+
+        Assertions.assertFalse(statement.getParams().isEmpty());
+        int idx = 0;
+        for (ParamDescription prm : statement.getParams()) {
+            idx++;
+            Assertions.assertEquals("$jp" + idx, prm.name());
+            Assertions.assertNull(prm.type()); // uknown type
+        }
     }
 
     @ParameterizedTest(name = "[{index}] {0} is batched insert query")
