@@ -177,6 +177,8 @@ public class YdbConfig {
             YdbOperationProperties.TRANSACTION_LEVEL.toInfo(properties),
             YdbOperationProperties.SCHEME_QUERY_TX_MODE.toInfo(properties),
             YdbOperationProperties.SCAN_QUERY_TX_MODE.toInfo(properties),
+            YdbOperationProperties.BULK_QUERY_TX_MODE.toInfo(properties),
+            YdbOperationProperties.FORCE_SCAN_BULKS.toInfo(properties),
 
             YdbQueryProperties.DISABLE_PREPARE_DATAQUERY.toInfo(properties),
             YdbQueryProperties.DISABLE_AUTO_PREPARED_BATCHES.toInfo(properties),
