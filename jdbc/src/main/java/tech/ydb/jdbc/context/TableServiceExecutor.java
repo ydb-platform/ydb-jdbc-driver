@@ -9,6 +9,7 @@ import java.util.List;
 
 import tech.ydb.core.Result;
 import tech.ydb.core.UnexpectedResultException;
+import tech.ydb.core.grpc.GrpcReadStream;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
@@ -25,6 +26,7 @@ import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.settings.CommitTxSettings;
 import tech.ydb.table.settings.ExecuteDataQuerySettings;
+import tech.ydb.table.settings.ExecuteScanQuerySettings;
 import tech.ydb.table.settings.ExplainDataQuerySettings;
 import tech.ydb.table.settings.KeepAliveSessionSettings;
 import tech.ydb.table.settings.RollbackTxSettings;
@@ -223,6 +225,28 @@ public class TableServiceExecutor extends BaseYdbExecutor {
             updateState(tx.withRollback(session));
             throw ex;
         }
+    }
+
+    @Override
+    public YdbQueryResult executeScanQuery(YdbStatement statement, YdbQuery query, String yql, Params params)
+            throws SQLException {
+        ensureOpened();
+
+        YdbContext ctx = statement.getConnection().getCtx();
+        YdbValidator validator = statement.getValidator();
+        Duration scanQueryTimeout = ctx.getOperationProperties().getScanQueryTimeout();
+        ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()
+                .withRequestTimeout(scanQueryTimeout)
+                .build();
+
+        final Session session = tx.getSession(validator);
+
+        String msg = QueryType.SCAN_QUERY + " >>\n" + yql;
+        return validator.call(msg, () -> {
+            GrpcReadStream<ResultSetReader> stream = session.executeScanQuery(yql, params, settings);
+            StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
+            return result.execute(stream);
+        });
     }
 
     @Override

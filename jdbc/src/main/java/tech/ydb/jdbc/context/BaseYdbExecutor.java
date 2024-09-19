@@ -1,22 +1,13 @@
 package tech.ydb.jdbc.context;
 
 import java.sql.SQLException;
-import java.time.Duration;
-import java.util.Collection;
 import java.util.Collections;
-import java.util.concurrent.LinkedBlockingQueue;
 
-import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.impl.YdbQueryResult;
-import tech.ydb.jdbc.impl.YdbStaticResultSet;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.SessionRetryContext;
-import tech.ydb.table.query.Params;
-import tech.ydb.table.result.ResultSetReader;
-import tech.ydb.table.result.impl.ProtoValueReaders;
-import tech.ydb.table.settings.ExecuteScanQuerySettings;
 import tech.ydb.table.settings.ExecuteSchemeQuerySettings;
 import tech.ydb.table.values.ListValue;
 
@@ -60,31 +51,5 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
         );
 
         return new StaticQueryResult(query, Collections.emptyList());
-    }
-
-    @Override
-    public YdbQueryResult executeScanQuery(YdbStatement statement, YdbQuery query, String yql, Params params)
-            throws SQLException {
-        ensureOpened();
-
-        YdbContext ctx = statement.getConnection().getCtx();
-        YdbValidator validator = statement.getValidator();
-
-        Collection<ResultSetReader> resultSets = new LinkedBlockingQueue<>();
-        Duration scanQueryTimeout = ctx.getOperationProperties().getScanQueryTimeout();
-        ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()
-                .withRequestTimeout(scanQueryTimeout)
-                .build();
-
-        ctx.traceQuery(query, yql);
-        validator.execute(QueryType.SCAN_QUERY + " >>\n" + yql,
-                () -> retryCtx.supplyStatus(session -> {
-                    resultSets.clear();
-                    return session.executeScanQuery(yql, params, settings).start(resultSets::add);
-                })
-        );
-
-        YdbResultSet rs = new YdbStaticResultSet(statement, ProtoValueReaders.forResultSets(resultSets));
-        return new StaticQueryResult(query, Collections.singletonList(rs));
     }
 }

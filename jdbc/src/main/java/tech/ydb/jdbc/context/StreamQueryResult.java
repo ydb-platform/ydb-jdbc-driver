@@ -15,6 +15,7 @@ import tech.ydb.core.Issue;
 import tech.ydb.core.Result;
 import tech.ydb.core.Status;
 import tech.ydb.core.UnexpectedResultException;
+import tech.ydb.core.grpc.GrpcReadStream;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
@@ -74,9 +75,16 @@ public class StreamQueryResult implements YdbQueryResult {
         }
     }
 
-    public CompletableFuture<Result<StreamQueryResult>> execute(QueryStream stream) {
+    public CompletableFuture<Result<StreamQueryResult>> execute(QueryStream stream, Runnable finish) {
         stream.execute(new QueryPartsHandler())
                 .thenApply(Result::getStatus)
+                .whenComplete(this::onStreamFinished)
+                .thenRun(finish);
+        return startFuture;
+    }
+
+    public CompletableFuture<Result<StreamQueryResult>> execute(GrpcReadStream<ResultSetReader> stream) {
+        stream.start(rsr -> onResultSet(0, rsr))
                 .whenComplete(this::onStreamFinished);
         return startFuture;
     }

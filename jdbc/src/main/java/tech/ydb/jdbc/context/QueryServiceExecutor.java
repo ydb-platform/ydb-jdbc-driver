@@ -4,8 +4,10 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import tech.ydb.common.transaction.TxMode;
@@ -13,9 +15,11 @@ import tech.ydb.core.Issue;
 import tech.ydb.core.Result;
 import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.exception.ExceptionFactory;
 import tech.ydb.jdbc.impl.YdbQueryResult;
+import tech.ydb.jdbc.impl.YdbStaticResultSet;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.query.QueryClient;
@@ -28,7 +32,9 @@ import tech.ydb.query.settings.CommitTransactionSettings;
 import tech.ydb.query.settings.ExecuteQuerySettings;
 import tech.ydb.query.settings.QueryExecMode;
 import tech.ydb.query.settings.RollbackTransactionSettings;
+import tech.ydb.query.tools.QueryReader;
 import tech.ydb.table.query.Params;
+import tech.ydb.table.result.ResultSetReader;
 
 /**
  *
@@ -211,18 +217,51 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             tx = createNewQuerySession(validator).createNewTransaction(txMode);
         }
 
-        String msg = "STREAM_QUERY >>\n" + yql;
         try {
-            return validator.call(msg, () -> {
-                QueryStream stream = tx.createQuery(yql, isAutoCommit, params, settings);
-                StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
-                return result.execute(stream);
-            });
+            QueryReader result = validator.call(QueryType.DATA_QUERY + " >>\n" + yql,
+                    () -> QueryReader.readFrom(tx.createQuery(yql, isAutoCommit, params, settings))
+            );
+            validator.addStatusIssues(result.getIssueList());
+
+            List<YdbResultSet> readers = new ArrayList<>();
+            for (ResultSetReader rst: result) {
+                readers.add(new YdbStaticResultSet(statement, rst));
+            }
+            return new StaticQueryResult(query, readers);
         } finally {
             if (!tx.isActive()) {
                 cleanTx();
             }
         }
+    }
+
+    @Override
+    public YdbQueryResult executeScanQuery(YdbStatement statement, YdbQuery query, String yql, Params params)
+            throws SQLException {
+        ensureOpened();
+
+        YdbContext ctx = statement.getConnection().getCtx();
+        YdbValidator validator = statement.getValidator();
+
+        Duration scanQueryTimeout = ctx.getOperationProperties().getScanQueryTimeout();
+        ExecuteQuerySettings settings = ExecuteQuerySettings.newBuilder()
+                .withRequestTimeout(scanQueryTimeout)
+                .build();
+
+        if (tx == null) {
+            tx = createNewQuerySession(validator).createNewTransaction(txMode);
+        }
+
+        String msg = "STREAM_QUERY >>\n" + yql;
+        return validator.call(msg, () -> {
+            QueryStream stream = tx.createQuery(yql, isAutoCommit, params, settings);
+            StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
+            return result.execute(stream, () -> {
+                if (!tx.isActive()) {
+                    cleanTx();
+                }
+            });
+        });
     }
 
     @Override
