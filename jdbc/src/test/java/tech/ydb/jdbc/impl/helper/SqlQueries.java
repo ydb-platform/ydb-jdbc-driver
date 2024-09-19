@@ -39,7 +39,7 @@ public class SqlQueries {
     private static final String NAMED_BATCH = YdbLookup.stringFileReference("classpath:sql/upsert/named_batch.sql");
     private static final String TYPED_BATCH = YdbLookup.stringFileReference("classpath:sql/upsert/typed_batch.sql");
 
-    private static final String SELECT_ALL = "select * from #tableName";
+    private static final String SELECT_ALL = "select * from #tableName order by key";
     private static final String SELECT_BY_KEY = "select * from #tableName where key = #value";
     private static final String SELECT_BY_COLUMN = "select * from #tableName where #column = #value";
     private static final String DELETE_ALL = "delete from #tableName";
@@ -101,7 +101,7 @@ public class SqlQueries {
         return withTableName(INIT_TABLE);
     }
 
-    /** @return select * from #tableName */
+    /** @return select * from #tableName order by key */
     public String selectAllSQL() {
         return withTableName(SELECT_ALL);
     }
@@ -128,6 +128,10 @@ public class SqlQueries {
         return withTableName(SELECT);
     }
 
+    /** @return scan select key, c_Bool, c_Int8, ...  from #tableName */
+    public String scanSelectSQL() {
+        return withTableName("SCAN " + SELECT);
+    }
 
     /** @return select key2 from #tableName */
     public String wrongSelectSQL() {

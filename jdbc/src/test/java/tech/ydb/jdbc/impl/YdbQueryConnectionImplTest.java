@@ -825,6 +825,18 @@ public class YdbQueryConnectionImplTest {
                             warnings.getMessage());
                     Assertions.assertNull(warnings.getNextWarning());
                 }
+
+                try (ResultSet rs = statement.executeQuery("SCAN " + query)) {
+                    Assertions.assertFalse(rs.next());
+
+                    SQLWarning warnings = statement.getWarnings();
+                    Assertions.assertNotNull(warnings);
+
+                    Assertions.assertEquals("#1060 Execution (S_WARNING)\n  "
+                            + "2:1 - 2:1: #2503 Given predicate is not suitable for used index: idx_value (S_WARNING)",
+                            warnings.getMessage());
+                    Assertions.assertNull(warnings.getNextWarning());
+                }
             } finally {
                 statement.execute(dropTempTable);
             }
@@ -1020,8 +1032,8 @@ public class YdbQueryConnectionImplTest {
                     TableAssert.ResultSetAssert check = sa.check(rs).assertMetaColumns();
 
                     check.nextRow(
-                            sa.sql("select * from ydb_connection_test"),
-                            sa.yql("select * from ydb_connection_test"),
+                            sa.sql("select * from ydb_connection_test order by key"),
+                            sa.yql("select * from ydb_connection_test order by key"),
                             sa.isFullScan(), sa.isNotError(), sa.executed(1), sa.hasAst(), sa.hasPlan()
                     ).assertAll();
 
@@ -1037,8 +1049,8 @@ public class YdbQueryConnectionImplTest {
                     TableAssert.ResultSetAssert check = sa.check(rs).assertMetaColumns();
 
                     check.nextRow(
-                            sa.sql("select * from ydb_connection_test"),
-                            sa.yql("select * from ydb_connection_test"),
+                            sa.sql("select * from ydb_connection_test order by key"),
+                            sa.yql("select * from ydb_connection_test order by key"),
                             sa.isFullScan(), sa.isNotError(), sa.executed(1), sa.hasAst(), sa.hasPlan()
                     ).assertAll();
 
@@ -1066,8 +1078,8 @@ public class YdbQueryConnectionImplTest {
                     ).assertAll();
 
                     check.nextRow(
-                            sa.sql("select * from ydb_connection_test"),
-                            sa.yql("select * from ydb_connection_test"),
+                            sa.sql("select * from ydb_connection_test order by key"),
+                            sa.yql("select * from ydb_connection_test order by key"),
                             sa.isFullScan(), sa.isNotError(), sa.executed(1), sa.hasAst(), sa.hasPlan()
                     ).assertAll();
 

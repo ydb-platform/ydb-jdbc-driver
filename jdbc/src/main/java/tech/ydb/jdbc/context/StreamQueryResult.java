@@ -1,6 +1,8 @@
 package tech.ydb.jdbc.context;
 
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -276,11 +278,11 @@ public class StreamQueryResult implements YdbQueryResult {
 
         @Override
         protected ValueReader getValue(int columnIndex) throws SQLException {
-            try {
-                return current.getColumn(columnIndex);
-            } catch (IllegalStateException ex) {
+            if (current == null) {
                 throw new SQLException(YdbConst.INVALID_ROW + rowIndex);
             }
+
+            return current.getColumn(columnIndex);
         }
 
         @Override
@@ -296,6 +298,10 @@ public class StreamQueryResult implements YdbQueryResult {
                 }
 
                 if (isCompleted && readers.isEmpty()) {
+                    current = null;
+                    if (rowsCount.get() > 0) {
+                        rowIndex = rowsCount.intValue() + 1;
+                    }
                     return false;
                 }
 
@@ -337,67 +343,69 @@ public class StreamQueryResult implements YdbQueryResult {
 
         @Override
         public boolean isBeforeFirst() throws SQLException {
-            throw new SQLException(YdbConst.FORWARD_ONLY_MODE);
+            return rowsCount.get() > 0 && rowIndex < 1;
         }
 
         @Override
         public boolean isAfterLast() throws SQLException {
-            throw new SQLException(YdbConst.FORWARD_ONLY_MODE);
+            return isCompleted && rowsCount.get() > 0 && rowIndex > rowsCount.intValue();
         }
 
         @Override
         public boolean isFirst() throws SQLException {
-            throw new SQLException(YdbConst.FORWARD_ONLY_MODE);
+            return rowIndex == 1;
         }
 
         @Override
         public boolean isLast() throws SQLException {
-            throw new SQLException(YdbConst.FORWARD_ONLY_MODE);
+            return isCompleted && rowsCount.get() > 0 && rowIndex == rowsCount.intValue();
         }
 
         @Override
         public void beforeFirst() throws SQLException {
-            throw new SQLException(YdbConst.FORWARD_ONLY_MODE);
+            throw new SQLFeatureNotSupportedException(YdbConst.FORWARD_ONLY_MODE);
         }
 
         @Override
         public void afterLast() throws SQLException {
-            throw new SQLException(YdbConst.FORWARD_ONLY_MODE);
+            throw new SQLFeatureNotSupportedException(YdbConst.FORWARD_ONLY_MODE);
         }
 
         @Override
         public boolean first() throws SQLException {
-            throw new SQLException(YdbConst.FORWARD_ONLY_MODE);
+            throw new SQLFeatureNotSupportedException(YdbConst.FORWARD_ONLY_MODE);
         }
 
         @Override
         public boolean last() throws SQLException {
-            throw new SQLException(YdbConst.FORWARD_ONLY_MODE);
+            throw new SQLFeatureNotSupportedException(YdbConst.FORWARD_ONLY_MODE);
         }
 
         @Override
         public boolean absolute(int row) throws SQLException {
-            throw new SQLException(YdbConst.FORWARD_ONLY_MODE);
+            throw new SQLFeatureNotSupportedException(YdbConst.FORWARD_ONLY_MODE);
         }
 
         @Override
         public boolean relative(int rows) throws SQLException {
-            throw new SQLException(YdbConst.FORWARD_ONLY_MODE);
+            throw new SQLFeatureNotSupportedException(YdbConst.FORWARD_ONLY_MODE);
         }
 
         @Override
         public boolean previous() throws SQLException {
-            throw new SQLException(YdbConst.FORWARD_ONLY_MODE);
+            throw new SQLFeatureNotSupportedException(YdbConst.FORWARD_ONLY_MODE);
         }
 
         @Override
         public void setFetchDirection(int direction) throws SQLException {
-            throw new UnsupportedOperationException("Not supported yet.");
+            if (direction != ResultSet.FETCH_FORWARD) {
+                throw new SQLFeatureNotSupportedException(YdbConst.FORWARD_ONLY_MODE);
+            }
         }
 
         @Override
         public int getFetchDirection() throws SQLException {
-            throw new UnsupportedOperationException("Not supported yet.");
+            return ResultSet.FETCH_FORWARD;
         }
     }
 }

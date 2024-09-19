@@ -376,6 +376,9 @@ public class YdbStatementImplTest {
         Assertions.assertTrue(statement.execute("select 2 + 2"));
         Assertions.assertEquals(-1, statement.getUpdateCount());
 
+        Assertions.assertTrue(statement.execute("scan select 2 + 2"));
+        Assertions.assertEquals(-1, statement.getUpdateCount());
+
         statement.execute(TEST_UPSERT1_SQL);
         Assertions.assertEquals(1, statement.getUpdateCount());
         Assertions.assertFalse(statement.getMoreResults());
@@ -403,6 +406,9 @@ public class YdbStatementImplTest {
         Assertions.assertNotNull(statement.getResultSet());
         Assertions.assertFalse(statement.getMoreResults());
 
+        statement.execute("scan select 2 + 2");
+        Assertions.assertNotNull(statement.getResultSet());
+        Assertions.assertFalse(statement.getMoreResults());
 
         statement.execute("select 1 + 2; select 2 + 3; select 3 + 4");
         ResultSet rs0 = statement.getResultSet();

@@ -1017,8 +1017,8 @@ public class YdbConnectionImplTest {
                     TableAssert.ResultSetAssert check = sa.check(rs).assertMetaColumns();
 
                     check.nextRow(
-                            sa.sql("select * from ydb_connection_test"),
-                            sa.yql("select * from ydb_connection_test"),
+                            sa.sql("select * from ydb_connection_test order by key"),
+                            sa.yql("select * from ydb_connection_test order by key"),
                             sa.isFullScan(), sa.isNotError(), sa.executed(1), sa.hasAst(), sa.hasPlan()
                     ).assertAll();
 
@@ -1034,8 +1034,8 @@ public class YdbConnectionImplTest {
                     TableAssert.ResultSetAssert check = sa.check(rs).assertMetaColumns();
 
                     check.nextRow(
-                            sa.sql("select * from ydb_connection_test"),
-                            sa.yql("select * from ydb_connection_test"),
+                            sa.sql("select * from ydb_connection_test order by key"),
+                            sa.yql("select * from ydb_connection_test order by key"),
                             sa.isFullScan(), sa.isNotError(), sa.executed(1), sa.hasAst(), sa.hasPlan()
                     ).assertAll();
 
@@ -1063,8 +1063,8 @@ public class YdbConnectionImplTest {
                     ).assertAll();
 
                     check.nextRow(
-                            sa.sql("select * from ydb_connection_test"),
-                            sa.yql("select * from ydb_connection_test"),
+                            sa.sql("select * from ydb_connection_test order by key"),
+                            sa.yql("select * from ydb_connection_test order by key"),
                             sa.isFullScan(), sa.isNotError(), sa.executed(1), sa.hasAst(), sa.hasPlan()
                     ).assertAll();
 
