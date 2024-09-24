@@ -73,8 +73,11 @@ public class YdbValidator {
         try {
             runImpl(msg, fn);
             logger.log(Level.FINEST, "[{0}] OK ", sw.stop());
-        } catch (SQLException | RuntimeException ex) {
+        } catch (SQLException ex) {
             logger.log(Level.FINE, "[{0}] {1} ", new Object[] {sw.stop(), ex.getMessage()});
+            throw ex;
+        } catch (Exception ex) {
+            logger.log(Level.WARNING, "ERROR ", ex);
             throw ex;
         }
     }
@@ -91,8 +94,11 @@ public class YdbValidator {
             R value = callImpl(msg, fn);
             logger.log(Level.FINEST, "[{0}] OK ", sw.stop());
             return value;
-        } catch (SQLException | RuntimeException ex) {
-            logger.log(Level.FINE, "[{0}] {1} ", new Object[] {sw.stop(), ex.getMessage()});
+        } catch (SQLException ex) {
+            logger.log(Level.FINE, "[{0}] FAIL {1} ", new Object[] {sw.stop(), ex.getMessage()});
+            throw ex;
+        } catch (Exception ex) {
+            logger.log(Level.WARNING, "ERROR ", ex);
             throw ex;
         }
     }
