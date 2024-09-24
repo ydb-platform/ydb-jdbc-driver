@@ -1,3 +1,7 @@
+## 2.2.6 ##
+
+* Added logs for QueryClient executor
+
 ## 2.2.5 ##
 
 * Added lazy result set implementation
