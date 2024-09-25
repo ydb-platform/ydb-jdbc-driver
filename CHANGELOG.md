@@ -1,3 +1,8 @@
+## 2.2.7 ##
+
+* Fixed concurrency issues in QueryServiceExecutor
+* Fixed QueryClient pool autoresize
+
 ## 2.2.6 ##
 
 * Added logs for QueryClient executor
