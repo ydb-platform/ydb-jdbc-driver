@@ -13,11 +13,11 @@ import tech.ydb.table.values.ListValue;
  * @author Aleksandr Gorshenin
  */
 public interface YdbExecutor {
-    void close();
-    boolean isClosed();
+    void close() throws SQLException;
+    boolean isClosed() throws SQLException;
     void ensureOpened() throws SQLException;
 
-    String txID();
+    String txID() throws SQLException;
     int transactionLevel() throws SQLException;
 
     boolean isInsideTransaction() throws SQLException;

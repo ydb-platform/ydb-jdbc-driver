@@ -2,7 +2,6 @@ package tech.ydb.jdbc.context;
 
 import java.sql.SQLException;
 import java.util.Collections;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 import tech.ydb.jdbc.YdbConst;
@@ -20,28 +19,31 @@ import tech.ydb.table.values.ListValue;
  */
 public abstract class BaseYdbExecutor implements YdbExecutor {
     private final SessionRetryContext retryCtx;
-    private final AtomicReference<Barrier> barrier;
+    private final AtomicReference<YdbQueryResult> currResult;
 
     public BaseYdbExecutor(YdbContext ctx) {
         this.retryCtx = ctx.getRetryCtx();
-        this.barrier = new AtomicReference<>(new Barrier());
-        this.barrier.get().open();
+        this.currResult = new AtomicReference<>();
     }
 
-    protected void checkBarrier() {
-        barrier.get().waitOpening();
+    protected void closeCurrentResult() throws SQLException {
+        YdbQueryResult rs = currResult.get();
+        if (rs != null) {
+            rs.close();
+        }
     }
 
-    protected Barrier createBarrier() {
-        Barrier newBarrier = new Barrier();
-        Barrier prev = barrier.getAndSet(newBarrier);
-        prev.waitOpening();
-        return newBarrier;
+    protected YdbQueryResult updateCurrentResult(YdbQueryResult result) throws SQLException {
+        YdbQueryResult old = currResult.getAndSet(result);
+        if (old != null) {
+            old.close();
+        }
+        return result;
     }
 
     @Override
     public void ensureOpened() throws SQLException {
-        checkBarrier();
+        closeCurrentResult();
         if (isClosed()) {
             throw new SQLException(YdbConst.CLOSED_CONNECTION);
         }
@@ -61,7 +63,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
                 () -> retryCtx.supplyStatus(session -> session.executeSchemeQuery(yql, settings))
         );
 
-        return new StaticQueryResult(query, Collections.emptyList());
+        return updateCurrentResult(new StaticQueryResult(query, Collections.emptyList()));
     }
 
     @Override
@@ -75,18 +77,6 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
                 () -> retryCtx.supplyStatus(session -> session.executeBulkUpsert(tablePath, rows))
         );
 
-        return new StaticQueryResult(query, Collections.emptyList());
-    }
-
-    public class Barrier {
-        private final CompletableFuture<Void> future = new CompletableFuture<>();
-
-        public void open() {
-            future.complete(null);
-        }
-
-        public void waitOpening() {
-            future.join();
-        }
+        return updateCurrentResult(new StaticQueryResult(query, Collections.emptyList()));
     }
 }
