@@ -271,7 +271,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         return validator.call(msg, () -> {
             QueryStream stream = session.createQuery(yql, TxMode.SNAPSHOT_RO, params, settings);
             StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
-            return result.execute(stream, barrier);
+            return result.execute(stream, barrier::open);
         });
     }
 

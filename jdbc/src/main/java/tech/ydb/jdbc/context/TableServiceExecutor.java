@@ -238,7 +238,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
             throws SQLException {
         ensureOpened();
 
-        Barrier barrier = createBarrier();
+        final Barrier barrier = createBarrier();
 
         YdbContext ctx = statement.getConnection().getCtx();
         YdbValidator validator = statement.getValidator();
@@ -247,13 +247,16 @@ public class TableServiceExecutor extends BaseYdbExecutor {
                 .withRequestTimeout(scanQueryTimeout)
                 .build();
 
-        final Session session = tx.getSession(validator);
+        final Session session = createNewTableSession(validator);
 
         String msg = QueryType.SCAN_QUERY + " >>\n" + yql;
         return validator.call(msg, () -> {
             GrpcReadStream<ResultSetReader> stream = session.executeScanQuery(yql, params, settings);
             StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
-            return result.execute(stream, barrier);
+            return result.execute(stream, () -> {
+                session.close();
+                barrier.open();
+            });
         });
     }
 

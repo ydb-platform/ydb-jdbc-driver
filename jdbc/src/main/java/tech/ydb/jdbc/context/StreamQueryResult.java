@@ -77,20 +77,20 @@ public class StreamQueryResult implements YdbQueryResult {
         }
     }
 
-    public CompletableFuture<Result<StreamQueryResult>> execute(QueryStream stream, BaseYdbExecutor.Barrier barrier) {
+    public CompletableFuture<Result<StreamQueryResult>> execute(QueryStream stream, Runnable finish) {
         stream.execute(new QueryPartsHandler())
                 .thenApply(Result::getStatus)
                 .whenComplete(this::onStreamFinished)
-                .thenRun(barrier::open);
+                .thenRun(finish);
         return startFuture;
     }
 
     public CompletableFuture<Result<StreamQueryResult>> execute(
-            GrpcReadStream<ResultSetReader> stream, BaseYdbExecutor.Barrier barrier
+            GrpcReadStream<ResultSetReader> stream, Runnable finish
     ) {
         stream.start(rsr -> onResultSet(0, rsr))
                 .whenComplete(this::onStreamFinished)
-                .thenRun(barrier::open);
+                .thenRun(finish);
         return startFuture;
     }
 
