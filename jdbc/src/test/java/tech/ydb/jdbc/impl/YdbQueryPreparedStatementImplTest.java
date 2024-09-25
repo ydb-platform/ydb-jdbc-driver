@@ -350,7 +350,8 @@ public class YdbQueryPreparedStatementImplTest {
             statement.setInt(1, 1);
             statement.setString(2, "value-1");
 
-            statement.executeUpdate();
+            ExceptionAssert.ydbException("Operation 'Upsert' can't be performed in read only transaction",
+                    statement::executeQuery);
         }
     }
 

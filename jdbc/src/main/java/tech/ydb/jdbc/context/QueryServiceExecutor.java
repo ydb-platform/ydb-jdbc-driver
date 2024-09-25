@@ -255,18 +255,13 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
                 .withRequestTimeout(scanQueryTimeout)
                 .build();
 
-        if (tx == null) {
-            tx = createNewQuerySession(validator).createNewTransaction(txMode);
-        }
-
+        final QuerySession session = createNewQuerySession(validator);
         String msg = "STREAM_QUERY >>\n" + yql;
         return validator.call(msg, () -> {
-            QueryStream stream = tx.createQuery(yql, isAutoCommit, params, settings);
+            QueryStream stream = session.createQuery(yql, TxMode.SNAPSHOT_RO, params, settings);
             StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
             return result.execute(stream, () -> {
-                if (!tx.isActive()) {
-                    cleanTx();
-                }
+                session.close();
             });
         });
     }
