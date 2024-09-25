@@ -17,7 +17,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -39,7 +38,6 @@ public class YdbConnectionImpl implements YdbConnection {
     private final YdbContext ctx;
     private final YdbValidator validator;
     private final YdbExecutor executor;
-    private final AtomicReference<YdbStatement> currState = new AtomicReference<>();
 
     public YdbConnectionImpl(YdbContext context) throws SQLException {
         this.ctx = context;
@@ -85,21 +83,6 @@ public class YdbConnectionImpl implements YdbConnection {
         executor.setAutoCommit(autoCommit);
     }
 
-    private <T extends YdbStatement> T updateStatement(T statement) throws SQLException {
-        Statement prev = currState.getAndSet(statement);
-        if (prev != null) {
-            prev.close();
-        }
-        return statement;
-    }
-
-    private void waitStatementReady() throws SQLException {
-        YdbStatement curr = currState.get();
-        if (curr != null) {
-            curr.waitReady();
-        }
-    }
-
     @Override
     public boolean getAutoCommit() throws SQLException {
         return executor.isAutoCommit();
@@ -107,13 +90,11 @@ public class YdbConnectionImpl implements YdbConnection {
 
     @Override
     public void commit() throws SQLException {
-        waitStatementReady();
         executor.commit(ctx, validator);
     }
 
     @Override
     public void rollback() throws SQLException {
-        waitStatementReady();
         executor.rollback(ctx, validator);
     }
 
@@ -130,7 +111,7 @@ public class YdbConnectionImpl implements YdbConnection {
     }
 
     @Override
-    public boolean isClosed() {
+    public boolean isClosed() throws SQLException {
         return executor.isClosed();
     }
 
@@ -186,8 +167,6 @@ public class YdbConnectionImpl implements YdbConnection {
     @Override
     public void clearWarnings() throws SQLException {
         executor.ensureOpened();
-
-        waitStatementReady();
         validator.clearWarnings();
     }
 
@@ -231,7 +210,7 @@ public class YdbConnectionImpl implements YdbConnection {
             int resultSetHoldability) throws SQLException {
         executor.ensureOpened();
         checkStatementParams(resultSetType, resultSetConcurrency, resultSetHoldability);
-        return updateStatement(new YdbStatementImpl(this, resultSetType));
+        return new YdbStatementImpl(this, resultSetType);
     }
 
     @Override
@@ -263,7 +242,7 @@ public class YdbConnectionImpl implements YdbConnection {
         YdbQuery query = ctx.findOrParseYdbQuery(sql);
 
         YdbPreparedQuery params = ctx.findOrPrepareParams(query, mode);
-        return updateStatement(new YdbPreparedStatementImpl(this, query, params, resultSetType));
+        return new YdbPreparedStatementImpl(this, query, params, resultSetType);
     }
 
     @Override
@@ -309,7 +288,6 @@ public class YdbConnectionImpl implements YdbConnection {
 
     @Override
     public String getYdbTxId() throws SQLException {
-        waitStatementReady();
         return executor.txID();
     }
 

@@ -52,6 +52,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public void close() {
+        checkBarrier();
         tx = null;
     }
 
@@ -74,26 +75,31 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public void setTransactionLevel(int level) throws SQLException {
+        ensureOpened();
         updateState(tx.withTransactionLevel(level));
     }
 
     @Override
     public void setReadOnly(boolean readOnly) throws SQLException {
+        ensureOpened();
         updateState(tx.withReadOnly(readOnly));
     }
 
     @Override
     public void setAutoCommit(boolean autoCommit) throws SQLException {
+        ensureOpened();
         updateState(tx.withAutoCommit(autoCommit));
     }
 
     @Override
     public boolean isClosed() {
+        checkBarrier();
         return tx == null;
     }
 
     @Override
     public String txID() {
+        checkBarrier();
         return tx != null ? tx.txID() : null;
     }
 
@@ -232,6 +238,8 @@ public class TableServiceExecutor extends BaseYdbExecutor {
             throws SQLException {
         ensureOpened();
 
+        Barrier barrier = createBarrier();
+
         YdbContext ctx = statement.getConnection().getCtx();
         YdbValidator validator = statement.getValidator();
         Duration scanQueryTimeout = ctx.getOperationProperties().getScanQueryTimeout();
@@ -245,7 +253,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         return validator.call(msg, () -> {
             GrpcReadStream<ResultSetReader> stream = session.executeScanQuery(yql, params, settings);
             StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
-            return result.execute(stream);
+            return result.execute(stream, barrier);
         });
     }
 

@@ -82,6 +82,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public void close() {
+        checkBarrier();
         cleanTx();
         isClosed = true;
     }
@@ -96,6 +97,8 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public void setTransactionLevel(int level) throws SQLException {
+        ensureOpened();
+
         if (level == transactionLevel) {
             return;
         }
@@ -111,6 +114,8 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public void setReadOnly(boolean readOnly) throws SQLException {
+        ensureOpened();
+
         if (readOnly == isReadOnly) {
             return;
         }
@@ -125,6 +130,8 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public void setAutoCommit(boolean autoCommit) throws SQLException {
+        ensureOpened();
+
         if (autoCommit == isAutoCommit) {
             return;
         }
@@ -138,11 +145,13 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public boolean isClosed() {
+        checkBarrier();
         return isClosed;
     }
 
     @Override
     public String txID() {
+        checkBarrier();
         return tx != null ? tx.getId() : null;
     }
 
@@ -247,6 +256,8 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             throws SQLException {
         ensureOpened();
 
+        Barrier barrier = createBarrier();
+
         YdbContext ctx = statement.getConnection().getCtx();
         YdbValidator validator = statement.getValidator();
 
@@ -260,9 +271,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         return validator.call(msg, () -> {
             QueryStream stream = session.createQuery(yql, TxMode.SNAPSHOT_RO, params, settings);
             StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
-            return result.execute(stream, () -> {
-                session.close();
-            });
+            return result.execute(stream, barrier);
         });
     }
 
