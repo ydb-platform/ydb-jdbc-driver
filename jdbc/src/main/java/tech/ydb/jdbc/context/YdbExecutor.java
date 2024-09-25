@@ -2,7 +2,6 @@ package tech.ydb.jdbc.context;
 
 import java.sql.SQLException;
 
-import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.impl.YdbQueryResult;
 import tech.ydb.jdbc.query.YdbQuery;
@@ -14,15 +13,11 @@ import tech.ydb.table.values.ListValue;
  * @author Aleksandr Gorshenin
  */
 public interface YdbExecutor {
-    default void ensureOpened() throws SQLException {
-        if (isClosed()) {
-            throw new SQLException(YdbConst.CLOSED_CONNECTION);
-        }
-    }
+    void close() throws SQLException;
+    boolean isClosed() throws SQLException;
+    void ensureOpened() throws SQLException;
 
-    boolean isClosed();
-
-    String txID();
+    String txID() throws SQLException;
     int transactionLevel() throws SQLException;
 
     boolean isInsideTransaction() throws SQLException;
@@ -46,6 +41,4 @@ public interface YdbExecutor {
     void rollback(YdbContext ctx, YdbValidator validator) throws SQLException;
 
     boolean isValid(YdbValidator validator, int timeout) throws SQLException;
-
-    void close();
 }

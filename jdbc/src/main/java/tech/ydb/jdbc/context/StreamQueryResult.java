@@ -85,9 +85,12 @@ public class StreamQueryResult implements YdbQueryResult {
         return startFuture;
     }
 
-    public CompletableFuture<Result<StreamQueryResult>> execute(GrpcReadStream<ResultSetReader> stream) {
+    public CompletableFuture<Result<StreamQueryResult>> execute(
+            GrpcReadStream<ResultSetReader> stream, Runnable finish
+    ) {
         stream.start(rsr -> onResultSet(0, rsr))
-                .whenComplete(this::onStreamFinished);
+                .whenComplete(this::onStreamFinished)
+                .thenRun(finish);
         return startFuture;
     }
 

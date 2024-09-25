@@ -81,7 +81,8 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    public void close() {
+    public void close() throws SQLException {
+        closeCurrentResult();
         cleanTx();
         isClosed = true;
     }
@@ -96,6 +97,8 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public void setTransactionLevel(int level) throws SQLException {
+        ensureOpened();
+
         if (level == transactionLevel) {
             return;
         }
@@ -111,6 +114,8 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public void setReadOnly(boolean readOnly) throws SQLException {
+        ensureOpened();
+
         if (readOnly == isReadOnly) {
             return;
         }
@@ -125,6 +130,8 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public void setAutoCommit(boolean autoCommit) throws SQLException {
+        ensureOpened();
+
         if (autoCommit == isAutoCommit) {
             return;
         }
@@ -137,12 +144,14 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    public boolean isClosed() {
+    public boolean isClosed() throws SQLException {
+        closeCurrentResult();
         return isClosed;
     }
 
     @Override
-    public String txID() {
+    public String txID() throws SQLException {
+        closeCurrentResult();
         return tx != null ? tx.getId() : null;
     }
 
@@ -234,7 +243,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             for (ResultSetReader rst: result) {
                 readers.add(new YdbStaticResultSet(statement, rst));
             }
-            return new StaticQueryResult(query, readers);
+            return updateCurrentResult(new StaticQueryResult(query, readers));
         } finally {
             if (!tx.isActive()) {
                 cleanTx();
@@ -257,13 +266,13 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
         final QuerySession session = createNewQuerySession(validator);
         String msg = "STREAM_QUERY >>\n" + yql;
-        return validator.call(msg, () -> {
+        StreamQueryResult lazy = validator.call(msg, () -> {
             QueryStream stream = session.createQuery(yql, TxMode.SNAPSHOT_RO, params, settings);
             StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
-            return result.execute(stream, () -> {
-                session.close();
-            });
+            return result.execute(stream, session::close);
         });
+
+        return updateCurrentResult(lazy);
     }
 
     @Override
@@ -283,7 +292,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             );
         }
 
-        return new StaticQueryResult(query, Collections.emptyList());
+        return updateCurrentResult(new StaticQueryResult(query, Collections.emptyList()));
     }
 
     @Override
@@ -309,7 +318,9 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
                 throw new SQLException("No explain data");
             }
 
-            return new StaticQueryResult(statement, res.getStats().getQueryAst(), res.getStats().getQueryPlan());
+            return updateCurrentResult(
+                    new StaticQueryResult(statement, res.getStats().getQueryAst(), res.getStats().getQueryPlan())
+            );
         }
     }
 

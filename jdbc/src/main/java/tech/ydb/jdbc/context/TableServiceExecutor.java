@@ -51,7 +51,8 @@ public class TableServiceExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    public void close() {
+    public void close() throws SQLException {
+        closeCurrentResult();
         tx = null;
     }
 
@@ -74,26 +75,31 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public void setTransactionLevel(int level) throws SQLException {
+        ensureOpened();
         updateState(tx.withTransactionLevel(level));
     }
 
     @Override
     public void setReadOnly(boolean readOnly) throws SQLException {
+        ensureOpened();
         updateState(tx.withReadOnly(readOnly));
     }
 
     @Override
     public void setAutoCommit(boolean autoCommit) throws SQLException {
+        ensureOpened();
         updateState(tx.withAutoCommit(autoCommit));
     }
 
     @Override
-    public boolean isClosed() {
+    public boolean isClosed() throws SQLException {
+        closeCurrentResult();
         return tx == null;
     }
 
     @Override
-    public String txID() {
+    public String txID() throws SQLException {
+        closeCurrentResult();
         return tx != null ? tx.txID() : null;
     }
 
@@ -191,7 +197,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         try (Session session = createNewTableSession(validator)) {
             String msg = QueryType.EXPLAIN_QUERY + " >>\n" + yql;
             ExplainDataQueryResult res = validator.call(msg, () -> session.explainDataQuery(yql, settings));
-            return new StaticQueryResult(statement, res.getQueryAst(), res.getQueryPlan());
+            return updateCurrentResult(new StaticQueryResult(statement, res.getQueryAst(), res.getQueryPlan()));
         }
     }
 
@@ -220,7 +226,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
                 readers.add(new YdbStaticResultSet(statement, rs));
             }
 
-            return new StaticQueryResult(query, readers);
+            return updateCurrentResult(new StaticQueryResult(query, readers));
         } catch (SQLException | RuntimeException ex) {
             updateState(tx.withRollback(session));
             throw ex;
@@ -239,14 +245,16 @@ public class TableServiceExecutor extends BaseYdbExecutor {
                 .withRequestTimeout(scanQueryTimeout)
                 .build();
 
-        final Session session = tx.getSession(validator);
+        final Session session = createNewTableSession(validator);
 
         String msg = QueryType.SCAN_QUERY + " >>\n" + yql;
-        return validator.call(msg, () -> {
+        StreamQueryResult lazy = validator.call(msg, () -> {
             GrpcReadStream<ResultSetReader> stream = session.executeScanQuery(yql, params, settings);
             StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
-            return result.execute(stream);
+            return result.execute(stream, session::close);
         });
+
+        return updateCurrentResult(lazy);
     }
 
     @Override

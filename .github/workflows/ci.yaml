@@ -1,0 +1,93 @@
+name: YDB JDBC Driver CI
+
+on:
+  push:
+    branches:
+      - master
+      - release*
+  pull_request:
+      type: [opened, reopened, edited, synchronize]
+
+jobs:
+  prepare:
+    name: Prepare Maven cache
+    runs-on: ubuntu-latest
+
+    env:
+        MAVEN_ARGS: --batch-mode -Dstyle.color=always
+
+    steps:
+      - name: Checkout YDB JDBC Driver
+        uses: actions/checkout@v4
+        with:
+          path: jdbc
+
+      - name: Checkout YDB Java Examples
+        uses: actions/checkout@v4
+        with:
+          repository: ydb-platform/ydb-java-examples
+          path: examples
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: 'temurin'
+          cache: 'maven'
+          cache-dependency-path: |
+              jdbc/pom.xml
+
+      - name: Download YDB JDBC Driver dependencies
+        working-directory: ./jdbc
+        run: mvn $MAVEN_ARGS dependency:go-offline
+
+      - name: Download YDB Java Examples dependencies
+        working-directory: ./examples
+        run: mvn $MAVEN_ARGS dependency:go-offline
+
+  build:
+    name: YDB JDBC Driver CI on JDK
+    runs-on: ubuntu-latest
+    needs: prepare
+
+    strategy:
+      matrix:
+        java: [ '8', '11', '17']
+
+    env:
+        MAVEN_ARGS: --batch-mode -Dstyle.color=always -DYDB_DOCKER_ISOLATION=true
+
+    steps:
+      - name: Checkout YDB JDBC Driver
+        uses: actions/checkout@v4
+        with:
+          path: jdbc
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+          cache-dependency-path: |
+              jdbc/pom.xml
+
+      - name: Extract YDB JDBC Driver version
+        working-directory: ./jdbc
+        run: |
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          echo "JDBC_VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Build YDB JDBC Driver
+        working-directory: ./jdbc
+        run: mvn $MAVEN_ARGS install
+
+      - name: Checkout YDB Java Examples
+        uses: actions/checkout@v4
+        with:
+          repository: ydb-platform/ydb-java-examples
+          path: examples
+
+      - name: Test examples with Maven
+        working-directory: ./examples
+        run: mvn $MAVEN_ARGS -Dydb.jdbc.version=$JDBC_VERSION test
