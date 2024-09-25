@@ -219,6 +219,7 @@ public class YdbContext implements AutoCloseable {
             int newSize = maxSize + SESSION_POOL_RESIZE_STEP;
             if (maxSize == tableClient.sessionPoolStats().getMaxSize()) {
                 tableClient.updatePoolMaxSize(newSize);
+                queryClient.updatePoolMaxSize(newSize);
             }
         }
     }
@@ -231,6 +232,7 @@ public class YdbContext implements AutoCloseable {
                 int newSize = maxSize - SESSION_POOL_RESIZE_STEP;
                 if (maxSize == tableClient.sessionPoolStats().getMaxSize()) {
                     tableClient.updatePoolMaxSize(newSize);
+                    queryClient.updatePoolMaxSize(newSize);
                 }
             }
         }
