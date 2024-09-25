@@ -250,7 +250,7 @@ public class StreamQueryResult implements YdbQueryResult {
     private class LazyResultSet extends BaseYdbResultSet {
         private final BlockingQueue<ResultSetReader> readers = new ArrayBlockingQueue<>(5);
         private final AtomicLong rowsCount = new AtomicLong();
-        private volatile boolean isCompleted = false;
+        private final CompletableFuture<Void> isCompleted = new CompletableFuture<>();
         private volatile boolean isClosed = false;
 
         private ResultSetReader current = null;
@@ -300,7 +300,7 @@ public class StreamQueryResult implements YdbQueryResult {
                     return true;
                 }
 
-                if (isCompleted && readers.isEmpty()) {
+                if (isCompleted.isDone() && readers.isEmpty()) {
                     current = null;
                     if (rowsCount.get() > 0) {
                         rowIndex = rowsCount.intValue() + 1;
@@ -317,10 +317,7 @@ public class StreamQueryResult implements YdbQueryResult {
         }
 
         public void complete() {
-            if (isCompleted) {
-                return;
-            }
-            isCompleted = true;
+            isCompleted.complete(null);
         }
 
         @Override
@@ -351,7 +348,8 @@ public class StreamQueryResult implements YdbQueryResult {
 
         @Override
         public boolean isAfterLast() throws SQLException {
-            return isCompleted && rowsCount.get() > 0 && rowIndex > rowsCount.intValue();
+            isCompleted.join();
+            return rowsCount.get() > 0 && rowIndex > rowsCount.intValue();
         }
 
         @Override
@@ -361,7 +359,8 @@ public class StreamQueryResult implements YdbQueryResult {
 
         @Override
         public boolean isLast() throws SQLException {
-            return isCompleted && rowsCount.get() > 0 && rowIndex == rowsCount.intValue();
+            isCompleted.join();
+            return rowsCount.get() > 0 && rowIndex == rowsCount.intValue();
         }
 
         @Override
