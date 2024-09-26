@@ -282,7 +282,6 @@ public class YdbConnectionImpl implements YdbConnection {
 
     @Override
     public int getNetworkTimeout() throws SQLException {
-        executor.ensureOpened();
         return (int) ctx.getOperationProperties().getDeadlineTimeout().toMillis();
     }
 

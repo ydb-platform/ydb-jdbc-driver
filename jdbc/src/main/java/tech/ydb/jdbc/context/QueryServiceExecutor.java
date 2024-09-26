@@ -9,8 +9,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import tech.ydb.common.transaction.TxMode;
 import tech.ydb.core.Issue;
@@ -43,8 +41,6 @@ import tech.ydb.table.result.ResultSetReader;
  * @author Aleksandr Gorshenin
  */
 public class QueryServiceExecutor extends BaseYdbExecutor {
-    private static final Logger LOGGER = Logger.getLogger(QueryServiceExecutor.class.getName());
-
     private final Duration sessionTimeout;
     private final QueryClient queryClient;
 
@@ -73,7 +69,6 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             Result<QuerySession> result = queryClient.createSession(sessionTimeout).join();
             validator.addStatusIssues(result.getStatus());
             QuerySession session = result.getValue();
-            LOGGER.log(Level.FINEST, "Acquired session {0}", session);
             return session;
         } catch (UnexpectedResultException ex) {
             throw ExceptionFactory.createException("Cannot create session with " + ex.getStatus(), ex);
@@ -89,7 +84,6 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
     private void cleanTx() {
         if (tx != null) {
-            LOGGER.log(Level.FINEST, "Released session {0}", tx.getSession());
             tx.getSession().close();
             tx = null;
         }
@@ -205,7 +199,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         }
 
         RollbackTransactionSettings settings = ctx.withRequestTimeout(RollbackTransactionSettings.newBuilder())
-                .build();
+            .build();
 
         try {
             validator.clearWarnings();
@@ -371,5 +365,4 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
                 throw new SQLException(YdbConst.UNSUPPORTED_TRANSACTION_LEVEL + level);
         }
     }
-
 }

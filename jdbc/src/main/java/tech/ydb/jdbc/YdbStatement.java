@@ -43,6 +43,4 @@ public interface YdbStatement extends Statement {
 
     @Override
     YdbConnection getConnection() throws SQLException;
-
-    void waitReady() throws SQLException;
 }
