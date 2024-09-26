@@ -55,6 +55,10 @@ public abstract class BaseYdbStatement implements YdbStatement {
         this.bulkQueryTxMode = props.getBulkQueryTxMode();
     }
 
+    private void ensureOpened() throws SQLException {
+        connection.getExecutor().ensureOpened();
+    }
+
     @Override
     public YdbValidator getValidator() {
         return validator;
@@ -84,7 +88,8 @@ public abstract class BaseYdbStatement implements YdbStatement {
     }
 
     @Override
-    public SQLWarning getWarnings() {
+    public SQLWarning getWarnings() throws SQLException {
+        ensureOpened();
         return validator.toSQLWarnings();
     }
 
@@ -100,7 +105,6 @@ public abstract class BaseYdbStatement implements YdbStatement {
 
     @Override
     public void setQueryTimeout(int seconds) throws SQLException {
-        ensureOpened();
         queryTimeout = seconds;
     }
 
@@ -126,36 +130,20 @@ public abstract class BaseYdbStatement implements YdbStatement {
 
     @Override
     public YdbResultSet getResultSet() throws SQLException {
-        ensureOpened();
         return state.getCurrentResultSet();
     }
 
     @Override
     public boolean getMoreResults(int current) throws SQLException {
-        ensureOpened();
         return state.getMoreResults(current);
     }
 
     @Override
     public int getUpdateCount() throws SQLException {
-        ensureOpened();
         return state.getUpdateCount();
     }
 
-    private void ensureOpened() throws SQLException {
-        if (isClosed) {
-            throw new SQLException(YdbConst.CLOSED_CONNECTION);
-        }
-    }
-
-    @Override
-    public void waitReady() throws SQLException {
-        state.close();
-    }
-
     protected void cleanState() throws SQLException {
-        ensureOpened();
-
         state.close();
         state = YdbQueryResult.EMPTY;
 
@@ -169,7 +157,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
 
     protected YdbQueryResult executeBulkUpsert(YdbQuery query, String tablePath, ListValue rows)
             throws SQLException {
-        connection.getExecutor().ensureOpened();
+        ensureOpened();
 
         if (connection.getExecutor().isInsideTransaction()) {
             switch (bulkQueryTxMode) {
@@ -188,12 +176,12 @@ public abstract class BaseYdbStatement implements YdbStatement {
     }
 
     protected YdbQueryResult executeExplainQuery(YdbQuery query) throws SQLException {
-        connection.getExecutor().ensureOpened();
+        ensureOpened();
         return connection.getExecutor().executeExplainQuery(this, query);
     }
 
     protected YdbQueryResult executeDataQuery(YdbQuery query, String yql, Params params) throws SQLException {
-        connection.getExecutor().ensureOpened();
+        ensureOpened();
 
         YdbContext ctx = connection.getCtx();
         if (ctx.queryStatsEnabled()) {
@@ -212,7 +200,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
     }
 
     protected YdbQueryResult executeSchemeQuery(YdbQuery query) throws SQLException {
-        connection.getExecutor().ensureOpened();
+        ensureOpened();
 
         if (connection.getExecutor().isInsideTransaction()) {
             switch (schemeQueryTxMode) {
@@ -231,7 +219,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
     }
 
     protected YdbQueryResult executeScanQuery(YdbQuery query, String yql, Params params) throws SQLException {
-        connection.getExecutor().ensureOpened();
+        ensureOpened();
 
         if (connection.getExecutor().isInsideTransaction()) {
             switch (scanQueryTxMode) {
@@ -297,7 +285,6 @@ public abstract class BaseYdbStatement implements YdbStatement {
 
     @Override
     public boolean getMoreResults() throws SQLException {
-        ensureOpened();
         return getMoreResults(Statement.KEEP_CURRENT_RESULT);
     }
 
