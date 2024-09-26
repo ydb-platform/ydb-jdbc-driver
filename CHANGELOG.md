@@ -1,3 +1,7 @@
+## 2.2.8 ##
+
+* Added support of stream cancelling
+
 ## 2.2.7 ##
 
 * Fixed concurrency issues in QueryServiceExecutor
