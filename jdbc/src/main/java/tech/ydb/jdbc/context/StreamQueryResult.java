@@ -148,17 +148,15 @@ public class StreamQueryResult implements YdbQueryResult {
         }
     }
 
-    private boolean isStreamStopped() {
+    private void checkStream() {
         if (!resultClosed) {
-            return false;
+            return;
         }
 
         if (!streamFuture.isDone() && streamCancelled.compareAndSet(false, true)) {
             LOGGER.log(Level.FINE, "Stream cancel");
             stopRunnable.run();
         }
-
-        return true;
     }
 
     @Override
@@ -311,10 +309,7 @@ public class StreamQueryResult implements YdbQueryResult {
         public void addResultSet(ResultSetReader rsr) {
             try {
                 do {
-                    if (isStreamStopped()) {
-                        close();
-                        return;
-                    }
+                    checkStream();
                 } while (!readers.offer(rsr, 100, TimeUnit.MILLISECONDS));
             } catch (InterruptedException ex) {
                 if (streamFuture.completeExceptionally(ex)) {
