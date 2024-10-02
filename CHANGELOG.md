@@ -1,3 +1,12 @@
+## 2.2.10 ##
+
+* Added auto batch mode for simple UPDATE/DELETE/REPLACE
+
+## 2.2.9 ##
+
+* Removed cleaning of unclosed result set
+* Added checks of invalid values of Decimal
+
 ## 2.2.8 ##
 
 * Added support of stream cancelling
