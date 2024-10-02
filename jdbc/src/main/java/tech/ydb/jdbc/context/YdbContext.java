@@ -356,7 +356,7 @@ public class YdbContext implements AutoCloseable {
         QueryType type = query.getType();
 
         if (type == QueryType.BULK_QUERY) {
-            if (query.getYqlBatcher() == null || query.getYqlBatcher().isInsert()) {
+            if (query.getYqlBatcher() == null || !query.getYqlBatcher().isUpsert()) {
                 throw new SQLException(YdbConst.BULKS_UNSUPPORTED);
             }
         }

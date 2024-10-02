@@ -69,12 +69,17 @@ public class YdbQuery {
         QueryType type = opts.getForcedQueryType();
         if (type == null) {
             type = parser.detectQueryType();
+            YqlBatcher batcher = parser.getYqlBatcher();
 
-            if (opts.isForcedScanAndBulks() && type != QueryType.SCHEME_QUERY && type != QueryType.EXPLAIN_QUERY) {
-                if (parser.getYqlBatcher().isValidBatch()) {
-                    parser.getYqlBatcher().setForcedUpsert();
-                    type = QueryType.BULK_QUERY;
-                } else {
+            if (opts.isForcedScanAndBulks()) {
+                if (batcher.isValidBatch()) {
+                    if (batcher.isInsert() || batcher.isUpdate()) {
+                        parser.getYqlBatcher().setForcedUpsert();
+                        type = QueryType.BULK_QUERY;
+                    }
+                }
+
+                if (parser.getStatements().size() == 1 && parser.getStatements().get(0).getCmd() == QueryCmd.SELECT) {
                     type = QueryType.SCAN_QUERY;
                 }
             }

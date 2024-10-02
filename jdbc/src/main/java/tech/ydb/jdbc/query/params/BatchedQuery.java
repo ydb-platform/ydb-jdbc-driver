@@ -246,13 +246,19 @@ public class BatchedQuery implements YdbPreparedQuery {
         sb.append(">>;\n");
 
         if (batcher.isInsert()) {
-            sb.append("INSERT ");
+            sb.append("INSERT INTO `");
         }
         if (batcher.isUpsert()) {
-            sb.append("UPSERT ");
+            sb.append("UPSERT INTO `");
+        }
+        if (batcher.isReplace()) {
+            sb.append("REPLACE INTO `");
+        }
+        if (batcher.isDelete() || batcher.isUpdate()) {
+            return null;
         }
 
-        sb.append("INTO `").append(batcher.getTableName()).append("` SELECT ");
+        sb.append(batcher.getTableName()).append("` SELECT ");
 
         idx = 1;
         for (String column: batcher.getColumns()) {
