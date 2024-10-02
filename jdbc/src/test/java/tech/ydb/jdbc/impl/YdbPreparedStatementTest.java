@@ -1,6 +1,7 @@
 package tech.ydb.jdbc.impl;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -981,5 +982,75 @@ public class YdbPreparedStatementTest {
         Assertions.assertEquals(ld, rs.getObject("c_Date", LocalDate.class));
         Assertions.assertEquals(ld.atStartOfDay(), rs.getObject("c_Date", LocalDateTime.class));
         Assertions.assertEquals(ld.atStartOfDay(ZoneId.systemDefault()).toInstant(), rs.getObject("c_Date", Instant.class));
+    }
+
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(SqlQueries.JdbcQuery.class)
+    public void decimalTest(SqlQueries.JdbcQuery query) throws SQLException {
+        String upsert = TEST_TABLE.upsertOne(query, "c_Decimal", "Decimal(22, 9)");
+
+        // YDB partially ignores Decimal(22, 9) limit, but have hard limit to 35 digits
+        String maxValue = "9999999999" + "9999999999" + "9999999999" + "99999";
+        BigDecimal closeToInf = new BigDecimal(new BigInteger(maxValue), 9);
+        BigDecimal closeToNegInf = new BigDecimal(new BigInteger(maxValue).negate(), 9);
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert)) {
+            ps.setInt(1, 1);
+            ps.setBigDecimal(2, BigDecimal.valueOf(1.5d));
+            ps.execute();
+
+            ps.setInt(1, 2);
+            ps.setBigDecimal(2, BigDecimal.valueOf(-12345, 10)); // will be rounded to -0.000001234
+            ps.execute();
+
+            ps.setInt(1, 3);
+            ps.setBigDecimal(2, closeToInf);
+            ps.execute();
+
+            ps.setInt(1, 4);
+            ps.setBigDecimal(2, closeToNegInf);
+            ps.execute();
+
+            ps.setInt(1, 5);
+            ExceptionAssert.sqlException(""
+                    + "Cannot cast to decimal type Decimal(22, 9): "
+                    + "[class java.math.BigDecimal: 100000000000000000000000000.000000000] is Infinite",
+                    () -> ps.setBigDecimal(2, closeToInf.add(BigDecimal.valueOf(1, 9)))
+            );
+
+            ExceptionAssert.sqlException(""
+                    + "Cannot cast to decimal type Decimal(22, 9): "
+                    + "[class java.math.BigDecimal: -100000000000000000000000000.000000000] is -Infinite",
+                    () -> ps.setBigDecimal(2, closeToNegInf.subtract(BigDecimal.valueOf(1, 9)))
+            );
+
+            ExceptionAssert.sqlException(""
+                    + "Cannot cast to decimal type Decimal(22, 9): "
+                    + "[class java.math.BigDecimal: 100000000000000000000000000.000000001] is NaN",
+                    () -> ps.setBigDecimal(2, closeToInf.add(BigDecimal.valueOf(2, 9)))
+            );
+        }
+
+        try (Statement st = jdbc.connection().createStatement()) {
+            try (ResultSet rs = st.executeQuery(TEST_TABLE.selectColumn("c_Decimal"))) {
+                assertNextDecimal(rs, 1, BigDecimal.valueOf(1.5d).setScale(9));
+                assertNextDecimal(rs, 2, BigDecimal.valueOf(-1234, 9));
+                assertNextDecimal(rs, 3, closeToInf);
+                assertNextDecimal(rs, 4, closeToNegInf);
+
+                Assertions.assertFalse(rs.next());
+            }
+        }
+    };
+
+    private void assertNextDecimal(ResultSet rs, int key, BigDecimal bg) throws SQLException {
+        Assertions.assertTrue(rs.next());
+        Assertions.assertEquals(key, rs.getInt("key"));
+
+        Object obj = rs.getObject("c_Decimal");
+        Assertions.assertTrue(obj instanceof BigDecimal);
+        Assertions.assertEquals(bg, obj);
+
+        BigDecimal decimal = rs.getBigDecimal("c_Decimal");
+        Assertions.assertEquals(bg, decimal);
     }
 }

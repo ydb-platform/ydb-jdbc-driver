@@ -103,6 +103,7 @@ public final class YdbConst {
     public static final String UNABLE_TO_CONVERT = "Cannot cast [%s] with value [%s] to [%s]";
     public static final String UNABLE_TO_CONVERT_AS_URL = "Cannot cast as URL: ";
     public static final String UNABLE_TO_CAST_TO_CLASS = "Cannot cast [%s] to class [%s]";
+    public static final String UNABLE_TO_CAST_TO_DECIMAL = "Cannot cast to decimal type %s: [%s] is %s";
 
     public static final String MISSING_VALUE_FOR_PARAMETER = "Missing value for parameter: ";
     public static final String MISSING_REQUIRED_VALUE = "Missing required value for parameter: ";
