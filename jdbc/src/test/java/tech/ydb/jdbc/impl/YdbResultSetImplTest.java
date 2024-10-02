@@ -1797,7 +1797,7 @@ public class YdbResultSetImplTest {
                 .typedValue(19, "c_Datetime", LocalDateTime.ofEpochSecond(311111156, 0, ZoneOffset.UTC))
                 .typedValue(20, "c_Timestamp", Instant.ofEpochSecond(311111, 223342000))
                 .typedValue(21, "c_Interval", Duration.parse("PT3.111113S"))
-                .typedValue(22, "c_Decimal", DecimalType.getDefault().newValue("3.335000000"));
+                .typedValue(22, "c_Decimal", new BigDecimal("3.335000000"));
 
         checker.nextRow()
                 .typedValue(1, "key", 2)
@@ -1821,7 +1821,7 @@ public class YdbResultSetImplTest {
                 .typedValue(19, "c_Datetime", LocalDateTime.ofEpochSecond(211211100, 0, ZoneOffset.UTC))
                 .typedValue(20, "c_Timestamp", Instant.ofEpochSecond(111111, 223342000))
                 .typedValue(21, "c_Interval", Duration.parse("PT3.112113S"))
-                .typedValue(22, "c_Decimal", DecimalType.getDefault().newValue("-3.335000000"));
+                .typedValue(22, "c_Decimal", new BigDecimal("-3.335000000"));
 
         checker.nextRow()
                 .typedValue(1, "key", 3)
@@ -1845,7 +1845,7 @@ public class YdbResultSetImplTest {
                 .typedValue(19, "c_Datetime", LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC))
                 .typedValue(20, "c_Timestamp", Instant.ofEpochSecond(0, 0))
                 .typedValue(21, "c_Interval", Duration.parse("PT0.000000S"))
-                .typedValue(22, "c_Decimal", DecimalType.getDefault().newValue("0.00000000"));
+                .typedValue(22, "c_Decimal", new BigDecimal("0.000000000"));
 
         checker.nextRow()
                 .typedValue(1, "key", 4)
@@ -1869,7 +1869,7 @@ public class YdbResultSetImplTest {
                 .typedValue(19, "c_Datetime", LocalDateTime.ofEpochSecond(1, 0, ZoneOffset.UTC))
                 .typedValue(20, "c_Timestamp", Instant.ofEpochSecond(0, 1000))
                 .typedValue(21, "c_Interval", Duration.parse("PT0.000001S"))
-                .typedValue(22, "c_Decimal", DecimalType.getDefault().newValue("1.00000000"));
+                .typedValue(22, "c_Decimal", new BigDecimal("1.000000000"));
 
         checker.nextRow()
                 .value(1, "key", 5)

@@ -30,32 +30,6 @@ import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.table.values.Type;
 import tech.ydb.table.values.Value;
 
-import static tech.ydb.table.values.PrimitiveType.Bool;
-import static tech.ydb.table.values.PrimitiveType.Bytes;
-import static tech.ydb.table.values.PrimitiveType.Date;
-import static tech.ydb.table.values.PrimitiveType.Datetime;
-import static tech.ydb.table.values.PrimitiveType.Double;
-import static tech.ydb.table.values.PrimitiveType.Float;
-import static tech.ydb.table.values.PrimitiveType.Int16;
-import static tech.ydb.table.values.PrimitiveType.Int32;
-import static tech.ydb.table.values.PrimitiveType.Int64;
-import static tech.ydb.table.values.PrimitiveType.Int8;
-import static tech.ydb.table.values.PrimitiveType.Interval;
-import static tech.ydb.table.values.PrimitiveType.Json;
-import static tech.ydb.table.values.PrimitiveType.JsonDocument;
-import static tech.ydb.table.values.PrimitiveType.Text;
-import static tech.ydb.table.values.PrimitiveType.Timestamp;
-import static tech.ydb.table.values.PrimitiveType.TzDate;
-import static tech.ydb.table.values.PrimitiveType.TzDatetime;
-import static tech.ydb.table.values.PrimitiveType.TzTimestamp;
-import static tech.ydb.table.values.PrimitiveType.Uint16;
-import static tech.ydb.table.values.PrimitiveType.Uint32;
-import static tech.ydb.table.values.PrimitiveType.Uint64;
-import static tech.ydb.table.values.PrimitiveType.Uint8;
-import static tech.ydb.table.values.PrimitiveType.Uuid;
-import static tech.ydb.table.values.PrimitiveType.Yson;
-import static tech.ydb.table.values.Type.Kind.PRIMITIVE;
-
 public class MappingGetters {
     private MappingGetters() { }
 
@@ -95,7 +69,7 @@ public class MappingGetters {
                         value -> value.getDecimal().toBigDecimal().floatValue(),
                         value -> value.getDecimal().toBigDecimal().doubleValue(),
                         castToBytesNotSupported(clazz),
-                        PrimitiveReader::getDecimal,
+                        value -> value.getDecimal().toBigDecimal(),
                         castToClassNotSupported(clazz),
                         castToInstantNotSupported(clazz),
                         castToNStringNotSupported(clazz),

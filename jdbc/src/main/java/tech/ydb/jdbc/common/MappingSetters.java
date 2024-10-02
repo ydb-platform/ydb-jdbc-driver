@@ -466,23 +466,36 @@ public class MappingSetters {
         throw castNotSupported(type, x);
     }
 
+    private static DecimalValue validateValue(DecimalType type, DecimalValue value, Object x) throws SQLException {
+        if (value.isInf()) {
+            throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST_TO_DECIMAL, type, toString(x), "Infinite"));
+        }
+        if (value.isNegativeInf()) {
+            throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST_TO_DECIMAL, type, toString(x), "-Infinite"));
+        }
+        if (value.isNan()) {
+            throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST_TO_DECIMAL, type, toString(x), "NaN"));
+        }
+        return value;
+    }
+
     private static DecimalValue castToDecimalValue(DecimalType type, Object x) throws SQLException {
         if (x instanceof DecimalValue) {
-            return (DecimalValue) x;
+            return validateValue(type, (DecimalValue) x, x);
         } else if (x instanceof BigDecimal) {
-            return type.newValue((BigDecimal) x);
+            return validateValue(type, type.newValue((BigDecimal) x), x);
         } else if (x instanceof BigInteger) {
-            return type.newValue((BigInteger) x);
+            return validateValue(type, type.newValue((BigInteger) x), x);
         } else if (x instanceof Long) {
-            return type.newValue((Long) x);
+            return validateValue(type, type.newValue((Long) x), x);
         } else if (x instanceof Integer) {
-            return type.newValue((Integer) x);
+            return validateValue(type, type.newValue((Integer) x), x);
         } else if (x instanceof Short) {
-            return type.newValue((Short) x);
+            return validateValue(type, type.newValue((Short) x), x);
         } else if (x instanceof Byte) {
-            return type.newValue((Byte) x);
+            return validateValue(type, type.newValue((Byte) x), x);
         } else if (x instanceof String) {
-            return type.newValue((String) x);
+            return validateValue(type, type.newValue((String) x), x);
         }
         throw castNotSupported(type.getKind(), x);
     }
