@@ -205,11 +205,17 @@ public class YdbQueryParser {
                         }
 
                         // starts with UPDATE, REPLACE, DELETE
-                        if (parseUpdateKeyword(chars, keywordStart, keywordLength)
-                                || parseDeleteKeyword(chars, keywordStart, keywordLength)
-                                || parseReplaceKeyword(chars, keywordStart, keywordLength)) {
+                        if (parseUpdateKeyword(chars, keywordStart, keywordLength)) {
                             statement = new QueryStatement(type, QueryType.DATA_QUERY, QueryCmd.UPDATE_REPLACE_DELETE);
-                            batcher.readIdentifier(chars, keywordStart, keywordLength);
+                            batcher.readUpdate();
+                        }
+                        if (parseDeleteKeyword(chars, keywordStart, keywordLength)) {
+                            statement = new QueryStatement(type, QueryType.DATA_QUERY, QueryCmd.UPDATE_REPLACE_DELETE);
+                            batcher.readDelete();
+                        }
+                        if (parseReplaceKeyword(chars, keywordStart, keywordLength)) {
+                            statement = new QueryStatement(type, QueryType.DATA_QUERY, QueryCmd.UPDATE_REPLACE_DELETE);
+                            batcher.readReplace();
                         }
 
                         // Detect scheme expression - starts with ALTER, DROP, CREATE
@@ -241,6 +247,9 @@ public class YdbQueryParser {
                     break;
                 case ',':
                     batcher.readComma();
+                    break;
+                case '=':
+                    batcher.readEqual();
                     break;
                 case ';':
                     batcher.readSemiColon();

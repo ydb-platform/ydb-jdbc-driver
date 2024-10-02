@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import tech.ydb.table.description.TableColumn;
+import tech.ydb.table.description.TableDescription;
 import tech.ydb.table.values.ListType;
 import tech.ydb.table.values.ListValue;
 import tech.ydb.table.values.StructType;
@@ -24,12 +26,7 @@ public class BulkUpsertQuery extends BatchedQuery {
             throws SQLException {
         super(yql, "$bulk", columns, types);
         this.tablePath = tablePath;
-
-        Map<String, Type> reducedTypes = new HashMap<>();
-        for (String column: columns) {
-            reducedTypes.put(column, types.get(column));
-        }
-        this.bulkType = ListType.of(StructType.of(reducedTypes));
+        this.bulkType = ListType.of(StructType.of(types));
     }
 
     public String getTablePath() {
@@ -44,7 +41,7 @@ public class BulkUpsertQuery extends BatchedQuery {
         return bulkType.newValue(getBatchedValues());
     }
 
-    public static BulkUpsertQuery build(String tablePath, List<String> columns, Map<String, Type> types)
+    public static BulkUpsertQuery build(String tablePath, List<String> columns, TableDescription description)
             throws SQLException {
         StringBuilder yql = new StringBuilder();
         yql.append("BULK UPSERT INTO `");
@@ -53,6 +50,16 @@ public class BulkUpsertQuery extends BatchedQuery {
         yql.append(columns.stream().collect(Collectors.joining(", ")));
         yql.append(")");
 
-        return new BulkUpsertQuery(tablePath, yql.toString(), columns, types);
+        Map<String, Type> columnTypes = new HashMap<>();
+        for (TableColumn column: description.getColumns()) {
+            columnTypes.put(column.getName(), column.getType());
+        }
+
+        Map<String, Type> structTypes = new HashMap<>();
+        for (String column: columns) {
+            structTypes.put(column, columnTypes.get(column));
+        }
+
+        return new BulkUpsertQuery(tablePath, yql.toString(), columns, structTypes);
     }
 }

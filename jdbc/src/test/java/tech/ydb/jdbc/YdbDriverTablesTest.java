@@ -301,13 +301,13 @@ public class YdbDriverTablesTest {
             try (PreparedStatement ps = conn.prepareStatement(UPDATE_ROW)) {
                 ps.setString(1, "updated-value");
                 ps.setInt(2, 1);
-                ExceptionAssert.ydbException(ERROR_SCAN_QUERY, ps::execute);
+                ps.executeUpdate();
             }
 
             // single delete
             try (PreparedStatement ps = conn.prepareStatement(DELETE_ROW)) {
                 ps.setInt(1, 2);
-                ExceptionAssert.ydbException(ERROR_SCAN_QUERY, ps::execute);
+                ps.executeUpdate();
             }
         }
     }
