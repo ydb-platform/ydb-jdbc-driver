@@ -8,7 +8,7 @@ import java.util.List;
  * @author Aleksandr Gorshenin
  */
 public class YqlBatcher {
-    private enum Cmd {
+    public enum Cmd {
         UPSERT,
         INSERT,
         REPLACE,
@@ -59,24 +59,8 @@ public class YqlBatcher {
         cmd = Cmd.UPSERT;
     }
 
-    public boolean isInsert() {
-        return cmd == Cmd.INSERT;
-    }
-
-    public boolean isUpsert() {
-        return cmd == Cmd.UPSERT;
-    }
-
-    public boolean isReplace() {
-        return cmd == Cmd.REPLACE;
-    }
-
-    public boolean isUpdate() {
-        return cmd == Cmd.UPDATE;
-    }
-
-    public boolean isDelete() {
-        return cmd == Cmd.DELETE;
+    public Cmd getCommand() {
+        return cmd;
     }
 
     public String getTableName() {

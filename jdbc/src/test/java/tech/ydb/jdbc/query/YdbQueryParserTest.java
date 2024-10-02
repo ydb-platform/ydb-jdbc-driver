@@ -222,7 +222,7 @@ public class YdbQueryParserTest {
 
         YqlBatcher batch = parser.getYqlBatcher();
         Assertions.assertTrue(batch.isValidBatch());
-        Assertions.assertTrue(batch.isInsert());
+        Assertions.assertEquals(YqlBatcher.Cmd.INSERT, batch.getCommand());
 
         Assertions.assertEquals("table_name", batch.getTableName());
         Assertions.assertTrue(batch.getKeyColumns().isEmpty());
@@ -248,7 +248,7 @@ public class YdbQueryParserTest {
 
         YqlBatcher batch = parser.getYqlBatcher();
         Assertions.assertTrue(batch.isValidBatch());
-        Assertions.assertTrue(batch.isInsert());
+        Assertions.assertEquals(YqlBatcher.Cmd.INSERT, batch.getCommand());
 
         Assertions.assertEquals("one_column", batch.getTableName());
         Assertions.assertTrue(batch.getKeyColumns().isEmpty());
@@ -274,7 +274,7 @@ public class YdbQueryParserTest {
 
         YqlBatcher batch = parser.getYqlBatcher();
         Assertions.assertTrue(batch.isValidBatch());
-        Assertions.assertTrue(batch.isUpsert());
+        Assertions.assertEquals(YqlBatcher.Cmd.UPSERT, batch.getCommand());
 
         Assertions.assertEquals("table_name", batch.getTableName());
         Assertions.assertTrue(batch.getKeyColumns().isEmpty());
@@ -300,7 +300,7 @@ public class YdbQueryParserTest {
 
         YqlBatcher batch = parser.getYqlBatcher();
         Assertions.assertTrue(batch.isValidBatch());
-        Assertions.assertTrue(batch.isUpsert());
+        Assertions.assertEquals(YqlBatcher.Cmd.UPSERT, batch.getCommand());
 
         Assertions.assertEquals("one_column", batch.getTableName());
         Assertions.assertTrue(batch.getKeyColumns().isEmpty());
@@ -326,7 +326,7 @@ public class YdbQueryParserTest {
 
         YqlBatcher batch = parser.getYqlBatcher();
         Assertions.assertTrue(batch.isValidBatch());
-        Assertions.assertTrue(batch.isReplace());
+        Assertions.assertEquals(YqlBatcher.Cmd.REPLACE, batch.getCommand());
 
         Assertions.assertEquals("table_name", batch.getTableName());
         Assertions.assertTrue(batch.getKeyColumns().isEmpty());
@@ -352,7 +352,7 @@ public class YdbQueryParserTest {
 
         YqlBatcher batch = parser.getYqlBatcher();
         Assertions.assertTrue(batch.isValidBatch());
-        Assertions.assertTrue(batch.isReplace());
+        Assertions.assertEquals(YqlBatcher.Cmd.REPLACE, batch.getCommand());
 
         Assertions.assertEquals("one_column", batch.getTableName());
         Assertions.assertTrue(batch.getKeyColumns().isEmpty());
@@ -378,7 +378,7 @@ public class YdbQueryParserTest {
 
         YqlBatcher batch = parser.getYqlBatcher();
         Assertions.assertTrue(batch.isValidBatch());
-        Assertions.assertTrue(batch.isUpdate());
+        Assertions.assertEquals(YqlBatcher.Cmd.UPDATE, batch.getCommand());
 
         Assertions.assertEquals("table_name", batch.getTableName());
         Assertions.assertEquals(2, batch.getKeyColumns().size());
@@ -404,7 +404,7 @@ public class YdbQueryParserTest {
 
         YqlBatcher batch = parser.getYqlBatcher();
         Assertions.assertTrue(batch.isValidBatch());
-        Assertions.assertTrue(batch.isUpdate());
+        Assertions.assertEquals(YqlBatcher.Cmd.UPDATE, batch.getCommand());
 
         Assertions.assertEquals("one_column", batch.getTableName());
         Assertions.assertEquals(1, batch.getKeyColumns().size());
@@ -430,7 +430,7 @@ public class YdbQueryParserTest {
 
         YqlBatcher batch = parser.getYqlBatcher();
         Assertions.assertTrue(batch.isValidBatch());
-        Assertions.assertTrue(batch.isDelete());
+        Assertions.assertEquals(YqlBatcher.Cmd.DELETE, batch.getCommand());
 
         Assertions.assertEquals("table_name", batch.getTableName());
         Assertions.assertEquals(2, batch.getKeyColumns().size());
@@ -455,7 +455,7 @@ public class YdbQueryParserTest {
 
         YqlBatcher batch = parser.getYqlBatcher();
         Assertions.assertTrue(batch.isValidBatch());
-        Assertions.assertTrue(batch.isDelete());
+        Assertions.assertEquals(YqlBatcher.Cmd.DELETE, batch.getCommand());
 
         Assertions.assertEquals("one_column", batch.getTableName());
         Assertions.assertEquals(1, batch.getKeyColumns().size());
@@ -513,8 +513,7 @@ public class YdbQueryParserTest {
 
         YqlBatcher batch = parser.getYqlBatcher();
         Assertions.assertTrue(batch.isValidBatch());
-        Assertions.assertFalse(batch.isUpsert());
-        Assertions.assertTrue(batch.isInsert());
+        Assertions.assertEquals(YqlBatcher.Cmd.INSERT, batch.getCommand());
 
         Assertions.assertEquals("table_name", batch.getTableName());
         Assertions.assertEquals(3, batch.getColumns().size());
@@ -538,8 +537,7 @@ public class YdbQueryParserTest {
 
         YqlBatcher batch = parser.getYqlBatcher();
         Assertions.assertTrue(batch.isValidBatch());
-        Assertions.assertTrue(batch.isUpsert());
-        Assertions.assertFalse(batch.isInsert());
+        Assertions.assertEquals(YqlBatcher.Cmd.UPSERT, batch.getCommand());
 
         Assertions.assertEquals("table_name", batch.getTableName());
         Assertions.assertEquals(3, batch.getColumns().size());

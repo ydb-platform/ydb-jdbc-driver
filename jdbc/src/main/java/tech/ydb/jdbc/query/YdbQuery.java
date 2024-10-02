@@ -73,7 +73,10 @@ public class YdbQuery {
 
             if (opts.isForcedScanAndBulks()) {
                 if (batcher.isValidBatch()) {
-                    if (batcher.isInsert() || batcher.isUpdate()) {
+                    if (batcher.getCommand() == YqlBatcher.Cmd.UPSERT) {
+                        type = QueryType.BULK_QUERY;
+                    }
+                    if (batcher.getCommand() == YqlBatcher.Cmd.INSERT) {
                         parser.getYqlBatcher().setForcedUpsert();
                         type = QueryType.BULK_QUERY;
                     }

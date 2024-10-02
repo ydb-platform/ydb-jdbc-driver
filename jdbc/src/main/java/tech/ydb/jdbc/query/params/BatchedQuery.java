@@ -20,6 +20,8 @@ import tech.ydb.jdbc.query.ParamDescription;
 import tech.ydb.jdbc.query.YdbPreparedQuery;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.query.YqlBatcher;
+import tech.ydb.table.description.TableColumn;
+import tech.ydb.table.description.TableDescription;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.ListType;
 import tech.ydb.table.values.ListValue;
@@ -222,16 +224,39 @@ public class BatchedQuery implements YdbPreparedQuery {
         return new BatchedQuery(query.getPreparedYql(), listName, Arrays.asList(columns), types);
     }
 
-    public static BatchedQuery createAutoBatched(YqlBatcher batcher, Map<String, Type> tableColumns)
+    public static BatchedQuery createAutoBatched(YqlBatcher batcher, TableDescription description)
             throws SQLException {
+
+        // DELETE and UPDATE may be batched only if WHERE contains only primary key columns
+        if (batcher.getCommand() == YqlBatcher.Cmd.DELETE || batcher.getCommand() == YqlBatcher.Cmd.UPDATE) {
+            Set<String> primaryKey = new HashSet<>(description.getPrimaryKeys());
+            for (String keyColumn: batcher.getKeyColumns()) {
+                if (!primaryKey.remove(keyColumn)) {
+                    return null;
+                }
+            }
+            if (!primaryKey.isEmpty()) {
+                return null;
+            }
+        }
+
         StringBuilder sb = new StringBuilder();
+        Map<String, Type> columnTypes = new HashMap<>();
         Map<String, Type> structTypes = new HashMap<>();
         List<String> columns = new ArrayList<>();
 
+        for (TableColumn column: description.getColumns()) {
+            columnTypes.put(column.getName(), column.getType());
+        }
+
+        List<String> params = new ArrayList<>();
+        params.addAll(batcher.getColumns());
+        params.addAll(batcher.getKeyColumns());
+
         sb.append("DECLARE $batch AS List<Struct<");
         int idx = 1;
-        for (String column: batcher.getColumns()) {
-            Type type = tableColumns.get(column);
+        for (String column: params) {
+            Type type = columnTypes.get(column);
             if (type == null) {
                 return null;
             }
@@ -245,23 +270,28 @@ public class BatchedQuery implements YdbPreparedQuery {
         }
         sb.append(">>;\n");
 
-        if (batcher.isInsert()) {
-            sb.append("INSERT INTO `");
+        switch (batcher.getCommand()) {
+            case UPSERT:
+                sb.append("UPSERT INTO `").append(batcher.getTableName()).append("` SELECT ");
+                break;
+            case INSERT:
+                sb.append("INSERT INTO `").append(batcher.getTableName()).append("` SELECT ");
+                break;
+            case REPLACE:
+                sb.append("REPLACE INTO `").append(batcher.getTableName()).append("` SELECT ");
+                break;
+            case UPDATE:
+                sb.append("UPDATE `").append(batcher.getTableName()).append("` ON SELECT ");
+                break;
+            case DELETE:
+                sb.append("DELETE FROM `").append(batcher.getTableName()).append("` ON SELECT ");
+                break;
+            default:
+                return null;
         }
-        if (batcher.isUpsert()) {
-            sb.append("UPSERT INTO `");
-        }
-        if (batcher.isReplace()) {
-            sb.append("REPLACE INTO `");
-        }
-        if (batcher.isDelete() || batcher.isUpdate()) {
-            return null;
-        }
-
-        sb.append(batcher.getTableName()).append("` SELECT ");
 
         idx = 1;
-        for (String column: batcher.getColumns()) {
+        for (String column: params) {
             if (idx > 1) {
                 sb.append(", ");
             }
