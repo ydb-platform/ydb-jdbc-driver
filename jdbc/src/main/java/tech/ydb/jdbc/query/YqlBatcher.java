@@ -10,20 +10,36 @@ import java.util.List;
 public class YqlBatcher {
     private enum Cmd {
         UPSERT,
-        INSERT
+        INSERT,
+        UPDATE,
+        DELETE
     }
     private enum State {
         INIT,
-        CMD,
-        INTO,
-        TABLE_NAME,
-        COLUMNS_OPEN_PAREN_OR_COMMA,
-        COLUMN_NAME,
-        COLUMNS_CLOSE_PAREN,
-        VALUES,
-        VALUES_OPEN_PAREN_OR_COMMA,
-        COLUMN_VALUE,
-        VALUES_CLOSE_PAREN,
+
+        CMD,  // Readed init command, like UPDATE, UPSERT, INSERT, DELETE
+        INTO, // Readed INTO keyword (only for INSERT/UPSERT)
+        TABLE_NAME, // Readed table name
+        SET,        // Readed SET keyword (only for UPDATE)
+
+        COLUMNS_OPEN_PAREN,  // Readed '(' after table name, only for INSERT/UPSERT
+        COLUMNS_COMMA,       // Readed ',' in column list, inside parens for INSERT/UPSERT, after SET for UPDATE)
+        COLUMNS_EQUAL,       // Readed '=' in column list, only after SET for UPDATE
+        COLUMNS_NAME,        // Readed column name
+        COLUMNS_VALUE,       // Readed column value (support only ?)
+        COLUMNS_CLOSE_PAREN, // Readed ')', only for INSERT/UPSERT
+
+        VALUES, // Readed VALUES keyword (only for INSERT/UPSERT)
+        VALUES_OPEN_PAREN,   // Readed '(' after VALUES, only for INSERT/UPSERT
+        VALUES_COMMA,        // Readed ',' in values list, inside parens for VALUES
+        VALUES_VALUE,        // Readed value (support only ?)
+        VALUES_CLOSE_PAREN,  // Readed ')', only for INSERT/UPSERT
+
+        WHERE, // Readed WHERE keyword (only for UPDATE/DETELE)
+        WHERE_COLUMN, // Readed column name in WHERE clause
+        WHERE_EQUAL,  // Readed '=' in WHERE clause
+        WHERE_VALUE,  // Readed column value in WHERE clause (support only ?)
+        WHERE_AND,    // Readed AND keyword in WHERE clause
 
         ERROR
     }
@@ -32,6 +48,7 @@ public class YqlBatcher {
     private Cmd cmd = null;
     private String tableName = null;
     private final List<String> columns = new ArrayList<>();
+    private final List<String> keyColumns = new ArrayList<>();
     private final List<String> values = new ArrayList<>();
 
     public void setForcedUpsert() {
@@ -84,22 +101,22 @@ public class YqlBatcher {
 
     public void readOpenParen() {
         if (state == State.TABLE_NAME) {
-            state = State.COLUMNS_OPEN_PAREN_OR_COMMA;
+            state = State.COLUMNS_OPEN_PAREN;
             return;
         }
         if (state == State.VALUES) {
-            state = State.VALUES_OPEN_PAREN_OR_COMMA;
+            state = State.VALUES_OPEN_PAREN;
             return;
         }
         state = State.ERROR;
     }
 
     public void readCloseParen() {
-        if (state == State.COLUMN_NAME) {
+        if (state == State.COLUMNS_NAME) {
             state = State.COLUMNS_CLOSE_PAREN;
             return;
         }
-        if (state == State.COLUMN_VALUE) {
+        if (state == State.VALUES_VALUE) {
             state = State.VALUES_CLOSE_PAREN;
             return;
         }
@@ -107,12 +124,12 @@ public class YqlBatcher {
     }
 
     public void readComma() {
-        if (state == State.COLUMN_NAME) {
-            state = State.COLUMNS_OPEN_PAREN_OR_COMMA;
+        if (state == State.COLUMNS_NAME) {
+            state = State.COLUMNS_COMMA;
             return;
         }
-        if (state == State.COLUMN_VALUE) {
-            state = State.VALUES_OPEN_PAREN_OR_COMMA;
+        if (state == State.VALUES_VALUE) {
+            state = State.VALUES_COMMA;
             return;
         }
         state = State.ERROR;
@@ -126,9 +143,9 @@ public class YqlBatcher {
     }
 
     public void readParameter() {
-        if (state == State.VALUES_OPEN_PAREN_OR_COMMA) {
+        if (state == State.VALUES_OPEN_PAREN || state == State.VALUES_COMMA) {
             values.add("?");
-            state = State.COLUMN_VALUE;
+            state = State.VALUES_VALUE;
             return;
         }
         state = State.ERROR;
@@ -174,9 +191,9 @@ public class YqlBatcher {
             return;
         }
 
-        if (state == State.COLUMNS_OPEN_PAREN_OR_COMMA) {
+        if (state == State.COLUMNS_OPEN_PAREN || state == State.COLUMNS_COMMA) {
             columns.add(unquote(query, start, length));
-            state = State.COLUMN_NAME;
+            state = State.COLUMNS_NAME;
             return;
         }
 
