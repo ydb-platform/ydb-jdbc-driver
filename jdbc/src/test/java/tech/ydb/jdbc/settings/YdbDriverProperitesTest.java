@@ -334,8 +334,9 @@ public class YdbDriverProperitesTest {
             new DriverPropertyInfo("disableDetectSqlOperations", "false"),
             new DriverPropertyInfo("disableJdbcParameters", "false"),
             new DriverPropertyInfo("disableJdbcParameterDeclare", "false"),
-            new DriverPropertyInfo("forceQueryMode", ""),
-            new DriverPropertyInfo("forceScanAndBulk", "false"),
+            new DriverPropertyInfo("replaceInsertByUpsert", "false"),
+            new DriverPropertyInfo("forceBulkUpsert", "false"),
+            new DriverPropertyInfo("forceScanSelect", "false"),
         };
     }
 
@@ -373,8 +374,9 @@ public class YdbDriverProperitesTest {
             new DriverPropertyInfo("disableDetectSqlOperations", "true"),
             new DriverPropertyInfo("disableJdbcParameters", "true"),
             new DriverPropertyInfo("disableJdbcParameterDeclare", "true"),
-            new DriverPropertyInfo("forceQueryMode", "SCAN_QUERY"),
-            new DriverPropertyInfo("forceScanAndBulk", "true"),
+            new DriverPropertyInfo("replaceInsertByUpsert", "true"),
+            new DriverPropertyInfo("forceBulkUpsert", "true"),
+            new DriverPropertyInfo("forceScanSelect", "true"),
         };
     }
 

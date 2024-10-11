@@ -28,9 +28,6 @@ public class YdbDriverTablesTest {
 
     private static final JdbcUrlHelper jdbcURL = new JdbcUrlHelper(ydb);
 
-    private final static String ERROR_SCAN_QUERY =
-            "Scan query should have a single result set. (S_ERROR)";
-
     private final static String ERROR_BULK_UNSUPPORTED =
             "BULK mode is available only for prepared statement with one UPSERT";
 
@@ -206,7 +203,12 @@ public class YdbDriverTablesTest {
 
     @Test
     public void forceScanAndBulkTest() throws SQLException {
-        try (Connection conn = DriverManager.getConnection(jdbcURL.withArg("forceScanAndBulk", "true").build())) {
+        try (Connection conn = DriverManager.getConnection(jdbcURL
+                .withArg("replaceInsertByUpsert", "true")
+                .withArg("forceBulkUpsert", "true")
+                .withArg("forceScanSelect", "true")
+                .build()
+        )) {
             try {
                 conn.createStatement().execute(DROP_TABLE);
             } catch (SQLException e) {

@@ -216,7 +216,12 @@ public class YdbDriverOlapTablesTest {
 
     @Test
     public void forceScanAndBulkTest() throws SQLException {
-        try (Connection conn = DriverManager.getConnection(jdbcURL.withArg("forceScanAndBulk", "true").build())) {
+        try (Connection conn = DriverManager.getConnection(jdbcURL
+                .withArg("replaceInsertByUpsert", "true")
+                .withArg("forceBulkUpsert", "true")
+                .withArg("forceScanSelect", "true")
+                .build()
+        )) {
             try {
                 conn.createStatement().execute(DROP_TABLE);
             } catch (SQLException e) {

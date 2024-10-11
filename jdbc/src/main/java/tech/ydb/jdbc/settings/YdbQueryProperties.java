@@ -2,7 +2,9 @@ package tech.ydb.jdbc.settings;
 
 import java.sql.SQLException;
 import java.util.Properties;
+import java.util.logging.Logger;
 
+import tech.ydb.jdbc.YdbDriver;
 import tech.ydb.jdbc.query.QueryType;
 
 
@@ -12,6 +14,8 @@ import tech.ydb.jdbc.query.QueryType;
  * @author Aleksandr Gorshenin
  */
 public class YdbQueryProperties {
+    private static final Logger LOGGER = Logger.getLogger(YdbDriver.class.getName());
+
     static final YdbProperty<Boolean> DISABLE_DETECT_SQL_OPERATIONS = YdbProperty.bool("disableDetectSqlOperations",
             "Disable detecting SQL operation based on SQL keywords", false);
 
@@ -27,13 +31,22 @@ public class YdbQueryProperties {
     static final YdbProperty<Boolean> DISABLE_JDBC_PARAMETERS_DECLARE = YdbProperty.bool("disableJdbcParameterDeclare",
             "Disable enforce DECLARE section for JDBC parameters '?'", false);
 
-    static final YdbProperty<QueryType> FORCE_QUERY_MODE = YdbProperty.enums("forceQueryMode", QueryType.class,
-            "Force usage one of query modes (DATA_QUERY, SCAN_QUERY, SCHEME_QUERY or EXPLAIN_QUERYn) for all statements"
+    @Deprecated
+    private static final YdbProperty<QueryType> FORCE_QUERY_MODE = YdbProperty.enums("forceQueryMode", QueryType.class,
+            "Force usage one of query modes (DATA_QUERY, SCAN_QUERY, SCHEME_QUERY or EXPLAIN_QUERY) for all statements"
     );
-    static final YdbProperty<Boolean> FORCE_SCAN_BULKS = YdbProperty.bool("forceScanAndBulk",
+    @Deprecated
+    private static final YdbProperty<Boolean> FORCE_SCAN_BULKS = YdbProperty.bool("forceScanAndBulk",
             "Force usage of bulk upserts instead of upserts/inserts and scan query for selects",
             false
     );
+
+    static final YdbProperty<Boolean> REPLACE_INSERT_TO_UPSERT = YdbProperty.bool("replaceInsertByUpsert",
+            "Convert all INSERT statements to UPSERT statements", false);
+    static final YdbProperty<Boolean> FORCE_BULK_UPSERT = YdbProperty.bool("forceBulkUpsert",
+            "Execute all UPSERT statements as BulkUpserts", false);
+    static final YdbProperty<Boolean> FORCE_SCAN_SELECT = YdbProperty.bool("forceScanSelect",
+            "Execute all SELECT statements as ScanQuery", false);
 
     private final boolean isDetectQueryType;
     private final boolean isDetectJdbcParameters;
@@ -42,8 +55,9 @@ public class YdbQueryProperties {
     private final boolean isPrepareDataQueries;
     private final boolean isDetectBatchQueries;
 
-    private final QueryType forcedType;
-    private final boolean isForcedScanAndBulks;
+    private final boolean isReplaceInsertToUpsert;
+    private final boolean isForceBulkUpsert;
+    private final boolean isForceScanSelect;
 
     public YdbQueryProperties(YdbConfig config) throws SQLException {
         Properties props = config.getProperties();
@@ -63,8 +77,24 @@ public class YdbQueryProperties {
         this.isDeclareJdbcParameters = !disableSqlOperationsDetect && !disableJdbcParametersParse
                 && !disableJdbcParametersDeclare;
 
-        this.forcedType = FORCE_QUERY_MODE.readValue(props).getValue();
-        this.isForcedScanAndBulks = FORCE_SCAN_BULKS.readValue(props).getValue();
+
+        YdbValue<QueryType> forcedType = FORCE_QUERY_MODE.readValue(props);
+        if (forcedType.hasValue()) {
+            LOGGER.warning("Option 'forceQueryMode' is deprecated and will be removed in next versions. "
+                    + "Use options 'forceScanSelect' and 'forceBulkUpsert' instead");
+        }
+        YdbValue<Boolean> forceScanAndBulk = FORCE_SCAN_BULKS.readValue(props);
+        if (forceScanAndBulk.hasValue()) {
+            LOGGER.warning("Option 'forceScanAndBulk' is deprecated and will be removed in next versions. "
+                    + "Use options 'replaceInsertByUpsert', 'forceScanSelect' and 'forceBulkUpsert' instead");
+        }
+
+        this.isReplaceInsertToUpsert = REPLACE_INSERT_TO_UPSERT.readValue(props)
+                .getValueOrOther(forceScanAndBulk.getValue());
+        this.isForceBulkUpsert = FORCE_BULK_UPSERT.readValue(props)
+                .getValueOrOther(forceScanAndBulk.getValue() || forcedType.getValue() == QueryType.BULK_QUERY);
+        this.isForceScanSelect = FORCE_SCAN_SELECT.readValue(props)
+                .getValueOrOther(forceScanAndBulk.getValue() || forcedType.getValue() == QueryType.SCAN_QUERY);
     }
 
     public boolean isDetectQueryType() {
@@ -87,11 +117,15 @@ public class YdbQueryProperties {
         return isDetectBatchQueries;
     }
 
-    public QueryType getForcedQueryType() {
-        return forcedType;
+    public boolean isReplaceInsertToUpsert() {
+        return isReplaceInsertToUpsert;
     }
 
-    public boolean isForcedScanAndBulks() {
-        return isForcedScanAndBulks;
+    public boolean isForceBulkUpsert() {
+        return isForceBulkUpsert;
+    }
+
+    public boolean isForceScanSelect() {
+        return isForceScanSelect;
     }
 }
