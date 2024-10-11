@@ -184,8 +184,10 @@ public class YdbConfig {
             YdbQueryProperties.DISABLE_DETECT_SQL_OPERATIONS.toInfo(properties),
             YdbQueryProperties.DISABLE_JDBC_PARAMETERS.toInfo(properties),
             YdbQueryProperties.DISABLE_JDBC_PARAMETERS_DECLARE.toInfo(properties),
-            YdbQueryProperties.FORCE_QUERY_MODE.toInfo(properties),
-            YdbQueryProperties.FORCE_SCAN_BULKS.toInfo(properties),
+
+            YdbQueryProperties.REPLACE_INSERT_TO_UPSERT.toInfo(properties),
+            YdbQueryProperties.FORCE_BULK_UPSERT.toInfo(properties),
+            YdbQueryProperties.FORCE_SCAN_SELECT.toInfo(properties),
         };
     }
 

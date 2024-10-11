@@ -17,6 +17,10 @@ class YdbValue<T> {
         return value;
     }
 
+    public T getValueOrOther(T other) {
+        return isPresent ? value : other;
+    }
+
     public boolean hasValue() {
         return isPresent;
     }
