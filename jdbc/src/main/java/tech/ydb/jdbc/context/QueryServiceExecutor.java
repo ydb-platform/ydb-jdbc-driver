@@ -246,30 +246,6 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    public YdbQueryResult executeScanQuery(YdbStatement statement, YdbQuery query, String yql, Params params)
-            throws SQLException {
-        ensureOpened();
-
-        YdbContext ctx = statement.getConnection().getCtx();
-        YdbValidator validator = statement.getValidator();
-
-        Duration scanQueryTimeout = ctx.getOperationProperties().getScanQueryTimeout();
-        ExecuteQuerySettings settings = ExecuteQuerySettings.newBuilder()
-                .withRequestTimeout(scanQueryTimeout)
-                .build();
-
-        final QuerySession session = createNewQuerySession(validator);
-        String msg = "STREAM_QUERY >>\n" + yql;
-        StreamQueryResult lazy = validator.call(msg, () -> {
-            QueryStream stream = session.createQuery(yql, TxMode.SNAPSHOT_RO, params, settings);
-            StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
-            return result.execute(stream, session::close);
-        });
-
-        return updateCurrentResult(lazy);
-    }
-
-    @Override
     public YdbQueryResult executeSchemeQuery(YdbStatement statement, YdbQuery query) throws SQLException {
         ensureOpened();
 

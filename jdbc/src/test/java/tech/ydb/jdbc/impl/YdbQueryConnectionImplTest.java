@@ -828,18 +828,6 @@ public class YdbQueryConnectionImplTest {
                             warnings.getMessage());
                     Assertions.assertNull(warnings.getNextWarning());
                 }
-
-                try (ResultSet rs = statement.executeQuery("SCAN " + query)) {
-                    Assertions.assertFalse(rs.next());
-
-                    SQLWarning warnings = statement.getWarnings();
-                    Assertions.assertNotNull(warnings);
-
-                    Assertions.assertEquals("#1060 Execution (S_WARNING)\n  "
-                            + "2:1 - 2:1: #2503 Given predicate is not suitable for used index: idx_value (S_WARNING)",
-                            warnings.getMessage());
-                    Assertions.assertNull(warnings.getNextWarning());
-                }
             } finally {
                 statement.execute(dropTempTable);
             }
