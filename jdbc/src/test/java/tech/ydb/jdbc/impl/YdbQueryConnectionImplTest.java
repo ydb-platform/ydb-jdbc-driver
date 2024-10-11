@@ -879,15 +879,15 @@ public class YdbQueryConnectionImplTest {
     @Timeout(value = 30, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SAME_THREAD)
     public void testBigBulkAndScan() throws SQLException {
         String bulkUpsert = QUERIES.upsertOne(SqlQueries.JdbcQuery.BULK, "c_Text", "Text?");
-        String scanSelectAll = QUERIES.scanSelectSQL();
+        String selectAll = QUERIES.selectSQL();
         String selectOne = QUERIES.selectAllByKey("?");
 
         Random rnd = new Random(0x234567);
         int payloadLength = 1000;
 
-        try {
+        try (Connection conn = jdbc.createCustomConnection("useStreamResultSets", "true")) {
             // BULK UPSERT
-            try (PreparedStatement ps = jdbc.connection().prepareStatement(bulkUpsert)) {
+            try (PreparedStatement ps = conn.prepareStatement(bulkUpsert)) {
                 for (int idx = 1; idx <= 10000; idx++) {
                     ps.setInt(1, idx);
                     String payload = createPayload(rnd, payloadLength);
@@ -901,7 +901,7 @@ public class YdbQueryConnectionImplTest {
             }
 
             // SCAN all table
-            try (PreparedStatement ps = jdbc.connection().prepareStatement(scanSelectAll)) {
+            try (PreparedStatement ps = conn.prepareStatement(selectAll)) {
                 int readed = 0;
                 Assertions.assertTrue(ps.execute());
                 try (ResultSet rs = ps.getResultSet()) {
@@ -915,7 +915,7 @@ public class YdbQueryConnectionImplTest {
             }
 
             // Canceled scan
-            try (PreparedStatement ps = jdbc.connection().prepareStatement(scanSelectAll)) {
+            try (PreparedStatement ps = conn.prepareStatement(selectAll)) {
                 Assertions.assertTrue(ps.execute());
                 ps.getResultSet().next();
                 ps.getResultSet().close();
@@ -933,7 +933,7 @@ public class YdbQueryConnectionImplTest {
             }
 
             //  Scan was cancelled, but connection still work
-            try (PreparedStatement ps = jdbc.connection().prepareStatement(selectOne)) {
+            try (PreparedStatement ps = conn.prepareStatement(selectOne)) {
                 ps.setInt(1, 1234);
 
                 Assertions.assertTrue(ps.execute());

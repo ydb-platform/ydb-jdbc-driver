@@ -43,6 +43,7 @@ import tech.ydb.table.result.ResultSetReader;
 public class QueryServiceExecutor extends BaseYdbExecutor {
     private final Duration sessionTimeout;
     private final QueryClient queryClient;
+    private final boolean useStreamResultSet;
 
     private int transactionLevel;
     private boolean isReadOnly;
@@ -56,6 +57,8 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         super(ctx);
         this.sessionTimeout = ctx.getOperationProperties().getSessionTimeout();
         this.queryClient = ctx.getQueryClient();
+        this.useStreamResultSet = ctx.getOperationProperties().getUseStreamResultSets();
+
         this.transactionLevel = transactionLevel;
         this.isReadOnly = transactionLevel != Connection.TRANSACTION_SERIALIZABLE;
         this.isAutoCommit = autoCommit;
@@ -225,6 +228,21 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
         if (tx == null) {
             tx = createNewQuerySession(validator).createNewTransaction(txMode);
+        }
+
+        if (useStreamResultSet) {
+            String msg = "STREAM_QUERY >>\n" + yql;
+            StreamQueryResult lazy = validator.call(msg, () -> {
+                QueryStream stream = tx.createQuery(yql, isAutoCommit, params, settings);
+                StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
+                return result.execute(stream, () -> {
+                    if (!tx.isActive()) {
+                        cleanTx();
+                    }
+                });
+            });
+
+            return updateCurrentResult(lazy);
         }
 
         try {
