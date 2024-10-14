@@ -43,7 +43,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
 
     public BaseYdbStatement(Logger logger, YdbConnection connection, int resultSetType, boolean isPoolable) {
         this.connection = Objects.requireNonNull(connection);
-        this.validator = new YdbValidator(logger);
+        this.validator = new YdbValidator();
         this.resultSetType = resultSetType;
         this.isPoolable = isPoolable;
 

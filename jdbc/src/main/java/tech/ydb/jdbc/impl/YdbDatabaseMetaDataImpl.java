@@ -56,7 +56,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     public YdbDatabaseMetaDataImpl(YdbConnection connection) {
         this.connection = Objects.requireNonNull(connection);
         this.executor = new SchemeExecutor(connection.getCtx());
-        this.validator = new YdbValidator(LOGGER);
+        this.validator = new YdbValidator();
     }
 
     @Override

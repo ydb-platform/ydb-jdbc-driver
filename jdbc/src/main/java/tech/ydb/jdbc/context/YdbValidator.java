@@ -7,10 +7,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import com.google.common.base.Stopwatch;
 
 import tech.ydb.core.Issue;
 import tech.ydb.core.Result;
@@ -23,15 +19,7 @@ import tech.ydb.jdbc.exception.ExceptionFactory;
  * @author Aleksandr Gorshenin
  */
 public class YdbValidator {
-    @SuppressWarnings("NonConstantLogger")
-    private final Logger logger;
-    private final boolean isDebug;
     private final List<Issue> issues = new ArrayList<>();
-
-    public YdbValidator(Logger logger) {
-        this.logger = logger;
-        this.isDebug = logger.isLoggable(Level.FINE);
-    }
 
     public SQLWarning toSQLWarnings() {
         SQLWarning firstWarning = null;
@@ -62,48 +50,6 @@ public class YdbValidator {
     }
 
     public void execute(String msg, Supplier<CompletableFuture<Status>> fn) throws SQLException {
-        if (!isDebug) {
-            runImpl(msg, fn);
-            return;
-        }
-
-        logger.finest(msg);
-        Stopwatch sw = Stopwatch.createStarted();
-
-        try {
-            runImpl(msg, fn);
-            logger.log(Level.FINEST, "[{0}] OK ", sw.stop());
-        } catch (SQLException ex) {
-            logger.log(Level.FINE, "[{0}] {1} ", new Object[] {sw.stop(), ex.getMessage()});
-            throw ex;
-        } catch (Exception ex) {
-            logger.log(Level.WARNING, "ERROR ", ex);
-            throw ex;
-        }
-    }
-
-    public <R> R call(String msg, Supplier<CompletableFuture<Result<R>>> fn) throws SQLException {
-        if (!isDebug) {
-            return callImpl(msg, fn);
-        }
-
-        logger.finest(msg);
-        Stopwatch sw = Stopwatch.createStarted();
-
-        try {
-            R value = callImpl(msg, fn);
-            logger.log(Level.FINEST, "[{0}] OK ", sw.stop());
-            return value;
-        } catch (SQLException ex) {
-            logger.log(Level.FINE, "[{0}] FAIL {1} ", new Object[] {sw.stop(), ex.getMessage()});
-            throw ex;
-        } catch (Exception ex) {
-            logger.log(Level.WARNING, "ERROR ", ex);
-            throw ex;
-        }
-    }
-
-    private void runImpl(String msg, Supplier<CompletableFuture<Status>> fn) throws SQLException {
         Status status = fn.get().join();
         addStatusIssues(status);
 
@@ -113,7 +59,7 @@ public class YdbValidator {
         }
     }
 
-    private <R> R callImpl(String msg, Supplier<CompletableFuture<Result<R>>> fn) throws SQLException {
+    public <R> R call(String msg, Supplier<CompletableFuture<Result<R>>> fn) throws SQLException {
         try {
             Result<R> result = fn.get().join();
             addStatusIssues(result.getStatus());
@@ -122,5 +68,4 @@ public class YdbValidator {
             throw ExceptionFactory.createException("Cannot call '" + msg + "' with " + ex.getStatus(), ex);
         }
     }
-
 }
