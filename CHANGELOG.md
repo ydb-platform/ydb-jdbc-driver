@@ -1,3 +1,9 @@
+## 2.2.11 ##
+
+* Added transaction tracer
+* Added option useStreamResultSets to switch on streamable result sets
+* Updated options to control query special modes
+
 ## 2.2.10 ##
 
 * Added auto batch mode for simple UPDATE/DELETE/REPLACE
