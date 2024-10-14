@@ -5,7 +5,6 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -16,11 +15,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import tech.ydb.core.Issue;
 import tech.ydb.core.Result;
 import tech.ydb.core.Status;
 import tech.ydb.core.UnexpectedResultException;
-import tech.ydb.core.grpc.GrpcReadStream;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
@@ -30,8 +27,6 @@ import tech.ydb.jdbc.impl.BaseYdbResultSet;
 import tech.ydb.jdbc.impl.YdbQueryResult;
 import tech.ydb.jdbc.query.QueryStatement;
 import tech.ydb.jdbc.query.YdbQuery;
-import tech.ydb.query.QueryStream;
-import tech.ydb.query.result.QueryResultPart;
 import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.result.ValueReader;
 
@@ -47,22 +42,21 @@ public class StreamQueryResult implements YdbQueryResult {
 
     private final String msg;
     private final YdbStatement statement;
-    private final Runnable stopRunnable;
+    private final Runnable streamStopper;
 
     private final CompletableFuture<Status> streamFuture = new CompletableFuture<>();
-    private final CompletableFuture<Result<StreamQueryResult>> startFuture = new CompletableFuture<>();
+    private final AtomicBoolean streamCancelled = new AtomicBoolean(false);
 
     private final int[] resultIndexes;
     private final List<CompletableFuture<Result<LazyResultSet>>> resultFutures = new ArrayList<>();
-    private final AtomicBoolean streamCancelled = new AtomicBoolean(false);
 
     private int resultIndex = 0;
     private volatile boolean resultClosed = false;
 
-    public StreamQueryResult(String msg, YdbStatement statement, YdbQuery query, Runnable stopRunnable) {
+    public StreamQueryResult(String msg, YdbStatement statement, YdbQuery query, Runnable streamStopper) {
         this.msg = msg;
         this.statement = statement;
-        this.stopRunnable = stopRunnable;
+        this.streamStopper = streamStopper;
 
         this.resultIndexes = new int[query.getStatements().size()];
 
@@ -84,49 +78,42 @@ public class StreamQueryResult implements YdbQueryResult {
         }
     }
 
-    public CompletableFuture<Result<StreamQueryResult>> execute(QueryStream stream, Runnable finish) {
-        LOGGER.log(Level.FINE, "Stream executed by QueryStream");
-        stream.execute(new QueryPartsHandler())
-                .thenApply(Result::getStatus)
-                .whenComplete(this::onStreamFinished)
-                .thenRun(finish);
-        return startFuture;
-    }
-
-    public CompletableFuture<Result<StreamQueryResult>> execute(
-            GrpcReadStream<ResultSetReader> stream, Runnable finish
-    ) {
-        LOGGER.log(Level.FINE, "Stream executed by ScanQuery");
-        stream.start(new ScanQueryHandler())
-                .whenComplete(this::onStreamFinished)
-                .thenRun(finish);
-        return startFuture;
-    }
-
-    private void onStreamFinished(Status status, Throwable th) {
-        if (th != null) {
-            streamFuture.completeExceptionally(th);
-            for (CompletableFuture<Result<LazyResultSet>> future: resultFutures) {
-                future.completeExceptionally(th);
-            }
-            startFuture.completeExceptionally(th);
+    public void onStreamResultSet(int index, ResultSetReader rsr) {
+        CompletableFuture<Result<LazyResultSet>> future = resultFutures.get(index);
+        if (!future.isDone()) {
+            ColumnInfo[] columns = ColumnInfo.fromResultSetReader(rsr);
+            future.complete(Result.success(new LazyResultSet(statement, columns)));
         }
 
-        if (status != null) {
-            streamFuture.complete(status);
+        Result<LazyResultSet> res = future.join();
+        if (res.isSuccess()) {
+            res.getValue().addResultSet(rsr);
+        }
+    }
+
+    public void onStreamFinished(Throwable th) {
+        streamFuture.completeExceptionally(th);
+        for (CompletableFuture<Result<LazyResultSet>> future: resultFutures) {
+            future.completeExceptionally(th);
+        }
+
+        completeAllSets();
+    }
+
+    public void onStreamFinished(Status status) {
+        for (CompletableFuture<Result<LazyResultSet>> future : resultFutures) {
             if (status.isSuccess()) {
-                for (CompletableFuture<Result<LazyResultSet>> future: resultFutures) {
-                    future.complete(Result.success(new LazyResultSet(statement, new ColumnInfo[0]), status));
-                }
-                startFuture.complete(Result.success(this));
+                future.complete(Result.success(new LazyResultSet(statement, new ColumnInfo[0]), status));
             } else {
-                for (CompletableFuture<Result<LazyResultSet>> future: resultFutures) {
-                    future.complete(Result.fail(status));
-                }
-                startFuture.complete(Result.fail(status));
+                future.complete(Result.fail(status));
             }
         }
+        streamFuture.complete(status);
 
+        completeAllSets();
+    }
+
+    private void completeAllSets() {
         for (CompletableFuture<Result<LazyResultSet>> future: resultFutures) {
             if (!future.isCompletedExceptionally()) {
                 Result<LazyResultSet> rs = future.join();
@@ -155,13 +142,13 @@ public class StreamQueryResult implements YdbQueryResult {
 
         if (!streamFuture.isDone() && streamCancelled.compareAndSet(false, true)) {
             LOGGER.log(Level.FINE, "Stream cancel");
-            stopRunnable.run();
+            streamStopper.run();
         }
     }
 
     @Override
     public void close() throws SQLException {
-        if (startFuture.isDone() && resultClosed) {
+        if (streamFuture.isDone() && resultClosed) {
             return;
         }
 
@@ -169,8 +156,6 @@ public class StreamQueryResult implements YdbQueryResult {
 
         resultClosed = true;
         Status status = streamFuture.join();
-
-        statement.getValidator().addStatusIssues(status);
 
         if (streamCancelled.get()) {
             LOGGER.log(Level.FINE, "Stream canceled and finished with status {0}", status);
@@ -252,40 +237,6 @@ public class StreamQueryResult implements YdbQueryResult {
 
     }
 
-    private void onResultSet(int index, ResultSetReader rsr) {
-        CompletableFuture<Result<LazyResultSet>> future = resultFutures.get(index);
-        if (!future.isDone()) {
-            ColumnInfo[] columns = ColumnInfo.fromResultSetReader(rsr);
-            future.complete(Result.success(new LazyResultSet(statement, columns)));
-        }
-
-        Result<LazyResultSet> res = future.join();
-        if (res.isSuccess()) {
-            res.getValue().addResultSet(rsr);
-        }
-    }
-
-    private class ScanQueryHandler implements GrpcReadStream.Observer<ResultSetReader> {
-        @Override
-        public void onNext(ResultSetReader part) {
-            onResultSet(0, part);
-            startFuture.complete(Result.success(StreamQueryResult.this));
-        }
-    }
-
-    private class QueryPartsHandler implements QueryStream.PartsHandler {
-        @Override
-        public void onIssues(Issue[] issues) {
-            statement.getValidator().addStatusIssues(Arrays.asList(issues));
-        }
-
-        @Override
-        public void onNextPart(QueryResultPart part) {
-            onResultSet((int) part.getResultSetIndex(), part.getResultSetReader());
-            startFuture.complete(Result.success(StreamQueryResult.this));
-        }
-    }
-
     private class LazyResultSet extends BaseYdbResultSet {
         private final BlockingQueue<ResultSetReader> readers = new ArrayBlockingQueue<>(5);
         private final AtomicLong rowsCount = new AtomicLong();
@@ -314,7 +265,7 @@ public class StreamQueryResult implements YdbQueryResult {
             } catch (InterruptedException ex) {
                 if (streamFuture.completeExceptionally(ex)) {
                     LOGGER.log(Level.WARNING, "LazyResultSet offer interrupted");
-                    stopRunnable.run();
+                    streamStopper.run();
                 }
                 return;
             }

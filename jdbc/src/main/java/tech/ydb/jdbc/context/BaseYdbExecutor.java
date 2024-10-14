@@ -3,6 +3,7 @@ package tech.ydb.jdbc.context;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 import tech.ydb.core.Result;
@@ -120,9 +121,28 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
 
         String msg = QueryType.SCAN_QUERY + " >>\n" + yql;
         StreamQueryResult lazy = validator.call(msg, () -> {
-            GrpcReadStream<ResultSetReader> stream = session.executeScanQuery(yql, params, settings);
-            StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
-            return result.execute(stream, session::close);
+            final CompletableFuture<Result<StreamQueryResult>> future = new CompletableFuture<>();
+            final GrpcReadStream<ResultSetReader> stream = session.executeScanQuery(yql, params, settings);
+            final StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
+
+            stream.start((rsr) -> {
+                future.complete(Result.success(result));
+                result.onStreamResultSet(0, rsr);
+            }).whenComplete((st, th) -> {
+                session.close();
+
+                if (th != null) {
+                    result.onStreamFinished(th);
+                    future.completeExceptionally(th);
+                }
+                if (st != null) {
+                    validator.addStatusIssues(st);
+                    result.onStreamFinished(st);
+                    future.complete(st.isSuccess() ? Result.success(result) : Result.fail(st));
+                }
+            });
+
+            return future;
         });
 
         return updateCurrentResult(lazy);

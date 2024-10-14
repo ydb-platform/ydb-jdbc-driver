@@ -8,7 +8,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import tech.ydb.common.transaction.TxMode;
 import tech.ydb.core.Issue;
@@ -50,8 +52,8 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     private boolean isAutoCommit;
     private TxMode txMode;
 
-    private QueryTransaction tx;
-    private boolean isClosed;
+    private final AtomicReference<QueryTransaction> tx = new AtomicReference<>();
+    private volatile boolean isClosed;
 
     public QueryServiceExecutor(YdbContext ctx, int transactionLevel, boolean autoCommit) throws SQLException {
         super(ctx);
@@ -63,7 +65,6 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         this.isReadOnly = transactionLevel != Connection.TRANSACTION_SERIALIZABLE;
         this.isAutoCommit = autoCommit;
         this.txMode = txMode(transactionLevel, isReadOnly);
-        this.tx = null;
         this.isClosed = false;
     }
 
@@ -81,14 +82,10 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     @Override
     public void close() throws SQLException {
         closeCurrentResult();
-        cleanTx();
         isClosed = true;
-    }
-
-    private void cleanTx() {
-        if (tx != null) {
-            tx.getSession().close();
-            tx = null;
+        QueryTransaction old = tx.getAndSet(null);
+        if (old != null) {
+            old.getSession().close();
         }
     }
 
@@ -100,7 +97,8 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             return;
         }
 
-        if (tx != null && tx.isActive()) {
+        QueryTransaction localTx = tx.get();
+        if (localTx != null && localTx.isActive()) {
             throw new SQLFeatureNotSupportedException(YdbConst.CHANGE_ISOLATION_INSIDE_TX);
         }
 
@@ -117,7 +115,8 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             return;
         }
 
-        if (tx != null && tx.isActive()) {
+        QueryTransaction localTx = tx.get();
+        if (localTx != null && localTx.isActive()) {
             throw new SQLFeatureNotSupportedException(YdbConst.READONLY_INSIDE_TRANSACTION);
         }
 
@@ -133,7 +132,8 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             return;
         }
 
-        if (tx != null && tx.isActive()) {
+        QueryTransaction localTx = tx.get();
+        if (localTx != null && localTx.isActive()) {
             throw new SQLFeatureNotSupportedException(YdbConst.CHANGE_ISOLATION_INSIDE_TX);
         }
 
@@ -149,13 +149,15 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     @Override
     public String txID() throws SQLException {
         closeCurrentResult();
-        return tx != null ? tx.getId() : null;
+        QueryTransaction localTx = tx.get();
+        return localTx != null ? localTx.getId() : null;
     }
 
     @Override
     public boolean isInsideTransaction() throws SQLException {
         ensureOpened();
-        return tx != null && tx.isActive();
+        QueryTransaction localTx = tx.get();
+        return localTx != null && localTx.isActive();
     }
 
     @Override
@@ -180,16 +182,19 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     public void commit(YdbContext ctx, YdbValidator validator) throws SQLException {
         ensureOpened();
 
-        if (tx == null || !tx.isActive()) {
+        QueryTransaction localTx = tx.get();
+        if (localTx == null || !localTx.isActive()) {
             return;
         }
 
         CommitTransactionSettings settings = ctx.withRequestTimeout(CommitTransactionSettings.newBuilder()).build();
         try {
             validator.clearWarnings();
-            validator.call("Commit TxId: " + tx.getId(), () -> tx.commit(settings));
+            validator.call("Commit TxId: " + localTx.getId(), () -> localTx.commit(settings));
         } finally {
-            cleanTx();
+            if (tx.compareAndSet(localTx, null)) {
+                localTx.getSession().close();
+            }
         }
     }
 
@@ -197,7 +202,8 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     public void rollback(YdbContext ctx, YdbValidator validator) throws SQLException {
         ensureOpened();
 
-        if (tx == null || !tx.isActive()) {
+        QueryTransaction localTx = tx.get();
+        if (localTx == null || !localTx.isActive()) {
             return;
         }
 
@@ -206,9 +212,11 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
         try {
             validator.clearWarnings();
-            validator.execute("Rollback TxId: " + tx.getId(), () -> tx.rollback(settings));
+            validator.execute("Rollback TxId: " + localTx.getId(), () -> localTx.rollback(settings));
         } finally {
-            cleanTx();
+            if (tx.compareAndSet(localTx, null)) {
+                localTx.getSession().close();
+            }
         }
     }
 
@@ -226,20 +234,55 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         }
         final ExecuteQuerySettings settings = builder.build();
 
-        if (tx == null) {
-            tx = createNewQuerySession(validator).createNewTransaction(txMode);
+        QueryTransaction nextTx = tx.get();
+        while (nextTx == null) {
+            nextTx = createNewQuerySession(validator).createNewTransaction(txMode);
+            if (!tx.compareAndSet(null, nextTx)) {
+                nextTx.getSession().close();
+                nextTx = tx.get();
+            }
         }
+
+        final QueryTransaction localTx = nextTx;
 
         if (useStreamResultSet) {
             String msg = "STREAM_QUERY >>\n" + yql;
             StreamQueryResult lazy = validator.call(msg, () -> {
-                QueryStream stream = tx.createQuery(yql, isAutoCommit, params, settings);
-                StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
-                return result.execute(stream, () -> {
-                    if (!tx.isActive()) {
-                        cleanTx();
+                final CompletableFuture<Result<StreamQueryResult>> future = new CompletableFuture<>();
+                final QueryStream stream = localTx.createQuery(yql, isAutoCommit, params, settings);
+                final StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
+
+
+                stream.execute(new QueryStream.PartsHandler() {
+                    @Override
+                    public void onIssues(Issue[] issues) {
+                        validator.addStatusIssues(Arrays.asList(issues));
+                    }
+
+                    @Override
+                    public void onNextPart(QueryResultPart part) {
+                        result.onStreamResultSet((int) part.getResultSetIndex(), part.getResultSetReader());
+                        future.complete(Result.success(result));
+                    }
+                }).whenComplete((res, th) -> {
+                    if (!localTx.isActive()) {
+                        if (tx.compareAndSet(localTx, null)) {
+                            localTx.getSession().close();
+                        }
+                    }
+
+                    if (th != null) {
+                        future.completeExceptionally(th);
+                        result.onStreamFinished(th);
+                    }
+                    if (res != null) {
+                        validator.addStatusIssues(res.getStatus());
+                        future.complete(res.isSuccess() ? Result.success(result) : Result.fail(res.getStatus()));
+                        result.onStreamFinished(res.getStatus());
                     }
                 });
+
+                return future;
             });
 
             return updateCurrentResult(lazy);
@@ -247,7 +290,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
         try {
             QueryReader result = validator.call(QueryType.DATA_QUERY + " >>\n" + yql,
-                    () -> QueryReader.readFrom(tx.createQuery(yql, isAutoCommit, params, settings))
+                    () -> QueryReader.readFrom(localTx.createQuery(yql, isAutoCommit, params, settings))
             );
             validator.addStatusIssues(result.getIssueList());
 
@@ -257,8 +300,10 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             }
             return updateCurrentResult(new StaticQueryResult(query, readers));
         } finally {
-            if (!tx.isActive()) {
-                cleanTx();
+            if (!localTx.isActive()) {
+                if (tx.compareAndSet(localTx, null)) {
+                    localTx.getSession().close();
+                }
             }
         }
     }
