@@ -3,6 +3,7 @@ package tech.ydb.jdbc.context;
 import java.sql.SQLException;
 
 import tech.ydb.jdbc.YdbStatement;
+import tech.ydb.jdbc.YdbTracer;
 import tech.ydb.jdbc.impl.YdbQueryResult;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.Params;
@@ -41,4 +42,6 @@ public interface YdbExecutor {
     void rollback(YdbContext ctx, YdbValidator validator) throws SQLException;
 
     boolean isValid(YdbValidator validator, int timeout) throws SQLException;
+
+    YdbTracer trace(String message);
 }

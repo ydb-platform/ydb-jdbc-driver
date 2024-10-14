@@ -26,6 +26,7 @@ import tech.ydb.jdbc.YdbDatabaseMetaData;
 import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.YdbStatement;
+import tech.ydb.jdbc.YdbTracer;
 import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbExecutor;
 import tech.ydb.jdbc.context.YdbValidator;
@@ -42,7 +43,7 @@ public class YdbConnectionImpl implements YdbConnection {
     public YdbConnectionImpl(YdbContext context) throws SQLException {
         this.ctx = context;
 
-        this.validator = new YdbValidator(LOGGER);
+        this.validator = new YdbValidator();
         this.executor = ctx.createExecutor();
         this.ctx.register();
     }
@@ -108,6 +109,7 @@ public class YdbConnectionImpl implements YdbConnection {
         validator.clearWarnings();
         executor.close();
         ctx.deregister();
+        YdbTracer.clear();
     }
 
     @Override
@@ -209,6 +211,7 @@ public class YdbConnectionImpl implements YdbConnection {
     public YdbStatement createStatement(int resultSetType, int resultSetConcurrency,
             int resultSetHoldability) throws SQLException {
         executor.ensureOpened();
+        executor.trace("create statement");
         checkStatementParams(resultSetType, resultSetConcurrency, resultSetHoldability);
         return new YdbStatementImpl(this, resultSetType);
     }
@@ -239,9 +242,10 @@ public class YdbConnectionImpl implements YdbConnection {
         executor.ensureOpened();
         validator.clearWarnings();
 
+        executor.trace("--> prepare statement");
         YdbQuery query = ctx.findOrParseYdbQuery(sql);
-
         YdbPreparedQuery params = ctx.findOrPrepareParams(query, mode);
+        executor.trace("<-- OK");
         return new YdbPreparedStatementImpl(this, query, params, resultSetType);
     }
 

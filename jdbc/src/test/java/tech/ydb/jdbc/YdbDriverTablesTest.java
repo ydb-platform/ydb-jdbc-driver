@@ -26,7 +26,7 @@ public class YdbDriverTablesTest {
     @RegisterExtension
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
-    private static final JdbcUrlHelper jdbcURL = new JdbcUrlHelper(ydb);
+    private static final JdbcUrlHelper jdbcURL = new JdbcUrlHelper(ydb).withArg("enableTxTracer", "true");
 
     private final static String ERROR_BULK_UNSUPPORTED =
             "BULK mode is available only for prepared statement with one UPSERT";

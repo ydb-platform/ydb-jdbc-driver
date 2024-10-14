@@ -99,6 +99,11 @@ public class YdbDriver implements Driver {
     }
 
     @Override
+    public String toString() {
+        return YdbDriverInfo.DRIVER_FULL_NAME;
+    }
+
+    @Override
     public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) throws SQLException {
         YdbConfig config = YdbConfig.from(url, info);
         return config.toPropertyInfo();
