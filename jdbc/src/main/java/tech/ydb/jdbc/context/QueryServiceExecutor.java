@@ -19,6 +19,7 @@ import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
+import tech.ydb.jdbc.YdbTracer;
 import tech.ydb.jdbc.exception.ExceptionFactory;
 import tech.ydb.jdbc.impl.YdbQueryResult;
 import tech.ydb.jdbc.impl.YdbStaticResultSet;
@@ -187,13 +188,17 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             return;
         }
 
+        YdbTracer tracer = trace("--> commit");
         CommitTransactionSettings settings = ctx.withRequestTimeout(CommitTransactionSettings.newBuilder()).build();
         try {
             validator.clearWarnings();
-            validator.call("Commit TxId: " + localTx.getId(), () -> localTx.commit(settings));
+            validator.call("Commit TxId: " + localTx.getId(), tracer, () -> localTx.commit(settings));
         } finally {
             if (tx.compareAndSet(localTx, null)) {
                 localTx.getSession().close();
+            }
+            if (tracer != null) {
+                tracer.close();
             }
         }
     }
@@ -207,15 +212,19 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             return;
         }
 
+        YdbTracer tracer = trace("--> rollback");
         RollbackTransactionSettings settings = ctx.withRequestTimeout(RollbackTransactionSettings.newBuilder())
             .build();
 
         try {
             validator.clearWarnings();
-            validator.execute("Rollback TxId: " + localTx.getId(), () -> localTx.rollback(settings));
+            validator.execute("Rollback TxId: " + localTx.getId(), tracer, () -> localTx.rollback(settings));
         } finally {
             if (tx.compareAndSet(localTx, null)) {
                 localTx.getSession().close();
+            }
+            if (tracer != null) {
+                tracer.close();
             }
         }
     }
@@ -246,8 +255,9 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         final QueryTransaction localTx = nextTx;
 
         if (useStreamResultSet) {
+            YdbTracer tracer = trace("--> stream query >>\n" + yql);
             String msg = "STREAM_QUERY >>\n" + yql;
-            StreamQueryResult lazy = validator.call(msg, () -> {
+            StreamQueryResult lazy = validator.call(msg, null, () -> {
                 final CompletableFuture<Result<StreamQueryResult>> future = new CompletableFuture<>();
                 final QueryStream stream = localTx.createQuery(yql, isAutoCommit, params, settings);
                 final StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
@@ -274,11 +284,27 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
                     if (th != null) {
                         future.completeExceptionally(th);
                         result.onStreamFinished(th);
+                        if (tracer != null) {
+                            tracer.trace("<-- " + th.getMessage());
+                            if (localTx.isActive()) {
+                                tracer.setId(localTx.getId());
+                            } else {
+                                tracer.close();
+                            }
+                        }
                     }
                     if (res != null) {
                         validator.addStatusIssues(res.getStatus());
                         future.complete(res.isSuccess() ? Result.success(result) : Result.fail(res.getStatus()));
                         result.onStreamFinished(res.getStatus());
+                        if (tracer != null) {
+                            tracer.trace("<-- " + res.getStatus().toString());
+                            if (localTx.isActive()) {
+                                tracer.setId(localTx.getId());
+                            } else {
+                                tracer.close();
+                            }
+                        }
                     }
                 });
 
@@ -288,8 +314,9 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             return updateCurrentResult(lazy);
         }
 
+        YdbTracer tracer = trace("--> data query >>\n" + yql);
         try {
-            QueryReader result = validator.call(QueryType.DATA_QUERY + " >>\n" + yql,
+            QueryReader result = validator.call(QueryType.DATA_QUERY + " >>\n" + yql, tracer,
                     () -> QueryReader.readFrom(localTx.createQuery(yql, isAutoCommit, params, settings))
             );
             validator.addStatusIssues(result.getIssueList());
@@ -305,6 +332,14 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
                     localTx.getSession().close();
                 }
             }
+
+            if (tracer != null) {
+                if (localTx.isActive()) {
+                    tracer.setId(localTx.getId());
+                } else {
+                    tracer.close();
+                }
+            }
         }
     }
 
@@ -317,13 +352,19 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         YdbValidator validator = statement.getValidator();
 
         // Scheme query does not affect transactions or result sets
+        YdbTracer tracer = trace("--> scheme query >>\n" + yql);
         ExecuteQuerySettings settings = ctx.withRequestTimeout(ExecuteQuerySettings.newBuilder()).build();
         try (QuerySession session = createNewQuerySession(validator)) {
-            validator.call(QueryType.SCHEME_QUERY + " >>\n" + yql, () -> session
+            validator.call(QueryType.SCHEME_QUERY + " >>\n" + yql, tracer, () -> session
                     .createQuery(yql, TxMode.NONE, Params.empty(), settings)
                     .execute(new IssueHandler(validator))
             );
+        } finally {
+            if (tracer != null && tx.get() == null) {
+                tracer.close();
+            }
         }
+
 
         return updateCurrentResult(new StaticQueryResult(query, Collections.emptyList()));
     }
@@ -340,9 +381,10 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         ExecuteQuerySettings settings = ctx.withRequestTimeout(ExecuteQuerySettings.newBuilder())
                 .withExecMode(QueryExecMode.EXPLAIN)
                 .build();
+        YdbTracer tracer = trace("--> explain query >>\n" + yql);
 
         try (QuerySession session = createNewQuerySession(validator)) {
-            QueryInfo res = validator.call(QueryType.EXPLAIN_QUERY + " >>\n" + yql, () -> session
+            QueryInfo res = validator.call(QueryType.EXPLAIN_QUERY + " >>\n" + yql, tracer, () -> session
                     .createQuery(yql, TxMode.NONE, Params.empty(), settings)
                     .execute(new IssueHandler(validator))
             );
@@ -354,6 +396,10 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             return updateCurrentResult(
                     new StaticQueryResult(statement, res.getStats().getQueryAst(), res.getStats().getQueryPlan())
             );
+        } finally {
+            if (tracer != null && tx.get() == null) {
+                tracer.close();
+            }
         }
     }
 

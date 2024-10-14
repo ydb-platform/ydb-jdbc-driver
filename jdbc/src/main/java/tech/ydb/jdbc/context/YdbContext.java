@@ -159,6 +159,10 @@ public class YdbContext implements AutoCloseable {
         return config.getUsername();
     }
 
+    public boolean isTxTracerEnabled() {
+        return config.isTxTracedEnabled();
+    }
+
     public YdbExecutor createExecutor() throws SQLException {
         if (config.isUseQueryService()) {
             return new QueryServiceExecutor(this, operationProps.getTransactionLevel(), operationProps.isAutoCommit());

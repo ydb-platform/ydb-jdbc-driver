@@ -11,6 +11,7 @@ import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.core.grpc.GrpcReadStream;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbStatement;
+import tech.ydb.jdbc.YdbTracer;
 import tech.ydb.jdbc.exception.ExceptionFactory;
 import tech.ydb.jdbc.impl.YdbQueryResult;
 import tech.ydb.jdbc.query.QueryType;
@@ -33,9 +34,11 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
     private final Duration sessionTimeout;
     private final TableClient tableClient;
     private final AtomicReference<YdbQueryResult> currResult;
+    protected final boolean traceEnabled;
 
     public BaseYdbExecutor(YdbContext ctx) {
         this.retryCtx = ctx.getRetryCtx();
+        this.traceEnabled = ctx.isTxTracerEnabled();
         this.sessionTimeout = ctx.getOperationProperties().getSessionTimeout();
         this.tableClient = ctx.getTableClient();
         this.currResult = new AtomicReference<>();
@@ -75,6 +78,16 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
     }
 
     @Override
+    public YdbTracer trace(String message) {
+        if (!traceEnabled) {
+            return null;
+        }
+        YdbTracer tracer = YdbTracer.current();
+        tracer.trace(message);
+        return tracer;
+    }
+
+    @Override
     public YdbQueryResult executeSchemeQuery(YdbStatement statement, YdbQuery query) throws SQLException {
         ensureOpened();
 
@@ -83,10 +96,15 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
         YdbValidator validator = statement.getValidator();
 
         // Scheme query does not affect transactions or result sets
+        YdbTracer tracer = trace("--> scheme >>\n" + yql);
         ExecuteSchemeQuerySettings settings = ctx.withDefaultTimeout(new ExecuteSchemeQuerySettings());
-        validator.execute(QueryType.SCHEME_QUERY + " >>\n" + yql,
+        validator.execute(QueryType.SCHEME_QUERY + " >>\n" + yql, tracer,
                 () -> retryCtx.supplyStatus(session -> session.executeSchemeQuery(yql, settings))
         );
+
+        if (tracer != null && !isInsideTransaction()) {
+            tracer.close();
+        }
 
         return updateCurrentResult(new StaticQueryResult(query, Collections.emptyList()));
     }
@@ -98,9 +116,14 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
 
         String yql = query.getPreparedYql();
         YdbValidator validator = statement.getValidator();
-        validator.execute(QueryType.BULK_QUERY + " >>\n" + yql,
+        YdbTracer tracer = trace("--> bulk upsert >>\n" + yql);
+        validator.execute(QueryType.BULK_QUERY + " >>\n" + yql, tracer,
                 () -> retryCtx.supplyStatus(session -> session.executeBulkUpsert(tablePath, rows))
         );
+
+        if (tracer != null && !isInsideTransaction()) {
+            tracer.close();
+        }
 
         return updateCurrentResult(new StaticQueryResult(query, Collections.emptyList()));
     }
@@ -116,11 +139,11 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
         ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()
                 .withRequestTimeout(scanQueryTimeout)
                 .build();
-
+        String msg = QueryType.SCAN_QUERY + " >>\n" + yql;
+        final YdbTracer tracer = trace("--> scan query >>\n" + yql);
         final Session session = createNewTableSession(validator);
 
-        String msg = QueryType.SCAN_QUERY + " >>\n" + yql;
-        StreamQueryResult lazy = validator.call(msg, () -> {
+        StreamQueryResult lazy = validator.call(msg, null, () -> {
             final CompletableFuture<Result<StreamQueryResult>> future = new CompletableFuture<>();
             final GrpcReadStream<ResultSetReader> stream = session.executeScanQuery(yql, params, settings);
             final StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
@@ -134,11 +157,21 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
                 if (th != null) {
                     result.onStreamFinished(th);
                     future.completeExceptionally(th);
+
+                    if (tracer != null) {
+                        tracer.trace("<-- " + th.getMessage());
+                        tracer.close();
+                    }
                 }
                 if (st != null) {
                     validator.addStatusIssues(st);
                     result.onStreamFinished(st);
                     future.complete(st.isSuccess() ? Result.success(result) : Result.fail(st));
+
+                    if (tracer != null) {
+                        tracer.trace("<-- " + st.toString());
+                        tracer.close();
+                    }
                 }
             });
 

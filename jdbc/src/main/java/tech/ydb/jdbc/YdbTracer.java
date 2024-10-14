@@ -3,7 +3,7 @@ package tech.ydb.jdbc;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -16,6 +16,7 @@ import java.util.logging.Logger;
 public class YdbTracer {
     private static final Logger LOGGER = Logger.getLogger(YdbTracer.class.getName());
     private static final ThreadLocal<YdbTracer> LOCAL = new ThreadLocal<>();
+    private static final AtomicLong ANONYMOUS_COUNTER = new AtomicLong(0);
 
     private final Date startDate = new Date();
     private final long startedAt = System.currentTimeMillis();
@@ -27,12 +28,10 @@ public class YdbTracer {
 
     private class Record {
         private final long executedAt = System.currentTimeMillis();
-        private final String type;
-        private final String comment;
+        private final String message;
 
-        public Record(String type, String comment) {
-            this.type = type;
-            this.comment = comment;
+        Record(String message) {
+            this.message = message;
         }
     }
 
@@ -50,18 +49,18 @@ public class YdbTracer {
         return tracer;
     }
 
-    public void trace(String type, String comment) {
-        records.add(new Record(type, comment));
+    public void trace(String message) {
+        records.add(new Record(message));
     }
 
     public void setId(String id) {
         this.txID = id;
-        trace("SET ID", id);
+        trace("set-id " + id);
     }
 
     public void markToPrint() {
         this.isMarked = true;
-        trace("MARK TO PRINT", "");
+        trace("markToPrint");
     }
 
     public void close() {
@@ -76,14 +75,14 @@ public class YdbTracer {
 
         long finishedAt = System.currentTimeMillis();
 
-        final String id = txID != null ? txID : "UKNOWN-" + ThreadLocalRandom.current().nextLong();
-        LOGGER.log(level, "Trace[{0}] started at {1}", new Object[] { id, startDate });
+        final String id = txID != null ? txID : "anonymous-" + ANONYMOUS_COUNTER.incrementAndGet();
+        LOGGER.log(level, "Trace[{0}] started at {1}", new Object[] {id, startDate});
         long last = startedAt;
         for (Record record: records) {
             long ms = record.executedAt - last;
-            LOGGER.log(level, "Trace[{0}] {1} ms {2}: {3}", new Object[] { id, ms, record.type, record.comment });
+            LOGGER.log(level, "Trace[{0}] {1} ms {2}", new Object[] {id, ms, record.message});
             last = record.executedAt;
         }
-        LOGGER.log(level, "Trace[{0}] finished in {1} ms", new Object[] { id, finishedAt - startedAt });
+        LOGGER.log(level, "Trace[{0}] finished in {1} ms", new Object[] {id, finishedAt - startedAt});
     }
 }

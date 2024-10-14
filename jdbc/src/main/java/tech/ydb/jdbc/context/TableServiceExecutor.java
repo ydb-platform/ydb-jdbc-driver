@@ -10,6 +10,7 @@ import java.util.List;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
+import tech.ydb.jdbc.YdbTracer;
 import tech.ydb.jdbc.impl.YdbQueryResult;
 import tech.ydb.jdbc.impl.YdbStaticResultSet;
 import tech.ydb.jdbc.query.QueryType;
@@ -117,15 +118,19 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
         Session session = tx.getSession(validator);
         CommitTxSettings settings = ctx.withDefaultTimeout(new CommitTxSettings());
+        YdbTracer tracer = trace("--> commit");
 
         try {
             validator.clearWarnings();
             validator.execute(
-                    "Commit TxId: " + tx.txID(),
+                    "Commit TxId: " + tx.txID(), tracer,
                     () -> session.commitTransaction(tx.txID(), settings)
             );
         } finally {
             updateState(tx.withCommit(session));
+            if (tracer != null) {
+                tracer.close();
+            }
         }
     }
 
@@ -139,15 +144,19 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
         Session session = tx.getSession(validator);
         RollbackTxSettings settings = ctx.withDefaultTimeout(new RollbackTxSettings());
+        YdbTracer tracer = trace("--> rollback");
 
         try {
             validator.clearWarnings();
             validator.execute(
-                    "Rollback TxId: " + tx.txID(),
+                    "Rollback TxId: " + tx.txID(), tracer,
                     () -> session.rollbackTransaction(tx.txID(), settings)
             );
         } finally {
             updateState(tx.withRollback(session));
+            if (tracer != null) {
+                tracer.close();
+            }
         }
     }
 
@@ -172,12 +181,17 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         YdbContext ctx = statement.getConnection().getCtx();
         YdbValidator validator = statement.getValidator();
         String yql = query.getPreparedYql();
+        YdbTracer tracer = trace("--> explain >>\n" + yql);
 
         ExplainDataQuerySettings settings = ctx.withDefaultTimeout(new ExplainDataQuerySettings());
         try (Session session = createNewTableSession(validator)) {
             String msg = QueryType.EXPLAIN_QUERY + " >>\n" + yql;
-            ExplainDataQueryResult res = validator.call(msg, () -> session.explainDataQuery(yql, settings));
+            ExplainDataQueryResult res = validator.call(msg, tracer, () -> session.explainDataQuery(yql, settings));
             return updateCurrentResult(new StaticQueryResult(statement, res.getQueryAst(), res.getQueryPlan()));
+        } finally {
+            if (tracer != null && !tx.isInsideTransaction()) {
+                tracer.close();
+            }
         }
     }
 
@@ -188,9 +202,10 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
         YdbValidator validator = statement.getValidator();
         final Session session = tx.getSession(validator);
+        YdbTracer tracer = trace("--> data query >>\n" + yql);
         try {
             DataQueryResult result = validator.call(
-                    QueryType.DATA_QUERY + " >>\n" + yql,
+                    QueryType.DATA_QUERY + " >>\n" + yql, tracer,
                     () -> session.executeDataQuery(yql, tx.txControl(), params, dataQuerySettings(timeout, keepInCache))
             );
             updateState(tx.withDataQuery(session, result.getTxId()));
@@ -210,6 +225,14 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         } catch (SQLException | RuntimeException ex) {
             updateState(tx.withRollback(session));
             throw ex;
+        } finally {
+            if (tracer != null) {
+                if (tx.isInsideTransaction()) {
+                    tracer.setId(tx.txID());
+                } else {
+                    tracer.close();
+                }
+            }
         }
     }
 
@@ -221,7 +244,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         try {
             KeepAliveSessionSettings settings = new KeepAliveSessionSettings().setTimeout(Duration.ofSeconds(timeout));
             Session.State keepAlive = validator.call(
-                    "Keep alive: " + tx.txID(),
+                    "Keep alive: " + tx.txID(), null,
                     () -> session.keepAlive(settings)
             );
             return keepAlive == Session.State.READY;

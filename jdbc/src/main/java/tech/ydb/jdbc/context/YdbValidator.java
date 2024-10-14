@@ -12,6 +12,7 @@ import tech.ydb.core.Issue;
 import tech.ydb.core.Result;
 import tech.ydb.core.Status;
 import tech.ydb.core.UnexpectedResultException;
+import tech.ydb.jdbc.YdbTracer;
 import tech.ydb.jdbc.exception.ExceptionFactory;
 
 /**
@@ -49,20 +50,26 @@ public class YdbValidator {
         this.issues.clear();
     }
 
-    public void execute(String msg, Supplier<CompletableFuture<Status>> fn) throws SQLException {
+    public void execute(String msg, YdbTracer tracer, Supplier<CompletableFuture<Status>> fn) throws SQLException {
         Status status = fn.get().join();
         addStatusIssues(status);
 
+        if (tracer != null) {
+            tracer.trace("<-- " + status.toString());
+        }
         if (!status.isSuccess()) {
             throw ExceptionFactory.createException("Cannot execute '" + msg + "' with " + status,
                     new UnexpectedResultException("Unexpected status", status));
         }
     }
 
-    public <R> R call(String msg, Supplier<CompletableFuture<Result<R>>> fn) throws SQLException {
+    public <R> R call(String msg, YdbTracer tracer, Supplier<CompletableFuture<Result<R>>> fn) throws SQLException {
         try {
             Result<R> result = fn.get().join();
             addStatusIssues(result.getStatus());
+            if (tracer != null) {
+                tracer.trace("<-- " + result.getStatus().toString());
+            }
             return result.getValue();
         } catch (UnexpectedResultException ex) {
             throw ExceptionFactory.createException("Cannot call '" + msg + "' with " + ex.getStatus(), ex);
