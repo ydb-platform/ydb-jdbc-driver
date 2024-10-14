@@ -7,26 +7,20 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
-import tech.ydb.core.Result;
-import tech.ydb.core.UnexpectedResultException;
-import tech.ydb.core.grpc.GrpcReadStream;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
-import tech.ydb.jdbc.exception.ExceptionFactory;
 import tech.ydb.jdbc.impl.YdbQueryResult;
 import tech.ydb.jdbc.impl.YdbStaticResultSet;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.Session;
-import tech.ydb.table.TableClient;
 import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.settings.CommitTxSettings;
 import tech.ydb.table.settings.ExecuteDataQuerySettings;
-import tech.ydb.table.settings.ExecuteScanQuerySettings;
 import tech.ydb.table.settings.ExplainDataQuerySettings;
 import tech.ydb.table.settings.KeepAliveSessionSettings;
 import tech.ydb.table.settings.RollbackTxSettings;
@@ -37,15 +31,11 @@ import tech.ydb.table.transaction.TxControl;
  * @author Aleksandr Gorshenin
  */
 public class TableServiceExecutor extends BaseYdbExecutor {
-    private final Duration sessionTimeout;
-    private final TableClient tableClient;
     private final boolean failOnTruncatedResult;
     private volatile TxState tx;
 
     public TableServiceExecutor(YdbContext ctx, int transactionLevel, boolean autoCommit) throws SQLException {
         super(ctx);
-        this.sessionTimeout = ctx.getOperationProperties().getSessionTimeout();
-        this.tableClient = ctx.getTableClient();
         this.tx = createTx(transactionLevel, autoCommit);
         this.failOnTruncatedResult = ctx.getOperationProperties().isFailOnTruncatedResult();
     }
@@ -61,16 +51,6 @@ public class TableServiceExecutor extends BaseYdbExecutor {
             return;
         }
         this.tx = newTx;
-    }
-
-    protected Session createNewTableSession(YdbValidator validator) throws SQLException {
-        try {
-            Result<Session> session = tableClient.createSession(sessionTimeout).join();
-            validator.addStatusIssues(session.getStatus());
-            return session.getValue();
-        } catch (UnexpectedResultException ex) {
-            throw ExceptionFactory.createException("Cannot create session with " + ex.getStatus(), ex);
-        }
     }
 
     @Override
@@ -231,30 +211,6 @@ public class TableServiceExecutor extends BaseYdbExecutor {
             updateState(tx.withRollback(session));
             throw ex;
         }
-    }
-
-    @Override
-    public YdbQueryResult executeScanQuery(YdbStatement statement, YdbQuery query, String yql, Params params)
-            throws SQLException {
-        ensureOpened();
-
-        YdbContext ctx = statement.getConnection().getCtx();
-        YdbValidator validator = statement.getValidator();
-        Duration scanQueryTimeout = ctx.getOperationProperties().getScanQueryTimeout();
-        ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()
-                .withRequestTimeout(scanQueryTimeout)
-                .build();
-
-        final Session session = createNewTableSession(validator);
-
-        String msg = QueryType.SCAN_QUERY + " >>\n" + yql;
-        StreamQueryResult lazy = validator.call(msg, () -> {
-            GrpcReadStream<ResultSetReader> stream = session.executeScanQuery(yql, params, settings);
-            StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
-            return result.execute(stream, session::close);
-        });
-
-        return updateCurrentResult(lazy);
     }
 
     @Override

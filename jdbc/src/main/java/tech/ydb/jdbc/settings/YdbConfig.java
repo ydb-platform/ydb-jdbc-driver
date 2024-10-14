@@ -38,7 +38,7 @@ public class YdbConfig {
                     + "{@code 0} disables the cache.", 256
     );
     static final YdbProperty<Boolean> USE_QUERY_SERVICE = YdbProperty.bool("useQueryService",
-            "Use QueryService intead of TableService", false
+            "Use QueryService instead of TableService", false
     );
     static final YdbProperty<Boolean> FULLSCAN_DETECTOR_ENABLED = YdbProperty.bool(
             "jdbcFullScanDetector", "Enable analizator for collecting query stats", false
@@ -167,6 +167,7 @@ public class YdbConfig {
             YdbClientProperties.SESSION_POOL_SIZE_MIN.toInfo(properties),
             YdbClientProperties.SESSION_POOL_SIZE_MAX.toInfo(properties),
 
+            YdbOperationProperties.USE_STREAM_RESULT_SETS.toInfo(properties),
             YdbOperationProperties.JOIN_DURATION.toInfo(properties),
             YdbOperationProperties.QUERY_TIMEOUT.toInfo(properties),
             YdbOperationProperties.SCAN_QUERY_TIMEOUT.toInfo(properties),
