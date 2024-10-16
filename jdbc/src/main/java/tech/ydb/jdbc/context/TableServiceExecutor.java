@@ -180,7 +180,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
         YdbContext ctx = statement.getConnection().getCtx();
         YdbValidator validator = statement.getValidator();
-        String yql = query.getPreparedYql();
+        String yql = prefixPragma + query.getPreparedYql();
         YdbTracer tracer = trace("--> explain >>\n" + yql);
 
         ExplainDataQuerySettings settings = ctx.withDefaultTimeout(new ExplainDataQuerySettings());
@@ -196,12 +196,13 @@ public class TableServiceExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    public YdbQueryResult executeDataQuery(YdbStatement statement, YdbQuery query, String yql, Params params,
+    public YdbQueryResult executeDataQuery(YdbStatement statement, YdbQuery query, String preparedYql, Params params,
             long timeout, boolean keepInCache) throws SQLException {
         ensureOpened();
 
         YdbValidator validator = statement.getValidator();
-        final Session session = tx.getSession(validator);
+        Session session = tx.getSession(validator);
+        String yql = prefixPragma + preparedYql;
         YdbTracer tracer = trace("--> data query >>\n" + yql);
         try {
             DataQueryResult result = validator.call(

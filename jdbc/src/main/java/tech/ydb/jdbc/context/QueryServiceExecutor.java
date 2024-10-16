@@ -231,7 +231,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public YdbQueryResult executeDataQuery(
-            YdbStatement statement, YdbQuery query, String yql, Params params, long timeout, boolean keepInCache
+            YdbStatement statement, YdbQuery query, String preparedYql, Params params, long timeout, boolean keepInCache
     ) throws SQLException {
         ensureOpened();
 
@@ -253,6 +253,8 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         }
 
         final QueryTransaction localTx = nextTx;
+
+        String yql = prefixPragma + preparedYql;
 
         if (useStreamResultSet) {
             YdbTracer tracer = trace("--> stream query >>\n" + yql);
@@ -347,7 +349,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     public YdbQueryResult executeSchemeQuery(YdbStatement statement, YdbQuery query) throws SQLException {
         ensureOpened();
 
-        String yql = query.getPreparedYql();
+        String yql = prefixPragma + query.getPreparedYql();
         YdbContext ctx = statement.getConnection().getCtx();
         YdbValidator validator = statement.getValidator();
 
@@ -373,7 +375,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     public YdbQueryResult executeExplainQuery(YdbStatement statement, YdbQuery query) throws SQLException {
         ensureOpened();
 
-        String yql = query.getPreparedYql();
+        String yql = prefixPragma + query.getPreparedYql();
         YdbContext ctx = statement.getConnection().getCtx();
         YdbValidator validator = statement.getValidator();
 

@@ -515,6 +515,18 @@ public class YdbDatabaseMetaDataImplTest {
         tables.check(metaData.getTables(null, null, "dir1/t1", asArray(SYSTEM_TABLE_TYPE)))
                 .assertMetaColumns()
                 .assertNoRows();
+
+        // Custom prefix path
+        try (Connection conn = jdbc.createCustomConnection("usePrefixPath", "dir2")) {
+            DatabaseMetaData prefixedMetaData = conn.getMetaData();
+
+            // read all tables
+            rs = tables.check(prefixedMetaData.getTables(null, null, null, null))
+                    .assertMetaColumns();
+            rs.nextRow(tableName.eq("dir1/t1"), tableType.eq(TABLE_TYPE));
+            rs.nextRow(tableName.eq("t2"), tableType.eq(TABLE_TYPE));
+            rs.assertNoRows();
+        }
     }
 
     @Test

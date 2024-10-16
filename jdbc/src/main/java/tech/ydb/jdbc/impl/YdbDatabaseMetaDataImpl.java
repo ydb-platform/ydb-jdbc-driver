@@ -1315,7 +1315,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     }
 
     private List<String> listTables(Predicate<String> filter) throws SQLException {
-        String databaseWithSuffix = withSuffix(connection.getCtx().getDatabase());
+        String databaseWithSuffix = withSuffix(connection.getCtx().getPrefixPath());
         return tables(databaseWithSuffix, databaseWithSuffix, filter);
     }
 
@@ -1352,7 +1352,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     private TableDescription describeTable(String table) throws SQLException {
         DescribeTableSettings settings = connection.getCtx().withDefaultTimeout(new DescribeTableSettings());
 
-        String databaseWithSuffix = withSuffix(connection.getCtx().getDatabase());
+        String databaseWithSuffix = withSuffix(connection.getCtx().getPrefixPath());
 
         return validator.call("Describe table " + table, null, () -> executor
                 .describeTable(databaseWithSuffix + table, settings)
