@@ -134,9 +134,11 @@ public class YdbDriver implements Driver {
     }
 
     public void close() {
-        LOGGER.log(Level.INFO, "Closing {0} cached connection(s)...", cache.size());
-        cache.values().forEach(YdbContext::close);
-        cache.clear();
+        if (!cache.isEmpty()) {
+            LOGGER.log(Level.FINE, "Closing {0} cached connection(s)...", cache.size());
+            cache.values().forEach(YdbContext::close);
+            cache.clear();
+        }
     }
 
     public static boolean isRegistered() {

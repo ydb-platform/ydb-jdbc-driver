@@ -31,6 +31,9 @@ public final class YdbConst {
     public static final String DRIVER_IS_NOT_REGISTERED = "Driver is not registered "
             + "(or it has not been registered using YdbDriver.register() method)";
 
+    public static final String MISSING_DRIVER_OPTION = "Missing value for option ";
+    public static final String INVALID_DRIVER_OPTION_VALUE = "Cannot process value %s for option %s: %s";
+
     public static final String PREPARED_CALLS_UNSUPPORTED = "Prepared calls are not supported";
     public static final String ARRAYS_UNSUPPORTED = "Arrays are not supported";
     public static final String STRUCTS_UNSUPPORTED = "Structs are not supported";
@@ -140,8 +143,6 @@ public final class YdbConst {
     public static final String INDEXED_PARAMETER_PREFIX = "p";
     public static final String VARIABLE_PARAMETER_PREFIX = "$";
     public static final String AUTO_GENERATED_PARAMETER_PREFIX = VARIABLE_PARAMETER_PREFIX + "jp";
-    public static final String DEFAULT_BATCH_PARAMETER = "$values";
-    public static final String OPTIONAL_TYPE_SUFFIX = "?";
 
     private YdbConst() {
         //
