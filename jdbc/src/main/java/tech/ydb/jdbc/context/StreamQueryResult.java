@@ -80,9 +80,14 @@ public class StreamQueryResult implements YdbQueryResult {
 
     public void onStreamResultSet(int index, ResultSetReader rsr) {
         CompletableFuture<Result<LazyResultSet>> future = resultFutures.get(index);
+
         if (!future.isDone()) {
             ColumnInfo[] columns = ColumnInfo.fromResultSetReader(rsr);
-            future.complete(Result.success(new LazyResultSet(statement, columns)));
+            LazyResultSet rs = new LazyResultSet(statement, columns);
+            rs.addResultSet(rsr);
+            if (future.complete(Result.success(rs))) {
+                return;
+            }
         }
 
         Result<LazyResultSet> res = future.join();

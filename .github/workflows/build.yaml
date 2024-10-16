@@ -10,9 +10,31 @@ on:
       type: [opened, reopened, edited, synchronize]
 
 jobs:
+  prepare:
+    name: Prepare Maven cache
+    runs-on: ubuntu-latest
+
+    env:
+        MAVEN_ARGS: --batch-mode -Dstyle.color=always
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '8'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Download dependencies for JDBC
+        run: mvn $MAVEN_ARGS dependency:resolve-plugins dependency:go-offline
+
   build:
     name: Build JDBC Driver
     runs-on: ubuntu-latest
+    needs: prepare
 
     strategy:
       matrix:
@@ -74,9 +96,6 @@ jobs:
       - name: Remove YC Auth provider
         if: env.NEED_SDK == 'true'
         run: rm -rf yc
-
-      - name: Download dependencies
-        run: mvn $MAVEN_ARGS dependency:resolve-plugins dependency:go-offline
 
       - name: Build with Maven
         run: mvn $MAVEN_ARGS package
@@ -143,9 +162,6 @@ jobs:
       - name: Remove YC Auth provider
         if: env.NEED_SDK == 'true'
         run: rm -rf yc
-
-      - name: Download dependencies
-        run: mvn $MAVEN_ARGS dependency:resolve-plugins dependency:go-offline
 
       - name: Build with Maven
         run: mvn $MAVEN_ARGS test

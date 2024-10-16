@@ -234,13 +234,14 @@ public class YdbDriverProperitesTest {
 
     @ParameterizedTest(name = "[{index}] {0} => {1}")
     @CsvSource(delimiter = ',', value = {
-        "classpath:data/unknown-file.txt,Unable to find classpath resource: classpath:data/unknown-file.txt",
-        "file:data/unknown-file.txt,Unable to read resource from file:data/unknown-file.txt",
+        "classpath:data/unknown-file.txt,resource not found",
+        "file:data/unknown-file.txt,data/unknown-file.txt (No such file or directory)",
     })
-    public void getCaCertificateAsInvalid(String certificate, String expectException) {
+    public void getCaCertificateAsInvalid(String value, String message) {
         String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/db" +
-                "?secureConnectionCertificate=" + certificate;
-        ExceptionAssert.sqlException("Unable to convert property secureConnectionCertificate: " + expectException,
+                "?secureConnectionCertificate=" + value;
+        ExceptionAssert.sqlException(
+                "Cannot process value " + value + " for option secureConnectionCertificate: " + message,
                 () -> driver.getPropertyInfo(url, new Properties())
         );
     }
@@ -309,7 +310,8 @@ public class YdbDriverProperitesTest {
             new DriverPropertyInfo("secureConnection", ""),
             new DriverPropertyInfo("secureConnectionCertificate", ""),
             new DriverPropertyInfo("token", ""),
-            new DriverPropertyInfo("saFile", ""),
+            new DriverPropertyInfo("tokenFile", ""),
+            new DriverPropertyInfo("saKeyFile", ""),
             new DriverPropertyInfo("useMetadata", ""),
             new DriverPropertyInfo("iamEndpoint", ""),
             new DriverPropertyInfo("metadataURL", ""),
@@ -350,7 +352,8 @@ public class YdbDriverProperitesTest {
             new DriverPropertyInfo("secureConnection", "true"),
             new DriverPropertyInfo("secureConnectionCertificate", "classpath:data/certificate.txt"),
             new DriverPropertyInfo("token", "x-secured-token"),
-            new DriverPropertyInfo("saFile", "x-secured-json"),
+            new DriverPropertyInfo("tokenFile", "classpath:data/token.txt"),
+            new DriverPropertyInfo("saKeyFile", "classpath:data/token.txt"),
             new DriverPropertyInfo("useMetadata", "true"),
             new DriverPropertyInfo("iamEndpoint", "iam.endpoint.com"),
             new DriverPropertyInfo("metadataURL", "https://metadata.com"),

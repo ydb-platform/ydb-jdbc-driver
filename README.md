@@ -11,9 +11,9 @@
 1) Drop in [JDBC driver](https://github.com/ydb-platform/ydb-jdbc-driver/releases) to classpath or pick this file in IDE
 2) Connect to YDB
    * Local or remote Docker (anonymous authentication):<br>`jdbc:ydb:grpc://localhost:2136/local`
-   * Self-hosted cluster:<br>`jdbc:ydb:grpcs://<host>:2135/Root/testdb?secureConnectionCertificate=file:~/myca.cer`
-   * Connect with token to the cloud instance:<br>`jdbc:ydb:grpcs://<host>:2135/path/to/database?token=file:~/my_token`
-   * Connect with service account to the cloud instance:<br>`jdbc:ydb:grpcs://<host>:2135/path/to/database?saFile=file:~/sa_key.json`
+   * Self-hosted cluster:<br>`jdbc:ydb:grpcs://<host>:2135/Root/testdb?secureConnectionCertificate=~/myca.cer`
+   * Connect with token to the cloud instance:<br>`jdbc:ydb:grpcs://<host>:2135/path/to/database?tokenFile=~/my_token`
+   * Connect with service account to the cloud instance:<br>`jdbc:ydb:grpcs://<host>:2135/path/to/database?saKeyFile=~/sa_key.json`
 3) Execute queries, see example in [YdbDriverExampleTest.java](jdbc/src/test/java/tech/ydb/jdbc/YdbDriverExampleTest.java)
 
 ### Usage with Maven
@@ -53,19 +53,14 @@ YDB JDBC Driver supports the following [authentication modes](https://ydb.tech/e
 ### Driver properties reference
 
 Driver supports the following configuration properties, which can be specified in the URL or passed via extra properties:
-* `saFile` - service account key for authentication, can be passed either as literal JSON value or as a file reference;
+* `saKeyFile` - file location of service account key for authentication;
+* `tokenFile` - file location with token value for token based authentication;
 * `iamEndpoint` - custom IAM endpoint for authentication via service account key;
-* `token` - token value for authentication, can be passed either as literal value or as a file reference;
 * `useMetadata` - boolean value, true if metadata authentication should be used, false otherwise (and default);
 * `metadataURL` - custom metadata endpoint;
 * `localDatacenter` - name of the datacenter local to the application being connected;
 * `secureConnection` - boolean value, true if TLS should be enforced (normally configured via `grpc://` or `grpcs://` scheme in the JDBC URL);
 * `secureConnectionCertificate` - custom CA certificate for TLS connections, can be passed either as literal value or as a file reference.
-
-File references for `saFile`, `token` or `secureConnectionCertificate` must be prefixed with the `file:` URL scheme, for example:
-* `saFile=file:~/mysaley1.json`
-* `token=file:/opt/secret/token-file`
-* `secureConnectionCertificate=file:/etc/ssl/cacert.cer`
 
 ### Building
 By default all tests are run using a local YDB instance in Docker (if host has Docker or Docker Machine installed)
