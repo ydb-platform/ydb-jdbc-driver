@@ -26,7 +26,7 @@ public class YdbTracerNone implements YdbTracer {
     public void markToPrint(String label) { }
 
     @Override
-    public void markToPring() { }
+    public void markToPrint() { }
 
     @Override
     public void setId(String id) { }

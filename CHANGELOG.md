@@ -7,6 +7,10 @@
 
 * QueryService is enabled by default
 
+## 2.2.14 ##
+
+* Fixed saKeyFile option
+
 ## 2.2.13 ##
 
 * Fixed usePrefixPath for preparing of YQL statements

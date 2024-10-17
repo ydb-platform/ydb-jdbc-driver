@@ -156,7 +156,6 @@ public class YdbConnectionProperties {
             } else {
                 builder = builder.withAuthProvider(CloudAuthHelper.getServiceAccountJsonAuthProvider(json));
             }
-            builder = builder.withAuthProvider(new TokenAuthProvider(token.getValue()));
             usedProvider = "service account credentitals";
         }
 
