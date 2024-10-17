@@ -1,3 +1,7 @@
+## 2.3.0 ##
+
+* QueryService is enabled by default
+
 ## 2.2.12 ##
 
 * Added option usePrefixPath
