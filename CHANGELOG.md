@@ -1,3 +1,9 @@
+## 2.2.12 ##
+
+* Added option usePrefixPath
+* Added options saKeyFile and tokenFile
+* Upgraded to YDB Java SDK 2.3.3
+
 ## 2.2.11 ##
 
 * Added transaction tracer
