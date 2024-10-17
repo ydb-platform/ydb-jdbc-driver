@@ -1,3 +1,8 @@
+## 2.3.1 ##
+
+* Updated transaction tracer implementation
+* Fixed table description cache
+
 ## 2.3.0 ##
 
 * QueryService is enabled by default
