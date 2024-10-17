@@ -81,26 +81,6 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
     }
 
     @Override
-    public YdbTracer trace(String message) {
-        if (!traceEnabled) {
-            return null;
-        }
-        YdbTracer tracer = YdbTracer.current();
-        tracer.trace(message);
-        return tracer;
-    }
-
-    protected YdbTracer traceRequest(String type, String message) {
-        if (!traceEnabled) {
-            return null;
-        }
-        YdbTracer tracer = YdbTracer.current();
-        tracer.trace("--> " + type);
-        tracer.traceRequest(message);
-        return tracer;
-    }
-
-    @Override
     public YdbQueryResult executeSchemeQuery(YdbStatement statement, YdbQuery query) throws SQLException {
         ensureOpened();
 
@@ -109,14 +89,16 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
         YdbValidator validator = statement.getValidator();
 
         // Scheme query does not affect transactions or result sets
-        YdbTracer tracer = traceRequest("scheme query", yql);
+        YdbTracer tracer = ctx.getTracer();
+        tracer.trace("--> scheme query");
+        tracer.query(yql);
 
         ExecuteSchemeQuerySettings settings = ctx.withDefaultTimeout(new ExecuteSchemeQuerySettings());
         validator.execute(QueryType.SCHEME_QUERY + " >>\n" + yql, tracer,
                 () -> retryCtx.supplyStatus(session -> session.executeSchemeQuery(yql, settings))
         );
 
-        if (tracer != null && !isInsideTransaction()) {
+        if (!isInsideTransaction()) {
             tracer.close();
         }
 
@@ -130,12 +112,15 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
 
         String yql = prefixPragma + query.getPreparedYql();
         YdbValidator validator = statement.getValidator();
-        YdbTracer tracer = traceRequest("bulk upsert", yql);
+        YdbTracer tracer = statement.getConnection().getCtx().getTracer();
+        tracer.trace("--> bulk upsert");
+        tracer.query(yql);
+
         validator.execute(QueryType.BULK_QUERY + " >>\n" + yql, tracer,
                 () -> retryCtx.supplyStatus(session -> session.executeBulkUpsert(tablePath, rows))
         );
 
-        if (tracer != null && !isInsideTransaction()) {
+        if (!isInsideTransaction()) {
             tracer.close();
         }
 
@@ -156,10 +141,12 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
                 .build();
         String msg = QueryType.SCAN_QUERY + " >>\n" + yql;
 
-        final YdbTracer tracer = traceRequest("scan query", yql);
-        final Session session = createNewTableSession(validator);
+        YdbTracer tracer = ctx.getTracer();
+        tracer.trace("--> scan query");
+        tracer.query(yql);
 
-        StreamQueryResult lazy = validator.call(msg, null, () -> {
+        final Session session = createNewTableSession(validator);
+        StreamQueryResult lazy = validator.call(msg, () -> {
             final CompletableFuture<Result<StreamQueryResult>> future = new CompletableFuture<>();
             final GrpcReadStream<ResultSetReader> stream = session.executeScanQuery(yql, params, settings);
             final StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
@@ -173,22 +160,15 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
                 if (th != null) {
                     result.onStreamFinished(th);
                     future.completeExceptionally(th);
-
-                    if (tracer != null) {
-                        tracer.trace("<-- " + th.getMessage());
-                        tracer.close();
-                    }
+                    tracer.trace("<-- " + th.getMessage());
                 }
                 if (st != null) {
                     validator.addStatusIssues(st);
                     result.onStreamFinished(st);
                     future.complete(st.isSuccess() ? Result.success(result) : Result.fail(st));
-
-                    if (tracer != null) {
-                        tracer.trace("<-- " + st.toString());
-                        tracer.close();
-                    }
+                    tracer.trace("<-- " + st.toString());
                 }
+                tracer.close();
             });
 
             return future;

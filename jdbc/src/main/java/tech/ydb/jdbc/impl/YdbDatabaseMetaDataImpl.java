@@ -1321,7 +1321,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     private List<String> tables(String databasePrefix, String path, Predicate<String> filter) throws SQLException {
         ListDirectoryResult result = validator.call(
-                "List tables from " + path, null, () -> executor.listDirectory(path)
+                "List tables from " + path, () -> executor.listDirectory(path)
         );
 
         List<String> tables = new ArrayList<>();
@@ -1354,7 +1354,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
         String databaseWithSuffix = withSuffix(connection.getCtx().getPrefixPath());
 
-        return validator.call("Describe table " + table, null, () -> executor
+        return validator.call("Describe table " + table, () -> executor
                 .describeTable(databaseWithSuffix + table, settings)
                 .thenApply(result -> {
                     // ignore scheme errors like path not found

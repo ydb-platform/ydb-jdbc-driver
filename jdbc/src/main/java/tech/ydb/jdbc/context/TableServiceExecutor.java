@@ -118,7 +118,9 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
         Session session = tx.getSession(validator);
         CommitTxSettings settings = ctx.withDefaultTimeout(new CommitTxSettings());
-        YdbTracer tracer = traceRequest("commit", null);
+        YdbTracer tracer = ctx.getTracer();
+        tracer.trace("--> commit");
+        tracer.query(null);
 
         try {
             validator.clearWarnings();
@@ -128,9 +130,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
             );
         } finally {
             updateState(tx.withCommit(session));
-            if (tracer != null) {
-                tracer.close();
-            }
+            tracer.close();
         }
     }
 
@@ -144,7 +144,9 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
         Session session = tx.getSession(validator);
         RollbackTxSettings settings = ctx.withDefaultTimeout(new RollbackTxSettings());
-        YdbTracer tracer = traceRequest("rollback", null);
+        YdbTracer tracer = ctx.getTracer();
+        tracer.trace("--> rollback");
+        tracer.query(null);
 
         try {
             validator.clearWarnings();
@@ -154,9 +156,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
             );
         } finally {
             updateState(tx.withRollback(session));
-            if (tracer != null) {
-                tracer.close();
-            }
+            tracer.close();
         }
     }
 
@@ -181,7 +181,9 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         YdbContext ctx = statement.getConnection().getCtx();
         YdbValidator validator = statement.getValidator();
         String yql = prefixPragma + query.getPreparedYql();
-        YdbTracer tracer = traceRequest("explain", yql);
+        YdbTracer tracer = ctx.getTracer();
+        tracer.trace("--> explain");
+        tracer.query(yql);
 
         ExplainDataQuerySettings settings = ctx.withDefaultTimeout(new ExplainDataQuerySettings());
         try (Session session = createNewTableSession(validator)) {
@@ -189,7 +191,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
             ExplainDataQueryResult res = validator.call(msg, tracer, () -> session.explainDataQuery(yql, settings));
             return updateCurrentResult(new StaticQueryResult(statement, res.getQueryAst(), res.getQueryPlan()));
         } finally {
-            if (tracer != null && !tx.isInsideTransaction()) {
+            if (!tx.isInsideTransaction()) {
                 tracer.close();
             }
         }
@@ -203,7 +205,10 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         YdbValidator validator = statement.getValidator();
         Session session = tx.getSession(validator);
         String yql = prefixPragma + preparedYql;
-        YdbTracer tracer = traceRequest("data query", yql);
+        YdbTracer tracer = statement.getConnection().getCtx().getTracer();
+        tracer.trace("--> data query");
+        tracer.query(yql);
+
         try {
             DataQueryResult result = validator.call(
                     QueryType.DATA_QUERY + " >>\n" + yql, tracer,
@@ -227,12 +232,10 @@ public class TableServiceExecutor extends BaseYdbExecutor {
             updateState(tx.withRollback(session));
             throw ex;
         } finally {
-            if (tracer != null) {
-                if (tx.isInsideTransaction()) {
-                    tracer.setId(tx.txID());
-                } else {
-                    tracer.close();
-                }
+            if (tx.isInsideTransaction()) {
+                tracer.setId(tx.txID());
+            } else {
+                tracer.close();
             }
         }
     }

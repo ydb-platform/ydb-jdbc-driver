@@ -211,7 +211,7 @@ public class YdbConnectionImpl implements YdbConnection {
     public YdbStatement createStatement(int resultSetType, int resultSetConcurrency,
             int resultSetHoldability) throws SQLException {
         executor.ensureOpened();
-        executor.trace("create statement");
+        ctx.getTracer().trace("create statement");
         checkStatementParams(resultSetType, resultSetConcurrency, resultSetHoldability);
         return new YdbStatementImpl(this, resultSetType);
     }
@@ -242,10 +242,10 @@ public class YdbConnectionImpl implements YdbConnection {
         executor.ensureOpened();
         validator.clearWarnings();
 
-        executor.trace("--> prepare statement");
+        ctx.getTracer().trace("prepare statement");
         YdbQuery query = ctx.findOrParseYdbQuery(sql);
         YdbPreparedQuery params = ctx.findOrPrepareParams(query, mode);
-        executor.trace("<-- OK");
+        ctx.getTracer().trace("create prepared statement");
         return new YdbPreparedStatementImpl(this, query, params, resultSetType);
     }
 

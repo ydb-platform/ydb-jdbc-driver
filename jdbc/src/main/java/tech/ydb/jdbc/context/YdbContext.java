@@ -26,6 +26,7 @@ import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.YdbTracer;
 import tech.ydb.jdbc.exception.ExceptionFactory;
+import tech.ydb.jdbc.impl.YdbTracerNone;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbPreparedQuery;
 import tech.ydb.jdbc.query.YdbQuery;
@@ -177,6 +178,10 @@ public class YdbContext implements AutoCloseable {
 
     public String getUsername() {
         return config.getUsername();
+    }
+
+    public YdbTracer getTracer() {
+        return config.isTxTracedEnabled() ? YdbTracer.current() : YdbTracerNone.current();
     }
 
     public boolean isTxTracerEnabled() {
@@ -395,19 +400,16 @@ public class YdbContext implements AutoCloseable {
             String tablePath = joined(getPrefixPath(), query.getYqlBatcher().getTableName());
             TableDescription description = tableDescribeCache.getIfPresent(tablePath);
             if (description == null) {
-                YdbTracer tracer = config.isTxTracedEnabled() ? YdbTracer.current() : null;
-                if (tracer != null) {
-                    tracer.trace("--> describe table");
-                    tracer.traceRequest(tablePath);
-                }
+                YdbTracer tracer = getTracer();
+                tracer.trace("--> describe table");
+                tracer.query(tablePath);
+
                 DescribeTableSettings settings = withDefaultTimeout(new DescribeTableSettings());
                 Result<TableDescription> result = retryCtx.supplyResult(
                         session -> session.describeTable(tablePath, settings)
                 ).join();
 
-                if (tracer != null) {
-                    tracer.trace("<-- " + result.getStatus());
-                }
+                tracer.trace("<-- " + result.getStatus());
 
                 if (result.isSuccess()) {
                     description = result.getValue();
@@ -440,24 +442,18 @@ public class YdbContext implements AutoCloseable {
         Map<String, Type> types = queryParamsCache.getIfPresent(query.getOriginQuery());
         if (types == null) {
             String yql = prefixPragma + query.getPreparedYql();
-            YdbTracer tracer = config.isTxTracedEnabled() ? YdbTracer.current() : null;
-            if (tracer != null) {
-                tracer.trace("--> prepare data query");
-                tracer.traceRequest(yql);
-            }
+            YdbTracer tracer = getTracer();
+            tracer.trace("--> prepare data query");
+            tracer.query(yql);
 
             PrepareDataQuerySettings settings = withDefaultTimeout(new PrepareDataQuerySettings());
             Result<DataQuery> result = retryCtx.supplyResult(
                     session -> session.prepareDataQuery(yql, settings)
             ).join();
 
-            if (tracer != null) {
-                tracer.trace("<-- " + result.getStatus());
-            }
+            tracer.trace("<-- " + result.getStatus());
             if (!result.isSuccess()) {
-                if (tracer != null) {
-                    tracer.close();
-                }
+                tracer.close();
                 throw ExceptionFactory.createException("Cannot prepare data query: " + result.getStatus(),
                         new UnexpectedResultException("Unexpected status", result.getStatus()));
             }
