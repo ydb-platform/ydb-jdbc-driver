@@ -28,7 +28,7 @@ public interface YdbTracer {
 
     void close();
 
-    default void markToPring() {
+    default void markToPrint() {
         markToPrint(null);
     }
 }
