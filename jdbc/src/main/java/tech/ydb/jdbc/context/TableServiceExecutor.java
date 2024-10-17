@@ -118,7 +118,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
         Session session = tx.getSession(validator);
         CommitTxSettings settings = ctx.withDefaultTimeout(new CommitTxSettings());
-        YdbTracer tracer = trace("--> commit");
+        YdbTracer tracer = traceRequest("commit", null);
 
         try {
             validator.clearWarnings();
@@ -144,7 +144,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
         Session session = tx.getSession(validator);
         RollbackTxSettings settings = ctx.withDefaultTimeout(new RollbackTxSettings());
-        YdbTracer tracer = trace("--> rollback");
+        YdbTracer tracer = traceRequest("rollback", null);
 
         try {
             validator.clearWarnings();
@@ -181,7 +181,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         YdbContext ctx = statement.getConnection().getCtx();
         YdbValidator validator = statement.getValidator();
         String yql = prefixPragma + query.getPreparedYql();
-        YdbTracer tracer = trace("--> explain >>\n" + yql);
+        YdbTracer tracer = traceRequest("explain", yql);
 
         ExplainDataQuerySettings settings = ctx.withDefaultTimeout(new ExplainDataQuerySettings());
         try (Session session = createNewTableSession(validator)) {
@@ -203,7 +203,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         YdbValidator validator = statement.getValidator();
         Session session = tx.getSession(validator);
         String yql = prefixPragma + preparedYql;
-        YdbTracer tracer = trace("--> data query >>\n" + yql);
+        YdbTracer tracer = traceRequest("data query", yql);
         try {
             DataQueryResult result = validator.call(
                     QueryType.DATA_QUERY + " >>\n" + yql, tracer,

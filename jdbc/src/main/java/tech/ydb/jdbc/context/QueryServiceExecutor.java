@@ -188,7 +188,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             return;
         }
 
-        YdbTracer tracer = trace("--> commit");
+        YdbTracer tracer = traceRequest("commit", null);
         CommitTransactionSettings settings = ctx.withRequestTimeout(CommitTransactionSettings.newBuilder()).build();
         try {
             validator.clearWarnings();
@@ -212,7 +212,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             return;
         }
 
-        YdbTracer tracer = trace("--> rollback");
+        YdbTracer tracer = traceRequest("rollback", null);
         RollbackTransactionSettings settings = ctx.withRequestTimeout(RollbackTransactionSettings.newBuilder())
             .build();
 
@@ -257,7 +257,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         String yql = prefixPragma + preparedYql;
 
         if (useStreamResultSet) {
-            YdbTracer tracer = trace("--> stream query >>\n" + yql);
+            YdbTracer tracer = traceRequest("stream query", yql);
             String msg = "STREAM_QUERY >>\n" + yql;
             StreamQueryResult lazy = validator.call(msg, null, () -> {
                 final CompletableFuture<Result<StreamQueryResult>> future = new CompletableFuture<>();
@@ -316,7 +316,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             return updateCurrentResult(lazy);
         }
 
-        YdbTracer tracer = trace("--> data query >>\n" + yql);
+        YdbTracer tracer = traceRequest("data query", yql);
         try {
             QueryReader result = validator.call(QueryType.DATA_QUERY + " >>\n" + yql, tracer,
                     () -> QueryReader.readFrom(localTx.createQuery(yql, isAutoCommit, params, settings))
@@ -354,7 +354,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         YdbValidator validator = statement.getValidator();
 
         // Scheme query does not affect transactions or result sets
-        YdbTracer tracer = trace("--> scheme query >>\n" + yql);
+        YdbTracer tracer = traceRequest("scheme query", yql);
         ExecuteQuerySettings settings = ctx.withRequestTimeout(ExecuteQuerySettings.newBuilder()).build();
         try (QuerySession session = createNewQuerySession(validator)) {
             validator.call(QueryType.SCHEME_QUERY + " >>\n" + yql, tracer, () -> session
@@ -383,7 +383,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         ExecuteQuerySettings settings = ctx.withRequestTimeout(ExecuteQuerySettings.newBuilder())
                 .withExecMode(QueryExecMode.EXPLAIN)
                 .build();
-        YdbTracer tracer = trace("--> explain query >>\n" + yql);
+        YdbTracer tracer = traceRequest("explain query", yql);
 
         try (QuerySession session = createNewQuerySession(validator)) {
             QueryInfo res = validator.call(QueryType.EXPLAIN_QUERY + " >>\n" + yql, tracer, () -> session

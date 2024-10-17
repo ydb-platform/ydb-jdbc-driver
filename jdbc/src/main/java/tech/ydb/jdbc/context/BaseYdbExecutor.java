@@ -90,6 +90,16 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
         return tracer;
     }
 
+    protected YdbTracer traceRequest(String type, String message) {
+        if (!traceEnabled) {
+            return null;
+        }
+        YdbTracer tracer = YdbTracer.current();
+        tracer.trace("--> " + type);
+        tracer.traceRequest(message);
+        return tracer;
+    }
+
     @Override
     public YdbQueryResult executeSchemeQuery(YdbStatement statement, YdbQuery query) throws SQLException {
         ensureOpened();
@@ -99,7 +109,8 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
         YdbValidator validator = statement.getValidator();
 
         // Scheme query does not affect transactions or result sets
-        YdbTracer tracer = trace("--> scheme >>\n" + yql);
+        YdbTracer tracer = traceRequest("scheme query", yql);
+
         ExecuteSchemeQuerySettings settings = ctx.withDefaultTimeout(new ExecuteSchemeQuerySettings());
         validator.execute(QueryType.SCHEME_QUERY + " >>\n" + yql, tracer,
                 () -> retryCtx.supplyStatus(session -> session.executeSchemeQuery(yql, settings))
@@ -119,7 +130,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
 
         String yql = prefixPragma + query.getPreparedYql();
         YdbValidator validator = statement.getValidator();
-        YdbTracer tracer = trace("--> bulk upsert >>\n" + yql);
+        YdbTracer tracer = traceRequest("bulk upsert", yql);
         validator.execute(QueryType.BULK_QUERY + " >>\n" + yql, tracer,
                 () -> retryCtx.supplyStatus(session -> session.executeBulkUpsert(tablePath, rows))
         );
@@ -145,7 +156,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
                 .build();
         String msg = QueryType.SCAN_QUERY + " >>\n" + yql;
 
-        final YdbTracer tracer = trace("--> scan query >>\n" + yql);
+        final YdbTracer tracer = traceRequest("scan query", yql);
         final Session session = createNewTableSession(validator);
 
         StreamQueryResult lazy = validator.call(msg, null, () -> {
