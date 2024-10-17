@@ -18,7 +18,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -691,7 +690,6 @@ public class YdbQueryConnectionImplTest {
     }
 
     @Test
-    @Disabled // https://github.com/ydb-platform/ydb/issues/6699
     public void testReturingStatements() throws SQLException {
         String returningQuery = QUERIES.withTableName(""
                 + "INSERT INTO #tableName (key, c_Text) VALUES (1, '123') RETURNING key;\n"

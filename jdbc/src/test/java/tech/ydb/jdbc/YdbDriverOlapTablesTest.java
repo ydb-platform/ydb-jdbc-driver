@@ -27,7 +27,9 @@ public class YdbDriverOlapTablesTest {
     @RegisterExtension
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
-    private static final JdbcUrlHelper jdbcURL = new JdbcUrlHelper(ydb);
+    private static final JdbcUrlHelper jdbcURL = new JdbcUrlHelper(ydb)
+            .withArg("enableTxTracer", "true")
+            .withArg("usePrefixPath", "jdbc_olap");
 
     private final static String ERROR_DATA_MANIPULATION =
             "Data manipulation queries do not support column shard tables. (S_ERROR)";
@@ -40,19 +42,19 @@ public class YdbDriverOlapTablesTest {
             "BULK mode is available only for prepared statement with one UPSERT";
 
     private final static String CREATE_TABLE = ""
-            + "CREATE TABLE olap_table("
+            + "CREATE TABLE table("
             + "  id Int32 NOT NULL,"
             + "  value Text,"
             + "  date Date,"
             + "  PRIMARY KEY (id)"
             + ") WITH (STORE = COLUMN)";
 
-    private final static String DROP_TABLE = "DROP TABLE olap_table";
-    private final static String UPSERT_ROW = "UPSERT INTO olap_table (id, value, date) VALUES (?, ?, ?)";
-    private final static String INSERT_ROW = "INSERT INTO olap_table (id, value, date) VALUES (?, ?, ?)";
-    private final static String SELECT_ALL = "SELECT * FROM olap_table ORDER BY id";
-    private final static String UPDATE_ROW = "UPDATE olap_table SET value = ? WHERE id = ?";
-    private final static String DELETE_ROW = "DELETE FROM olap_table WHERE id = ?";
+    private final static String DROP_TABLE = "DROP TABLE table";
+    private final static String UPSERT_ROW = "UPSERT INTO table (id, value, date) VALUES (?, ?, ?)";
+    private final static String INSERT_ROW = "INSERT INTO table (id, value, date) VALUES (?, ?, ?)";
+    private final static String SELECT_ALL = "SELECT * FROM table ORDER BY id";
+    private final static String UPDATE_ROW = "UPDATE table SET value = ? WHERE id = ?";
+    private final static String DELETE_ROW = "DELETE FROM table WHERE id = ?";
 
     @Test
     public void defaultModeTest() throws SQLException {
@@ -323,6 +325,134 @@ public class YdbDriverOlapTablesTest {
             try (PreparedStatement ps = conn.prepareStatement(DELETE_ROW)) {
                 ps.setInt(1, 2);
                 ExceptionAssert.ydbException(ERROR_SCAN_QUERY, ps::execute);
+            }
+        }
+    }
+
+    @Test
+    public void streamResultsTest() throws SQLException {
+        try (Connection conn = DriverManager.getConnection(jdbcURL
+                .withArg("useQueryService", "true")
+                .withArg("useStreamResultSets", "true")
+                .build()
+        )) {
+            try {
+                conn.createStatement().execute(DROP_TABLE);
+            } catch (SQLException e) {
+                // ignore
+}
+
+            conn.createStatement().execute(CREATE_TABLE);
+
+            LocalDate ld = LocalDate.of(2017, 12, 3);
+            String prefix = "text-value-";
+            int idx = 0;
+
+            // single batch upsert
+            try (PreparedStatement ps = conn.prepareStatement(UPSERT_ROW)) {
+                ps.setInt(1, ++idx);
+                ps.setString(2, prefix + idx);
+                ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
+                ps.executeUpdate();
+            }
+
+            // single batch insert
+            try (PreparedStatement ps = conn.prepareStatement(INSERT_ROW)) {
+                ps.setInt(1, ++idx);
+                ps.setString(2, prefix + idx);
+                ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
+                ps.executeUpdate();
+            }
+
+            // stream read
+            try (Statement st = conn.createStatement()) {
+                int readed = 0;
+                try (ResultSet rs = st.executeQuery(SELECT_ALL)) {
+                    while (rs.next()) {
+                        readed++;
+                        Assertions.assertEquals(readed, rs.getInt("id"));
+                        Assertions.assertEquals(prefix + readed, rs.getString("value"));
+                        Assertions.assertEquals(Date.valueOf(ld.plusDays(readed)), rs.getDate("date"));
+                    }
+                }
+                Assertions.assertEquals(2, readed);
+            }
+
+            // batch upsert
+            try (PreparedStatement ps = conn.prepareStatement(UPSERT_ROW)) {
+                for (int j = 0; j < 2000; j++) {
+                    ps.setInt(1, ++idx);
+                    ps.setString(2, prefix + idx);
+                    ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+
+                // single row upsert
+                ps.setInt(1, ++idx);
+                ps.setString(2, prefix + idx);
+                ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
+                ps.execute();
+
+                for (int j = 0; j < 2000; j++) {
+                    ps.setInt(1, ++idx);
+                    ps.setString(2, prefix + idx);
+                    ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+            }
+
+            // batch inserts
+            try (PreparedStatement ps = conn.prepareStatement(INSERT_ROW)) {
+                for (int j = 0; j < 2000; j++) {
+                    ps.setInt(1, ++idx);
+                    ps.setString(2, prefix + idx);
+                    ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+
+                // single row insert
+                ps.setInt(1, ++idx);
+                ps.setString(2, prefix + idx);
+                ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
+                ps.execute();
+
+                for (int j = 0; j < 2000; j++) {
+                    ps.setInt(1, ++idx);
+                    ps.setString(2, prefix + idx);
+                    ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+            }
+
+            // read all
+            try (Statement st = conn.createStatement()) {
+                int readed = 0;
+                try (ResultSet rs = st.executeQuery(SELECT_ALL)) {
+                    while (rs.next()) {
+                        readed++;
+                        Assertions.assertEquals(readed, rs.getInt("id"));
+                        Assertions.assertEquals(prefix + readed, rs.getString("value"));
+                        Assertions.assertEquals(Date.valueOf(ld.plusDays(readed)), rs.getDate("date"));
+                    }
+                }
+                Assertions.assertEquals(8004, readed);
+            }
+
+            // single update
+            try (PreparedStatement ps = conn.prepareStatement(UPDATE_ROW)) {
+                ps.setString(1, "updated-value");
+                ps.setInt(2, 1);
+                ps.executeUpdate();
+            }
+
+            // single delete
+            try (PreparedStatement ps = conn.prepareStatement(DELETE_ROW)) {
+                ps.setInt(1, 2);
+                ps.executeUpdate();
             }
         }
     }

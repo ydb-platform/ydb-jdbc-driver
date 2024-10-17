@@ -34,19 +34,19 @@ public class YdbDriverTablesTest {
             "BULK mode is available only for prepared statement with one UPSERT";
 
     private final static String CREATE_TABLE = ""
-            + "CREATE TABLE simple_table ("
+            + "CREATE TABLE table ("
             + "  id Int32 NOT NULL,"
             + "  value Text,"
             + "  date Date,"
             + "  PRIMARY KEY (id)"
             + ")";
 
-    private final static String DROP_TABLE = "DROP TABLE simple_table";
-    private final static String UPSERT_ROW = "UPSERT INTO simple_table (id, value, date) VALUES (?, ?, ?)";
-    private final static String INSERT_ROW = "INSERT INTO simple_table (id, value, date) VALUES (?, ?, ?)";
-    private final static String SELECT_ALL = "SELECT * FROM simple_table ORDER BY id";
-    private final static String UPDATE_ROW = "UPDATE simple_table SET value = ? WHERE id = ?";
-    private final static String DELETE_ROW = "DELETE FROM simple_table WHERE id = ?";
+    private final static String DROP_TABLE = "DROP TABLE table";
+    private final static String UPSERT_ROW = "UPSERT INTO table (id, value, date) VALUES (?, ?, ?)";
+    private final static String INSERT_ROW = "INSERT INTO table (id, value, date) VALUES (?, ?, ?)";
+    private final static String SELECT_ALL = "SELECT * FROM table ORDER BY id";
+    private final static String UPDATE_ROW = "UPDATE table SET value = ? WHERE id = ?";
+    private final static String DELETE_ROW = "DELETE FROM table WHERE id = ?";
 
     @Test
     public void defaultModeTest() throws SQLException {
