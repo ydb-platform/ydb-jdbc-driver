@@ -2,6 +2,10 @@
 
 * QueryService is enabled by default
 
+## 2.2.13 ##
+
+* Fixed usePrefixPath for preparing of YQL statements
+
 ## 2.2.12 ##
 
 * Added option usePrefixPath

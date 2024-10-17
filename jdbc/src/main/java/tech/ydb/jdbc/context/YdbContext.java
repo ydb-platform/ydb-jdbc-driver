@@ -437,49 +437,46 @@ public class YdbContext implements AutoCloseable {
         }
 
         // try to prepare data query
-        try {
-            Map<String, Type> types = queryParamsCache.getIfPresent(query.getOriginQuery());
-            if (types == null) {
-                String yql = prefixPragma + query.getPreparedYql();
-                YdbTracer tracer = config.isTxTracedEnabled() ? YdbTracer.current() : null;
-                if (tracer != null) {
-                    tracer.trace("--> prepare data query");
-                    tracer.traceRequest(yql);
-                }
-
-                PrepareDataQuerySettings settings = withDefaultTimeout(new PrepareDataQuerySettings());
-                Result<DataQuery> result = retryCtx.supplyResult(
-                        session -> session.prepareDataQuery(yql, settings)
-                ).join();
-
-                if (tracer != null) {
-                    tracer.trace("<-- " + result.getStatus());
-                }
-                if (!result.isSuccess()) {
-                    if (tracer != null) {
-                        tracer.close();
-                    }
-                    throw new SQLException(YdbConst.UNABLE_PREPARE_STATEMENT + result.getStatus());
-                }
-
-                types = result.getValue().types();
-                queryParamsCache.put(query.getOriginQuery(), types);
+        Map<String, Type> types = queryParamsCache.getIfPresent(query.getOriginQuery());
+        if (types == null) {
+            String yql = prefixPragma + query.getPreparedYql();
+            YdbTracer tracer = config.isTxTracedEnabled() ? YdbTracer.current() : null;
+            if (tracer != null) {
+                tracer.trace("--> prepare data query");
+                tracer.traceRequest(yql);
             }
 
-            boolean requireBatch = mode == YdbPrepareMode.DATA_QUERY_BATCH;
-            if (requireBatch || (mode == YdbPrepareMode.AUTO && queryOptions.isDetectBatchQueries())) {
-                BatchedQuery params = BatchedQuery.tryCreateBatched(query, types);
-                if (params != null) {
-                    return params;
-                }
+            PrepareDataQuerySettings settings = withDefaultTimeout(new PrepareDataQuerySettings());
+            Result<DataQuery> result = retryCtx.supplyResult(
+                    session -> session.prepareDataQuery(yql, settings)
+            ).join();
 
-                if (requireBatch) {
-                    throw new SQLDataException(YdbConst.STATEMENT_IS_NOT_A_BATCH + query.getOriginQuery());
-                }
+            if (tracer != null) {
+                tracer.trace("<-- " + result.getStatus());
             }
-            return new PreparedQuery(query, types);
-        } catch (UnexpectedResultException ex) {
-            throw ExceptionFactory.createException("Cannot prepare data query: " + ex.getMessage(), ex);
+            if (!result.isSuccess()) {
+                if (tracer != null) {
+                    tracer.close();
+                }
+                throw ExceptionFactory.createException("Cannot prepare data query: " + result.getStatus(),
+                        new UnexpectedResultException("Unexpected status", result.getStatus()));
+            }
+
+            types = result.getValue().types();
+            queryParamsCache.put(query.getOriginQuery(), types);
         }
+
+        boolean requireBatch = mode == YdbPrepareMode.DATA_QUERY_BATCH;
+        if (requireBatch || (mode == YdbPrepareMode.AUTO && queryOptions.isDetectBatchQueries())) {
+            BatchedQuery params = BatchedQuery.tryCreateBatched(query, types);
+            if (params != null) {
+                return params;
+            }
+
+            if (requireBatch) {
+                throw new SQLDataException(YdbConst.STATEMENT_IS_NOT_A_BATCH + query.getOriginQuery());
+            }
+        }
+        return new PreparedQuery(query, types);
     }
 }
