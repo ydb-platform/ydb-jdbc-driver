@@ -1,3 +1,7 @@
+## 2.3.2 ##
+
+* Fixed typo in YdbTracer
+
 ## 2.3.1 ##
 
 * Updated transaction tracer implementation
