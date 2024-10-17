@@ -102,9 +102,9 @@ public class YdbDriverTablesTest {
             }
 
             // read all
-            try (Statement st = connection.createStatement()) {
+            try (PreparedStatement ps = connection.prepareStatement(SELECT_ALL)) {
                 int readed = 0;
-                try (ResultSet rs = st.executeQuery(SELECT_ALL)) {
+                try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
                         readed++;
                         Assertions.assertEquals(readed, rs.getInt("id"));
