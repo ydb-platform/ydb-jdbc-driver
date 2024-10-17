@@ -1,3 +1,8 @@
+## 2.2.14 ##
+
+* Fixed table description cache
+* Fixed saKeyFile option
+
 ## 2.2.13 ##
 
 * Fixed usePrefixPath for preparing of YQL statements

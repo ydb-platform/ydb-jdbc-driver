@@ -411,7 +411,7 @@ public class YdbContext implements AutoCloseable {
 
                 if (result.isSuccess()) {
                     description = result.getValue();
-                    tableDescribeCache.put(query.getOriginQuery(), description);
+                    tableDescribeCache.put(tablePath, description);
                 } else {
                     if (type == QueryType.BULK_QUERY) {
                         throw new SQLException(YdbConst.BULKS_DESCRIBE_ERROR + result.getStatus());

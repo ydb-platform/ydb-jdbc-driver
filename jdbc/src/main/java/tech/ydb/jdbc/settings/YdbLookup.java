@@ -66,7 +66,7 @@ public class YdbLookup {
 
         if (path.startsWith(HOME_REF)) {
             String home = System.getProperty("user.home");
-            path = path.substring(HOME_REF.length() - 1) + home;
+            path = home + path.substring(HOME_REF.length() - 1);
         }
 
         return new FileInputStream(path);
