@@ -35,13 +35,13 @@ import tech.ydb.jdbc.impl.helper.StatsAssert;
 import tech.ydb.jdbc.impl.helper.TableAssert;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
-public class YdbQueryConnectionImplTest {
+public class YdbTableConnectionImplTest {
     @RegisterExtension
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
     @RegisterExtension
     private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb)
-            .withArg("useQueryService", "true");
+            .withArg("useQueryService", "false");
 
     private static final SqlQueries QUERIES = new SqlQueries("ydb_connection_test");
     private static final String SELECT_2_2 = "select 2 + 2";
@@ -877,15 +877,15 @@ public class YdbQueryConnectionImplTest {
     @Timeout(value = 30, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SAME_THREAD)
     public void testBigBulkAndScan() throws SQLException {
         String bulkUpsert = QUERIES.upsertOne(SqlQueries.JdbcQuery.BULK, "c_Text", "Text?");
-        String selectAll = QUERIES.selectSQL();
+        String scanSelectAll = QUERIES.scanSelectSQL();
         String selectOne = QUERIES.selectAllByKey("?");
 
         Random rnd = new Random(0x234567);
         int payloadLength = 1000;
 
-        try (Connection conn = jdbc.createCustomConnection("useStreamResultSets", "true")) {
+        try {
             // BULK UPSERT
-            try (PreparedStatement ps = conn.prepareStatement(bulkUpsert)) {
+            try (PreparedStatement ps = jdbc.connection().prepareStatement(bulkUpsert)) {
                 for (int idx = 1; idx <= 10000; idx++) {
                     ps.setInt(1, idx);
                     String payload = createPayload(rnd, payloadLength);
@@ -899,7 +899,7 @@ public class YdbQueryConnectionImplTest {
             }
 
             // SCAN all table
-            try (PreparedStatement ps = conn.prepareStatement(selectAll)) {
+            try (PreparedStatement ps = jdbc.connection().prepareStatement(scanSelectAll)) {
                 int readed = 0;
                 Assertions.assertTrue(ps.execute());
                 try (ResultSet rs = ps.getResultSet()) {
@@ -913,7 +913,7 @@ public class YdbQueryConnectionImplTest {
             }
 
             // Canceled scan
-            try (PreparedStatement ps = conn.prepareStatement(selectAll)) {
+            try (PreparedStatement ps = jdbc.connection().prepareStatement(scanSelectAll)) {
                 Assertions.assertTrue(ps.execute());
                 ps.getResultSet().next();
                 ps.getResultSet().close();
@@ -931,14 +931,14 @@ public class YdbQueryConnectionImplTest {
             }
 
             //  Scan was cancelled, but connection still work
-            try (PreparedStatement ps = conn.prepareStatement(selectOne)) {
+            try (PreparedStatement ps = jdbc.connection().prepareStatement(selectOne)) {
                 ps.setInt(1, 1234);
 
                 Assertions.assertTrue(ps.execute());
                 try (ResultSet rs = ps.getResultSet()) {
                     Assertions.assertTrue(rs.next());
                     Assertions.assertEquals(1234, rs.getInt("key"));
-                    Assertions.assertEquals(payloadLength, rs.getString("c_Text").length());
+                        Assertions.assertEquals(payloadLength, rs.getString("c_Text").length());
                     Assertions.assertFalse(rs.next());
                 }
             }
@@ -1177,8 +1177,8 @@ public class YdbQueryConnectionImplTest {
         try (Connection connection = jdbc.createCustomConnection("jdbcFullScanDetector", "true")) {
             try (PreparedStatement ps = connection.prepareStatement("print_JDBC_stats();")) {
                 sa.check(ps.executeQuery())
-                            .assertMetaColumns()
-                            .assertNoRows();
+                        .assertMetaColumns()
+                        .assertNoRows();
             }
 
             try (PreparedStatement ps = connection.prepareStatement(preparedSelectByKey)) {
@@ -1239,8 +1239,8 @@ public class YdbQueryConnectionImplTest {
 
             try (PreparedStatement ps = connection.prepareStatement("print_JDBC_stats();")) {
                 sa.check(ps.executeQuery())
-                            .assertMetaColumns()
-                            .assertNoRows();
+                        .assertMetaColumns()
+                        .assertNoRows();
             }
         }
     }

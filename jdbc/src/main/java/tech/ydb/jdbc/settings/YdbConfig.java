@@ -38,7 +38,7 @@ public class YdbConfig {
                     + "{@code 0} disables the cache.", 256
     );
     static final YdbProperty<Boolean> USE_QUERY_SERVICE = YdbProperty.bool("useQueryService",
-            "Use QueryService instead of TableService", false
+            "Use QueryService instead of TableService", true
     );
 
     static final YdbProperty<String> USE_PREFIX_PATH = YdbProperty.string("usePrefixPath",

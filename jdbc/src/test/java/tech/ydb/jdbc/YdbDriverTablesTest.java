@@ -112,7 +112,7 @@ public class YdbDriverTablesTest {
                         Assertions.assertEquals(Date.valueOf(ld.plusDays(readed)), rs.getDate("date"));
                     }
                 }
-                Assertions.assertEquals(1000, readed);
+                Assertions.assertEquals(2002, readed);
             }
 
             // single update
@@ -319,7 +319,6 @@ public class YdbDriverTablesTest {
     @Test
     public void streamResultsTest() throws SQLException {
         try (Connection conn = DriverManager.getConnection(jdbcURL
-                .withArg("useQueryService", "true")
                 .withArg("useStreamResultSets", "true")
                 .build()
         )) {
@@ -438,6 +437,88 @@ public class YdbDriverTablesTest {
 
             // single delete
             try (PreparedStatement ps = conn.prepareStatement(DELETE_ROW)) {
+                ps.setInt(1, 2);
+                ps.executeUpdate();
+            }
+        }
+    }
+
+    @Test
+    public void tableServiceModeTest() throws SQLException {
+        try (Connection connection = DriverManager.getConnection(jdbcURL.withArg("useQueryService", "false").build())) {
+            try {
+                connection.createStatement().execute(DROP_TABLE);
+            } catch (SQLException e) {
+                // ignore
+            }
+
+            connection.createStatement().execute(CREATE_TABLE);
+
+            LocalDate ld = LocalDate.of(2017, 12, 3);
+            String prefix = "text-value-";
+            int idx = 0;
+
+            // single upsert
+            try (PreparedStatement ps = connection.prepareStatement(UPSERT_ROW)) {
+                ps.setInt(1, ++idx);
+                ps.setString(2, prefix + idx);
+                ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
+                ps.executeUpdate();
+            }
+
+            // single insert
+            try (PreparedStatement ps = connection.prepareStatement(INSERT_ROW)) {
+                ps.setInt(1, ++idx);
+                ps.setString(2, prefix + idx);
+                ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
+                ps.executeUpdate();
+            }
+
+            // batch upsert
+            try (PreparedStatement ps = connection.prepareStatement(UPSERT_ROW)) {
+                for (int j = 0; j < 1000; j++) {
+                    ps.setInt(1, ++idx);
+                    ps.setString(2, prefix + idx);
+                    ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+            }
+
+            // batch insert
+            try (PreparedStatement ps = connection.prepareStatement(INSERT_ROW)) {
+                for (int j = 0; j < 1000; j++) {
+                    ps.setInt(1, ++idx);
+                    ps.setString(2, prefix + idx);
+                    ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+            }
+
+            // read all
+            try (Statement st = connection.createStatement()) {
+                int readed = 0;
+                try (ResultSet rs = st.executeQuery(SELECT_ALL)) {
+                    while (rs.next()) {
+                        readed++;
+                        Assertions.assertEquals(readed, rs.getInt("id"));
+                        Assertions.assertEquals(prefix + readed, rs.getString("value"));
+                        Assertions.assertEquals(Date.valueOf(ld.plusDays(readed)), rs.getDate("date"));
+                    }
+                }
+                Assertions.assertEquals(1000, readed);
+            }
+
+            // single update
+            try (PreparedStatement ps = connection.prepareStatement(UPDATE_ROW)) {
+                ps.setString(1, "updated-value");
+                ps.setInt(2, 1);
+                ps.executeUpdate();
+            }
+
+            // single delete
+            try (PreparedStatement ps = connection.prepareStatement(DELETE_ROW)) {
                 ps.setInt(1, 2);
                 ps.executeUpdate();
             }

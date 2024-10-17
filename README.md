@@ -37,10 +37,6 @@ Specify the YDB JDBC driver in the dependencies:
     </dependency>
 </dependencies>
 ```
-### Using QueryService mode
-By default JDBC driver executes all queries via TableService, so it brings corresponding [limitations](https://ydb.tech/docs/en/concepts/limits-ydb#query).
-To eliminate these limitations you can try a new experimentail [QueryService](https://ydb.tech/docs/en/conceptrs/query_service) mode by passing property `useQueryService=true` to the JDBC URL
-
 ### Authentication modes
 
 YDB JDBC Driver supports the following [authentication modes](https://ydb.tech/en/docs/reference/ydb-sdk/auth):
@@ -61,6 +57,10 @@ Driver supports the following configuration properties, which can be specified i
 * `localDatacenter` - name of the datacenter local to the application being connected;
 * `secureConnection` - boolean value, true if TLS should be enforced (normally configured via `grpc://` or `grpcs://` scheme in the JDBC URL);
 * `secureConnectionCertificate` - custom CA certificate for TLS connections, can be passed either as literal value or as a file reference.
+
+### Using TableService mode
+By default JDBC driver executes all queries via QueryService, which uses grpc streams for the results recieving.
+If your database instance doesn't support this service, you can use old TableService mode by passing property `useQueryService=false` to the JDBC URL.
 
 ### Building
 By default all tests are run using a local YDB instance in Docker (if host has Docker or Docker Machine installed)

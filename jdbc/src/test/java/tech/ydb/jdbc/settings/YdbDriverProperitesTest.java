@@ -305,7 +305,7 @@ public class YdbDriverProperitesTest {
         return new DriverPropertyInfo[]{
             new DriverPropertyInfo("cacheConnectionsInDriver", "true"),
             new DriverPropertyInfo("preparedStatementCacheQueries", "256"),
-            new DriverPropertyInfo("useQueryService", "false"),
+            new DriverPropertyInfo("useQueryService", "true"),
             new DriverPropertyInfo("usePrefixPath", ""),
             new DriverPropertyInfo("localDatacenter", localDatacenter),
             new DriverPropertyInfo("secureConnection", ""),
@@ -348,7 +348,7 @@ public class YdbDriverProperitesTest {
         return new DriverPropertyInfo[]{
             new DriverPropertyInfo("cacheConnectionsInDriver", "false"),
             new DriverPropertyInfo("preparedStatementCacheQueries", "100"),
-            new DriverPropertyInfo("useQueryService", "true"),
+            new DriverPropertyInfo("useQueryService", "false"),
             new DriverPropertyInfo("usePrefixPath", "/demo/oltp"),
             new DriverPropertyInfo("localDatacenter", "sas"),
             new DriverPropertyInfo("secureConnection", "true"),
