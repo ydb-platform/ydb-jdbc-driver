@@ -26,14 +26,14 @@ Specify the YDB JDBC driver in the dependencies:
     <dependency>
         <groupId>tech.ydb.jdbc</groupId>
         <artifactId>ydb-jdbc-driver</artifactId>
-        <version>2.2.12</version>
+        <version>2.2.13</version>
     </dependency>
 
     <!-- Shaded version with included dependencies -->
     <dependency>
         <groupId>tech.ydb.jdbc</groupId>
         <artifactId>ydb-jdbc-driver-shaded</artifactId>
-        <version>2.2.12</version>
+        <version>2.2.13</version>
     </dependency>
 </dependencies>
 ```
