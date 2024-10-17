@@ -74,6 +74,8 @@ public class YdbContext implements AutoCloseable {
     private final QueryClientImpl queryClient;
     private final SchemeClient schemeClient;
     private final SessionRetryContext retryCtx;
+    private final String prefixPath;
+    private final String prefixPragma;
 
     private final Cache<String, YdbQuery> queriesCache;
     private final Cache<String, QueryStat> statsCache;
@@ -120,6 +122,14 @@ public class YdbContext implements AutoCloseable {
             queryParamsCache = null;
             tableDescribeCache = null;
         }
+
+        if (config.hasPrefixPath()) {
+            prefixPath = joined(transport.getDatabase(), config.getPrefixPath());
+            prefixPragma = "PRAGMA TablePathPrefix = \"" + prefixPath + "\";\n";
+        } else {
+            prefixPath = transport.getDatabase();
+            prefixPragma = "";
+        }
     }
 
     /**
@@ -131,8 +141,16 @@ public class YdbContext implements AutoCloseable {
         return grpcTransport;
     }
 
-    public String getDatabase() {
-        return grpcTransport.getDatabase();
+    private String joined(String path1, String path2) {
+        return path1.endsWith("/") || path2.startsWith("/") ? path1 + path2 : path1 + "/" + path2;
+    }
+
+    public String getPrefixPath() {
+        return prefixPath;
+    }
+
+    String getPrefixPragma() {
+        return prefixPragma;
     }
 
     public SchemeClient getSchemeClient() {
@@ -372,8 +390,7 @@ public class YdbContext implements AutoCloseable {
         }
 
         if (query.getYqlBatcher() != null && (mode == YdbPrepareMode.AUTO || type == QueryType.BULK_QUERY)) {
-            String tableName = query.getYqlBatcher().getTableName();
-            String tablePath = tableName.startsWith("/") ? tableName : getDatabase() + "/" + tableName;
+            String tablePath = joined(getPrefixPath(), query.getYqlBatcher().getTableName());
             TableDescription description = tableDescribeCache.getIfPresent(tablePath);
             if (description == null) {
                 DescribeTableSettings settings = withDefaultTimeout(new DescribeTableSettings());

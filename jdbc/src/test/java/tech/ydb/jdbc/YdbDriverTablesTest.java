@@ -26,13 +26,15 @@ public class YdbDriverTablesTest {
     @RegisterExtension
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
-    private static final JdbcUrlHelper jdbcURL = new JdbcUrlHelper(ydb).withArg("enableTxTracer", "true");
+    private static final JdbcUrlHelper jdbcURL = new JdbcUrlHelper(ydb)
+            .withArg("enableTxTracer", "true")
+            .withArg("usePrefixPath", "jdbc_oltp");
 
     private final static String ERROR_BULK_UNSUPPORTED =
             "BULK mode is available only for prepared statement with one UPSERT";
 
     private final static String CREATE_TABLE = ""
-            + "CREATE TABLE simple_table("
+            + "CREATE TABLE simple_table ("
             + "  id Int32 NOT NULL,"
             + "  value Text,"
             + "  date Date,"

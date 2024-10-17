@@ -33,14 +33,17 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
     private final SessionRetryContext retryCtx;
     private final Duration sessionTimeout;
     private final TableClient tableClient;
+
     private final AtomicReference<YdbQueryResult> currResult;
     protected final boolean traceEnabled;
+    protected final String prefixPragma;
 
     public BaseYdbExecutor(YdbContext ctx) {
         this.retryCtx = ctx.getRetryCtx();
         this.traceEnabled = ctx.isTxTracerEnabled();
         this.sessionTimeout = ctx.getOperationProperties().getSessionTimeout();
         this.tableClient = ctx.getTableClient();
+        this.prefixPragma = ctx.getPrefixPragma();
         this.currResult = new AtomicReference<>();
     }
 
@@ -87,16 +90,27 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
         return tracer;
     }
 
+    protected YdbTracer traceRequest(String type, String message) {
+        if (!traceEnabled) {
+            return null;
+        }
+        YdbTracer tracer = YdbTracer.current();
+        tracer.trace("--> " + type);
+        tracer.traceRequest(message);
+        return tracer;
+    }
+
     @Override
     public YdbQueryResult executeSchemeQuery(YdbStatement statement, YdbQuery query) throws SQLException {
         ensureOpened();
 
-        String yql = query.getPreparedYql();
+        String yql = prefixPragma + query.getPreparedYql();
         YdbContext ctx = statement.getConnection().getCtx();
         YdbValidator validator = statement.getValidator();
 
         // Scheme query does not affect transactions or result sets
-        YdbTracer tracer = trace("--> scheme >>\n" + yql);
+        YdbTracer tracer = traceRequest("scheme query", yql);
+
         ExecuteSchemeQuerySettings settings = ctx.withDefaultTimeout(new ExecuteSchemeQuerySettings());
         validator.execute(QueryType.SCHEME_QUERY + " >>\n" + yql, tracer,
                 () -> retryCtx.supplyStatus(session -> session.executeSchemeQuery(yql, settings))
@@ -114,9 +128,9 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
             throws SQLException {
         ensureOpened();
 
-        String yql = query.getPreparedYql();
+        String yql = prefixPragma + query.getPreparedYql();
         YdbValidator validator = statement.getValidator();
-        YdbTracer tracer = trace("--> bulk upsert >>\n" + yql);
+        YdbTracer tracer = traceRequest("bulk upsert", yql);
         validator.execute(QueryType.BULK_QUERY + " >>\n" + yql, tracer,
                 () -> retryCtx.supplyStatus(session -> session.executeBulkUpsert(tablePath, rows))
         );
@@ -129,10 +143,11 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
     }
 
     @Override
-    public YdbQueryResult executeScanQuery(YdbStatement statement, YdbQuery query, String yql, Params params)
+    public YdbQueryResult executeScanQuery(YdbStatement statement, YdbQuery query, String preparedYql, Params params)
             throws SQLException {
         ensureOpened();
 
+        String yql = prefixPragma + preparedYql;
         YdbContext ctx = statement.getConnection().getCtx();
         YdbValidator validator = statement.getValidator();
         Duration scanQueryTimeout = ctx.getOperationProperties().getScanQueryTimeout();
@@ -140,7 +155,8 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
                 .withRequestTimeout(scanQueryTimeout)
                 .build();
         String msg = QueryType.SCAN_QUERY + " >>\n" + yql;
-        final YdbTracer tracer = trace("--> scan query >>\n" + yql);
+
+        final YdbTracer tracer = traceRequest("scan query", yql);
         final Session session = createNewTableSession(validator);
 
         StreamQueryResult lazy = validator.call(msg, null, () -> {

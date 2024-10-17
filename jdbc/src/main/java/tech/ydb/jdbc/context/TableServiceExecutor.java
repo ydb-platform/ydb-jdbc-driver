@@ -118,7 +118,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
         Session session = tx.getSession(validator);
         CommitTxSettings settings = ctx.withDefaultTimeout(new CommitTxSettings());
-        YdbTracer tracer = trace("--> commit");
+        YdbTracer tracer = traceRequest("commit", null);
 
         try {
             validator.clearWarnings();
@@ -144,7 +144,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
         Session session = tx.getSession(validator);
         RollbackTxSettings settings = ctx.withDefaultTimeout(new RollbackTxSettings());
-        YdbTracer tracer = trace("--> rollback");
+        YdbTracer tracer = traceRequest("rollback", null);
 
         try {
             validator.clearWarnings();
@@ -180,8 +180,8 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
         YdbContext ctx = statement.getConnection().getCtx();
         YdbValidator validator = statement.getValidator();
-        String yql = query.getPreparedYql();
-        YdbTracer tracer = trace("--> explain >>\n" + yql);
+        String yql = prefixPragma + query.getPreparedYql();
+        YdbTracer tracer = traceRequest("explain", yql);
 
         ExplainDataQuerySettings settings = ctx.withDefaultTimeout(new ExplainDataQuerySettings());
         try (Session session = createNewTableSession(validator)) {
@@ -196,13 +196,14 @@ public class TableServiceExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    public YdbQueryResult executeDataQuery(YdbStatement statement, YdbQuery query, String yql, Params params,
+    public YdbQueryResult executeDataQuery(YdbStatement statement, YdbQuery query, String preparedYql, Params params,
             long timeout, boolean keepInCache) throws SQLException {
         ensureOpened();
 
         YdbValidator validator = statement.getValidator();
-        final Session session = tx.getSession(validator);
-        YdbTracer tracer = trace("--> data query >>\n" + yql);
+        Session session = tx.getSession(validator);
+        String yql = prefixPragma + preparedYql;
+        YdbTracer tracer = traceRequest("data query", yql);
         try {
             DataQueryResult result = validator.call(
                     QueryType.DATA_QUERY + " >>\n" + yql, tracer,
