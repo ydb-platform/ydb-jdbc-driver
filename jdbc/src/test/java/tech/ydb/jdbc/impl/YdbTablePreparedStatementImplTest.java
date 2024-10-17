@@ -35,15 +35,15 @@ import tech.ydb.table.values.DecimalValue;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
 
-public class YdbQueryPreparedStatementImplTest {
-    private static final Logger LOGGER = Logger.getLogger(YdbQueryPreparedStatementImplTest.class.getName());
+public class YdbTablePreparedStatementImplTest {
+    private static final Logger LOGGER = Logger.getLogger(YdbTablePreparedStatementImplTest.class.getName());
 
     @RegisterExtension
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
     @RegisterExtension
     private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb)
-            .withArg("useQueryService", "true");
+            .withArg("useQueryService", "false");
 
     private static final String TEST_TABLE_NAME = "ydb_prepared_statement_test";
     private static final SqlQueries TEST_TABLE = new SqlQueries(TEST_TABLE_NAME);
@@ -52,6 +52,9 @@ public class YdbQueryPreparedStatementImplTest {
     private static final String SELECT_BY_KEY_SQL = ""
             + "declare $key as Optional<Int32>;\n"
             + "select key, #column from #tableName where key=$key";
+    private static final String SCAN_SELECT_BY_KEY_SQL = ""
+            + "declare $key as Optional<Int32>;\n"
+            + "scan select key, #column from #tableName where key=$key";
 
     @BeforeAll
     public static void initTable() throws SQLException {
@@ -93,6 +96,20 @@ public class YdbQueryPreparedStatementImplTest {
                 .replaceAll("#column", column)
                 .replaceAll("#tableName", TEST_TABLE_NAME);
         return jdbc.connection().prepareStatement(sql).unwrap(YdbPreparedStatement.class);
+    }
+
+    private PreparedStatement prepareScanSelect(String column) throws SQLException {
+        String sql = SIMPLE_SELECT_SQL
+                .replaceAll("#column", column)
+                .replaceAll("#tableName", TEST_TABLE_NAME);
+        return jdbc.connection().prepareStatement("SCAN " + sql);
+    }
+
+    private String scanSelectByKey(String column) throws SQLException {
+        String sql = SCAN_SELECT_BY_KEY_SQL
+                .replaceAll("#column", column)
+                .replaceAll("#tableName", TEST_TABLE_NAME);
+        return sql;
     }
 
     private YdbPreparedStatement prepareSelectAll() throws SQLException {
@@ -244,7 +261,7 @@ public class YdbQueryPreparedStatementImplTest {
     }
 
     @Test
-    public void executeQueryBatchWithBigRead() throws SQLException {
+    public void executeQueryBatchWithScanRead() throws SQLException {
         int valuesCount = 5000;
         String[] values = new String[valuesCount];
         for (int idx = 1; idx <= valuesCount; idx += 1) {
@@ -267,7 +284,14 @@ public class YdbQueryPreparedStatementImplTest {
             }
         }
 
-        try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
+        ExceptionAssert.sqlException("Result #0 was truncated to 1000 rows", () -> {
+            // Result is truncated (and we catch that)
+            try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
+                select.executeQuery();
+            }
+        });
+
+        try (PreparedStatement select = prepareScanSelect("c_Text")) {
             TextSelectAssert check = TextSelectAssert.of(select.executeQuery(), "c_Text", "Text");
 
             for (int idx = 1; idx <= valuesCount; idx += 1) {
@@ -336,6 +360,42 @@ public class YdbQueryPreparedStatementImplTest {
 
             try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
                 select.executeQuery();
+            }
+        } finally {
+            jdbc.connection().setAutoCommit(true);
+        }
+    }
+
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(SqlQueries.YqlQuery.class)
+    public void executeScanQueryInTx(SqlQueries.YqlQuery mode) throws SQLException {
+        String upsertYql = TEST_TABLE.upsertOne(mode, "c_Text", "Text");
+        String scanSelectYql = scanSelectByKey("c_Text");
+
+        jdbc.connection().setAutoCommit(false);
+        YdbConnection conn = jdbc.connection().unwrap(YdbConnection.class);
+        try {
+            try (YdbPreparedStatement statement = conn.prepareStatement(upsertYql)) {
+                statement.setInt("key", 1);
+                statement.setString("c_Text", "value-1");
+                statement.execute();
+            }
+
+            try (YdbPreparedStatement select = conn.prepareStatement(scanSelectYql)) {
+                select.setInt("key", 1);
+
+                ExceptionAssert.sqlException(YdbConst.SCAN_QUERY_INSIDE_TRANSACTION, () -> select.executeQuery());
+
+                jdbc.connection().commit();
+
+                select.setInt("key", 1);
+                TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
+                        .nextRow(1, "value-1")
+                        .noNextRows();
+
+                select.setInt("key", 2);
+                TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
+                        .noNextRows();
             }
         } finally {
             jdbc.connection().setAutoCommit(true);
