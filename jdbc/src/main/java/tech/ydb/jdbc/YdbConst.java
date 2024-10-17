@@ -91,6 +91,7 @@ public final class YdbConst {
     public static final String CANNOT_LOAD_DATA_FROM_IS = "Unable to load data from input stream: ";
     public static final String CANNOT_LOAD_DATA_FROM_READER = "Unable to load data from reader: ";
     public static final String STATEMENT_IS_NOT_A_BATCH = "Statement cannot be executed as batch statement: ";
+    public static final String UNABLE_PREPARE_STATEMENT = "Cannot prepare statement: ";
     public static final String MULTI_TYPES_IN_ONE_QUERY = "Query cannot contain expressions with different types: ";
     public static final String SCAN_QUERY_INSIDE_TRANSACTION = "Scan query cannot be executed inside active "
             + "transaction. This behavior may be changed by property scanQueryTxMode";

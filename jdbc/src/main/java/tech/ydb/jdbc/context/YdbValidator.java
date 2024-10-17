@@ -54,12 +54,21 @@ public class YdbValidator {
         Status status = fn.get().join();
         addStatusIssues(status);
 
-        if (tracer != null) {
-            tracer.trace("<-- " + status.toString());
-        }
+        tracer.trace("<-- " + status.toString());
         if (!status.isSuccess()) {
+            tracer.close();
             throw ExceptionFactory.createException("Cannot execute '" + msg + "' with " + status,
                     new UnexpectedResultException("Unexpected status", status));
+        }
+    }
+
+    public <R> R call(String msg, Supplier<CompletableFuture<Result<R>>> fn) throws SQLException {
+        try {
+            Result<R> result = fn.get().join();
+            addStatusIssues(result.getStatus());
+            return result.getValue();
+        } catch (UnexpectedResultException ex) {
+            throw ExceptionFactory.createException("Cannot call '" + msg + "' with " + ex.getStatus(), ex);
         }
     }
 
@@ -67,11 +76,10 @@ public class YdbValidator {
         try {
             Result<R> result = fn.get().join();
             addStatusIssues(result.getStatus());
-            if (tracer != null) {
-                tracer.trace("<-- " + result.getStatus().toString());
-            }
+            tracer.trace("<-- " + result.getStatus().toString());
             return result.getValue();
         } catch (UnexpectedResultException ex) {
+            tracer.close();
             throw ExceptionFactory.createException("Cannot call '" + msg + "' with " + ex.getStatus(), ex);
         }
     }

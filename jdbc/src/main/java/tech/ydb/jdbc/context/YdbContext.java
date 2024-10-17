@@ -24,7 +24,9 @@ import tech.ydb.core.grpc.GrpcTransportBuilder;
 import tech.ydb.core.settings.BaseRequestSettings;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbPrepareMode;
+import tech.ydb.jdbc.YdbTracer;
 import tech.ydb.jdbc.exception.ExceptionFactory;
+import tech.ydb.jdbc.impl.YdbTracerNone;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbPreparedQuery;
 import tech.ydb.jdbc.query.YdbQuery;
@@ -45,6 +47,7 @@ import tech.ydb.table.SessionRetryContext;
 import tech.ydb.table.TableClient;
 import tech.ydb.table.description.TableDescription;
 import tech.ydb.table.impl.PooledTableClient;
+import tech.ydb.table.query.DataQuery;
 import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.rpc.grpc.GrpcTableRpc;
 import tech.ydb.table.settings.DescribeTableSettings;
@@ -175,6 +178,10 @@ public class YdbContext implements AutoCloseable {
 
     public String getUsername() {
         return config.getUsername();
+    }
+
+    public YdbTracer getTracer() {
+        return config.isTxTracedEnabled() ? YdbTracer.current() : YdbTracerNone.current();
     }
 
     public boolean isTxTracerEnabled() {
@@ -393,14 +400,20 @@ public class YdbContext implements AutoCloseable {
             String tablePath = joined(getPrefixPath(), query.getYqlBatcher().getTableName());
             TableDescription description = tableDescribeCache.getIfPresent(tablePath);
             if (description == null) {
+                YdbTracer tracer = getTracer();
+                tracer.trace("--> describe table");
+                tracer.query(tablePath);
+
                 DescribeTableSettings settings = withDefaultTimeout(new DescribeTableSettings());
                 Result<TableDescription> result = retryCtx.supplyResult(
                         session -> session.describeTable(tablePath, settings)
                 ).join();
 
+                tracer.trace("<-- " + result.getStatus());
+
                 if (result.isSuccess()) {
                     description = result.getValue();
-                    tableDescribeCache.put(query.getOriginQuery(), description);
+                    tableDescribeCache.put(tablePath, description);
                 } else {
                     if (type == QueryType.BULK_QUERY) {
                         throw new SQLException(YdbConst.BULKS_DESCRIBE_ERROR + result.getStatus());
@@ -426,32 +439,40 @@ public class YdbContext implements AutoCloseable {
         }
 
         // try to prepare data query
-        try {
-            Map<String, Type> types = queryParamsCache.getIfPresent(query.getOriginQuery());
-            if (types == null) {
-                String yql = query.getPreparedYql();
-                PrepareDataQuerySettings settings = withDefaultTimeout(new PrepareDataQuerySettings());
-                types = retryCtx.supplyResult(session -> session.prepareDataQuery(yql, settings))
-                        .join()
-                        .getValue()
-                        .types();
-                queryParamsCache.put(query.getOriginQuery(), types);
+        Map<String, Type> types = queryParamsCache.getIfPresent(query.getOriginQuery());
+        if (types == null) {
+            String yql = prefixPragma + query.getPreparedYql();
+            YdbTracer tracer = getTracer();
+            tracer.trace("--> prepare data query");
+            tracer.query(yql);
+
+            PrepareDataQuerySettings settings = withDefaultTimeout(new PrepareDataQuerySettings());
+            Result<DataQuery> result = retryCtx.supplyResult(
+                    session -> session.prepareDataQuery(yql, settings)
+            ).join();
+
+            tracer.trace("<-- " + result.getStatus());
+            if (!result.isSuccess()) {
+                tracer.close();
+                throw ExceptionFactory.createException("Cannot prepare data query: " + result.getStatus(),
+                        new UnexpectedResultException("Unexpected status", result.getStatus()));
             }
 
-            boolean requireBatch = mode == YdbPrepareMode.DATA_QUERY_BATCH;
-            if (requireBatch || (mode == YdbPrepareMode.AUTO && queryOptions.isDetectBatchQueries())) {
-                BatchedQuery params = BatchedQuery.tryCreateBatched(query, types);
-                if (params != null) {
-                    return params;
-                }
-
-                if (requireBatch) {
-                    throw new SQLDataException(YdbConst.STATEMENT_IS_NOT_A_BATCH + query.getOriginQuery());
-                }
-            }
-            return new PreparedQuery(query, types);
-        } catch (UnexpectedResultException ex) {
-            throw ExceptionFactory.createException("Cannot prepare data query: " + ex.getMessage(), ex);
+            types = result.getValue().types();
+            queryParamsCache.put(query.getOriginQuery(), types);
         }
+
+        boolean requireBatch = mode == YdbPrepareMode.DATA_QUERY_BATCH;
+        if (requireBatch || (mode == YdbPrepareMode.AUTO && queryOptions.isDetectBatchQueries())) {
+            BatchedQuery params = BatchedQuery.tryCreateBatched(query, types);
+            if (params != null) {
+                return params;
+            }
+
+            if (requireBatch) {
+                throw new SQLDataException(YdbConst.STATEMENT_IS_NOT_A_BATCH + query.getOriginQuery());
+            }
+        }
+        return new PreparedQuery(query, types);
     }
 }
