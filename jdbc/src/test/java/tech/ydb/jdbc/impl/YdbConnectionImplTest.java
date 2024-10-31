@@ -10,6 +10,8 @@ import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -18,6 +20,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -861,6 +864,88 @@ public class YdbConnectionImplTest {
         }
     }
 
+    private String createPayload(Random rnd, int length) {
+        StringBuilder sb = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            sb.append((char)('0' + rnd.nextInt(75)));
+        }
+        return sb.toString();
+    }
+
+    @Test
+    @Timeout(value = 30, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SAME_THREAD)
+    public void testBigBulkAndScan() throws SQLException {
+        String bulkUpsert = QUERIES.upsertOne(SqlQueries.JdbcQuery.BULK, "c_Text", "Text?");
+        String selectAll = QUERIES.selectSQL();
+        String selectOne = QUERIES.selectAllByKey("?");
+
+        Random rnd = new Random(0x234567);
+        int payloadLength = 1000;
+
+        try (Connection conn = jdbc.createCustomConnection("useStreamResultSets", "true")) {
+            // BULK UPSERT
+            try (PreparedStatement ps = conn.prepareStatement(bulkUpsert)) {
+                for (int idx = 1; idx <= 10000; idx++) {
+                    ps.setInt(1, idx);
+                    String payload = createPayload(rnd, payloadLength);
+                    ps.setString(2, payload);
+                    ps.addBatch();
+                    if (idx % 1000 == 0) {
+                        ps.executeBatch();
+                    }
+                }
+                ps.executeBatch();
+            }
+
+            // SCAN all table
+            try (PreparedStatement ps = conn.prepareStatement(selectAll)) {
+                int readed = 0;
+                Assertions.assertTrue(ps.execute());
+                try (ResultSet rs = ps.getResultSet()) {
+                    while (rs.next()) {
+                        readed++;
+                        Assertions.assertEquals(readed, rs.getInt("key"));
+                        Assertions.assertEquals(payloadLength, rs.getString("c_Text").length());
+                    }
+                }
+                Assertions.assertEquals(10000, readed);
+            }
+
+            // Canceled scan
+            try (PreparedStatement ps = conn.prepareStatement(selectAll)) {
+                Assertions.assertTrue(ps.execute());
+                ps.getResultSet().next();
+                ps.getResultSet().close();
+
+                SQLWarning w = ps.getWarnings();
+                Assertions.assertNotNull(w);
+                Assertions.assertEquals("gRPC error: (CANCELLED) Cancelled on user request (S_ERROR)", w.getMessage());
+
+                w = w.getNextWarning();
+                Assertions.assertNotNull(w);
+                Assertions.assertEquals("java.util.concurrent.CancellationException (S_ERROR)", w.getMessage());
+
+                w = w.getNextWarning();
+                Assertions.assertNull(w);
+            }
+
+            //  Scan was cancelled, but connection still work
+            try (PreparedStatement ps = conn.prepareStatement(selectOne)) {
+                ps.setInt(1, 1234);
+
+                Assertions.assertTrue(ps.execute());
+                try (ResultSet rs = ps.getResultSet()) {
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(1234, rs.getInt("key"));
+                    Assertions.assertEquals(payloadLength, rs.getString("c_Text").length());
+                    Assertions.assertFalse(rs.next());
+                }
+            }
+        } finally {
+            cleanTable();
+        }
+    }
+
     @Test
     public void testAnsiLexer() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement()) {
@@ -1017,8 +1102,8 @@ public class YdbConnectionImplTest {
                     TableAssert.ResultSetAssert check = sa.check(rs).assertMetaColumns();
 
                     check.nextRow(
-                            sa.sql("select * from ydb_connection_test"),
-                            sa.yql("select * from ydb_connection_test"),
+                            sa.sql("select * from ydb_connection_test order by key"),
+                            sa.yql("select * from ydb_connection_test order by key"),
                             sa.isFullScan(), sa.isNotError(), sa.executed(1), sa.hasAst(), sa.hasPlan()
                     ).assertAll();
 
@@ -1034,8 +1119,8 @@ public class YdbConnectionImplTest {
                     TableAssert.ResultSetAssert check = sa.check(rs).assertMetaColumns();
 
                     check.nextRow(
-                            sa.sql("select * from ydb_connection_test"),
-                            sa.yql("select * from ydb_connection_test"),
+                            sa.sql("select * from ydb_connection_test order by key"),
+                            sa.yql("select * from ydb_connection_test order by key"),
                             sa.isFullScan(), sa.isNotError(), sa.executed(1), sa.hasAst(), sa.hasPlan()
                     ).assertAll();
 
@@ -1063,8 +1148,8 @@ public class YdbConnectionImplTest {
                     ).assertAll();
 
                     check.nextRow(
-                            sa.sql("select * from ydb_connection_test"),
-                            sa.yql("select * from ydb_connection_test"),
+                            sa.sql("select * from ydb_connection_test order by key"),
+                            sa.yql("select * from ydb_connection_test order by key"),
                             sa.isFullScan(), sa.isNotError(), sa.executed(1), sa.hasAst(), sa.hasPlan()
                     ).assertAll();
 
@@ -1091,8 +1176,8 @@ public class YdbConnectionImplTest {
         try (Connection connection = jdbc.createCustomConnection("jdbcFullScanDetector", "true")) {
             try (PreparedStatement ps = connection.prepareStatement("print_JDBC_stats();")) {
                 sa.check(ps.executeQuery())
-                        .assertMetaColumns()
-                        .assertNoRows();
+                            .assertMetaColumns()
+                            .assertNoRows();
             }
 
             try (PreparedStatement ps = connection.prepareStatement(preparedSelectByKey)) {
@@ -1153,8 +1238,8 @@ public class YdbConnectionImplTest {
 
             try (PreparedStatement ps = connection.prepareStatement("print_JDBC_stats();")) {
                 sa.check(ps.executeQuery())
-                        .assertMetaColumns()
-                        .assertNoRows();
+                            .assertMetaColumns()
+                            .assertNoRows();
             }
         }
     }

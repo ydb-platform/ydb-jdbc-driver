@@ -234,13 +234,14 @@ public class YdbDriverProperitesTest {
 
     @ParameterizedTest(name = "[{index}] {0} => {1}")
     @CsvSource(delimiter = ',', value = {
-        "classpath:data/unknown-file.txt,Unable to find classpath resource: classpath:data/unknown-file.txt",
-        "file:data/unknown-file.txt,Unable to read resource from file:data/unknown-file.txt",
+        "classpath:data/unknown-file.txt,resource not found",
+        "file:data/unknown-file.txt,data/unknown-file.txt (No such file or directory)",
     })
-    public void getCaCertificateAsInvalid(String certificate, String expectException) {
+    public void getCaCertificateAsInvalid(String value, String message) {
         String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/db" +
-                "?secureConnectionCertificate=" + certificate;
-        ExceptionAssert.sqlException("Unable to convert property secureConnectionCertificate: " + expectException,
+                "?secureConnectionCertificate=" + value;
+        ExceptionAssert.sqlException(
+                "Cannot process value " + value + " for option secureConnectionCertificate: " + message,
                 () -> driver.getPropertyInfo(url, new Properties())
         );
     }
@@ -304,12 +305,14 @@ public class YdbDriverProperitesTest {
         return new DriverPropertyInfo[]{
             new DriverPropertyInfo("cacheConnectionsInDriver", "true"),
             new DriverPropertyInfo("preparedStatementCacheQueries", "256"),
-            new DriverPropertyInfo("useQueryService", "false"),
+            new DriverPropertyInfo("useQueryService", "true"),
+            new DriverPropertyInfo("usePrefixPath", ""),
             new DriverPropertyInfo("localDatacenter", localDatacenter),
             new DriverPropertyInfo("secureConnection", ""),
             new DriverPropertyInfo("secureConnectionCertificate", ""),
             new DriverPropertyInfo("token", ""),
-            new DriverPropertyInfo("saFile", ""),
+            new DriverPropertyInfo("tokenFile", ""),
+            new DriverPropertyInfo("saKeyFile", ""),
             new DriverPropertyInfo("useMetadata", ""),
             new DriverPropertyInfo("iamEndpoint", ""),
             new DriverPropertyInfo("metadataURL", ""),
@@ -318,6 +321,7 @@ public class YdbDriverProperitesTest {
             new DriverPropertyInfo("sessionMaxIdleTime", ""),
             new DriverPropertyInfo("sessionPoolSizeMin", ""),
             new DriverPropertyInfo("sessionPoolSizeMax", ""),
+            new DriverPropertyInfo("useStreamResultSets", "false"),
             new DriverPropertyInfo("joinDuration", "5m"),
             new DriverPropertyInfo("queryTimeout", "0s"),
             new DriverPropertyInfo("scanQueryTimeout", "5m"),
@@ -328,12 +332,15 @@ public class YdbDriverProperitesTest {
             new DriverPropertyInfo("transactionLevel", "8"),
             new DriverPropertyInfo("schemeQueryTxMode", "ERROR"),
             new DriverPropertyInfo("scanQueryTxMode", "ERROR"),
+            new DriverPropertyInfo("bulkUpsertQueryTxMode", "ERROR"),
             new DriverPropertyInfo("disablePrepareDataQuery", "false"),
             new DriverPropertyInfo("disableAutoPreparedBatches", "false"),
             new DriverPropertyInfo("disableDetectSqlOperations", "false"),
             new DriverPropertyInfo("disableJdbcParameters", "false"),
             new DriverPropertyInfo("disableJdbcParameterDeclare", "false"),
-            new DriverPropertyInfo("forceQueryMode", ""),
+            new DriverPropertyInfo("replaceInsertByUpsert", "false"),
+            new DriverPropertyInfo("forceBulkUpsert", "false"),
+            new DriverPropertyInfo("forceScanSelect", "false"),
         };
     }
 
@@ -341,12 +348,14 @@ public class YdbDriverProperitesTest {
         return new DriverPropertyInfo[]{
             new DriverPropertyInfo("cacheConnectionsInDriver", "false"),
             new DriverPropertyInfo("preparedStatementCacheQueries", "100"),
-            new DriverPropertyInfo("useQueryService", "true"),
+            new DriverPropertyInfo("useQueryService", "false"),
+            new DriverPropertyInfo("usePrefixPath", "/demo/oltp"),
             new DriverPropertyInfo("localDatacenter", "sas"),
             new DriverPropertyInfo("secureConnection", "true"),
             new DriverPropertyInfo("secureConnectionCertificate", "classpath:data/certificate.txt"),
             new DriverPropertyInfo("token", "x-secured-token"),
-            new DriverPropertyInfo("saFile", "x-secured-json"),
+            new DriverPropertyInfo("tokenFile", "classpath:data/token.txt"),
+            new DriverPropertyInfo("saKeyFile", "classpath:data/token.txt"),
             new DriverPropertyInfo("useMetadata", "true"),
             new DriverPropertyInfo("iamEndpoint", "iam.endpoint.com"),
             new DriverPropertyInfo("metadataURL", "https://metadata.com"),
@@ -355,6 +364,7 @@ public class YdbDriverProperitesTest {
             new DriverPropertyInfo("sessionMaxIdleTime", "5m"),
             new DriverPropertyInfo("sessionPoolSizeMin", "3"),
             new DriverPropertyInfo("sessionPoolSizeMax", "4"),
+            new DriverPropertyInfo("useStreamResultSets", "true"),
             new DriverPropertyInfo("joinDuration", "6m"),
             new DriverPropertyInfo("queryTimeout", "2m"),
             new DriverPropertyInfo("scanQueryTimeout", "3m"),
@@ -365,12 +375,15 @@ public class YdbDriverProperitesTest {
             new DriverPropertyInfo("transactionLevel", "16"),
             new DriverPropertyInfo("schemeQueryTxMode", "SHADOW_COMMIT"),
             new DriverPropertyInfo("scanQueryTxMode", "FAKE_TX"),
+            new DriverPropertyInfo("bulkUpsertQueryTxMode", "SHADOW_COMMIT"),
             new DriverPropertyInfo("disablePrepareDataQuery", "true"),
             new DriverPropertyInfo("disableAutoPreparedBatches", "true"),
             new DriverPropertyInfo("disableDetectSqlOperations", "true"),
             new DriverPropertyInfo("disableJdbcParameters", "true"),
             new DriverPropertyInfo("disableJdbcParameterDeclare", "true"),
-            new DriverPropertyInfo("forceQueryMode", "SCAN_QUERY"),
+            new DriverPropertyInfo("replaceInsertByUpsert", "true"),
+            new DriverPropertyInfo("forceBulkUpsert", "true"),
+            new DriverPropertyInfo("forceScanSelect", "true"),
         };
     }
 

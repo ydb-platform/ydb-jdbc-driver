@@ -1,3 +1,69 @@
+## 2.3.2 ##
+
+* Fixed typo in YdbTracer
+
+## 2.3.1 ##
+
+* Updated transaction tracer implementation
+* Fixed table description cache
+
+## 2.3.0 ##
+
+* QueryService is enabled by default
+
+## 2.2.14 ##
+
+* Fixed saKeyFile option
+
+## 2.2.13 ##
+
+* Fixed usePrefixPath for preparing of YQL statements
+
+## 2.2.12 ##
+
+* Added option usePrefixPath
+* Added options saKeyFile and tokenFile
+* Upgraded to YDB Java SDK 2.3.3
+
+## 2.2.11 ##
+
+* Added transaction tracer
+* Added option useStreamResultSets to switch on streamable result sets
+* Updated options to control query special modes
+
+## 2.2.10 ##
+
+* Added auto batch mode for simple UPDATE/DELETE/REPLACE
+
+## 2.2.9 ##
+
+* Removed cleaning of unclosed result set
+* Added checks of invalid values of Decimal
+
+## 2.2.8 ##
+
+* Added support of stream cancelling
+
+## 2.2.7 ##
+
+* Fixed concurrency issues in QueryServiceExecutor
+* Fixed QueryClient pool autoresize
+
+## 2.2.6 ##
+
+* Added logs for QueryClient executor
+
+## 2.2.5 ##
+
+* Added lazy result set implementation
+* Added flag to forced usage of BulkUpsert and ScanQuery
+* Fixed error of LIMIT & OFFSET keywords parsing
+
+## 2.2.4 ##
+
+* Added support of BulkUpsert
+* Upgraded to YDB Java SDK v2.3.0
+
 ## 2.2.3 ##
 
 * Added custom sql types for usage of native YDB types

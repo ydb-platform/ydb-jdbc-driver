@@ -14,7 +14,6 @@ import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
@@ -27,17 +26,12 @@ import tech.ydb.jdbc.YdbDatabaseMetaData;
 import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.YdbStatement;
+import tech.ydb.jdbc.YdbTracer;
 import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbExecutor;
 import tech.ydb.jdbc.context.YdbValidator;
-import tech.ydb.jdbc.query.ExplainedQuery;
-import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbPreparedQuery;
 import tech.ydb.jdbc.query.YdbQuery;
-import tech.ydb.jdbc.settings.FakeTxMode;
-import tech.ydb.jdbc.settings.YdbOperationProperties;
-import tech.ydb.table.query.Params;
-import tech.ydb.table.result.ResultSetReader;
 
 public class YdbConnectionImpl implements YdbConnection {
     private static final Logger LOGGER = Logger.getLogger(YdbConnectionImpl.class.getName());
@@ -45,17 +39,11 @@ public class YdbConnectionImpl implements YdbConnection {
     private final YdbContext ctx;
     private final YdbValidator validator;
     private final YdbExecutor executor;
-    private final FakeTxMode scanQueryTxMode;
-    private final FakeTxMode schemeQueryTxMode;
 
     public YdbConnectionImpl(YdbContext context) throws SQLException {
         this.ctx = context;
 
-        YdbOperationProperties props = ctx.getOperationProperties();
-        this.scanQueryTxMode = props.getScanQueryTxMode();
-        this.schemeQueryTxMode = props.getSchemeQueryTxMode();
-
-        this.validator = new YdbValidator(LOGGER);
+        this.validator = new YdbValidator();
         this.executor = ctx.createExecutor();
         this.ctx.register();
     }
@@ -121,10 +109,11 @@ public class YdbConnectionImpl implements YdbConnection {
         validator.clearWarnings();
         executor.close();
         ctx.deregister();
+        YdbTracer.clear();
     }
 
     @Override
-    public boolean isClosed() {
+    public boolean isClosed() throws SQLException {
         return executor.isClosed();
     }
 
@@ -184,59 +173,6 @@ public class YdbConnectionImpl implements YdbConnection {
     }
 
     @Override
-    public void executeSchemeQuery(String yql, YdbValidator validator) throws SQLException {
-        executor.ensureOpened();
-
-        if (executor.isInsideTransaction()) {
-            switch (schemeQueryTxMode) {
-                case FAKE_TX:
-                    break;
-                case SHADOW_COMMIT:
-                    commit();
-                    break;
-                case ERROR:
-                default:
-                    throw new SQLException(YdbConst.SCHEME_QUERY_INSIDE_TRANSACTION);
-
-            }
-        }
-
-        executor.executeSchemeQuery(ctx, validator, yql);
-    }
-
-    @Override
-    public List<ResultSetReader> executeDataQuery(YdbQuery query, String yql, YdbValidator validator,
-            int timeout, boolean poolable, Params params) throws SQLException {
-        return executor.executeDataQuery(ctx, validator, query, yql, timeout, poolable, params);
-    }
-
-    @Override
-    public ResultSetReader executeScanQuery(YdbQuery query, String yql, YdbValidator validator, Params params)
-            throws SQLException {
-        executor.ensureOpened();
-
-        if (executor.isInsideTransaction()) {
-            switch (scanQueryTxMode) {
-                case FAKE_TX:
-                    break;
-                case SHADOW_COMMIT:
-                    commit();
-                    break;
-                case ERROR:
-                default:
-                    throw new SQLException(YdbConst.SCAN_QUERY_INSIDE_TRANSACTION);
-            }
-        }
-
-        return executor.executeScanQuery(ctx, validator, query, yql, params);
-    }
-
-    @Override
-    public ExplainedQuery executeExplainQuery(String yql, YdbValidator validator) throws SQLException {
-        return executor.executeExplainQuery(ctx, validator, yql);
-    }
-
-    @Override
     public YdbStatement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
         return createStatement(resultSetType, resultSetConcurrency, ResultSet.HOLD_CURSORS_OVER_COMMIT);
     }
@@ -275,6 +211,7 @@ public class YdbConnectionImpl implements YdbConnection {
     public YdbStatement createStatement(int resultSetType, int resultSetConcurrency,
             int resultSetHoldability) throws SQLException {
         executor.ensureOpened();
+        ctx.getTracer().trace("create statement");
         checkStatementParams(resultSetType, resultSetConcurrency, resultSetHoldability);
         return new YdbStatementImpl(this, resultSetType);
     }
@@ -305,13 +242,10 @@ public class YdbConnectionImpl implements YdbConnection {
         executor.ensureOpened();
         validator.clearWarnings();
 
+        ctx.getTracer().trace("prepare statement");
         YdbQuery query = ctx.findOrParseYdbQuery(sql);
-
-        if (query.getType() != QueryType.DATA_QUERY && query.getType() != QueryType.SCAN_QUERY) {
-            throw new SQLException(YdbConst.UNSUPPORTED_QUERY_TYPE_IN_PS + query.getType());
-        }
-
         YdbPreparedQuery params = ctx.findOrPrepareParams(query, mode);
+        ctx.getTracer().trace("create prepared statement");
         return new YdbPreparedStatementImpl(this, query, params, resultSetType);
     }
 
@@ -352,18 +286,22 @@ public class YdbConnectionImpl implements YdbConnection {
 
     @Override
     public int getNetworkTimeout() throws SQLException {
-        executor.ensureOpened();
         return (int) ctx.getOperationProperties().getDeadlineTimeout().toMillis();
     }
 
     @Override
-    public String getYdbTxId() {
+    public String getYdbTxId() throws SQLException {
         return executor.txID();
     }
 
     @Override
     public YdbContext getCtx() {
         return ctx;
+    }
+
+    @Override
+    public YdbExecutor getExecutor() {
+        return executor;
     }
 
     private void checkStatementParams(int resultSetType, int resultSetConcurrency,

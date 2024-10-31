@@ -1,6 +1,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/ydb-platform/ydb-jdbc-driver/blob/master/LICENSE)
 [![Maven metadata URL](https://img.shields.io/maven-metadata/v?metadataUrl=https%3A%2F%2Frepo1.maven.org%2Fmaven2%2Ftech%2Fydb%2Fjdbc%2Fydb-jdbc-driver%2Fmaven-metadata.xml)](https://mvnrepository.com/artifact/tech.ydb.jdbc/ydb-jdbc-driver)
 [![Build](https://img.shields.io/github/actions/workflow/status/ydb-platform/ydb-jdbc-driver/build.yaml)](https://github.com/ydb-platform/ydb-jdbc-driver/actions/workflows/build.yaml)
+[![CI](https://img.shields.io/github/actions/workflow/status/ydb-platform/ydb-jdbc-driver/ci.yaml?label=CI)](https://github.com/ydb-platform/ydb-jdbc-driver/actions/workflows/ci.yaml)
 [![Codecov](https://img.shields.io/codecov/c/github/ydb-platform/ydb-jdbc-driver)](https://app.codecov.io/gh/ydb-platform/ydb-jdbc-driver)
 
 ## JDBC Driver for YDB
@@ -10,9 +11,9 @@
 1) Drop in [JDBC driver](https://github.com/ydb-platform/ydb-jdbc-driver/releases) to classpath or pick this file in IDE
 2) Connect to YDB
    * Local or remote Docker (anonymous authentication):<br>`jdbc:ydb:grpc://localhost:2136/local`
-   * Self-hosted cluster:<br>`jdbc:ydb:grpcs://<host>:2135/Root/testdb?secureConnectionCertificate=file:~/myca.cer`
-   * Connect with token to the cloud instance:<br>`jdbc:ydb:grpcs://<host>:2135/path/to/database?token=file:~/my_token`
-   * Connect with service account to the cloud instance:<br>`jdbc:ydb:grpcs://<host>:2135/path/to/database?saFile=file:~/sa_key.json`
+   * Self-hosted cluster:<br>`jdbc:ydb:grpcs://<host>:2135/Root/testdb?secureConnectionCertificate=~/myca.cer`
+   * Connect with token to the cloud instance:<br>`jdbc:ydb:grpcs://<host>:2135/path/to/database?tokenFile=~/my_token`
+   * Connect with service account to the cloud instance:<br>`jdbc:ydb:grpcs://<host>:2135/path/to/database?saKeyFile=~/sa_key.json`
 3) Execute queries, see example in [YdbDriverExampleTest.java](jdbc/src/test/java/tech/ydb/jdbc/YdbDriverExampleTest.java)
 
 ### Usage with Maven
@@ -25,21 +26,17 @@ Specify the YDB JDBC driver in the dependencies:
     <dependency>
         <groupId>tech.ydb.jdbc</groupId>
         <artifactId>ydb-jdbc-driver</artifactId>
-        <version>2.2.3</version>
+        <version>2.3.2</version>
     </dependency>
 
     <!-- Shaded version with included dependencies -->
     <dependency>
         <groupId>tech.ydb.jdbc</groupId>
         <artifactId>ydb-jdbc-driver-shaded</artifactId>
-        <version>2.2.3</version>
+        <version>2.3.2</version>
     </dependency>
 </dependencies>
 ```
-### Using QueryService mode
-By default JDBC driver executes all queries via TableService, so it brings corresponding [limitations](https://ydb.tech/docs/en/concepts/limits-ydb#query).
-To eliminate these limitations you can try a new experimentail [QueryService](https://ydb.tech/docs/en/conceptrs/query_service) mode by passing property `useQueryService=true` to the JDBC URL
-
 ### Authentication modes
 
 YDB JDBC Driver supports the following [authentication modes](https://ydb.tech/en/docs/reference/ydb-sdk/auth):
@@ -52,19 +49,18 @@ YDB JDBC Driver supports the following [authentication modes](https://ydb.tech/e
 ### Driver properties reference
 
 Driver supports the following configuration properties, which can be specified in the URL or passed via extra properties:
-* `saFile` - service account key for authentication, can be passed either as literal JSON value or as a file reference;
+* `saKeyFile` - file location of service account key for authentication;
+* `tokenFile` - file location with token value for token based authentication;
 * `iamEndpoint` - custom IAM endpoint for authentication via service account key;
-* `token` - token value for authentication, can be passed either as literal value or as a file reference;
 * `useMetadata` - boolean value, true if metadata authentication should be used, false otherwise (and default);
 * `metadataURL` - custom metadata endpoint;
 * `localDatacenter` - name of the datacenter local to the application being connected;
 * `secureConnection` - boolean value, true if TLS should be enforced (normally configured via `grpc://` or `grpcs://` scheme in the JDBC URL);
 * `secureConnectionCertificate` - custom CA certificate for TLS connections, can be passed either as literal value or as a file reference.
 
-File references for `saFile`, `token` or `secureConnectionCertificate` must be prefixed with the `file:` URL scheme, for example:
-* `saFile=file:~/mysaley1.json`
-* `token=file:/opt/secret/token-file`
-* `secureConnectionCertificate=file:/etc/ssl/cacert.cer`
+### Using TableService mode
+By default JDBC driver executes all queries via QueryService, which uses grpc streams for the results recieving.
+If your database instance doesn't support this service, you can use old TableService mode by passing property `useQueryService=false` to the JDBC URL.
 
 ### Building
 By default all tests are run using a local YDB instance in Docker (if host has Docker or Docker Machine installed)

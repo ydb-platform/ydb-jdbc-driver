@@ -143,11 +143,20 @@ class YdbProperty<T> {
         });
     }
 
+    @Deprecated
     public static YdbProperty<byte[]> bytes(String name, String description) {
         return new YdbProperty<>(name, description, null, byte[].class, YdbLookup::byteFileReference);
     }
 
     public static YdbProperty<String> content(String name, String description) {
         return new YdbProperty<>(name, description, null, String.class, YdbLookup::stringFileReference);
+    }
+
+    public static YdbProperty<String> file(String name, String description) {
+        return new YdbProperty<>(name, description, null, String.class, v -> YdbLookup.readFileAsString(name, v));
+    }
+
+    public static YdbProperty<byte[]> fileBytes(String name, String description) {
+        return new YdbProperty<>(name, description, null, byte[].class, v -> YdbLookup.readFileAsBytes(name, v));
     }
 }

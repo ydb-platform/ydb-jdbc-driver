@@ -31,6 +31,9 @@ public final class YdbConst {
     public static final String DRIVER_IS_NOT_REGISTERED = "Driver is not registered "
             + "(or it has not been registered using YdbDriver.register() method)";
 
+    public static final String MISSING_DRIVER_OPTION = "Missing value for option ";
+    public static final String INVALID_DRIVER_OPTION_VALUE = "Cannot process value %s for option %s: %s";
+
     public static final String PREPARED_CALLS_UNSUPPORTED = "Prepared calls are not supported";
     public static final String ARRAYS_UNSUPPORTED = "Arrays are not supported";
     public static final String STRUCTS_UNSUPPORTED = "Structs are not supported";
@@ -65,8 +68,9 @@ public final class YdbConst {
     public static final String PARAMETER_NOT_FOUND = "Parameter not found: ";
     public static final String PARAMETER_TYPE_UNKNOWN = "Unable to convert sqlType %s to YDB type for parameter: %s";
     public static final String INVALID_ROW = "Current row index is out of bounds: ";
-    public static final String BATCH_UNSUPPORTED = "Batches are not supported in simple prepared statements";
-    public static final String BATCH_INVALID = "Batches are not supported for query type: ";
+    public static final String BULKS_UNSUPPORTED = "BULK mode is available only for prepared statement with one UPSERT";
+    public static final String INVALID_BATCH_COLUMN = "Cannot prepared batch request: cannot find a column";
+    public static final String BULKS_DESCRIBE_ERROR = "Cannot parse BULK upsert: ";
     public static final String METADATA_RS_UNSUPPORTED_IN_PS = "ResultSet metadata is not supported " +
             "in prepared statements";
     public static final String CANNOT_UNWRAP_TO = "Cannot unwrap to ";
@@ -86,13 +90,15 @@ public final class YdbConst {
     public static final String DATABASE_UNAVAILABLE = "Database is unavailable: ";
     public static final String CANNOT_LOAD_DATA_FROM_IS = "Unable to load data from input stream: ";
     public static final String CANNOT_LOAD_DATA_FROM_READER = "Unable to load data from reader: ";
-    public static final String UNSUPPORTED_QUERY_TYPE_IN_PS = "Query type in prepared statement not supported: ";
     public static final String STATEMENT_IS_NOT_A_BATCH = "Statement cannot be executed as batch statement: ";
+    public static final String UNABLE_PREPARE_STATEMENT = "Cannot prepare statement: ";
     public static final String MULTI_TYPES_IN_ONE_QUERY = "Query cannot contain expressions with different types: ";
     public static final String SCAN_QUERY_INSIDE_TRANSACTION = "Scan query cannot be executed inside active "
             + "transaction. This behavior may be changed by property scanQueryTxMode";
     public static final String SCHEME_QUERY_INSIDE_TRANSACTION = "Scheme query cannot be executed inside active "
             + "transaction. This behavior may be changed by property schemeQueryTxMode";
+    public static final String BULK_QUERY_INSIDE_TRANSACTION = "Bulk upsert query cannot be executed inside active "
+            + "transaction. This behavior may be changed by property bulkUpsertQueryTxMode";
 
     // Cast errors
 
@@ -101,6 +107,7 @@ public final class YdbConst {
     public static final String UNABLE_TO_CONVERT = "Cannot cast [%s] with value [%s] to [%s]";
     public static final String UNABLE_TO_CONVERT_AS_URL = "Cannot cast as URL: ";
     public static final String UNABLE_TO_CAST_TO_CLASS = "Cannot cast [%s] to class [%s]";
+    public static final String UNABLE_TO_CAST_TO_DECIMAL = "Cannot cast to decimal type %s: [%s] is %s";
 
     public static final String MISSING_VALUE_FOR_PARAMETER = "Missing value for parameter: ";
     public static final String MISSING_REQUIRED_VALUE = "Missing required value for parameter: ";
@@ -137,8 +144,6 @@ public final class YdbConst {
     public static final String INDEXED_PARAMETER_PREFIX = "p";
     public static final String VARIABLE_PARAMETER_PREFIX = "$";
     public static final String AUTO_GENERATED_PARAMETER_PREFIX = VARIABLE_PARAMETER_PREFIX + "jp";
-    public static final String DEFAULT_BATCH_PARAMETER = "$values";
-    public static final String OPTIONAL_TYPE_SUFFIX = "?";
 
     private YdbConst() {
         //

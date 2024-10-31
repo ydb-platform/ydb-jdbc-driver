@@ -56,7 +56,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     public YdbDatabaseMetaDataImpl(YdbConnection connection) {
         this.connection = Objects.requireNonNull(connection);
         this.executor = new SchemeExecutor(connection.getCtx());
-        this.validator = new YdbValidator(LOGGER);
+        this.validator = new YdbValidator();
     }
 
     @Override
@@ -1315,12 +1315,14 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     }
 
     private List<String> listTables(Predicate<String> filter) throws SQLException {
-        String databaseWithSuffix = withSuffix(connection.getCtx().getDatabase());
+        String databaseWithSuffix = withSuffix(connection.getCtx().getPrefixPath());
         return tables(databaseWithSuffix, databaseWithSuffix, filter);
     }
 
     private List<String> tables(String databasePrefix, String path, Predicate<String> filter) throws SQLException {
-        ListDirectoryResult result = validator.call("List tables from " + path, () -> executor.listDirectory(path));
+        ListDirectoryResult result = validator.call(
+                "List tables from " + path, () -> executor.listDirectory(path)
+        );
 
         List<String> tables = new ArrayList<>();
         String pathPrefix = withSuffix(path);
@@ -1350,7 +1352,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     private TableDescription describeTable(String table) throws SQLException {
         DescribeTableSettings settings = connection.getCtx().withDefaultTimeout(new DescribeTableSettings());
 
-        String databaseWithSuffix = withSuffix(connection.getCtx().getDatabase());
+        String databaseWithSuffix = withSuffix(connection.getCtx().getPrefixPath());
 
         return validator.call("Describe table " + table, () -> executor
                 .describeTable(databaseWithSuffix + table, settings)
@@ -1369,12 +1371,12 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     private ResultSet emptyResultSet(FixedResultSetFactory factory) {
         YdbStatementImpl statement = new YdbStatementImpl(connection, ResultSet.TYPE_SCROLL_INSENSITIVE);
-        return new YdbResultSetImpl(statement, factory.createResultSet().build());
+        return new YdbStaticResultSet(statement, factory.createResultSet().build());
     }
 
     private ResultSet resultSet(ResultSetReader rsReader) {
         YdbStatementImpl statement = new YdbStatementImpl(connection, ResultSet.TYPE_SCROLL_INSENSITIVE);
-        return new YdbResultSetImpl(statement, rsReader);
+        return new YdbStaticResultSet(statement, rsReader);
     }
 
     private boolean isMatchedCatalog(String catalog) {

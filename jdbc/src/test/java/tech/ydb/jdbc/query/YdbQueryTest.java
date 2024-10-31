@@ -112,68 +112,136 @@ public class YdbQueryTest {
     }
 
     @Test
-    public void forsedTypeTest() throws SQLException {
+    public void forsedScanSelects() throws SQLException {
         YdbQueryProperties opts = new ParamsBuilder()
-                .with("forceQueryMode", "SCHEME_QUERY")
+                .with("forceScanSelect", "true")
                 .build();
 
         Assertions.assertEquals(QueryType.SCHEME_QUERY, parsedQueryType(opts,
                 "CREATE TABLE test_table (id int, value text)"
         ));
         Assertions.assertEquals(QueryType.SCHEME_QUERY, parsedQueryType(opts,
-                "\tcreate TABLE test_table2 (id int, value text);"
-        ));
-
-        Assertions.assertEquals(QueryType.SCHEME_QUERY, parsedQueryType(opts,
                 " drop TABLE test_table1 (id int, value text);" +
                 "ALTER TABLE test_table2 (id int, value text);"
         ));
 
-        Assertions.assertEquals(QueryType.SCHEME_QUERY, parsedQueryType(opts,
+        Assertions.assertEquals(QueryType.SCAN_QUERY, parsedQueryType(opts,
                 "SELECT id, value FROM test_table"
         ));
-        Assertions.assertEquals(QueryType.SCHEME_QUERY, parsedQueryType(opts,
+        Assertions.assertEquals(QueryType.SCAN_QUERY, parsedQueryType(opts,
+                "SCAN SELECT id, value FROM test_table"
+        ));
+        Assertions.assertEquals(QueryType.DATA_QUERY, parsedQueryType(opts,
+                "SELECT id, value FROM test_table;" +
+                "SELECT id, value FROM test_table2;"
+        ));
+
+        Assertions.assertEquals(QueryType.DATA_QUERY, parsedQueryType(opts,
                 "UPSERT INTO test_table VALUES (?, ?)"
         ));
-        Assertions.assertEquals(QueryType.SCHEME_QUERY, parsedQueryType(opts,
+        Assertions.assertEquals(QueryType.DATA_QUERY, parsedQueryType(opts,
                 "DELETE FROM test_table"
         ));
-        Assertions.assertEquals(QueryType.SCHEME_QUERY, parsedQueryType(opts,
+        Assertions.assertEquals(QueryType.DATA_QUERY, parsedQueryType(opts,
                 "SELECT id, value FROM test_table;\n" +
                 "UPSERT INTO test_table VALUES (?, ?);" +
                 "DELETE FROM test_table"
         ));
 
-        Assertions.assertEquals(QueryType.SCHEME_QUERY, parsedQueryType(opts,
-                "SELECT id, value FROM test_table;\n" +
-                "UPDATE test_table SET value = ? WHERE id = ?;" +
-                "SELECT id, value FROM test_table WHERE id=CREATE"
-        ));
-
-        Assertions.assertEquals(QueryType.SCHEME_QUERY, parsedQueryType(opts,
-                "SCAN SELECT id, value FROM test_table"
-        ));
-
-        Assertions.assertEquals(QueryType.SCHEME_QUERY, parsedQueryType(opts,
+        Assertions.assertEquals(QueryType.EXPLAIN_QUERY, parsedQueryType(opts,
                 "EXPLAIN SELECT id, value FROM test_table"
-        ));
-
-        Assertions.assertEquals(QueryType.SCHEME_QUERY, parsedQueryType(opts,
-                "CREATE TABLE test_table (id int, value text);" +
-                "SELECT * FROM test_table;"
-        ));
-
-        Assertions.assertEquals(QueryType.SCHEME_QUERY, parsedQueryType(opts,
-                "DROP TABLE test_table (id int, value text);SELECT * FROM test_table;"
-        ));
-
-        Assertions.assertEquals(QueryType.SCHEME_QUERY, parsedQueryType(opts,
-                "SELECT * FROM test_table;CREATE TABLE test_table (id int, value text);"
-        ));
-
-        Assertions.assertEquals(QueryType.SCHEME_QUERY, parsedQueryType(opts,
-                "SELECT * FROM test_table;\n\tCREATE TABLE test_table (id int, value text);"
         ));
     }
 
+    @Test
+    public void forsedBulkUpsert() throws SQLException {
+        YdbQueryProperties opts = new ParamsBuilder()
+                .with("forceBulkUpsert", "true")
+                .build();
+
+        Assertions.assertEquals(QueryType.SCHEME_QUERY, parsedQueryType(opts,
+                "CREATE TABLE test_table (id int, value text)"
+        ));
+        Assertions.assertEquals(QueryType.SCHEME_QUERY, parsedQueryType(opts,
+                " drop TABLE test_table1 (id int, value text);" +
+                "ALTER TABLE test_table2 (id int, value text);"
+        ));
+
+        Assertions.assertEquals(QueryType.DATA_QUERY, parsedQueryType(opts,
+                "SELECT id, value FROM test_table"
+        ));
+        Assertions.assertEquals(QueryType.SCAN_QUERY, parsedQueryType(opts,
+                "SCAN SELECT id, value FROM test_table"
+        ));
+        Assertions.assertEquals(QueryType.DATA_QUERY, parsedQueryType(opts,
+                "SELECT id, value FROM test_table;" +
+                "SELECT id, value FROM test_table2;"
+        ));
+        Assertions.assertEquals(QueryType.DATA_QUERY, parsedQueryType(opts,
+                "INSERT INTO test_table(id, value) VALUES (?, ?)"
+        ));
+        Assertions.assertEquals(QueryType.BULK_QUERY, parsedQueryType(opts,
+                "UPSERT INTO test_table(id, value) VALUES (?, ?)"
+        ));
+
+        Assertions.assertEquals(QueryType.DATA_QUERY, parsedQueryType(opts,
+                "DELETE FROM test_table"
+        ));
+        Assertions.assertEquals(QueryType.DATA_QUERY, parsedQueryType(opts,
+                "SELECT id, value FROM test_table;\n" +
+                "UPSERT INTO test_table VALUES (?, ?);" +
+                "DELETE FROM test_table"
+        ));
+
+        Assertions.assertEquals(QueryType.EXPLAIN_QUERY, parsedQueryType(opts,
+                "EXPLAIN SELECT id, value FROM test_table"
+        ));
+    }
+
+    @Test
+    public void forcedUpsert() throws SQLException {
+        YdbQueryProperties opts = new ParamsBuilder()
+                .with("replaceInsertByUpsert", "true")
+                .with("forceBulkUpsert", "true")
+                .build();
+
+        Assertions.assertEquals(QueryType.SCHEME_QUERY, parsedQueryType(opts,
+                "CREATE TABLE test_table (id int, value text)"
+        ));
+        Assertions.assertEquals(QueryType.SCHEME_QUERY, parsedQueryType(opts,
+                " drop TABLE test_table1 (id int, value text);" +
+                "ALTER TABLE test_table2 (id int, value text);"
+        ));
+
+        Assertions.assertEquals(QueryType.DATA_QUERY, parsedQueryType(opts,
+                "SELECT id, value FROM test_table"
+        ));
+        Assertions.assertEquals(QueryType.SCAN_QUERY, parsedQueryType(opts,
+                "SCAN SELECT id, value FROM test_table"
+        ));
+        Assertions.assertEquals(QueryType.DATA_QUERY, parsedQueryType(opts,
+                "SELECT id, value FROM test_table;" +
+                "SELECT id, value FROM test_table2;"
+        ));
+
+        Assertions.assertEquals(QueryType.BULK_QUERY, parsedQueryType(opts,
+                "INSERT INTO test_table(id, value) VALUES (?, ?)"
+        ));
+        Assertions.assertEquals(QueryType.BULK_QUERY, parsedQueryType(opts,
+                "UPSERT INTO test_table(id, value) VALUES (?, ?)"
+        ));
+
+        Assertions.assertEquals(QueryType.DATA_QUERY, parsedQueryType(opts,
+                "DELETE FROM test_table"
+        ));
+        Assertions.assertEquals(QueryType.DATA_QUERY, parsedQueryType(opts,
+                "SELECT id, value FROM test_table;\n" +
+                "UPSERT INTO test_table VALUES (?, ?);" +
+                "DELETE FROM test_table"
+        ));
+
+        Assertions.assertEquals(QueryType.EXPLAIN_QUERY, parsedQueryType(opts,
+                "EXPLAIN SELECT id, value FROM test_table"
+        ));
+    }
 }

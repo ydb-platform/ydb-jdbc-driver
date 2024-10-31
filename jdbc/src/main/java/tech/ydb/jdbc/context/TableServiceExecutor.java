@@ -8,7 +8,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 import tech.ydb.jdbc.YdbConst;
-import tech.ydb.jdbc.query.ExplainedQuery;
+import tech.ydb.jdbc.YdbResultSet;
+import tech.ydb.jdbc.YdbStatement;
+import tech.ydb.jdbc.YdbTracer;
+import tech.ydb.jdbc.impl.YdbQueryResult;
+import tech.ydb.jdbc.impl.YdbStaticResultSet;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.Session;
@@ -28,15 +32,18 @@ import tech.ydb.table.transaction.TxControl;
  * @author Aleksandr Gorshenin
  */
 public class TableServiceExecutor extends BaseYdbExecutor {
+    private final boolean failOnTruncatedResult;
     private volatile TxState tx;
 
     public TableServiceExecutor(YdbContext ctx, int transactionLevel, boolean autoCommit) throws SQLException {
         super(ctx);
         this.tx = createTx(transactionLevel, autoCommit);
+        this.failOnTruncatedResult = ctx.getOperationProperties().isFailOnTruncatedResult();
     }
 
     @Override
-    public void close() {
+    public void close() throws SQLException {
+        closeCurrentResult();
         tx = null;
     }
 
@@ -49,26 +56,31 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public void setTransactionLevel(int level) throws SQLException {
+        ensureOpened();
         updateState(tx.withTransactionLevel(level));
     }
 
     @Override
     public void setReadOnly(boolean readOnly) throws SQLException {
+        ensureOpened();
         updateState(tx.withReadOnly(readOnly));
     }
 
     @Override
     public void setAutoCommit(boolean autoCommit) throws SQLException {
+        ensureOpened();
         updateState(tx.withAutoCommit(autoCommit));
     }
 
     @Override
-    public boolean isClosed() {
+    public boolean isClosed() throws SQLException {
+        closeCurrentResult();
         return tx == null;
     }
 
     @Override
-    public String txID() {
+    public String txID() throws SQLException {
+        closeCurrentResult();
         return tx != null ? tx.txID() : null;
     }
 
@@ -106,15 +118,19 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
         Session session = tx.getSession(validator);
         CommitTxSettings settings = ctx.withDefaultTimeout(new CommitTxSettings());
+        YdbTracer tracer = ctx.getTracer();
+        tracer.trace("--> commit");
+        tracer.query(null);
 
         try {
             validator.clearWarnings();
             validator.execute(
-                    "Commit TxId: " + tx.txID(),
+                    "Commit TxId: " + tx.txID(), tracer,
                     () -> session.commitTransaction(tx.txID(), settings)
             );
         } finally {
             updateState(tx.withCommit(session));
+            tracer.close();
         }
     }
 
@@ -128,15 +144,19 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
         Session session = tx.getSession(validator);
         RollbackTxSettings settings = ctx.withDefaultTimeout(new RollbackTxSettings());
+        YdbTracer tracer = ctx.getTracer();
+        tracer.trace("--> rollback");
+        tracer.query(null);
 
         try {
             validator.clearWarnings();
             validator.execute(
-                    "Rollback TxId: " + tx.txID(),
+                    "Rollback TxId: " + tx.txID(), tracer,
                     () -> session.rollbackTransaction(tx.txID(), settings)
             );
         } finally {
             updateState(tx.withRollback(session));
+            tracer.close();
         }
     }
 
@@ -155,42 +175,68 @@ public class TableServiceExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    public ExplainedQuery executeExplainQuery(YdbContext ctx, YdbValidator validator, String yql)
-            throws SQLException {
+    public YdbQueryResult executeExplainQuery(YdbStatement statement, YdbQuery query) throws SQLException {
         ensureOpened();
+
+        YdbContext ctx = statement.getConnection().getCtx();
+        YdbValidator validator = statement.getValidator();
+        String yql = prefixPragma + query.getPreparedYql();
+        YdbTracer tracer = ctx.getTracer();
+        tracer.trace("--> explain");
+        tracer.query(yql);
 
         ExplainDataQuerySettings settings = ctx.withDefaultTimeout(new ExplainDataQuerySettings());
         try (Session session = createNewTableSession(validator)) {
             String msg = QueryType.EXPLAIN_QUERY + " >>\n" + yql;
-            ExplainDataQueryResult res = validator.call(msg, () -> session.explainDataQuery(yql, settings));
-            return new ExplainedQuery(res.getQueryAst(), res.getQueryPlan());
+            ExplainDataQueryResult res = validator.call(msg, tracer, () -> session.explainDataQuery(yql, settings));
+            return updateCurrentResult(new StaticQueryResult(statement, res.getQueryAst(), res.getQueryPlan()));
+        } finally {
+            if (!tx.isInsideTransaction()) {
+                tracer.close();
+            }
         }
     }
 
     @Override
-    public List<ResultSetReader> executeDataQuery(
-            YdbContext ctx, YdbValidator validator, YdbQuery query,
-            String yql, long timeout, boolean keepInCache, Params params
-    ) throws SQLException {
+    public YdbQueryResult executeDataQuery(YdbStatement statement, YdbQuery query, String preparedYql, Params params,
+            long timeout, boolean keepInCache) throws SQLException {
         ensureOpened();
 
-        final Session session = tx.getSession(validator);
+        YdbValidator validator = statement.getValidator();
+        Session session = tx.getSession(validator);
+        String yql = prefixPragma + preparedYql;
+        YdbTracer tracer = statement.getConnection().getCtx().getTracer();
+        tracer.trace("--> data query");
+        tracer.query(yql);
+
         try {
             DataQueryResult result = validator.call(
-                    QueryType.DATA_QUERY + " >>\n" + yql,
+                    QueryType.DATA_QUERY + " >>\n" + yql, tracer,
                     () -> session.executeDataQuery(yql, tx.txControl(), params, dataQuerySettings(timeout, keepInCache))
             );
             updateState(tx.withDataQuery(session, result.getTxId()));
 
-            List<ResultSetReader> readers = new ArrayList<>();
+            List<YdbResultSet> readers = new ArrayList<>();
             for (int idx = 0; idx < result.getResultSetCount(); idx += 1) {
-                readers.add(result.getResultSet(idx));
+                ResultSetReader rs = result.getResultSet(idx);
+                if (failOnTruncatedResult && rs.isTruncated()) {
+                    String msg = String.format(YdbConst.RESULT_IS_TRUNCATED, idx, rs.getRowCount());
+                    throw new SQLException(msg);
+                }
+
+                readers.add(new YdbStaticResultSet(statement, rs));
             }
 
-            return readers;
+            return updateCurrentResult(new StaticQueryResult(query, readers));
         } catch (SQLException | RuntimeException ex) {
             updateState(tx.withRollback(session));
             throw ex;
+        } finally {
+            if (tx.isInsideTransaction()) {
+                tracer.setId(tx.txID());
+            } else {
+                tracer.close();
+            }
         }
     }
 
@@ -202,7 +248,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         try {
             KeepAliveSessionSettings settings = new KeepAliveSessionSettings().setTimeout(Duration.ofSeconds(timeout));
             Session.State keepAlive = validator.call(
-                    "Keep alive: " + tx.txID(),
+                    "Keep alive: " + tx.txID(), null,
                     () -> session.keepAlive(settings)
             );
             return keepAlive == Session.State.READY;

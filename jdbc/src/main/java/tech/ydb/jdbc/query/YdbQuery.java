@@ -15,21 +15,17 @@ public class YdbQuery {
     private final String originQuery;
     private final String preparedYQL;
     private final List<QueryStatement> statements;
-    private final YqlBatcher batch;
+    private final YqlBatcher batcher;
 
     private final QueryType type;
     private final boolean isPlainYQL;
 
-    YdbQuery(String originQuery, String preparedYQL, List<QueryStatement> stats, QueryType type) {
-        this(originQuery, preparedYQL, stats, null, type);
-    }
-
-    YdbQuery(String originQuery, String preparedYQL, List<QueryStatement> stats, YqlBatcher batch, QueryType type) {
+    YdbQuery(String originQuery, String preparedYQL, List<QueryStatement> stats, YqlBatcher batcher, QueryType type) {
         this.originQuery = originQuery;
         this.preparedYQL = preparedYQL;
         this.statements = stats;
         this.type = type;
-        this.batch = batch;
+        this.batcher = batcher;
 
         boolean hasJdbcParamters = false;
         for (QueryStatement st: statements) {
@@ -43,7 +39,7 @@ public class YdbQuery {
     }
 
     public YqlBatcher getYqlBatcher() {
-        return batch;
+        return batcher.isValidBatch() ? batcher : null;
     }
 
     public boolean isPlainYQL() {
@@ -66,13 +62,29 @@ public class YdbQuery {
         YdbQueryParser parser = new YdbQueryParser(opts.isDetectQueryType(), opts.isDetectJdbcParameters());
         String preparedYQL = parser.parseSQL(query);
 
-        QueryType type = opts.getForcedQueryType();
+        QueryType type = null;
+        YqlBatcher batcher = parser.getYqlBatcher();
+        List<QueryStatement> statements = parser.getStatements();
+
+        if (batcher.isValidBatch()) {
+            if (batcher.getCommand() == YqlBatcher.Cmd.INSERT && opts.isReplaceInsertToUpsert()) {
+                batcher.setForcedUpsert();
+            }
+            if (batcher.getCommand() == YqlBatcher.Cmd.UPSERT && opts.isForceBulkUpsert()) {
+                type = QueryType.BULK_QUERY;
+            }
+        } else {
+            if (opts.isForceScanSelect() && statements.size() == 1 && statements.get(0).getCmd() == QueryCmd.SELECT) {
+                if (parser.detectQueryType() == QueryType.DATA_QUERY) { // Only data queries may be converter to SCAN
+                    type = QueryType.SCAN_QUERY;
+                }
+            }
+        }
+
         if (type == null) {
             type = parser.detectQueryType();
         }
-        if (parser.getYqlBatcher().isValidBatch()) {
-            return new YdbQuery(query, preparedYQL, parser.getStatements(), parser.getYqlBatcher(), type);
-        }
-        return new YdbQuery(query, preparedYQL, parser.getStatements(), type);
+
+        return new YdbQuery(query, preparedYQL, statements, batcher, type);
     }
 }

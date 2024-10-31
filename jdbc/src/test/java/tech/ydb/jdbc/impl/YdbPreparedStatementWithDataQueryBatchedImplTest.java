@@ -25,15 +25,11 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
     @RegisterExtension
-    private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb);
+    private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb)
+            .withArg("useQueryService", "false");
 
     private static final String TEST_TABLE_NAME = "ydb_prepared_statement_with_batch_test";
     private static final SqlQueries TEST_TABLE = new SqlQueries(TEST_TABLE_NAME);
-
-    private static final String UPSERT_SQL = ""
-            + "declare $key as Optional<Int32>;\n"
-            + "declare $#column as #type;\n"
-            + "upsert into #tableName (key, #column) values ($key, $#column)";
 
     private static final String BATCH_UPSERT_SQL = ""
             + "declare $values as List<Struct<key:Int32, #column:#type>>; \n"
@@ -75,13 +71,6 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
 
         jdbc.connection().commit(); // MUST be auto rollbacked
         jdbc.connection().close();
-    }
-
-    private String upsertSql(String column, String type) {
-        return UPSERT_SQL
-                .replaceAll("#column", column)
-                .replaceAll("#type", type)
-                .replaceAll("#tableName", TEST_TABLE_NAME);
     }
 
     private String batchUpsertSql(String column, String type) {

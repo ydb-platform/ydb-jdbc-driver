@@ -1,28 +1,23 @@
 package tech.ydb.jdbc.context;
 
 import java.sql.SQLException;
-import java.util.List;
 
-import tech.ydb.jdbc.YdbConst;
-import tech.ydb.jdbc.query.ExplainedQuery;
+import tech.ydb.jdbc.YdbStatement;
+import tech.ydb.jdbc.impl.YdbQueryResult;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.Params;
-import tech.ydb.table.result.ResultSetReader;
+import tech.ydb.table.values.ListValue;
 
 /**
  *
  * @author Aleksandr Gorshenin
  */
 public interface YdbExecutor {
-    default void ensureOpened() throws SQLException {
-        if (isClosed()) {
-            throw new SQLException(YdbConst.CLOSED_CONNECTION);
-        }
-    }
+    void close() throws SQLException;
+    boolean isClosed() throws SQLException;
+    void ensureOpened() throws SQLException;
 
-    boolean isClosed();
-
-    String txID();
+    String txID() throws SQLException;
     int transactionLevel() throws SQLException;
 
     boolean isInsideTransaction() throws SQLException;
@@ -33,21 +28,17 @@ public interface YdbExecutor {
     void setReadOnly(boolean readOnly) throws SQLException;
     void setAutoCommit(boolean autoCommit) throws SQLException;
 
-    void executeSchemeQuery(YdbContext ctx, YdbValidator validator, String yql) throws SQLException;
-
-    List<ResultSetReader> executeDataQuery(YdbContext ctx, YdbValidator validator, YdbQuery query, String yql,
-            long timeout, boolean poolable, Params params) throws SQLException;
-
-    ResultSetReader executeScanQuery(YdbContext ctx, YdbValidator validator, YdbQuery query, String yql, Params params)
+    YdbQueryResult executeSchemeQuery(YdbStatement statement, YdbQuery query) throws SQLException;
+    YdbQueryResult executeBulkUpsert(YdbStatement statement, YdbQuery query, String tablePath, ListValue rows)
             throws SQLException;
-
-    ExplainedQuery executeExplainQuery(YdbContext ctx, YdbValidator validator, String yql)
+    YdbQueryResult executeExplainQuery(YdbStatement statement, YdbQuery query) throws SQLException;
+    YdbQueryResult executeScanQuery(YdbStatement statement, YdbQuery query, String yql, Params params)
             throws SQLException;
+    YdbQueryResult executeDataQuery(YdbStatement statement, YdbQuery query, String yql, Params params,
+            long timeout, boolean poolable) throws SQLException;
 
     void commit(YdbContext ctx, YdbValidator validator) throws SQLException;
     void rollback(YdbContext ctx, YdbValidator validator) throws SQLException;
 
     boolean isValid(YdbValidator validator, int timeout) throws SQLException;
-
-    void close();
 }

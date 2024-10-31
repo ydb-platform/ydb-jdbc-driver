@@ -13,7 +13,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -25,10 +24,15 @@ import tech.ydb.core.grpc.GrpcTransportBuilder;
 import tech.ydb.core.settings.BaseRequestSettings;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbPrepareMode;
+import tech.ydb.jdbc.YdbTracer;
 import tech.ydb.jdbc.exception.ExceptionFactory;
+import tech.ydb.jdbc.impl.YdbTracerNone;
+import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbPreparedQuery;
 import tech.ydb.jdbc.query.YdbQuery;
+import tech.ydb.jdbc.query.YqlBatcher;
 import tech.ydb.jdbc.query.params.BatchedQuery;
+import tech.ydb.jdbc.query.params.BulkUpsertQuery;
 import tech.ydb.jdbc.query.params.InMemoryQuery;
 import tech.ydb.jdbc.query.params.PreparedQuery;
 import tech.ydb.jdbc.settings.YdbClientProperties;
@@ -41,9 +45,9 @@ import tech.ydb.query.impl.QueryClientImpl;
 import tech.ydb.scheme.SchemeClient;
 import tech.ydb.table.SessionRetryContext;
 import tech.ydb.table.TableClient;
-import tech.ydb.table.description.TableColumn;
 import tech.ydb.table.description.TableDescription;
 import tech.ydb.table.impl.PooledTableClient;
+import tech.ydb.table.query.DataQuery;
 import tech.ydb.table.query.ExplainDataQueryResult;
 import tech.ydb.table.rpc.grpc.GrpcTableRpc;
 import tech.ydb.table.settings.DescribeTableSettings;
@@ -73,10 +77,13 @@ public class YdbContext implements AutoCloseable {
     private final QueryClientImpl queryClient;
     private final SchemeClient schemeClient;
     private final SessionRetryContext retryCtx;
+    private final String prefixPath;
+    private final String prefixPragma;
 
     private final Cache<String, YdbQuery> queriesCache;
     private final Cache<String, QueryStat> statsCache;
     private final Cache<String, Map<String, Type>> queryParamsCache;
+    private final Cache<String, TableDescription> tableDescribeCache;
 
     private final boolean autoResizeSessionPool;
     private final AtomicInteger connectionsCount = new AtomicInteger();
@@ -106,6 +113,7 @@ public class YdbContext implements AutoCloseable {
         if (cacheSize > 0) {
             queriesCache = CacheBuilder.newBuilder().maximumSize(cacheSize).build();
             queryParamsCache = CacheBuilder.newBuilder().maximumSize(cacheSize).build();
+            tableDescribeCache = CacheBuilder.newBuilder().maximumSize(cacheSize).build();
             if (config.isFullScanDetectorEnabled()) {
                 statsCache = CacheBuilder.newBuilder().maximumSize(cacheSize).build();
             } else {
@@ -115,6 +123,15 @@ public class YdbContext implements AutoCloseable {
             queriesCache = null;
             statsCache = null;
             queryParamsCache = null;
+            tableDescribeCache = null;
+        }
+
+        if (config.hasPrefixPath()) {
+            prefixPath = joined(transport.getDatabase(), config.getPrefixPath());
+            prefixPragma = "PRAGMA TablePathPrefix = \"" + prefixPath + "\";\n";
+        } else {
+            prefixPath = transport.getDatabase();
+            prefixPragma = "";
         }
     }
 
@@ -127,8 +144,16 @@ public class YdbContext implements AutoCloseable {
         return grpcTransport;
     }
 
-    public String getDatabase() {
-        return grpcTransport.getDatabase();
+    private String joined(String path1, String path2) {
+        return path1.endsWith("/") || path2.startsWith("/") ? path1 + path2 : path1 + "/" + path2;
+    }
+
+    public String getPrefixPath() {
+        return prefixPath;
+    }
+
+    String getPrefixPragma() {
+        return prefixPragma;
     }
 
     public SchemeClient getSchemeClient() {
@@ -143,12 +168,24 @@ public class YdbContext implements AutoCloseable {
         return queryClient;
     }
 
+    public SessionRetryContext getRetryCtx() {
+        return retryCtx;
+    }
+
     public String getUrl() {
         return config.getUrl();
     }
 
     public String getUsername() {
         return config.getUsername();
+    }
+
+    public YdbTracer getTracer() {
+        return config.isTxTracedEnabled() ? YdbTracer.current() : YdbTracerNone.current();
+    }
+
+    public boolean isTxTracerEnabled() {
+        return config.isTxTracedEnabled();
     }
 
     public YdbExecutor createExecutor() throws SQLException {
@@ -213,6 +250,7 @@ public class YdbContext implements AutoCloseable {
             int newSize = maxSize + SESSION_POOL_RESIZE_STEP;
             if (maxSize == tableClient.sessionPoolStats().getMaxSize()) {
                 tableClient.updatePoolMaxSize(newSize);
+                queryClient.updatePoolMaxSize(newSize);
             }
         }
     }
@@ -225,6 +263,7 @@ public class YdbContext implements AutoCloseable {
                 int newSize = maxSize - SESSION_POOL_RESIZE_STEP;
                 if (maxSize == tableClient.sessionPoolStats().getMaxSize()) {
                     tableClient.updatePoolMaxSize(newSize);
+                    queryClient.updatePoolMaxSize(newSize);
                 }
             }
         }
@@ -345,26 +384,48 @@ public class YdbContext implements AutoCloseable {
             }
         }
 
-        if (query.getYqlBatcher() != null && mode == YdbPrepareMode.AUTO) {
-            Map<String, Type> types = queryParamsCache.getIfPresent(query.getOriginQuery());
-            if (types == null) {
-                String tableName = query.getYqlBatcher().getTableName();
-                String tablePath = tableName.startsWith("/") ? tableName : getDatabase() + "/" + tableName;
+        QueryType type = query.getType();
+
+        if (type == QueryType.BULK_QUERY) {
+            if (query.getYqlBatcher() == null || query.getYqlBatcher().getCommand() != YqlBatcher.Cmd.UPSERT) {
+                throw new SQLException(YdbConst.BULKS_UNSUPPORTED);
+            }
+        }
+
+        if (type == QueryType.EXPLAIN_QUERY || type == QueryType.SCHEME_QUERY) {
+            return new InMemoryQuery(query, queryOptions.isDeclareJdbcParameters());
+        }
+
+        if (query.getYqlBatcher() != null && (mode == YdbPrepareMode.AUTO || type == QueryType.BULK_QUERY)) {
+            String tablePath = joined(getPrefixPath(), query.getYqlBatcher().getTableName());
+            TableDescription description = tableDescribeCache.getIfPresent(tablePath);
+            if (description == null) {
+                YdbTracer tracer = getTracer();
+                tracer.trace("--> describe table");
+                tracer.query(tablePath);
 
                 DescribeTableSettings settings = withDefaultTimeout(new DescribeTableSettings());
                 Result<TableDescription> result = retryCtx.supplyResult(
                         session -> session.describeTable(tablePath, settings)
                 ).join();
 
+                tracer.trace("<-- " + result.getStatus());
+
                 if (result.isSuccess()) {
-                    TableDescription descrtiption = result.getValue();
-                    types = descrtiption.getColumns().stream()
-                            .collect(Collectors.toMap(TableColumn::getName, TableColumn::getType));
-                    queryParamsCache.put(query.getOriginQuery(), types);
+                    description = result.getValue();
+                    tableDescribeCache.put(tablePath, description);
+                } else {
+                    if (type == QueryType.BULK_QUERY) {
+                        throw new SQLException(YdbConst.BULKS_DESCRIBE_ERROR + result.getStatus());
+                    }
                 }
             }
-            if (types != null) {
-                BatchedQuery params = BatchedQuery.createAutoBatched(query.getYqlBatcher(), types);
+            if (type == QueryType.BULK_QUERY) {
+                return BulkUpsertQuery.build(tablePath, query.getYqlBatcher().getColumns(), description);
+            }
+
+            if (description != null) {
+                BatchedQuery params = BatchedQuery.createAutoBatched(query.getYqlBatcher(), description);
                 if (params != null) {
                     return params;
                 }
@@ -378,32 +439,40 @@ public class YdbContext implements AutoCloseable {
         }
 
         // try to prepare data query
-        try {
-            Map<String, Type> types = queryParamsCache.getIfPresent(query.getOriginQuery());
-            if (types == null) {
-                String yql = query.getPreparedYql();
-                PrepareDataQuerySettings settings = withDefaultTimeout(new PrepareDataQuerySettings());
-                types = retryCtx.supplyResult(session -> session.prepareDataQuery(yql, settings))
-                        .join()
-                        .getValue()
-                        .types();
-                queryParamsCache.put(query.getOriginQuery(), types);
+        Map<String, Type> types = queryParamsCache.getIfPresent(query.getOriginQuery());
+        if (types == null) {
+            String yql = prefixPragma + query.getPreparedYql();
+            YdbTracer tracer = getTracer();
+            tracer.trace("--> prepare data query");
+            tracer.query(yql);
+
+            PrepareDataQuerySettings settings = withDefaultTimeout(new PrepareDataQuerySettings());
+            Result<DataQuery> result = retryCtx.supplyResult(
+                    session -> session.prepareDataQuery(yql, settings)
+            ).join();
+
+            tracer.trace("<-- " + result.getStatus());
+            if (!result.isSuccess()) {
+                tracer.close();
+                throw ExceptionFactory.createException("Cannot prepare data query: " + result.getStatus(),
+                        new UnexpectedResultException("Unexpected status", result.getStatus()));
             }
 
-            boolean requireBatch = mode == YdbPrepareMode.DATA_QUERY_BATCH;
-            if (requireBatch || (mode == YdbPrepareMode.AUTO && queryOptions.isDetectBatchQueries())) {
-                BatchedQuery params = BatchedQuery.tryCreateBatched(query, types);
-                if (params != null) {
-                    return params;
-                }
-
-                if (requireBatch) {
-                    throw new SQLDataException(YdbConst.STATEMENT_IS_NOT_A_BATCH + query.getOriginQuery());
-                }
-            }
-            return new PreparedQuery(query, types);
-        } catch (UnexpectedResultException ex) {
-            throw ExceptionFactory.createException("Cannot prepare data query: " + ex.getMessage(), ex);
+            types = result.getValue().types();
+            queryParamsCache.put(query.getOriginQuery(), types);
         }
+
+        boolean requireBatch = mode == YdbPrepareMode.DATA_QUERY_BATCH;
+        if (requireBatch || (mode == YdbPrepareMode.AUTO && queryOptions.isDetectBatchQueries())) {
+            BatchedQuery params = BatchedQuery.tryCreateBatched(query, types);
+            if (params != null) {
+                return params;
+            }
+
+            if (requireBatch) {
+                throw new SQLDataException(YdbConst.STATEMENT_IS_NOT_A_BATCH + query.getOriginQuery());
+            }
+        }
+        return new PreparedQuery(query, types);
     }
 }

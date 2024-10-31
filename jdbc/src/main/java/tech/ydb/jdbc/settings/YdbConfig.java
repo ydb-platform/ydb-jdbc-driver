@@ -38,12 +38,18 @@ public class YdbConfig {
                     + "{@code 0} disables the cache.", 256
     );
     static final YdbProperty<Boolean> USE_QUERY_SERVICE = YdbProperty.bool("useQueryService",
-            "Use QueryService intead of TableService", false
+            "Use QueryService instead of TableService", true
     );
+
+    static final YdbProperty<String> USE_PREFIX_PATH = YdbProperty.string("usePrefixPath",
+            "Add prefix path to all operations performed by driver");
+
     static final YdbProperty<Boolean> FULLSCAN_DETECTOR_ENABLED = YdbProperty.bool(
             "jdbcFullScanDetector", "Enable analizator for collecting query stats", false
     );
-
+    static final YdbProperty<Boolean> TRANSACTION_TRACER = YdbProperty.bool(
+            "enableTxTracer", "Enable collecting of transaction execution traces", false
+    );
 
     private final String url;
     private final String username;
@@ -55,8 +61,12 @@ public class YdbConfig {
     private final Properties properties;
     private final boolean isCacheConnectionsInDriver;
     private final int preparedStatementsCacheSize;
+
     private final boolean useQueryService;
+    private final YdbValue<String> usePrefixPath;
+
     private final boolean fullScanDetectorEnabled;
+    private final boolean txTracerEnabled;
 
     private YdbConfig(
             String url, String safeUrl, String connectionString, String username, String password, Properties props
@@ -69,8 +79,12 @@ public class YdbConfig {
         this.properties = props;
         this.isCacheConnectionsInDriver = CACHE_CONNECTIONS_IN_DRIVER.readValue(props).getValue();
         this.preparedStatementsCacheSize = Math.max(0, PREPARED_STATEMENT_CACHE_SIZE.readValue(props).getValue());
+
         this.useQueryService = USE_QUERY_SERVICE.readValue(props).getValue();
+        this.usePrefixPath = USE_PREFIX_PATH.readValue(props);
+
         this.fullScanDetectorEnabled = FULLSCAN_DETECTOR_ENABLED.readValue(props).getValue();
+        this.txTracerEnabled = TRANSACTION_TRACER.readValue(props).getValue();
     }
 
     public Properties getSafeProps() {
@@ -101,8 +115,20 @@ public class YdbConfig {
         return this.useQueryService;
     }
 
+    public boolean hasPrefixPath() {
+        return usePrefixPath.hasValue();
+    }
+
+    public String getPrefixPath() {
+        return usePrefixPath.getValue();
+    }
+
     public boolean isFullScanDetectorEnabled() {
         return fullScanDetectorEnabled;
+    }
+
+    public boolean isTxTracedEnabled() {
+        return txTracerEnabled;
     }
 
     static boolean isSensetive(String key) {
@@ -151,12 +177,14 @@ public class YdbConfig {
             YdbConfig.CACHE_CONNECTIONS_IN_DRIVER.toInfo(properties),
             YdbConfig.PREPARED_STATEMENT_CACHE_SIZE.toInfo(properties),
             YdbConfig.USE_QUERY_SERVICE.toInfo(properties),
+            YdbConfig.USE_PREFIX_PATH.toInfo(properties),
 
             YdbConnectionProperties.LOCAL_DATACENTER.toInfo(properties),
             YdbConnectionProperties.USE_SECURE_CONNECTION.toInfo(properties),
             YdbConnectionProperties.SECURE_CONNECTION_CERTIFICATE.toInfo(properties),
             YdbConnectionProperties.TOKEN.toInfo(properties),
-            YdbConnectionProperties.SERVICE_ACCOUNT_FILE.toInfo(properties),
+            YdbConnectionProperties.TOKEN_FILE.toInfo(properties),
+            YdbConnectionProperties.SA_KEY_FILE.toInfo(properties),
             YdbConnectionProperties.USE_METADATA.toInfo(properties),
             YdbConnectionProperties.IAM_ENDPOINT.toInfo(properties),
             YdbConnectionProperties.METADATA_URL.toInfo(properties),
@@ -167,6 +195,7 @@ public class YdbConfig {
             YdbClientProperties.SESSION_POOL_SIZE_MIN.toInfo(properties),
             YdbClientProperties.SESSION_POOL_SIZE_MAX.toInfo(properties),
 
+            YdbOperationProperties.USE_STREAM_RESULT_SETS.toInfo(properties),
             YdbOperationProperties.JOIN_DURATION.toInfo(properties),
             YdbOperationProperties.QUERY_TIMEOUT.toInfo(properties),
             YdbOperationProperties.SCAN_QUERY_TIMEOUT.toInfo(properties),
@@ -177,13 +206,17 @@ public class YdbConfig {
             YdbOperationProperties.TRANSACTION_LEVEL.toInfo(properties),
             YdbOperationProperties.SCHEME_QUERY_TX_MODE.toInfo(properties),
             YdbOperationProperties.SCAN_QUERY_TX_MODE.toInfo(properties),
+            YdbOperationProperties.BULK_QUERY_TX_MODE.toInfo(properties),
 
             YdbQueryProperties.DISABLE_PREPARE_DATAQUERY.toInfo(properties),
             YdbQueryProperties.DISABLE_AUTO_PREPARED_BATCHES.toInfo(properties),
             YdbQueryProperties.DISABLE_DETECT_SQL_OPERATIONS.toInfo(properties),
             YdbQueryProperties.DISABLE_JDBC_PARAMETERS.toInfo(properties),
             YdbQueryProperties.DISABLE_JDBC_PARAMETERS_DECLARE.toInfo(properties),
-            YdbQueryProperties.FORCE_QUERY_MODE.toInfo(properties),
+
+            YdbQueryProperties.REPLACE_INSERT_TO_UPSERT.toInfo(properties),
+            YdbQueryProperties.FORCE_BULK_UPSERT.toInfo(properties),
+            YdbQueryProperties.FORCE_SCAN_SELECT.toInfo(properties),
         };
     }
 

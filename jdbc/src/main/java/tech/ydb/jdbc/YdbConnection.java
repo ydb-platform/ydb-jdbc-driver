@@ -2,76 +2,19 @@ package tech.ydb.jdbc;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.List;
 
 import javax.annotation.Nullable;
 
 import tech.ydb.jdbc.context.YdbContext;
-import tech.ydb.jdbc.context.YdbValidator;
-import tech.ydb.jdbc.query.ExplainedQuery;
-import tech.ydb.jdbc.query.YdbQuery;
-import tech.ydb.table.query.Params;
-import tech.ydb.table.result.ResultSetReader;
+import tech.ydb.jdbc.context.YdbExecutor;
 
 public interface YdbConnection extends Connection {
-    /**
-     * Return current YDB transaction, if exists
-     *
-     * @return YDB transaction ID or null, if no transaction started
-     */
     @Nullable
-    String getYdbTxId();
-
+    String getYdbTxId() throws SQLException;
 
     YdbContext getCtx();
 
-    /**
-     * Explicitly execute query as a schema query
-     *
-     * @param yql query (DDL) to execute
-     * @param validator handler for logging and warnings
-     * @throws SQLException if query cannot be executed
-     */
-    void executeSchemeQuery(String yql, YdbValidator validator) throws SQLException;
-
-    /**
-     * Explicitly execute query as a data query
-     *
-     * @param query query to execute
-     * @param yql YQL text to execute
-     * @param params parameters for query
-     * @param timeout timeout of operation
-     * @param keepInCache flag to store query in server-side cache
-     * @param validator handler for logging and warnings
-     * @return list of result set
-     * @throws SQLException if query cannot be executed
-     */
-    List<ResultSetReader> executeDataQuery(YdbQuery query, String yql, YdbValidator validator,
-            int timeout, boolean keepInCache, Params params) throws SQLException;
-
-    /**
-     * Explicitly execute query as a scan query
-     *
-     * @param query query to execute
-     * @param yql YQL text to execute
-     * @param params parameters for query
-     * @param validator handler for logging and warnings
-     * @return single result set with rows
-     * @throws SQLException if query cannot be executed
-     */
-    ResultSetReader executeScanQuery(YdbQuery query, String yql, YdbValidator validator, Params params)
-            throws SQLException;
-
-    /**
-     * Explicitly explain this query
-     *
-     * @param yql query to explain
-     * @param validator handler for logging and warnings
-     * @return list of result set of two string columns: {@link YdbConst#EXPLAIN_COLUMN_AST}
-     * and {@link YdbConst#EXPLAIN_COLUMN_PLAN}
-     * @throws SQLException if query cannot be explained
-     */
-    ExplainedQuery executeExplainQuery(String yql, YdbValidator validator) throws SQLException;
+    YdbExecutor getExecutor();
 
     @Override
     YdbDatabaseMetaData getMetaData() throws SQLException;

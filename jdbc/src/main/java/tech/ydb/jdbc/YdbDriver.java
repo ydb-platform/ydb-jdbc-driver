@@ -99,6 +99,11 @@ public class YdbDriver implements Driver {
     }
 
     @Override
+    public String toString() {
+        return YdbDriverInfo.DRIVER_FULL_NAME;
+    }
+
+    @Override
     public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) throws SQLException {
         YdbConfig config = YdbConfig.from(url, info);
         return config.toPropertyInfo();
@@ -129,9 +134,11 @@ public class YdbDriver implements Driver {
     }
 
     public void close() {
-        LOGGER.log(Level.INFO, "Closing {0} cached connection(s)...", cache.size());
-        cache.values().forEach(YdbContext::close);
-        cache.clear();
+        if (!cache.isEmpty()) {
+            LOGGER.log(Level.FINE, "Closing {0} cached connection(s)...", cache.size());
+            cache.values().forEach(YdbContext::close);
+            cache.clear();
+        }
     }
 
     public static boolean isRegistered() {

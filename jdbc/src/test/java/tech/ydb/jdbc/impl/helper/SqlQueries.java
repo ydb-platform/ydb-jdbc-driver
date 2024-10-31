@@ -16,6 +16,7 @@ public class SqlQueries {
         IN_MEMORY,
         TYPED,
         BATCHED,
+        BULK,
     }
 
     public enum YqlQuery {
@@ -33,21 +34,27 @@ public class SqlQueries {
     private static final String IN_MEMORY_UPSERT = YdbLookup.stringFileReference("classpath:sql/upsert/in_memory.sql");
     private static final String NAMED_UPSERT = YdbLookup.stringFileReference("classpath:sql/upsert/named.sql");
     private static final String TYPED_UPSERT = YdbLookup.stringFileReference("classpath:sql/upsert/typed.sql");
+    private static final String BULK_UPSERT = YdbLookup.stringFileReference("classpath:sql/upsert/bulk.sql");
 
     private static final String NAMED_BATCH = YdbLookup.stringFileReference("classpath:sql/upsert/named_batch.sql");
     private static final String TYPED_BATCH = YdbLookup.stringFileReference("classpath:sql/upsert/typed_batch.sql");
 
-    private static final String SELECT_ALL = "select * from #tableName";
+    private static final String SELECT_ALL = "select * from #tableName order by key";
     private static final String SELECT_BY_KEY = "select * from #tableName where key = #value";
     private static final String SELECT_BY_COLUMN = "select * from #tableName where #column = #value";
     private static final String DELETE_ALL = "delete from #tableName";
     private static final String SELECT_COLUMN = "select key, #column from #tableName";
     private static final String WRONG_SELECT = "select key2 from #tableName";
 
-    private static final Map<JdbcQuery, String> JDBC_UPSERT_ONE = ImmutableMap.of(JdbcQuery.STANDARD, "" +
+    private static final Map<JdbcQuery, String> JDBC_UPSERT_ONE = ImmutableMap.of(
+            JdbcQuery.STANDARD, "" +
                     "upsert into #tableName (key, #column) values (?, ?)",
 
+            JdbcQuery.BULK, "" +
+                    "bulk upsert into #tableName (key, #column) values (?, ?)",
+
             JdbcQuery.IN_MEMORY, "" +
+                    "$ignored = select 1;\n" +
                     "upsert into #tableName (key, #column) values (?, ?); select 1;",
 
             JdbcQuery.TYPED, "" +
@@ -94,7 +101,7 @@ public class SqlQueries {
         return withTableName(INIT_TABLE);
     }
 
-    /** @return select * from #tableName */
+    /** @return select * from #tableName order by key */
     public String selectAllSQL() {
         return withTableName(SELECT_ALL);
     }
@@ -121,6 +128,10 @@ public class SqlQueries {
         return withTableName(SELECT);
     }
 
+    /** @return scan select key, c_Bool, c_Int8, ...  from #tableName */
+    public String scanSelectSQL() {
+        return withTableName("SCAN " + SELECT);
+    }
 
     /** @return select key2 from #tableName */
     public String wrongSelectSQL() {
@@ -151,6 +162,8 @@ public class SqlQueries {
                 return withTableName(TYPED_BATCH, tableName);
             case TYPED:
                 return withTableName(TYPED_UPSERT, tableName);
+            case BULK:
+                return withTableName(BULK_UPSERT, tableName);
             case STANDARD:
             default:
                 return withTableName(SIMPLE_UPSERT, tableName);

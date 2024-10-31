@@ -1,6 +1,7 @@
 package tech.ydb.jdbc;
 
 import java.sql.Connection;
+import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.ArrayDeque;
@@ -30,6 +31,25 @@ public class YdbDriverIntegrationTest {
     private static final JdbcUrlHelper jdbcURL = new JdbcUrlHelper(ydb);
 
     @Test
+    public void registerTest() throws SQLException {
+        try {
+            YdbDriver.deregister();
+        } catch (IllegalStateException ex) {
+            // skip error if driver was deregistered already
+        }
+
+        IllegalStateException ex1 = Assertions.assertThrows(IllegalStateException.class, () -> YdbDriver.deregister());
+        Assertions.assertEquals(YdbConst.DRIVER_IS_NOT_REGISTERED, ex1.getMessage());
+
+        Assertions.assertFalse(YdbDriver.isRegistered());
+        YdbDriver.register();
+        Assertions.assertTrue(YdbDriver.isRegistered());
+
+        IllegalStateException ex2 = Assertions.assertThrows(IllegalStateException.class, () -> YdbDriver.register());
+        Assertions.assertEquals(YdbConst.DRIVER_IS_ALREADY_REGISTERED, ex2.getMessage());
+    }
+
+    @Test
     public void connect() throws SQLException {
         try (Connection connection = DriverManager.getConnection(jdbcURL.build())) {
             Assertions.assertTrue(connection instanceof YdbConnectionImpl);
@@ -43,8 +63,15 @@ public class YdbDriverIntegrationTest {
 
     @Test
     public void testContextCache() throws SQLException {
+        Driver jdbcDriver = DriverManager.getDriver(jdbcURL.build());
+        Assertions.assertTrue(jdbcDriver instanceof YdbDriver);
+
+        YdbDriver driver = (YdbDriver)jdbcDriver;
+        Assertions.assertEquals(0, driver.getConnectionCount());
+
         Connection firstConnection = DriverManager.getConnection(jdbcURL.build());
         Assertions.assertTrue(firstConnection.isValid(5000));
+        Assertions.assertEquals(1, driver.getConnectionCount());
 
         YdbConnection first = firstConnection.unwrap(YdbConnection.class);
         Assertions.assertNotNull(first.getCtx());
@@ -53,6 +80,7 @@ public class YdbDriverIntegrationTest {
 
         try (Connection conn2 = DriverManager.getConnection(jdbcURL.build())) {
             Assertions.assertTrue(conn2.isValid(5000));
+            Assertions.assertEquals(1, driver.getConnectionCount());
 
             YdbConnection unwrapped = conn2.unwrap(YdbConnection.class);
             Assertions.assertNotNull(unwrapped.getCtx());
@@ -62,6 +90,7 @@ public class YdbDriverIntegrationTest {
         Properties props = new Properties();
         try (Connection conn3 = DriverManager.getConnection(jdbcURL.build(), props)) {
             Assertions.assertTrue(conn3.isValid(5000));
+            Assertions.assertEquals(1, driver.getConnectionCount());
 
             YdbConnection unwrapped = conn3.unwrap(YdbConnection.class);
             Assertions.assertNotNull(unwrapped.getCtx());
@@ -71,6 +100,7 @@ public class YdbDriverIntegrationTest {
         props.setProperty("TEST_KEY", "TEST_VALUE");
         try (Connection conn4 = DriverManager.getConnection(jdbcURL.build(), props)) {
             Assertions.assertTrue(conn4.isValid(5000));
+            Assertions.assertEquals(2, driver.getConnectionCount());
 
             YdbConnection unwrapped = conn4.unwrap(YdbConnection.class);
             Assertions.assertNotNull(unwrapped.getCtx());
@@ -79,6 +109,7 @@ public class YdbDriverIntegrationTest {
 
         try (Connection conn5 = DriverManager.getConnection(jdbcURL.withArg("test", "false").build())) {
             Assertions.assertTrue(conn5.isValid(5000));
+            Assertions.assertEquals(2, driver.getConnectionCount());
 
             YdbConnection unwrapped = conn5.unwrap(YdbConnection.class);
             Assertions.assertNotNull(unwrapped.getCtx());
@@ -86,14 +117,56 @@ public class YdbDriverIntegrationTest {
         }
 
         firstConnection.close();
+        Assertions.assertEquals(0, driver.getConnectionCount());
 
         try (Connection conn6 = DriverManager.getConnection(jdbcURL.build())) {
             Assertions.assertTrue(conn6.isValid(5000));
+            Assertions.assertEquals(1, driver.getConnectionCount());
 
             YdbConnection unwrapped = conn6.unwrap(YdbConnection.class);
             Assertions.assertNotNull(unwrapped.getCtx());
             Assertions.assertNotSame(ctx, unwrapped.getCtx());
         }
+
+        Assertions.assertEquals(0, driver.getConnectionCount());
+    }
+
+    @Test
+    public void testContextCacheDisable() throws SQLException {
+        Driver jdbcDriver = DriverManager.getDriver(jdbcURL.build());
+        Assertions.assertTrue(jdbcDriver instanceof YdbDriver);
+        YdbDriver driver = (YdbDriver)jdbcDriver;
+        Assertions.assertEquals(0, driver.getConnectionCount());
+
+        Properties props = new Properties();
+        props.put("cacheConnectionsInDriver", "false");
+
+        Connection conn1 = DriverManager.getConnection(jdbcURL.build(), props);
+        Assertions.assertEquals(0, driver.getConnectionCount());
+
+        YdbConnection first = conn1.unwrap(YdbConnection.class);
+        Assertions.assertNotNull(first.getCtx());
+        YdbContext ctx = first.getCtx();
+
+        try (Connection conn2 = DriverManager.getConnection(jdbcURL.build())) {
+            Assertions.assertEquals(1, driver.getConnectionCount());
+
+            YdbConnection second = conn2.unwrap(YdbConnection.class);
+            Assertions.assertNotNull(second.getCtx());
+            Assertions.assertNotSame(ctx, second.getCtx());
+        }
+
+        Assertions.assertEquals(0, driver.getConnectionCount());
+
+        try (Connection conn2 = DriverManager.getConnection(jdbcURL.build(), props)) {
+            Assertions.assertEquals(0, driver.getConnectionCount());
+
+            YdbConnection second = conn2.unwrap(YdbConnection.class);
+            Assertions.assertNotNull(second.getCtx());
+            Assertions.assertNotSame(ctx, second.getCtx());
+        }
+
+        conn1.close();
     }
 
     @Test

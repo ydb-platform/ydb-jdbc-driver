@@ -26,7 +26,6 @@ import org.junit.jupiter.params.provider.EnumSource;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbParameterMetaData;
-import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.YdbPreparedStatement;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
@@ -36,41 +35,39 @@ import tech.ydb.table.values.DecimalValue;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
 
-public class YdbQueryPreparedStatementImplTest {
-    private static final Logger LOGGER = Logger.getLogger(YdbQueryPreparedStatementImplTest.class.getName());
+public class YdbTablePreparedStatementImplTest {
+    private static final Logger LOGGER = Logger.getLogger(YdbTablePreparedStatementImplTest.class.getName());
 
     @RegisterExtension
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
     @RegisterExtension
     private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb)
-            .withArg("useQueryService", "true");
+            .withArg("useQueryService", "false");
 
     private static final String TEST_TABLE_NAME = "ydb_prepared_statement_test";
     private static final SqlQueries TEST_TABLE = new SqlQueries(TEST_TABLE_NAME);
-
-    private static final String UPSERT_SQL = ""
-            + "declare $key as Int32;\n"
-            + "declare $#column as #type;\n"
-            + "upsert into #tableName (key, #column) values ($key, $#column)";
 
     private static final String SIMPLE_SELECT_SQL = "select key, #column from #tableName";
     private static final String SELECT_BY_KEY_SQL = ""
             + "declare $key as Optional<Int32>;\n"
             + "select key, #column from #tableName where key=$key";
+    private static final String SCAN_SELECT_BY_KEY_SQL = ""
+            + "declare $key as Optional<Int32>;\n"
+            + "scan select key, #column from #tableName where key=$key";
 
     @BeforeAll
     public static void initTable() throws SQLException {
-        try (Statement statement = jdbc.connection().createStatement();) {
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(TEST_TABLE.createTableSQL())) {
             // create test table
-            statement.execute(TEST_TABLE.createTableSQL());
+            ps.execute();
         }
     }
 
     @AfterAll
     public static void dropTable() throws SQLException {
-        try (Statement statement = jdbc.connection().createStatement();) {
-            statement.execute(TEST_TABLE.dropTableSQL());
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(TEST_TABLE.dropTableSQL())) {
+            ps.execute();
         }
     }
 
@@ -80,23 +77,11 @@ public class YdbQueryPreparedStatementImplTest {
             return;
         }
 
-        try (Statement statement = jdbc.connection().createStatement()) {
-            statement.execute(TEST_TABLE.deleteAllSQL());
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(TEST_TABLE.deleteAllSQL())) {
+            ps.execute();
         }
 
         jdbc.connection().close();
-    }
-
-    private String upsertSql(String column, String type) {
-        return UPSERT_SQL
-                .replaceAll("#column", column)
-                .replaceAll("#type", type)
-                .replaceAll("#tableName", TEST_TABLE_NAME);
-    }
-
-    private YdbPreparedStatement prepareUpsert(YdbPrepareMode mode,String column, String type)
-            throws SQLException {
-        return jdbc.connection().unwrap(YdbConnection.class).prepareStatement(upsertSql(column, type), mode);
     }
 
     private PreparedStatement prepareSimpleSelect(String column) throws SQLException {
@@ -111,6 +96,20 @@ public class YdbQueryPreparedStatementImplTest {
                 .replaceAll("#column", column)
                 .replaceAll("#tableName", TEST_TABLE_NAME);
         return jdbc.connection().prepareStatement(sql).unwrap(YdbPreparedStatement.class);
+    }
+
+    private PreparedStatement prepareScanSelect(String column) throws SQLException {
+        String sql = SIMPLE_SELECT_SQL
+                .replaceAll("#column", column)
+                .replaceAll("#tableName", TEST_TABLE_NAME);
+        return jdbc.connection().prepareStatement("SCAN " + sql);
+    }
+
+    private String scanSelectByKey(String column) throws SQLException {
+        String sql = SCAN_SELECT_BY_KEY_SQL
+                .replaceAll("#column", column)
+                .replaceAll("#tableName", TEST_TABLE_NAME);
+        return sql;
     }
 
     private YdbPreparedStatement prepareSelectAll() throws SQLException {
@@ -262,7 +261,7 @@ public class YdbQueryPreparedStatementImplTest {
     }
 
     @Test
-    public void executeQueryBatchWithBigRead() throws SQLException {
+    public void executeQueryBatchWithScanRead() throws SQLException {
         int valuesCount = 5000;
         String[] values = new String[valuesCount];
         for (int idx = 1; idx <= valuesCount; idx += 1) {
@@ -285,7 +284,14 @@ public class YdbQueryPreparedStatementImplTest {
             }
         }
 
-        try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
+        ExceptionAssert.sqlException("Result #0 was truncated to 1000 rows", () -> {
+            // Result is truncated (and we catch that)
+            try (PreparedStatement select = prepareSimpleSelect("c_Text")) {
+                select.executeQuery();
+            }
+        });
+
+        try (PreparedStatement select = prepareScanSelect("c_Text")) {
             TextSelectAssert check = TextSelectAssert.of(select.executeQuery(), "c_Text", "Text");
 
             for (int idx = 1; idx <= valuesCount; idx += 1) {
@@ -360,32 +366,53 @@ public class YdbQueryPreparedStatementImplTest {
         }
     }
 
-    @Test
-    public void executeScanQueryAsUpdate() throws SQLException {
-        String sql = upsertSql("c_Text", "Optional<Text>");
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(SqlQueries.YqlQuery.class)
+    public void executeScanQueryInTx(SqlQueries.YqlQuery mode) throws SQLException {
+        String upsertYql = TEST_TABLE.upsertOne(mode, "c_Text", "Text");
+        String scanSelectYql = scanSelectByKey("c_Text");
 
-        try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class)
-                .prepareStatement(sql, YdbPrepareMode.IN_MEMORY)
-                .unwrap(YdbPreparedStatement.class)) {
-            statement.setInt("key", 1);
-            statement.setString("c_Text", "value-1");
+        jdbc.connection().setAutoCommit(false);
+        YdbConnection conn = jdbc.connection().unwrap(YdbConnection.class);
+        try {
+            try (YdbPreparedStatement statement = conn.prepareStatement(upsertYql)) {
+                statement.setInt("key", 1);
+                statement.setString("c_Text", "value-1");
+                statement.execute();
+            }
 
-            ExceptionAssert.ydbException("Scan query should have a single result set",
-                    statement::executeScanQuery);
+            try (YdbPreparedStatement select = conn.prepareStatement(scanSelectYql)) {
+                select.setInt("key", 1);
+
+                ExceptionAssert.sqlException(YdbConst.SCAN_QUERY_INSIDE_TRANSACTION, () -> select.executeQuery());
+
+                jdbc.connection().commit();
+
+                select.setInt("key", 1);
+                TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
+                        .nextRow(1, "value-1")
+                        .noNextRows();
+
+                select.setInt("key", 2);
+                TextSelectAssert.of(select.executeQuery(), "c_Text", "Text")
+                        .noNextRows();
+            }
+        } finally {
+            jdbc.connection().setAutoCommit(true);
         }
     }
 
     @Test
-    public void executeUnsupportedModes() throws SQLException {
-        ExceptionAssert.sqlException("Query type in prepared statement not supported: SCHEME_QUERY", () -> {
-            String sql = "DROP TABLE test_table;";
-            jdbc.connection().prepareStatement(sql);
-        });
+    public void executeScanQueryAsUpdate() throws SQLException {
+        String sql = "SCAN " + TEST_TABLE.upsertOne(SqlQueries.JdbcQuery.STANDARD, "c_Text", "Optional<Text>");
 
-        ExceptionAssert.sqlException("Query type in prepared statement not supported: EXPLAIN_QUERY", () -> {
-            String sql = "EXPLAIN " + prepareSelectAll();
-            jdbc.connection().prepareStatement(sql);
-        });
+        try (PreparedStatement statement = jdbc.connection().prepareStatement(sql)) {
+            statement.setInt(1, 1);
+            statement.setString(2, "value-1");
+
+            ExceptionAssert.ydbException("Scan query should have a single result set",
+                    statement::executeQuery);
+        }
     }
 
     @ParameterizedTest(name = "with {0}")
