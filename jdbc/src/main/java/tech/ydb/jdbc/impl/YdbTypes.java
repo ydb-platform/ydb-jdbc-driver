@@ -19,6 +19,7 @@ import io.grpc.netty.shaded.io.netty.util.collection.IntObjectHashMap;
 import io.grpc.netty.shaded.io.netty.util.collection.IntObjectMap;
 
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.YdbJdbcCode;
 import tech.ydb.table.values.DecimalType;
 import tech.ydb.table.values.DecimalValue;
 import tech.ydb.table.values.PrimitiveType;
@@ -37,10 +38,14 @@ public class YdbTypes {
     private YdbTypes() {
         typeBySqlType = new IntObjectHashMap<>(18 + PrimitiveType.values().length);
 
-        // Store custom type ids to use it for PrepaparedStatement.setObject
-        for (PrimitiveType type: PrimitiveType.values()) {
+        // Store custom type ids to use it for PreparedStatement.setObject
+        for (PrimitiveType type : PrimitiveType.values()) {
             typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + type.ordinal(), type);
         }
+
+        typeBySqlType.put(YdbJdbcCode.DECIMAL_22_9, DecimalType.of(22, 9));
+        typeBySqlType.put(YdbJdbcCode.DECIMAL_31_9, DecimalType.of(31, 9));
+        typeBySqlType.put(YdbJdbcCode.DECIMAL_35_9, DecimalType.of(35, 9));
 
         typeBySqlType.put(Types.VARCHAR, PrimitiveType.Text);
         typeBySqlType.put(Types.BIGINT, PrimitiveType.Int64);
