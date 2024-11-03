@@ -39,6 +39,7 @@ import tech.ydb.table.description.TableDescription;
 import tech.ydb.table.description.TableIndex;
 import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.settings.DescribeTableSettings;
+import tech.ydb.table.values.DecimalType;
 import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.table.values.Type;
 
@@ -799,7 +800,14 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
                     nullable = columnNoNulls;
                 }
 
-                int decimalDigits = type.getKind() == Type.Kind.DECIMAL ? YdbConst.SQL_DECIMAL_DEFAULT_PRECISION : 0;
+                int decimalDigits = 0;
+                if (type.getKind() == Type.Kind.DECIMAL) {
+                    if (type instanceof DecimalType) {
+                        decimalDigits = ((DecimalType) type).getPrecision();
+                    } else {
+                        decimalDigits = DecimalType.getDefault().getPrecision();
+                    }
+                }
 
                 rs.newRow()
                         .withTextValue("TABLE_NAME", tableName)
@@ -874,11 +882,17 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         for (String key : description.getPrimaryKeys()) {
             TableColumn column = columnMap.get(key);
             Type type = column.getType();
+            int decimalDigits = 0;
             if (type.getKind() == Type.Kind.OPTIONAL) {
                 type = type.unwrapOptional();
             }
-
-            int decimalDigits = type.getKind() == Type.Kind.DECIMAL ? YdbConst.SQL_DECIMAL_DEFAULT_PRECISION : 0;
+            if (type.getKind() == Type.Kind.DECIMAL) {
+                if (type instanceof DecimalType) {
+                    decimalDigits = ((DecimalType) type).getPrecision();
+                } else {
+                    decimalDigits = DecimalType.getDefault().getPrecision();
+                }
+            }
 
             rs.newRow()
                     .withShortValue("SCOPE", (short) scope)
@@ -962,7 +976,15 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
         for (Type type: YdbTypes.getAllDatabaseTypes()) {
             String literal = getLiteral(type);
-            int scale = type.getKind() == Type.Kind.DECIMAL ? YdbConst.SQL_DECIMAL_DEFAULT_SCALE : 0;
+            int scale = 0;
+            if (type.getKind() == Type.Kind.DECIMAL) {
+                if (type instanceof DecimalType) {
+                    scale = ((DecimalType) type).getScale();
+                } else {
+                    scale = DecimalType.getDefault().getScale();
+                }
+            }
+
             rs.newRow()
                     .withTextValue("TYPE_NAME", type.toString())
                     .withIntValue("DATA_TYPE", YdbTypes.toSqlType(type))

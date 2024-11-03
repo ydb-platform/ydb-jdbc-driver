@@ -424,7 +424,7 @@ public class YdbDatabaseMetaDataImplTest {
         rs.nextRow(name.eq("Timestamp"), type.eq(Types.TIMESTAMP), precision.eq(26), unsigned.eq(false)).assertAll();
         rs.nextRow(name.eq("Interval"), type.eq(Types.BIGINT), precision.eq(8), unsigned.eq(false)).assertAll();
 
-        rs.nextRow(name.eq("Decimal(22, 9)"), type.eq(Types.DECIMAL), precision.eq(16),
+        rs.nextRow(name.eq("Decimal(22, 9)"), type.eq(Types.DECIMAL), precision.eq(22),
                 unsigned.eq(false), fixedPrec.eq(true), minScale.eq(9), maxScale.eq(9)).assertAll();
 
         rs.assertNoRows();
@@ -616,7 +616,7 @@ public class YdbDatabaseMetaDataImplTest {
                 columnSize.eq(8), ordinal.eq(21)).assertAll();
 
         rs.nextRow(columnName.eq("c_Decimal"), dataType.eq(Types.DECIMAL), typeName.eq("Decimal(22, 9)"),
-                columnSize.eq(16), ordinal.eq(22), decimalDigits.eq(22)).assertAll();
+                columnSize.eq(22), ordinal.eq(22), decimalDigits.eq(22)).assertAll();
 
         rs.assertNoRows();
 

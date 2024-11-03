@@ -245,7 +245,7 @@ public class YdbTypes {
             case OPTIONAL:
                 return getSqlPrecisionImpl(type.unwrapOptional());
             case DECIMAL:
-                return 8 + 8;
+                return ((DecimalType) type).getPrecision();
             case PRIMITIVE:
                 return getSqlPrecisionImpl((PrimitiveType) type);
             default:
