@@ -66,15 +66,15 @@ public class MappingGetters {
                         castToShortNotSupported(clazz),
                         value -> safeDecimalInt(value.getDecimal()),
                         value -> safeDecimalLong(value.getDecimal()),
-                        value -> value.getDecimal().toBigDecimal().floatValue(),
-                        value -> value.getDecimal().toBigDecimal().doubleValue(),
+                        value -> safeDecimal(value.getDecimal()).floatValue(),
+                        value -> safeDecimal(value.getDecimal()).doubleValue(),
                         castToBytesNotSupported(clazz),
-                        value -> value.getDecimal().toBigDecimal(),
+                        value -> safeDecimal(value.getDecimal()),
                         castToClassNotSupported(clazz),
                         castToInstantNotSupported(clazz),
                         castToNStringNotSupported(clazz),
                         castToUrlNotSupported(clazz),
-                        value -> value.getDecimal().toBigDecimal(),
+                        value -> safeDecimal(value.getDecimal()),
                         castToReaderNotSupported(clazz)
                 );
             case VOID:
@@ -233,6 +233,13 @@ public class MappingGetters {
             default:
                 return castToBooleanNotSupported(id.name());
         }
+    }
+
+    private static BigDecimal safeDecimal(DecimalValue value) throws SQLException {
+        if (value.isInf() || value.isNegativeInf() || value.isNan()) {
+            throw cannotConvert(value.getType(), BigDecimal.class, value.toString());
+        }
+        return value.toBigDecimal();
     }
 
     private static int safeDecimalInt(DecimalValue value) throws SQLException {
