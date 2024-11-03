@@ -23,12 +23,16 @@ UPSERT INTO #tableName (
     c_JsonDocument,
     c_Yson,
 
+    c_Uuid,
+
     c_Date,
     c_Datetime,
     c_Timestamp,
     c_Interval,
 
-    c_Decimal
+    c_Decimal,
+    c_BigDecimal,
+    c_BankDecimal
 ) VALUES (
     ?, -- key
     ?, -- c_Bool
@@ -52,10 +56,14 @@ UPSERT INTO #tableName (
     ?, -- c_JsonDocument
     ?, -- c_Yson
 
+    ?, -- c_Uuid
+
     ?, -- c_Date
     ?, -- c_Datetime
     ?, -- c_Timestamp
     ?, -- c_Interval
 
-    ?  -- c_Decimal
+    ?, -- c_Decimal
+    ?, -- c_BigDecimal
+    ?  -- c_BankDecimal
 )

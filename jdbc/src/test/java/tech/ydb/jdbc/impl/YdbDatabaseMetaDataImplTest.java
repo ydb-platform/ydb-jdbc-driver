@@ -606,17 +606,24 @@ public class YdbDatabaseMetaDataImplTest {
         rs.nextRow(columnName.eq("c_Yson"), dataType.eq(Types.BINARY), typeName.eq("Yson"),
                 columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq(17)).assertAll();
 
+        rs.nextRow(columnName.eq("c_Uuid"), dataType.eq(Types.VARCHAR), typeName.eq("Uuid"),
+                columnSize.eq(16), ordinal.eq(18)).assertAll();
+
         rs.nextRow(columnName.eq("c_Date"), dataType.eq(Types.DATE), typeName.eq("Date"),
-                columnSize.eq(10), ordinal.eq(18)).assertAll();
+                columnSize.eq(10), ordinal.eq(19)).assertAll();
         rs.nextRow(columnName.eq("c_Datetime"), dataType.eq(Types.TIMESTAMP), typeName.eq("Datetime"),
-                columnSize.eq(19), ordinal.eq(19)).assertAll();
+                columnSize.eq(19), ordinal.eq(20)).assertAll();
         rs.nextRow(columnName.eq("c_Timestamp"), dataType.eq(Types.TIMESTAMP), typeName.eq("Timestamp"),
-                columnSize.eq(26), ordinal.eq(20)).assertAll();
+                columnSize.eq(26), ordinal.eq(21)).assertAll();
         rs.nextRow(columnName.eq("c_Interval"), dataType.eq(Types.BIGINT), typeName.eq("Interval"),
-                columnSize.eq(8), ordinal.eq(21)).assertAll();
+                columnSize.eq(8), ordinal.eq(22)).assertAll();
 
         rs.nextRow(columnName.eq("c_Decimal"), dataType.eq(Types.DECIMAL), typeName.eq("Decimal(22, 9)"),
-                columnSize.eq(22), ordinal.eq(22), decimalDigits.eq(22)).assertAll();
+                columnSize.eq(22), ordinal.eq(23), decimalDigits.eq(22)).assertAll();
+        rs.nextRow(columnName.eq("c_BigDecimal"), dataType.eq(Types.DECIMAL), typeName.eq("Decimal(35, 0)"),
+                columnSize.eq(35), ordinal.eq(24), decimalDigits.eq(35)).assertAll();
+        rs.nextRow(columnName.eq("c_BankDecimal"), dataType.eq(Types.DECIMAL), typeName.eq("Decimal(31, 9)"),
+                columnSize.eq(31), ordinal.eq(25), decimalDigits.eq(31)).assertAll();
 
         rs.assertNoRows();
 

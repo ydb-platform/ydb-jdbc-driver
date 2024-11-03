@@ -14,6 +14,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.table.values.DecimalType;
@@ -112,6 +113,7 @@ public class YdbTypes {
         typeByClass.put(String.class, PrimitiveType.Text);
         typeByClass.put(byte[].class, PrimitiveType.Bytes);
 
+        typeByClass.put(UUID.class, PrimitiveType.Uuid);
         typeByClass.put(java.sql.Date.class, PrimitiveType.Date);
         typeByClass.put(LocalDate.class, PrimitiveType.Date);
         typeByClass.put(LocalDateTime.class, PrimitiveType.Datetime);
@@ -211,11 +213,7 @@ public class YdbTypes {
             case OPTIONAL:
                 return toSqlTypeImpl(type.unwrapOptional());
             case DECIMAL:
-                DecimalType decimal = (DecimalType) type;
-                if (DecimalType.getDefault().equals(type)) {
-                    return Types.DECIMAL;
-                }
-                return YdbConst.SQL_KIND_DECIMAL + decimal.getPrecision() << 5 + decimal.getScale();
+                return Types.DECIMAL;
             case STRUCT:
                 return Types.STRUCT;
             case LIST:

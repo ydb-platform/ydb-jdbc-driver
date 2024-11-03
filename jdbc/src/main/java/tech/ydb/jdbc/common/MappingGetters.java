@@ -64,8 +64,8 @@ public class MappingGetters {
                         castToBooleanNotSupported(clazz),
                         castToByteNotSupported(clazz),
                         castToShortNotSupported(clazz),
-                        value -> value.getDecimal().toBigInteger().intValue(),
-                        value -> value.getDecimal().toBigInteger().longValue(),
+                        value -> safeDecimalInt(value.getDecimal()),
+                        value -> safeDecimalLong(value.getDecimal()),
                         value -> value.getDecimal().toBigDecimal().floatValue(),
                         value -> value.getDecimal().toBigDecimal().doubleValue(),
                         castToBytesNotSupported(clazz),
@@ -232,6 +232,28 @@ public class MappingGetters {
                 };
             default:
                 return castToBooleanNotSupported(id.name());
+        }
+    }
+
+    private static int safeDecimalInt(DecimalValue value) throws SQLException {
+        if (value.isInf() || value.isNegativeInf() || value.isNan()) {
+            throw cannotConvert(value.getType(), int.class, value.toString());
+        }
+        try {
+            return value.toBigDecimal().intValueExact();
+        } catch (ArithmeticException ex) {
+            throw cannotConvert(value.getType(), int.class, value.toString());
+        }
+    }
+
+    private static long safeDecimalLong(DecimalValue value) throws SQLException {
+        if (value.isInf() || value.isNegativeInf() || value.isNan()) {
+            throw cannotConvert(value.getType(), long.class, value.toString());
+        }
+        try {
+            return value.toBigDecimal().longValueExact();
+        } catch (ArithmeticException ex) {
+            throw cannotConvert(value.getType(), long.class, value.toString());
         }
     }
 
@@ -574,8 +596,9 @@ public class MappingGetters {
             case Text:
             case Json:
             case JsonDocument:
-            case Uuid:
                 return new SqlType(sqlType, String.class);
+            case Uuid:
+                return new SqlType(sqlType, UUID.class);
             case Bytes:
             case Yson:
                 return new SqlType(sqlType, byte[].class);
@@ -857,7 +880,7 @@ public class MappingGetters {
         }
     }
 
-    private static SQLException cannotConvert(PrimitiveType type, Class<?> javaType, Object value) {
+    private static SQLException cannotConvert(Type type, Class<?> javaType, Object value) {
         return new SQLException(String.format(YdbConst.UNABLE_TO_CONVERT, type, value, javaType));
     }
 

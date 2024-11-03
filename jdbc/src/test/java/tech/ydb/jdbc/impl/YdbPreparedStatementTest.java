@@ -19,6 +19,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
+import java.util.UUID;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -225,6 +226,10 @@ public class YdbPreparedStatementTest {
         return YdbConst.SQL_KIND_PRIMITIVE + type.ordinal();
     }
 
+    private int ydbType(DecimalType type) {
+        return YdbConst.SQL_KIND_DECIMAL + (type.getPrecision() << 5) + type.getScale();
+    }
+
     private void fillRowValues(PreparedStatement statement, int id, boolean castingSupported) throws SQLException {
         statement.setInt(1, id);                // id
 
@@ -253,28 +258,37 @@ public class YdbPreparedStatementTest {
         statement.setBytes(13, new byte[] { (byte)id });      // c_Bytes
         statement.setString(14, "Text_" + id);                // c_Text
 
+        UUID uuid = UUID.nameUUIDFromBytes(("uuid" + id).getBytes());
         if (castingSupported) {
             statement.setString(15, "{\"json\": " + id + "}");    // c_Json
             statement.setString(16, "{\"jsonDoc\": " + id + "}"); // c_JsonDocument
             statement.setString(17, "{yson=" + id + "}");         // c_Yson
+            statement.setString(18, uuid.toString()); // c_Uuid
         } else {
             statement.setObject(15, "{\"json\": " + id + "}",    ydbType(PrimitiveType.Json));         // c_Json
             statement.setObject(16, "{\"jsonDoc\": " + id + "}", ydbType(PrimitiveType.JsonDocument)); // c_JsonDocument
             statement.setObject(17, "{yson=" + id + "}",         ydbType(PrimitiveType.Yson));         // c_Yson
+            statement.setObject(18, uuid, ydbType(PrimitiveType.Uuid)); // c_Uuid
         }
-
 
         Date sqlDate = new Date(TEST_TS.toEpochMilli());
         LocalDateTime dateTime = LocalDateTime.ofInstant(TEST_TS, ZoneOffset.UTC).plusMinutes(id);
         Timestamp timestamp = Timestamp.from(TEST_TS.plusSeconds(id));
         Duration duration = Duration.ofMinutes(id);
 
-        statement.setDate(18, sqlDate);        // c_Date
-        statement.setObject(19, dateTime);     // c_Datetime
-        statement.setTimestamp(20, timestamp); // c_Timestamp
-        statement.setObject(21, duration);     // c_Interval
+        statement.setDate(19, sqlDate);        // c_Date
+        statement.setObject(20, dateTime);     // c_Datetime
+        statement.setTimestamp(21, timestamp); // c_Timestamp
+        statement.setObject(22, duration);     // c_Interval
 
-        statement.setBigDecimal(22, BigDecimal.valueOf(10000 + id, 3)); // c_Decimal
+        statement.setBigDecimal(23, BigDecimal.valueOf(10000 + id, 3)); // c_Decimal
+        if (castingSupported) {
+            statement.setBigDecimal(24, BigDecimal.valueOf(20000 + id, 0)); // c_BigDecimal
+            statement.setBigDecimal(25, BigDecimal.valueOf(30000 + id, 6)); // c_BankDecimal
+        } else {
+            statement.setObject(24, BigDecimal.valueOf(20000 + id, 0), ydbType(DecimalType.of(35, 0))); // c_BigDecimal
+            statement.setObject(25, BigDecimal.valueOf(30000 + id, 6), ydbType(DecimalType.of(31, 9))); // c_BankDecimal
+        }
     }
 
     private void assertRowValues(ResultSet rs, int id) throws SQLException {
@@ -302,7 +316,7 @@ public class YdbPreparedStatementTest {
         Assertions.assertEquals("{\"json\": " + id + "}", rs.getString("c_Json"));
         Assertions.assertEquals("{\"jsonDoc\":" + id + "}", rs.getString("c_JsonDocument"));
         Assertions.assertEquals("{yson=" + id + "}", rs.getString("c_Yson"));
-
+        Assertions.assertEquals(UUID.nameUUIDFromBytes(("uuid" + id).getBytes()).toString(), rs.getString("c_Uuid"));
 
         Date sqlDate = new Date(TEST_TS.toEpochMilli());
         LocalDateTime dateTime = LocalDateTime.ofInstant(TEST_TS, ZoneOffset.UTC).plusMinutes(id)
@@ -315,6 +329,8 @@ public class YdbPreparedStatementTest {
         Assertions.assertEquals(Duration.ofMinutes(id), rs.getObject("c_Interval"));
 
         Assertions.assertEquals(BigDecimal.valueOf(1000000l * (10000 + id), 9), rs.getBigDecimal("c_Decimal"));
+        Assertions.assertEquals(BigDecimal.valueOf(20000 + id), rs.getBigDecimal("c_BigDecimal"));
+        Assertions.assertEquals(BigDecimal.valueOf(1000l * (30000 + id), 9), rs.getBigDecimal("c_BankDecimal"));
     }
 
     private void assertStructMember(Value<?> value, StructValue sv, String name) {
@@ -350,7 +366,7 @@ public class YdbPreparedStatementTest {
         Assertions.assertTrue(obj instanceof StructValue);
         StructValue sv = (StructValue) obj;
 
-        Assertions.assertEquals(22, sv.getType().getMembersCount());
+        Assertions.assertEquals(25, sv.getType().getMembersCount());
 
         assertStructMember(PrimitiveValue.newInt32(id), sv, "key");
         assertStructMember(PrimitiveValue.newBool(id % 2 == 0), sv, "c_Bool");
@@ -374,6 +390,7 @@ public class YdbPreparedStatementTest {
         assertStructMember(PrimitiveValue.newJsonDocument("{\"jsonDoc\":" + id + "}"), sv, "c_JsonDocument");
         assertStructMember(PrimitiveValue.newYson(("{yson=" + id + "}").getBytes()), sv, "c_Yson");
 
+        assertStructMember(PrimitiveValue.newUuid(UUID.nameUUIDFromBytes(("uuid" + id).getBytes())), sv, "c_Uuid");
 
         Date sqlDate = new Date(TEST_TS.toEpochMilli());
         LocalDateTime dateTime = LocalDateTime.ofInstant(TEST_TS, ZoneOffset.UTC).plusMinutes(id)
@@ -385,6 +402,8 @@ public class YdbPreparedStatementTest {
         assertStructMember(PrimitiveValue.newInterval(Duration.ofMinutes(id)), sv, "c_Interval");
 
         assertStructMember(DecimalType.getDefault().newValue(BigDecimal.valueOf(10000 + id, 3)), sv, "c_Decimal");
+        assertStructMember(DecimalType.of(35, 0).newValue(BigDecimal.valueOf(20000 + id, 0)), sv, "c_BigDecimal");
+        assertStructMember(DecimalType.of(31, 9).newValue(BigDecimal.valueOf(30000 + id, 6)), sv, "c_BankDecimal");
     }
 
     @ParameterizedTest(name = "with {0}")
