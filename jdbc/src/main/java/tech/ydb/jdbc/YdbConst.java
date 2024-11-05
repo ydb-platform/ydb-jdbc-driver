@@ -6,11 +6,7 @@ public final class YdbConst {
     public static final int UNKNOWN_SQL_TYPE = Integer.MIN_VALUE;
 
     public static final int SQL_KIND_PRIMITIVE = 10000;
-    public static final int SQL_KIND_DECIMAL = 1 << 15; // 32768
-
-    // YDB does not support types with custom precision yet
-    public static final int SQL_DECIMAL_DEFAULT_PRECISION = 22;
-    public static final int SQL_DECIMAL_DEFAULT_SCALE = 9;
+    public static final int SQL_KIND_DECIMAL = 1 << 14; // 16384
 
     // Built-in limits
     public static final int MAX_PRIMARY_KEY_SIZE = 1024 * 1024; // 1 MiB per index

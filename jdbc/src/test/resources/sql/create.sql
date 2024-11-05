@@ -14,24 +14,32 @@ create table #tableName
     c_Uint16       Uint16,
     c_Uint32       Uint32,
     c_Uint64       Uint64,
+
     -- Floats
     c_Float        Float,
     c_Double       Double,
+
     -- Binary & texts
     c_Bytes        Bytes,
     c_Text         Text,
     c_Json         Json,
     c_JsonDocument JsonDocument,
     c_Yson         Yson,
+
+    -- UUID
+    c_Uuid         Uuid,
+
     -- Dates
     c_Date         Date,
     c_Datetime     Datetime,
     c_Timestamp    Timestamp,
     c_Interval     Interval,
+
     -- Decimal
     c_Decimal      Decimal(22,9),
+    c_BigDecimal   Decimal(35, 0),
+    c_BankDecimal  Decimal(31, 9),
 
-    -- unsupported c_Uuid Uuid,
     -- unsupported c_TzDate TzDate,
     -- unsupported c_TzDatetime TzDatetime,
     -- unsupported c_TzTimestamp TzTimestamp,

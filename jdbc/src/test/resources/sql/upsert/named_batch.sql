@@ -22,12 +22,16 @@ declare $list as List<Struct<
     c_JsonDocument:Optional<JsonDocument>,
     c_Yson:Optional<Yson>,
 
+    c_Uuid:Optional<Uuid>,
+
     c_Date:Optional<Date>,
     c_Datetime:Optional<Datetime>,
     c_Timestamp:Optional<Timestamp>,
     c_Interval:Optional<Interval>,
 
-    c_Decimal:Optional<Decimal(22,9)>
+    c_Decimal:Optional<Decimal(22, 9)>,
+    c_BigDecimal:Optional<Decimal(35, 0)>,
+    c_BankDecimal:Optional<Decimal(31, 9)>
 >>;
 
 upsert into #tableName select * from as_table($list)
