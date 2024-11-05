@@ -227,7 +227,7 @@ public class YdbPreparedStatementTest {
     }
 
     private int ydbType(DecimalType type) {
-        return YdbConst.SQL_KIND_DECIMAL + (type.getPrecision() << 5) + type.getScale();
+        return YdbConst.SQL_KIND_DECIMAL + (type.getPrecision() << 6) + type.getScale();
     }
 
     private void fillRowValues(PreparedStatement statement, int id, boolean castingSupported) throws SQLException {

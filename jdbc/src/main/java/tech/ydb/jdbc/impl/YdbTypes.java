@@ -136,8 +136,8 @@ public class YdbTypes {
 
     private Type findTypeImpl(Object obj, int sqlType) {
         if ((sqlType & YdbConst.SQL_KIND_DECIMAL) != 0) {
-            int precision = ((sqlType - YdbConst.SQL_KIND_DECIMAL) >> 5);
-            int scale = ((sqlType - YdbConst.SQL_KIND_DECIMAL) & 0b11111);
+            int precision = ((sqlType - YdbConst.SQL_KIND_DECIMAL) >> 6);
+            int scale = ((sqlType - YdbConst.SQL_KIND_DECIMAL) & 0b111111);
             if (precision > 0 && precision < 36 && scale >= 0 && scale <= precision) {
                 return DecimalType.of(precision, scale);
             }
