@@ -392,7 +392,8 @@ public class YdbContext implements AutoCloseable {
             }
         }
 
-        if (type == QueryType.EXPLAIN_QUERY || type == QueryType.SCHEME_QUERY) {
+        if (type == QueryType.EXPLAIN_QUERY || type == QueryType.SCHEME_QUERY ||
+                !queryOptions.isPrepareDataQueries() || mode == YdbPrepareMode.IN_MEMORY) {
             return new InMemoryQuery(query, queryOptions.isDeclareJdbcParameters());
         }
 
@@ -432,9 +433,7 @@ public class YdbContext implements AutoCloseable {
             }
         }
 
-        if (!query.isPlainYQL()
-                || mode == YdbPrepareMode.IN_MEMORY
-                || !queryOptions.isPrepareDataQueries()) {
+        if (!query.isPlainYQL()) {
             return new InMemoryQuery(query, queryOptions.isDeclareJdbcParameters());
         }
 
