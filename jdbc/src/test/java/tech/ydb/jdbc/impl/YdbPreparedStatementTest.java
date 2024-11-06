@@ -255,8 +255,8 @@ public class YdbPreparedStatementTest {
         statement.setFloat(11, 1.5f * id);      // c_Float
         statement.setDouble(12, 2.5d * id);     // c_Double
 
-        statement.setBytes(13, new byte[] { (byte)id });      // c_Bytes
-        statement.setString(14, "Text_" + id);                // c_Text
+        statement.setBytes(13, ("bytes" + id).getBytes()); // c_Bytes
+        statement.setString(14, "Text_" + id);             // c_Text
 
         UUID uuid = UUID.nameUUIDFromBytes(("uuid" + id).getBytes());
         if (castingSupported) {
@@ -311,7 +311,7 @@ public class YdbPreparedStatementTest {
         Assertions.assertEquals(1.5f * id, rs.getFloat("c_Float"), 0.001f);
         Assertions.assertEquals(2.5d * id, rs.getDouble("c_Double"), 0.001d);
 
-        Assertions.assertArrayEquals(new byte[] { (byte)id }, rs.getBytes("c_Bytes"));
+        Assertions.assertArrayEquals(("bytes" + id).getBytes(), rs.getBytes("c_Bytes"));
         Assertions.assertEquals("Text_" + id, rs.getString("c_Text"));
         Assertions.assertEquals("{\"json\": " + id + "}", rs.getString("c_Json"));
         Assertions.assertEquals("{\"jsonDoc\":" + id + "}", rs.getString("c_JsonDocument"));
@@ -384,7 +384,7 @@ public class YdbPreparedStatementTest {
         assertStructMember(PrimitiveValue.newFloat(1.5f * id), sv, "c_Float");
         assertStructMember(PrimitiveValue.newDouble(2.5d * id), sv, "c_Double");
 
-        assertStructMember(PrimitiveValue.newBytes(new byte[] { (byte)id }), sv, "c_Bytes");
+        assertStructMember(PrimitiveValue.newBytes(("bytes" + id).getBytes()), sv, "c_Bytes");
         assertStructMember(PrimitiveValue.newText("Text_" + id), sv, "c_Text");
         assertStructMember(PrimitiveValue.newJson("{\"json\": " + id + "}"), sv, "c_Json");
         assertStructMember(PrimitiveValue.newJsonDocument("{\"jsonDoc\":" + id + "}"), sv, "c_JsonDocument");
@@ -444,6 +444,54 @@ public class YdbPreparedStatementTest {
                 assertRowValues(rs, 3);
                 assertRowValues(rs, 6);
 
+                Assertions.assertFalse(rs.next());
+            }
+        }
+    };
+
+    @Test
+    public void setStringTest() throws SQLException {
+        String upsert = TEST_TABLE.upsertAll(SqlQueries.JdbcQuery.STANDARD);
+        int id = 120;
+        UUID uuid = UUID.nameUUIDFromBytes(("uuid" + id).getBytes());
+
+        try (PreparedStatement statement = jdbc.connection().prepareStatement(upsert)) {
+            statement.setString(1, String.valueOf(id)); // id
+            statement.setString(2, String.valueOf(id % 2 == 0));   // c_Bool
+            statement.setString(3, String.valueOf(id + 1)); // c_Int8
+            statement.setString(4, String.valueOf(id + 2)); // c_Int16
+            statement.setString(5, String.valueOf(id + 3)); // c_Int32
+            statement.setString(6, String.valueOf(id + 4)); // c_Int64
+            statement.setString(7, String.valueOf(id + 5)); // c_Uint8
+            statement.setString(8, String.valueOf(id + 6)); // c_Uint16
+            statement.setString(9, String.valueOf(id + 7)); // c_Uint32
+            statement.setString(10, String.valueOf(id + 8));    // c_Uint64
+            statement.setString(11, String.valueOf(1.5f * id)); // c_Float
+            statement.setString(12, String.valueOf(2.5d * id)); // c_Double
+            statement.setString(13, "bytes" + id);              // c_Bytes
+            statement.setString(14, "Text_" + id);              // c_Text
+            statement.setString(15, "{\"json\": " + id + "}");  // c_Json
+            statement.setString(16, "{\"jsonDoc\": " + id + "}"); // c_JsonDocument
+            statement.setString(17, "{yson=" + id + "}");         // c_Yson
+            statement.setString(18, uuid.toString()); // c_Uuid
+
+            Date sqlDate = new Date(TEST_TS.toEpochMilli());
+            LocalDateTime dateTime = LocalDateTime.ofInstant(TEST_TS, ZoneOffset.UTC).plusMinutes(id);
+
+            statement.setString(19, sqlDate.toString());   // c_Date
+            statement.setString(20, dateTime.toString());  // c_Datetime
+            statement.setString(21, TEST_TS.plusSeconds(id).toString()); // c_Timestamp
+            statement.setString(22, Duration.ofMinutes(id).toString());  // c_Interval
+
+            statement.setString(23, BigDecimal.valueOf(10000 + id, 3).toString()); // c_Decimal
+            statement.setString(24, BigDecimal.valueOf(20000 + id, 0).toString()); // c_BigDecimal
+            statement.setString(25, BigDecimal.valueOf(30000 + id, 6).toString()); // c_BankDecimal
+            statement.execute();
+        }
+
+        try (Statement statement = jdbc.connection().createStatement()) {
+            try (ResultSet rs = statement.executeQuery(TEST_TABLE.selectSQL())) {
+                assertRowValues(rs, id);
                 Assertions.assertFalse(rs.next());
             }
         }

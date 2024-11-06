@@ -250,6 +250,12 @@ public class MappingSetters {
             return ((Long) x).byteValue();
         } else if (x instanceof Boolean) {
             return (byte) (((Boolean) x) ? 1 : 0);
+        } else if (x instanceof String) {
+            try {
+                return Byte.parseByte((String) x);
+            } catch (NumberFormatException e) {
+                throw castNotSupported(type, x, e);
+            }
         }
         throw castNotSupported(type, x);
     }
@@ -265,6 +271,12 @@ public class MappingSetters {
             return ((Long) x).shortValue();
         } else if (x instanceof Boolean) {
             return (short) (((Boolean) x) ? 1 : 0);
+        } else if (x instanceof String) {
+            try {
+                return Short.parseShort((String) x);
+            } catch (NumberFormatException e) {
+                throw castNotSupported(type, x, e);
+            }
         }
         throw castNotSupported(type, x);
     }
@@ -286,6 +298,12 @@ public class MappingSetters {
             return (int) ((Date) x).toLocalDate().toEpochDay();
         } else if (x instanceof Timestamp) {
             return (int) ((Timestamp) x).getTime();
+        } else if (x instanceof String) {
+            try {
+                return Integer.parseInt((String) x);
+            } catch (NumberFormatException e) {
+                throw castNotSupported(type, x, e);
+            }
         }
         throw castNotSupported(type, x);
     }
@@ -309,6 +327,12 @@ public class MappingSetters {
             return ((Date) x).toLocalDate().toEpochDay();
         } else if (x instanceof Timestamp) {
             return ((Timestamp) x).getTime();
+        } else if (x instanceof String) {
+            try {
+                return Long.parseLong((String) x);
+            } catch (NumberFormatException e) {
+                throw castNotSupported(type, x, e);
+            }
         }
         throw castNotSupported(type, x);
     }
@@ -324,6 +348,12 @@ public class MappingSetters {
             return (Byte) x;
         } else if (x instanceof Boolean) {
             return ((Boolean) x) ? 1f : 0f;
+        } else if (x instanceof String) {
+            try {
+                return Float.parseFloat((String) x);
+            } catch (NumberFormatException e) {
+                throw castNotSupported(type, x, e);
+            }
         }
         throw castNotSupported(type, x);
     }
@@ -343,6 +373,12 @@ public class MappingSetters {
             return (Byte) x;
         } else if (x instanceof Boolean) {
             return ((Boolean) x) ? 1d : 0d;
+        } else if (x instanceof String) {
+            try {
+                return Double.parseDouble((String) x);
+            } catch (NumberFormatException e) {
+                throw castNotSupported(type, x, e);
+            }
         }
         throw castNotSupported(type, x);
     }
@@ -353,6 +389,8 @@ public class MappingSetters {
         } else if (x instanceof Number) {
             long lValue = ((Number) x).longValue();
             return lValue > 0;
+        } else if (x instanceof String) {
+            return Boolean.parseBoolean((String) x);
         }
         throw castNotSupported(type, x);
     }
@@ -370,13 +408,11 @@ public class MappingSetters {
         } else if (x instanceof Long) {
             return PrimitiveValue.newInterval((Long) x);
         } else if (x instanceof String) {
-            Duration parsed;
             try {
-                parsed = Duration.parse((String) x);
+                return PrimitiveValue.newInterval(Duration.parse((String) x));
             } catch (DateTimeParseException e) {
                 throw castNotSupported(type, x, e);
             }
-            return PrimitiveValue.newInterval(parsed);
         }
         throw castNotSupported(type, x);
     }
