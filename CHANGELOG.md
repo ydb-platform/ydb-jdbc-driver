@@ -1,3 +1,10 @@
+## 2.3.3 ##
+
+* Upgraded to YDB Java SDK 2.3.5
+* Added support of setString for all YDB types
+* Fixed disablePrepareDataQuery option
+* Added support of UUID and custom decimal types
+
 ## 2.3.2 ##
 
 * Fixed typo in YdbTracer
