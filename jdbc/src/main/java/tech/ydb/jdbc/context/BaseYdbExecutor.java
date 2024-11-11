@@ -7,12 +7,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 import tech.ydb.core.Result;
-import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.core.grpc.GrpcReadStream;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTracer;
-import tech.ydb.jdbc.exception.ExceptionFactory;
 import tech.ydb.jdbc.impl.YdbQueryResult;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
@@ -48,13 +46,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
     }
 
     protected Session createNewTableSession(YdbValidator validator) throws SQLException {
-        try {
-            Result<Session> session = tableClient.createSession(sessionTimeout).join();
-            validator.addStatusIssues(session.getStatus());
-            return session.getValue();
-        } catch (UnexpectedResultException ex) {
-            throw ExceptionFactory.createException("Cannot create session with " + ex.getStatus(), ex);
-        }
+        return validator.call("Get session", () -> tableClient.createSession(sessionTimeout));
     }
 
     protected void closeCurrentResult() throws SQLException {

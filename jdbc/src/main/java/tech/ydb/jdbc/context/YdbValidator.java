@@ -7,6 +7,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import tech.ydb.core.Issue;
 import tech.ydb.core.Result;
@@ -20,6 +22,8 @@ import tech.ydb.jdbc.exception.ExceptionFactory;
  * @author Aleksandr Gorshenin
  */
 public class YdbValidator {
+    private static final Logger LOGGER = Logger.getLogger(YdbValidator.class.getName());
+
     private final List<Issue> issues = new ArrayList<>();
 
     public SQLWarning toSQLWarnings() {
@@ -56,6 +60,7 @@ public class YdbValidator {
 
         tracer.trace("<-- " + status.toString());
         if (!status.isSuccess()) {
+            LOGGER.log(Level.FINE, "execute problem {0}", status);
             tracer.close();
             throw ExceptionFactory.createException("Cannot execute '" + msg + "' with " + status,
                     new UnexpectedResultException("Unexpected status", status));
@@ -68,6 +73,7 @@ public class YdbValidator {
             addStatusIssues(result.getStatus());
             return result.getValue();
         } catch (UnexpectedResultException ex) {
+            LOGGER.log(Level.FINE, "call problem {0}", ex.getStatus());
             throw ExceptionFactory.createException("Cannot call '" + msg + "' with " + ex.getStatus(), ex);
         }
     }
@@ -80,6 +86,7 @@ public class YdbValidator {
             return result.getValue();
         } catch (UnexpectedResultException ex) {
             tracer.close();
+            LOGGER.log(Level.FINE, "call problem {0}", ex.getStatus());
             throw ExceptionFactory.createException("Cannot call '" + msg + "' with " + ex.getStatus(), ex);
         }
     }
