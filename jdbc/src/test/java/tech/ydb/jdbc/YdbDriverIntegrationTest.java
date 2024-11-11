@@ -7,8 +7,10 @@ import java.sql.SQLException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import org.junit.jupiter.api.Assertions;
@@ -192,6 +194,27 @@ public class YdbDriverIntegrationTest {
 
         for (CompletableFuture<YdbConnection> future: list) {
             future.join().close();
+        }
+    }
+
+    @Test
+    public void testCachedTransportCount() throws SQLException {
+        Properties props = new Properties();
+        props.put("cachedTransportsCount", "3");
+
+        List<Connection> list = new ArrayList<>();
+
+        Set<YdbContext> contexts = new HashSet<>();
+        for (int idx = 0; idx < 20; idx++) {
+            Connection connection = DriverManager.getConnection(jdbcURL.build(), props);
+            contexts.add(connection.unwrap(YdbConnection.class).getCtx());
+            list.add(connection);
+        }
+
+        Assertions.assertEquals(3, contexts.size());
+
+        for (Connection connection: list) {
+            connection.close();
         }
     }
 
