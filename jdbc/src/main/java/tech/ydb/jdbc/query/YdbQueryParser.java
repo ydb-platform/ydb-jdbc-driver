@@ -22,6 +22,7 @@ import tech.ydb.table.values.Value;
 public class YdbQueryParser {
     private final boolean isDetectQueryType;
     private final boolean isDetectJdbcParameters;
+    private final boolean isConvertJdbcInToList;
 
     private final List<QueryStatement> statements = new ArrayList<>();
     private final YqlBatcher batcher = new YqlBatcher();
@@ -30,9 +31,10 @@ public class YdbQueryParser {
 
     private int jdbcPrmIndex = 0;
 
-    public YdbQueryParser(String origin, boolean isDetectQueryType, boolean isDetectJdbcParameters) {
+    public YdbQueryParser(String origin, boolean isDetectQueryType, boolean isDetectParameters, boolean isConvertIn) {
         this.isDetectQueryType = isDetectQueryType;
-        this.isDetectJdbcParameters = isDetectJdbcParameters;
+        this.isDetectJdbcParameters = isDetectParameters;
+        this.isConvertJdbcInToList = isConvertIn;
         this.origin = origin;
         this.parsed = new StringBuilder(origin.length() + 10);
     }

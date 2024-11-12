@@ -227,6 +227,7 @@ public class YdbConfig {
             YdbQueryProperties.DISABLE_DETECT_SQL_OPERATIONS.toInfo(properties),
             YdbQueryProperties.DISABLE_JDBC_PARAMETERS.toInfo(properties),
             YdbQueryProperties.DISABLE_JDBC_PARAMETERS_DECLARE.toInfo(properties),
+            YdbQueryProperties.REPLACE_JDBC_IN_BY_YQL_LIST.toInfo(properties),
 
             YdbQueryProperties.REPLACE_INSERT_TO_UPSERT.toInfo(properties),
             YdbQueryProperties.FORCE_BULK_UPSERT.toInfo(properties),

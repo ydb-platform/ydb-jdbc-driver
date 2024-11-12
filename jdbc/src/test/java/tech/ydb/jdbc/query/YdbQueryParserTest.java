@@ -27,7 +27,7 @@ public class YdbQueryParserTest {
         "BULK;~;",
     }, delimiter = '~')
     public void emptyQueryTest(String query, String prepared) throws SQLException {
-        YdbQueryParser parser = new YdbQueryParser(query, true, true);
+        YdbQueryParser parser = new YdbQueryParser(query, true, true, true);
         String parsed = parser.parseSQL();
         Assertions.assertEquals(prepared, parsed);
         Assertions.assertEquals(0, parser.getStatements().size());
@@ -42,7 +42,7 @@ public class YdbQueryParserTest {
         "'EXPLAIN/*comment*/UPSERT INTO', '/*comment*/UPSERT INTO', INSERT_UPSERT",
     })
     public void explainQueryTest(String query, String prepared, String cmd) throws SQLException {
-        YdbQueryParser parser = new YdbQueryParser(query, true, true);
+        YdbQueryParser parser = new YdbQueryParser(query, true, true, true);
         String parsed = parser.parseSQL();
 
         Assertions.assertEquals(prepared, parsed);
@@ -61,7 +61,7 @@ public class YdbQueryParserTest {
         "-- comment \nCreate;",
     })
     public void schemeQueryTest(String query) throws SQLException {
-        YdbQueryParser parser = new YdbQueryParser(query, true, true);
+        YdbQueryParser parser = new YdbQueryParser(query, true, true, true);
         String parsed = parser.parseSQL();
 
         Assertions.assertEquals(query, parsed);
@@ -81,7 +81,7 @@ public class YdbQueryParserTest {
         "BuLK_INSERT;",
     })
     public void unknownQueryTest(String query) throws SQLException {
-        YdbQueryParser parser = new YdbQueryParser(query, true, true);
+        YdbQueryParser parser = new YdbQueryParser(query, true, true, true);
         String parsed = parser.parseSQL();
 
         Assertions.assertEquals(query, parsed);
@@ -95,7 +95,7 @@ public class YdbQueryParserTest {
     @Test
     public void wrongSqlCommandTest() throws SQLException {
         String query = "SC;";
-        YdbQueryParser parser = new YdbQueryParser(query, true, true);
+        YdbQueryParser parser = new YdbQueryParser(query, true, true, true);
         String parsed = parser.parseSQL();
         Assertions.assertEquals(query, parsed);
 
@@ -110,7 +110,7 @@ public class YdbQueryParserTest {
                 + "declare $p2 as Text;\n"
                 + "upsert into tableName (key, c_Text) values ($p1, $p2)";
 
-        YdbQueryParser parser = new YdbQueryParser(query, true, true);
+        YdbQueryParser parser = new YdbQueryParser(query, true, true, true);
         String parsed = parser.parseSQL();
         Assertions.assertEquals(query, parsed);
 
@@ -126,7 +126,7 @@ public class YdbQueryParserTest {
                 + "declare $key as Optional<Int32>;\n"
                 + "select key, column from tableName where key=$key";
 
-        YdbQueryParser parser = new YdbQueryParser(query, true, true);
+        YdbQueryParser parser = new YdbQueryParser(query, true, true, true);
         String parsed = parser.parseSQL();
         Assertions.assertEquals(query, parsed);
 
@@ -143,7 +143,7 @@ public class YdbQueryParserTest {
                 + "declare $key as Optional<Int32>;\n"
                 + "scan select key, column from tableName where key=$key";
 
-        YdbQueryParser parser = new YdbQueryParser(query, true, true);
+        YdbQueryParser parser = new YdbQueryParser(query, true, true, true);
         String parsed = parser.parseSQL();
         Assertions.assertEquals("declare $key as Optional<Int32>;\n"
                 + " select key, column from tableName where key=$key", parsed);
@@ -165,7 +165,7 @@ public class YdbQueryParserTest {
             + "@'select offset, limit from test_table  offset 20 limit -- comment\n$jp1;'",
     }, delimiter = '@')
     public void offsetParameterTest(String query, String parsed) throws SQLException {
-        YdbQueryParser parser = new YdbQueryParser(query, true, true);
+        YdbQueryParser parser = new YdbQueryParser(query, true, true, true);
         Assertions.assertEquals(parsed, parser.parseSQL());
 
         Assertions.assertEquals(1, parser.getStatements().size());
@@ -194,7 +194,7 @@ public class YdbQueryParserTest {
         "select * from test_table where limit/?",
     })
     public void noOffsetParameterTest(String query) throws SQLException {
-        YdbQueryParser parser = new YdbQueryParser(query, true, true);
+        YdbQueryParser parser = new YdbQueryParser(query, true, true, true);
         parser.parseSQL();
 
         Assertions.assertEquals(1, parser.getStatements().size());
@@ -219,7 +219,7 @@ public class YdbQueryParserTest {
         ";;Insert into table_name (`c1`, /* comment */ c2, c3 )   values(?, ? , ?);;",
     })
     public void batchedInsertTest(String query) throws SQLException {
-        YdbQueryParser parser = new YdbQueryParser(query, true, true);
+        YdbQueryParser parser = new YdbQueryParser(query, true, true, true);
         parser.parseSQL();
 
         Assertions.assertEquals(1, parser.getStatements().size());
@@ -245,7 +245,7 @@ public class YdbQueryParserTest {
         ";;Insert\tinto\tone_column(`c1`)   values(\t\n?);;;",
     })
     public void batchedInsertOneColumnTest(String query) throws SQLException {
-        YdbQueryParser parser = new YdbQueryParser(query, true, true);
+        YdbQueryParser parser = new YdbQueryParser(query, true, true, true);
         parser.parseSQL();
 
         Assertions.assertEquals(1, parser.getStatements().size());
@@ -271,7 +271,7 @@ public class YdbQueryParserTest {
         ";;Upsert/* comment */into table_name (`c1`, /* comment */ c2, c3 )   values(?, ? , ?);",
     })
     public void batchedUpsertTest(String query) throws SQLException {
-        YdbQueryParser parser = new YdbQueryParser(query, true, true);
+        YdbQueryParser parser = new YdbQueryParser(query, true, true, true);
         parser.parseSQL();
 
         Assertions.assertEquals(1, parser.getStatements().size());
@@ -297,7 +297,7 @@ public class YdbQueryParserTest {
         ";;Upsert\tinto\tone_column(`c1`)   values(\t\n?);;;",
     })
     public void batchedUpsertOneColumnTest(String query) throws SQLException {
-        YdbQueryParser parser = new YdbQueryParser(query, true, true);
+        YdbQueryParser parser = new YdbQueryParser(query, true, true, true);
         parser.parseSQL();
 
         Assertions.assertEquals(1, parser.getStatements().size());
@@ -323,7 +323,7 @@ public class YdbQueryParserTest {
         ";;Replace/* comment */into table_name (`c1`, /* comment */ c2, c3 )   values(?, ? , ?);",
     })
     public void batchedReplaceTest(String query) throws SQLException {
-        YdbQueryParser parser = new YdbQueryParser(query, true, true);
+        YdbQueryParser parser = new YdbQueryParser(query, true, true, true);
         parser.parseSQL();
 
         Assertions.assertEquals(1, parser.getStatements().size());
@@ -349,7 +349,7 @@ public class YdbQueryParserTest {
         ";;Replace\tinto\tone_column(`c1`)   values(\t\n?);;;",
     })
     public void batchedReplaceOneColumnTest(String query) throws SQLException {
-        YdbQueryParser parser = new YdbQueryParser(query, true, true);
+        YdbQueryParser parser = new YdbQueryParser(query, true, true, true);
         parser.parseSQL();
 
         Assertions.assertEquals(1, parser.getStatements().size());
@@ -375,7 +375,7 @@ public class YdbQueryParserTest {
         ";;UPDATE/* comment */table_name set  `c1`= ?, c2 = ?, c3 = ? WHERE k1\n=\t?--comment\nAND k2=?",
     })
     public void batchedUpdateTest(String query) throws SQLException {
-        YdbQueryParser parser = new YdbQueryParser(query, true, true);
+        YdbQueryParser parser = new YdbQueryParser(query, true, true, true);
         parser.parseSQL();
 
         Assertions.assertEquals(1, parser.getStatements().size());
@@ -401,7 +401,7 @@ public class YdbQueryParserTest {
         ";;UPDATE/* comment */one_column set  `c1`= ? WHERE k1=--comment\n?",
     })
     public void batchedUpdateOneColumnTest(String query) throws SQLException {
-        YdbQueryParser parser = new YdbQueryParser(query, true, true);
+        YdbQueryParser parser = new YdbQueryParser(query, true, true, true);
         parser.parseSQL();
 
         Assertions.assertEquals(1, parser.getStatements().size());
@@ -427,7 +427,7 @@ public class YdbQueryParserTest {
         ";;DELETE/* comment */FRom table_name WHERE k1\n=\t?--comment\nAND k2=?",
     })
     public void batchedDeleteTest(String query) throws SQLException {
-        YdbQueryParser parser = new YdbQueryParser(query, true, true);
+        YdbQueryParser parser = new YdbQueryParser(query, true, true, true);
         parser.parseSQL();
 
         Assertions.assertEquals(1, parser.getStatements().size());
@@ -452,7 +452,7 @@ public class YdbQueryParserTest {
         ";;DELETE/* comment */FROM--\none_column WHERE k1=--comment\n?",
     })
     public void batchedDeleteOneColumnTest(String query) throws SQLException {
-        YdbQueryParser parser = new YdbQueryParser(query, true, true);
+        YdbQueryParser parser = new YdbQueryParser(query, true, true, true);
         parser.parseSQL();
 
         Assertions.assertEquals(1, parser.getStatements().size());
@@ -495,7 +495,7 @@ public class YdbQueryParserTest {
         "upsert into table_name (c1, c2, c3) values (?, ?, ?); select 1;",
     })
     public void notBatchedTest(String query) throws SQLException {
-        YdbQueryParser parser = new YdbQueryParser(query, true, true);
+        YdbQueryParser parser = new YdbQueryParser(query, true, true, true);
         parser.parseSQL();
 
         YqlBatcher batch = parser.getYqlBatcher();
@@ -510,7 +510,7 @@ public class YdbQueryParserTest {
         ";;BUlk  Insert into table_name (`c1`, /* comment */ c2, c3 )   values(?, ? , ?);",
     })
     public void validBulkInsertTest(String query) throws SQLException {
-        YdbQueryParser parser = new YdbQueryParser(query, true, true);
+        YdbQueryParser parser = new YdbQueryParser(query, true, true, true);
         parser.parseSQL();
 
         Assertions.assertEquals(1, parser.getStatements().size());
@@ -534,7 +534,7 @@ public class YdbQueryParserTest {
         ";;Bulk Upsert/* comment */into table_name (`c1`, /* comment */ c2, c3 )   values(?, ? , ?);",
     })
     public void validBulkUpsertTest(String query) throws SQLException {
-        YdbQueryParser parser = new YdbQueryParser(query, true, true);
+        YdbQueryParser parser = new YdbQueryParser(query, true, true, true);
         parser.parseSQL();
 
         Assertions.assertEquals(1, parser.getStatements().size());
