@@ -2,7 +2,6 @@ package tech.ydb.jdbc.query.params;
 
 
 
-import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -14,7 +13,6 @@ import java.util.stream.Collectors;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
 import tech.ydb.jdbc.impl.YdbTypes;
-import tech.ydb.jdbc.query.ParamDescription;
 import tech.ydb.jdbc.query.YdbPreparedQuery;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.Params;
@@ -29,8 +27,8 @@ import tech.ydb.table.values.Value;
 public class InMemoryQuery implements YdbPreparedQuery {
     private final String yql;
     private final boolean isAutoDeclare;
-    private final ParamDescription[] parameters;
-    private final Map<String, ParamDescription> parametersByName;
+    private final JdbcParameter[] parameters;
+    private final Map<String, JdbcParameter> parametersByName;
     private final Map<String, Value<?>> paramValues;
     private final List<Params> batchList;
 
@@ -39,10 +37,10 @@ public class InMemoryQuery implements YdbPreparedQuery {
         this.isAutoDeclare = isAutoDeclare;
         this.parameters = query.getStatements().stream()
                 .flatMap(s -> s.getParams().stream())
-                .toArray(ParamDescription[]::new);
+                .toArray(JdbcParameter[]::new);
         this.parametersByName = query.getStatements().stream()
                 .flatMap(s -> s.getParams().stream())
-                .collect(Collectors.toMap(ParamDescription::name, Function.identity()));
+                .collect(Collectors.toMap(JdbcParameter::getName, Function.identity()));
 
         this.paramValues = new HashMap<>();
         this.batchList = new ArrayList<>();
@@ -56,17 +54,8 @@ public class InMemoryQuery implements YdbPreparedQuery {
 
         StringBuilder query = new StringBuilder();
         Map<String, Value<?>> values = prms.values();
-        for (ParamDescription prm: parameters) {
-            if (!values.containsKey(prm.name())) {
-                throw new SQLDataException(YdbConst.MISSING_VALUE_FOR_PARAMETER + prm.name());
-            }
-
-            String prmType = values.get(prm.name()).getType().toString();
-            query.append("DECLARE ")
-                    .append(prm.name())
-                    .append(" AS ")
-                    .append(prmType)
-                    .append(";\n");
+        for (JdbcParameter prm: parameters) {
+            query.append(prm.getDeclare(values));
         }
 
         query.append(yql);
@@ -114,7 +103,7 @@ public class InMemoryQuery implements YdbPreparedQuery {
         if (index <= 0 || index > parameters.length) {
             throw new SQLException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + index);
         }
-        return parameters[index - 1].name();
+        return parameters[index - 1].getName();
     }
 
     @Override
@@ -122,12 +111,12 @@ public class InMemoryQuery implements YdbPreparedQuery {
         if (index <= 0 || index > parameters.length) {
             throw new SQLException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + index);
         }
-        ParamDescription p = parameters[index - 1];
-        if (p.type() != null) {
-            return p.type();
+        JdbcParameter p = parameters[index - 1];
+        if (p.getForcedType() != null) {
+            return p.getForcedType();
         }
 
-        Value<?> arg = paramValues.get(p.name());
+        Value<?> arg = paramValues.get(p.getName());
         if (arg != null) {
             return TypeDescription.of(arg.getType());
         }
@@ -146,20 +135,20 @@ public class InMemoryQuery implements YdbPreparedQuery {
 
     @Override
     public void setParam(String name, Object obj, int sqlType) throws SQLException {
-        ParamDescription param = parametersByName.get(name);
+        JdbcParameter param = parametersByName.get(name);
         if (param == null) {
-            param = new ParamDescription(name, null);
+            throw new SQLException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + name);
         }
         setParam(param, obj, sqlType);
     }
 
-    private void setParam(ParamDescription param, Object obj, int sqlType) throws SQLException {
+    private void setParam(JdbcParameter param, Object obj, int sqlType) throws SQLException {
         if (obj instanceof Value<?>) {
-            paramValues.put(param.name(), (Value<?>) obj);
+            paramValues.put(param.getName(), (Value<?>) obj);
             return;
         }
 
-        TypeDescription description = param.type();
+        TypeDescription description = param.getForcedType();
         if (description == null) {
             Type type = YdbTypes.findType(obj, sqlType);
             if (type == null) {
@@ -168,6 +157,6 @@ public class InMemoryQuery implements YdbPreparedQuery {
             description = TypeDescription.of(type);
         }
 
-        paramValues.put(param.name(), ValueFactory.readValue(param.name(), obj, description));
+        paramValues.put(param.getName(), ValueFactory.readValue(param.getName(), obj, description));
     }
 }

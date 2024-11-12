@@ -1,9 +1,11 @@
 package tech.ydb.jdbc.query;
 
+
 import java.util.ArrayList;
 import java.util.List;
 
-import tech.ydb.jdbc.common.TypeDescription;
+import tech.ydb.jdbc.query.params.JdbcParameter;
+
 
 /**
  *
@@ -12,7 +14,7 @@ import tech.ydb.jdbc.common.TypeDescription;
 public class QueryStatement {
     private final QueryType queryType;
     private final QueryCmd command;
-    private final List<ParamDescription> parameters = new ArrayList<>();
+    private final List<JdbcParameter> parameters = new ArrayList<>();
     private boolean hasReturinng = false;
 
     public QueryStatement(QueryType custom, QueryType baseType, QueryCmd command) {
@@ -28,12 +30,12 @@ public class QueryStatement {
         return command;
     }
 
-    public List<ParamDescription> getParams() {
+    public List<JdbcParameter> getParams() {
         return parameters;
     }
 
-    public void addParameter(String name, TypeDescription type) {
-        this.parameters.add(new ParamDescription(name, type));
+    public void addParameter(JdbcParameter prm) {
+        this.parameters.add(prm);
     }
 
     public void setHasReturning(boolean hasReturning) {
