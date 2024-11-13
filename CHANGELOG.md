@@ -1,3 +1,10 @@
+## 2.3.4 ##
+
+* Upgraded to YDB Java SDK 2.3.6
+* Fixed closing of ResultSet on prepareStatement and createStatement
+* Added support of convertion IN (?, ?, ?) to IN $list
+* Added option cachedTransportsCount to shard JDBC connections
+
 ## 2.3.3 ##
 
 * Upgraded to YDB Java SDK 2.3.5
