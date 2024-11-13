@@ -89,8 +89,12 @@ public class StaticQueryResult implements YdbQueryResult {
     }
 
     @Override
-    public void close() {
-        // nothing
+    public void close() throws SQLException {
+        for (ExpressionResult res: results) {
+            if (res.resultSet != null) {
+                res.resultSet.close();
+            }
+        }
     }
 
     @Override

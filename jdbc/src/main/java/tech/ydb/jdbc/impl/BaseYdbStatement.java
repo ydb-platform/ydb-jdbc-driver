@@ -72,7 +72,6 @@ public abstract class BaseYdbStatement implements YdbStatement {
     @Override
     public void close() throws SQLException {
         clearBatch();
-        state.close();
         state = YdbQueryResult.EMPTY;
         isClosed = true;
     }
@@ -144,9 +143,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
     }
 
     protected void cleanState() throws SQLException {
-        state.close();
         state = YdbQueryResult.EMPTY;
-
         clearWarnings();
     }
 
