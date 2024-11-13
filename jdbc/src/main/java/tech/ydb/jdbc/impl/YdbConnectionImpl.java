@@ -210,7 +210,6 @@ public class YdbConnectionImpl implements YdbConnection {
     @Override
     public YdbStatement createStatement(int resultSetType, int resultSetConcurrency,
             int resultSetHoldability) throws SQLException {
-        executor.ensureOpened();
         ctx.getTracer().trace("create statement");
         checkStatementParams(resultSetType, resultSetConcurrency, resultSetHoldability);
         return new YdbStatementImpl(this, resultSetType);
@@ -239,9 +238,8 @@ public class YdbConnectionImpl implements YdbConnection {
 
     private YdbPreparedStatement prepareStatement(String sql, int resultSetType, YdbPrepareMode mode)
             throws SQLException {
-        executor.ensureOpened();
-        validator.clearWarnings();
 
+        validator.clearWarnings();
         ctx.getTracer().trace("prepare statement");
         YdbQuery query = ctx.findOrParseYdbQuery(sql);
         YdbPreparedQuery params = ctx.findOrPrepareParams(query, mode);

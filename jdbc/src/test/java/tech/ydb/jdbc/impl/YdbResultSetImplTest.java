@@ -10,6 +10,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.sql.Date;
 import java.sql.JDBCType;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -124,7 +125,6 @@ public class YdbResultSetImplTest {
         resultSet.close();
         Assertions.assertTrue(resultSet.isClosed());
     }
-
 
     @Test
     public void unwrap() throws SQLException {
@@ -293,6 +293,58 @@ public class YdbResultSetImplTest {
             Assertions.assertFalse(rs.relative(-1));
             assertIsEmpty(rs);
         }
+    }
+
+    @Test
+    public void closeResultSetOnExecuteNext() throws SQLException {
+        ResultSet rs1 = statement.executeQuery(TEST_TABLE.selectSQL());
+        Assertions.assertFalse(rs1.isClosed());
+        ResultSet rs2 = statement.executeQuery(TEST_TABLE.selectSQL());
+        Assertions.assertTrue(rs1.isClosed());
+        Assertions.assertFalse(rs2.isClosed());
+
+        rs2.close();
+    }
+
+    @Test
+    public void closeResultSetOnCreateStatement() throws SQLException {
+        ResultSet rs1 = statement.executeQuery(TEST_TABLE.selectSQL());
+        Assertions.assertFalse(rs1.isClosed());
+
+        Statement other = jdbc.connection().createStatement();
+
+        Assertions.assertFalse(rs1.isClosed()); // new statement doesn't close current result set
+
+        ResultSet rs2 = other.executeQuery(TEST_TABLE.selectSQL());
+        Assertions.assertTrue(rs1.isClosed());
+        Assertions.assertFalse(rs2.isClosed());
+
+        other.close();
+        Assertions.assertFalse(rs2.isClosed());
+
+        rs2.close();
+    }
+
+    @Test
+    public void closeResultSetOnPrepareStatement() throws SQLException {
+        ResultSet rs1 = statement.executeQuery(TEST_TABLE.selectSQL());
+        Assertions.assertFalse(rs1.isClosed());
+
+        PreparedStatement ps = jdbc.connection().prepareStatement(TEST_TABLE.selectAllByKey("?"));
+
+        Assertions.assertFalse(rs1.isClosed()); // prepare statement doesn't close current result set
+        ps.setInt(1, 1);
+
+        Assertions.assertFalse(rs1.isClosed()); // prepare statement doesn't close current result set
+
+        ResultSet rs2 = ps.executeQuery();
+        Assertions.assertTrue(rs1.isClosed());
+        Assertions.assertFalse(rs2.isClosed());
+
+        ps.close();
+        Assertions.assertFalse(rs2.isClosed());
+
+        rs2.close();
     }
 
     @Test

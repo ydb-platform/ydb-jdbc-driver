@@ -10,6 +10,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.sql.Date;
 import java.sql.JDBCType;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -57,9 +58,8 @@ import tech.ydb.table.values.PrimitiveValue;
 import tech.ydb.table.values.Value;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
-
-
 public class YdbLazyResultSetImplTest {
+
     @RegisterExtension
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
@@ -124,7 +124,6 @@ public class YdbLazyResultSetImplTest {
         resultSet.close();
         Assertions.assertTrue(resultSet.isClosed());
     }
-
 
     @Test
     public void unwrap() throws SQLException {
@@ -263,6 +262,58 @@ public class YdbLazyResultSetImplTest {
             Assertions.assertFalse(rs.next());
             assertIsEmpty(rs);
         }
+    }
+
+    @Test
+    public void closeResultSetOnExecuteNext() throws SQLException {
+        ResultSet rs1 = statement.executeQuery(TEST_TABLE.selectSQL());
+        Assertions.assertFalse(rs1.isClosed());
+        ResultSet rs2 = statement.executeQuery(TEST_TABLE.selectSQL());
+        Assertions.assertTrue(rs1.isClosed());
+        Assertions.assertFalse(rs2.isClosed());
+
+        rs2.close();
+    }
+
+    @Test
+    public void closeResultSetOnCreateStatement() throws SQLException {
+        ResultSet rs1 = statement.executeQuery(TEST_TABLE.selectSQL());
+        Assertions.assertFalse(rs1.isClosed());
+
+        Statement other = jdbc.connection().createStatement();
+
+        Assertions.assertFalse(rs1.isClosed()); // new statement doesn't close current result set
+
+        ResultSet rs2 = other.executeQuery(TEST_TABLE.selectSQL());
+        Assertions.assertTrue(rs1.isClosed());
+        Assertions.assertFalse(rs2.isClosed());
+
+        other.close();
+        Assertions.assertFalse(rs2.isClosed());
+
+        rs2.close();
+    }
+
+    @Test
+    public void closeResultSetOnPrepareStatement() throws SQLException {
+        ResultSet rs1 = statement.executeQuery(TEST_TABLE.selectSQL());
+        Assertions.assertFalse(rs1.isClosed());
+
+        PreparedStatement ps = jdbc.connection().prepareStatement(TEST_TABLE.selectAllByKey("?"));
+
+        Assertions.assertFalse(rs1.isClosed()); // prepare statement doesn't close current result set
+        ps.setInt(1, 1);
+
+        Assertions.assertFalse(rs1.isClosed()); // prepare statement doesn't close current result set
+
+        ResultSet rs2 = ps.executeQuery();
+        Assertions.assertTrue(rs1.isClosed());
+        Assertions.assertFalse(rs2.isClosed());
+
+        ps.close();
+        Assertions.assertFalse(rs2.isClosed());
+
+        rs2.close();
     }
 
     @Test
