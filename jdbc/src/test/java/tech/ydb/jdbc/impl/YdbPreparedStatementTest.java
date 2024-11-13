@@ -551,6 +551,10 @@ public class YdbPreparedStatementTest {
                 ps.setString(2, "3");
                 ps.addBatch();
 
+                ps.setInt(1, 4);
+                ps.setString(2, "null");
+                ps.addBatch();
+
                 ps.executeBatch();
             }
 
@@ -563,7 +567,7 @@ public class YdbPreparedStatementTest {
                 assertResultSetCount(ps.executeQuery(), 2);
 
                 ps.setInt(1, 1);
-                ps.setInt(2, 4);
+                ps.setInt(2, 5);
                 assertResultSetCount(ps.executeQuery(), 1);
 
                 ps.setInt(1, 1);
@@ -590,6 +594,10 @@ public class YdbPreparedStatementTest {
                 ps.setString(1, "1");
                 ps.setString(2, null);
                 assertResultSetCount(ps.executeQuery(), 1);
+
+                ps.setString(1, null);
+                ps.setString(2, "2");
+                assertResultSetCount(ps.executeQuery(), 0);
 
                 ps.setString(1, "1");
                 ps.setString(2, "1");
