@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Supplier;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
@@ -24,33 +23,22 @@ import tech.ydb.table.query.Params;
 public class InMemoryQuery implements YdbPreparedQuery {
     private final String yql;
     private final boolean isAutoDeclare;
-    private final JdbcPrm[] parameters;
-    private final Map<String, JdbcPrm> parametersByName;
-    private final List<Params> batchList;
+    private final List<JdbcPrm> parameters = new ArrayList<>();
+    private final Map<String, JdbcPrm> parametersByName = new HashMap<>();
+    private final List<Params> batchList = new ArrayList<>();
 
     public InMemoryQuery(YdbQuery query, boolean isAutoDeclare) {
         this.yql = query.getPreparedYql();
         this.isAutoDeclare = isAutoDeclare;
 
-        int paramtersCount = 0;
         for (QueryStatement st: query.getStatements()) {
-            paramtersCount += st.getParams().size();
-        }
-        this.parameters = new JdbcPrm[paramtersCount];
-
-        int idx = 0;
-        for (QueryStatement st: query.getStatements()) {
-            for (Supplier<JdbcPrm> prm: st.getParams()) {
-                parameters[idx++] = prm.get();
+            for (JdbcPrm.Factory factory: st.getJdbcPrmFactories()) {
+                for (JdbcPrm prm: factory.create()) {
+                    parameters.add(prm);
+                    parametersByName.put(prm.getName(), prm);
+                }
             }
         }
-
-        this.parametersByName = new HashMap<>();
-        for (JdbcPrm prm: this.parameters) {
-            parametersByName.put(prm.getName(), prm);
-        }
-
-        this.batchList = new ArrayList<>();
     }
 
     @Override
@@ -74,7 +62,7 @@ public class InMemoryQuery implements YdbPreparedQuery {
 
     @Override
     public int parametersCount() {
-        return parameters.length;
+        return parameters.size();
     }
 
     @Override
@@ -120,29 +108,29 @@ public class InMemoryQuery implements YdbPreparedQuery {
 
     @Override
     public String getNameByIndex(int index) throws SQLException {
-        if (index <= 0 || index > parameters.length) {
+        if (index <= 0 || index > parameters.size()) {
             throw new SQLException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + index);
         }
-        return parameters[index - 1].getName();
+        return parameters.get(index - 1).getName();
     }
 
     @Override
     public TypeDescription getDescription(int index) throws SQLException {
-        if (index <= 0 || index > parameters.length) {
+        if (index <= 0 || index > parameters.size()) {
             throw new SQLException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + index);
         }
 
-        JdbcPrm p = parameters[index - 1];
+        JdbcPrm p = parameters.get(index - 1);
         return p.getType();
     }
 
     @Override
     public void setParam(int index, Object obj, int sqlType) throws SQLException {
-        if (index <= 0 || index > parameters.length) {
+        if (index <= 0 || index > parameters.size()) {
             throw new SQLException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + index);
         }
 
-        parameters[index - 1].setValue(obj, sqlType);
+        parameters.get(index - 1).setValue(obj, sqlType);
     }
 
     @Override

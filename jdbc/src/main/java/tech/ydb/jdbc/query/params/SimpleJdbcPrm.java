@@ -1,7 +1,6 @@
 package tech.ydb.jdbc.query.params;
 
 import java.sql.SQLException;
-import java.util.function.Supplier;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
@@ -14,11 +13,11 @@ import tech.ydb.table.values.Value;
  *
  * @author Aleksandr Gorshenin
  */
-public class SimpleJdbcPrm implements JdbcPrm {
+class SimpleJdbcPrm implements JdbcPrm {
     private final String name;
     private Value<?> value;
 
-    private SimpleJdbcPrm(String name) {
+    SimpleJdbcPrm(String name) {
         this.name = name;
     }
 
@@ -66,9 +65,5 @@ public class SimpleJdbcPrm implements JdbcPrm {
         }
 
         value = TypeDescription.of(type).setters().toValue(obj);
-    }
-
-    public static Supplier<JdbcPrm> withName(String name) {
-        return () -> new SimpleJdbcPrm(name);
     }
 }

@@ -3,7 +3,6 @@ package tech.ydb.jdbc.query;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
 
 import tech.ydb.jdbc.query.params.JdbcPrm;
 
@@ -15,7 +14,7 @@ import tech.ydb.jdbc.query.params.JdbcPrm;
 public class QueryStatement {
     private final QueryType queryType;
     private final QueryCmd command;
-    private final List<Supplier<JdbcPrm>> parameters = new ArrayList<>();
+    private final List<JdbcPrm.Factory> parameters = new ArrayList<>();
     private boolean hasReturinng = false;
 
     public QueryStatement(QueryType custom, QueryType baseType, QueryCmd command) {
@@ -31,11 +30,15 @@ public class QueryStatement {
         return command;
     }
 
-    public List<Supplier<JdbcPrm>> getParams() {
+    public boolean hasJdbcParameters() {
+        return !parameters.isEmpty();
+    }
+
+    public List<JdbcPrm.Factory> getJdbcPrmFactories() {
         return parameters;
     }
 
-    public void addParameter(Supplier<JdbcPrm> prm) {
+    public void addJdbcPrmFactory(JdbcPrm.Factory prm) {
         this.parameters.add(prm);
     }
 

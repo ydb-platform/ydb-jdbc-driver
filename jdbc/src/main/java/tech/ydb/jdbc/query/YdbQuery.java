@@ -27,11 +27,11 @@ public class YdbQuery {
         this.type = type;
         this.batcher = batcher;
 
-        boolean hasJdbcParamters = false;
+        boolean hasJdbcParameters = false;
         for (QueryStatement st: statements) {
-            hasJdbcParamters = hasJdbcParamters || !st.getParams().isEmpty();
+            hasJdbcParameters = hasJdbcParameters || st.hasJdbcParameters();
         }
-        this.isPlainYQL = !hasJdbcParamters;
+        this.isPlainYQL = !hasJdbcParameters;
     }
 
     public QueryType getType() {
