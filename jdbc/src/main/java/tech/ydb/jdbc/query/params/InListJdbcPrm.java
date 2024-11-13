@@ -9,6 +9,7 @@ import tech.ydb.jdbc.common.TypeDescription;
 import tech.ydb.jdbc.impl.YdbTypes;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.ListType;
+import tech.ydb.table.values.OptionalType;
 import tech.ydb.table.values.Type;
 import tech.ydb.table.values.Value;
 import tech.ydb.table.values.VoidValue;
@@ -55,15 +56,16 @@ public class InListJdbcPrm {
             return ListType.of(type.ydbType()).newValue(values);
         }
 
+        OptionalType optional = type.ydbType().makeOptional();
         for (Item item: items) {
             if (item.value == NULL) {
-                values.add(type.nullValue());
+                values.add(optional.emptyValue());
             } else {
                 values.add(item.value.makeOptional());
             }
         }
 
-        return ListType.of(type.ydbType().makeOptional()).newValue(values);
+        return ListType.of(optional).newValue(values);
 
     }
 
@@ -101,6 +103,11 @@ public class InListJdbcPrm {
                 }
 
                 type = TypeDescription.of(ydbType);
+            }
+
+            if (obj == null) {
+                value = NULL;
+                return;
             }
 
             value = type.setters().toValue(obj);
