@@ -2,6 +2,7 @@ package tech.ydb.jdbc.impl;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -29,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
@@ -518,6 +520,91 @@ public class YdbPreparedStatementTest {
             }
         }
     };
+
+    private void assertResultSetCount(ResultSet rs, int count) throws SQLException {
+        Assertions.assertTrue(rs.next());
+        Assertions.assertEquals(count, rs.getInt(1));
+        Assertions.assertFalse(rs.next());
+        rs.close();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "true", "false" })
+    public void inListTest(boolean convertInToList) throws SQLException {
+        String option = String.valueOf(convertInToList);
+        String arg2Name = convertInToList ? "$jp1[1]" : "$jp2";
+        try (Connection conn = jdbc.createCustomConnection("replaceJdbcInByYqlList", option)) {
+            String upsert = TEST_TABLE.upsertOne(SqlQueries.JdbcQuery.STANDARD, "c_Text", "Text");
+            String selectByIds = TEST_TABLE.withTableName("select count(*) from #tableName where key in (?, ?)");
+            String selectByValue = TEST_TABLE.withTableName("select count(*) from #tableName where c_Text in (?, ?)");
+
+            try (PreparedStatement ps = conn.prepareStatement(upsert)) {
+                ps.setInt(1, 1);
+                ps.setString(2, "1");
+                ps.addBatch();
+
+                ps.setInt(1, 2);
+                ps.setString(2, null);
+                ps.addBatch();
+
+                ps.setInt(1, 3);
+                ps.setString(2, "3");
+                ps.addBatch();
+
+                ps.executeBatch();
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement(selectByIds)) {
+                ps.setInt(1, 1);
+                ExceptionAssert.sqlException("Missing value for parameter: " + arg2Name, ps::executeQuery);
+
+                ps.setInt(1, 1);
+                ps.setInt(2, 2);
+                assertResultSetCount(ps.executeQuery(), 2);
+
+                ps.setInt(1, 1);
+                ps.setInt(2, 4);
+                assertResultSetCount(ps.executeQuery(), 1);
+
+                ps.setInt(1, 1);
+                if (convertInToList) {
+                    ExceptionAssert.sqlException("Cannot cast [class java.lang.String: text] to [Int32]", () -> {
+                        ps.setString(2, "text");
+                    });
+                } else {
+                    ExceptionAssert.ydbException("Can't compare Optional<Int32> with Utf8 (S_ERROR)", () -> {
+                        ps.setString(2, "text");
+                        ps.executeQuery();
+                    });
+                }
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement(selectByValue)) {
+                ps.setString(1, null);
+                ExceptionAssert.sqlException("Missing value for parameter: " + arg2Name, ps::executeQuery);
+
+                ps.setString(1, null);
+                ps.setString(2, null);
+                assertResultSetCount(ps.executeQuery(), 0);
+
+                ps.setString(1, "1");
+                ps.setString(2, null);
+                assertResultSetCount(ps.executeQuery(), 1);
+
+                ps.setString(1, "1");
+                ps.setString(2, "1");
+                assertResultSetCount(ps.executeQuery(), 1);
+
+                ps.setString(1, "1");
+                ps.setString(2, "2");
+                assertResultSetCount(ps.executeQuery(), 1);
+
+                ps.setString(1, "1");
+                ps.setString(2, "3");
+                assertResultSetCount(ps.executeQuery(), 2);
+            }
+        }
+    }
 
     @ParameterizedTest(name = "with {0}")
     @EnumSource(SqlQueries.JdbcQuery.class)

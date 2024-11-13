@@ -28,8 +28,12 @@ public class YdbQueryProperties {
     static final YdbProperty<Boolean> DISABLE_JDBC_PARAMETERS = YdbProperty.bool("disableJdbcParameters",
             "Disable auto detect JDBC standart parameters '?'", false);
 
+    static final YdbProperty<Boolean> REPLACE_JDBC_IN_BY_YQL_LIST = YdbProperty.bool("replaceJdbcInByYqlList",
+            "Convert SQL operation IN (?, ?, ... ,?) to YQL operation IN $list", true);
+
     static final YdbProperty<Boolean> DISABLE_JDBC_PARAMETERS_DECLARE = YdbProperty.bool("disableJdbcParameterDeclare",
             "Disable enforce DECLARE section for JDBC parameters '?'", false);
+
 
     @Deprecated
     private static final YdbProperty<QueryType> FORCE_QUERY_MODE = YdbProperty.enums("forceQueryMode", QueryType.class,
@@ -50,6 +54,7 @@ public class YdbQueryProperties {
 
     private final boolean isDetectQueryType;
     private final boolean isDetectJdbcParameters;
+    private final boolean isReplaceJdbcInToYqlList;
     private final boolean isDeclareJdbcParameters;
 
     private final boolean isPrepareDataQueries;
@@ -68,6 +73,7 @@ public class YdbQueryProperties {
         this.isPrepareDataQueries = !disablePrepareDataQueries;
         this.isDetectBatchQueries = !disablePrepareDataQueries && !disableAutoPreparedBatches;
 
+        boolean replaceJdbcInByYqlList = REPLACE_JDBC_IN_BY_YQL_LIST.readValue(props).getValue();
         boolean disableJdbcParametersDeclare = DISABLE_JDBC_PARAMETERS_DECLARE.readValue(props).getValue();
         boolean disableJdbcParametersParse = DISABLE_JDBC_PARAMETERS.readValue(props).getValue();
         boolean disableSqlOperationsDetect = DISABLE_DETECT_SQL_OPERATIONS.readValue(props).getValue();
@@ -76,6 +82,8 @@ public class YdbQueryProperties {
         this.isDetectJdbcParameters = !disableSqlOperationsDetect && !disableJdbcParametersParse;
         this.isDeclareJdbcParameters = !disableSqlOperationsDetect && !disableJdbcParametersParse
                 && !disableJdbcParametersDeclare;
+        this.isReplaceJdbcInToYqlList = !disableSqlOperationsDetect && !disableJdbcParametersParse
+                && replaceJdbcInByYqlList;
 
 
         YdbValue<QueryType> forcedType = FORCE_QUERY_MODE.readValue(props);
@@ -107,6 +115,10 @@ public class YdbQueryProperties {
 
     public boolean isDeclareJdbcParameters() {
         return isDeclareJdbcParameters;
+    }
+
+    public boolean isReplaceJdbcInByYqlList() {
+        return isReplaceJdbcInToYqlList;
     }
 
     public boolean isPrepareDataQueries() {
