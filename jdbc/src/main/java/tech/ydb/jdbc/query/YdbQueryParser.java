@@ -1,18 +1,14 @@
 package tech.ydb.jdbc.query;
 
 
-import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import tech.ydb.jdbc.YdbConst;
-import tech.ydb.jdbc.common.TypeDescription;
-import tech.ydb.jdbc.query.params.JdbcParameter;
-import tech.ydb.table.values.PrimitiveType;
-import tech.ydb.table.values.Value;
+import tech.ydb.jdbc.query.params.SimpleJdbcPrm;
+import tech.ydb.jdbc.query.params.UInt64JdbcPrm;
 
 
 /**
@@ -121,7 +117,7 @@ public class YdbQueryParser {
                             i++; // make sure the coming ? is not treated as a bind
                         } else {
                             String name = nextJdbcPrmName();
-                            statement.addParameter(new SimplePrm(name));
+                            statement.addParameter(SimpleJdbcPrm.withName(name));
                             parsed.append(name);
                             batcher.readParameter();
                         }
@@ -301,7 +297,7 @@ public class YdbQueryParser {
                     String name = nextJdbcPrmName();
                     parsed.append(query, start, offset - start);
                     parsed.append(name);
-                    st.addParameter(new ForcedTypePrm(name, TypeDescription.of(PrimitiveType.Uint64)));
+                    st.addParameter(UInt64JdbcPrm.withName(name));
                     return offset + 1;
                 case '-': // possibly -- style comment
                     offset = parseLineComment(query, offset);
@@ -595,60 +591,5 @@ public class YdbQueryParser {
 
         return (query[offset] | 32) == 'i'
                 && (query[offset + 1] | 32) == 'n';
-    }
-
-    private static class SimplePrm implements JdbcParameter {
-        private final String name;
-
-        SimplePrm(String name) {
-            this.name = name;
-        }
-
-        @Override
-        public String getName() {
-            return this.name;
-        }
-
-        @Override
-        public String getDeclare(Map<String, Value<?>> values) throws SQLDataException {
-            if (!values.containsKey(name)) {
-                throw new SQLDataException(YdbConst.MISSING_VALUE_FOR_PARAMETER + name);
-            }
-            String prmType = values.get(name).getType().toString();
-            return "DECLARE " + name + " AS " + prmType + ";\n";
-        }
-
-        @Override
-        public TypeDescription getForcedType() {
-            return null;
-        }
-    }
-
-    private static class ForcedTypePrm implements JdbcParameter {
-        private final String name;
-        private final TypeDescription type;
-
-        ForcedTypePrm(String name, TypeDescription type) {
-            this.name = name;
-            this.type = type;
-        }
-
-        @Override
-        public String getName() {
-            return this.name;
-        }
-
-        @Override
-        public String getDeclare(Map<String, Value<?>> values) throws SQLDataException {
-            if (!values.containsKey(name)) {
-                throw new SQLDataException(YdbConst.MISSING_VALUE_FOR_PARAMETER + name);
-            }
-            return "DECLARE " + name + " AS " + type.ydbType().toString() + ";\n";
-        }
-
-        @Override
-        public TypeDescription getForcedType() {
-            return type;
-        }
     }
 }

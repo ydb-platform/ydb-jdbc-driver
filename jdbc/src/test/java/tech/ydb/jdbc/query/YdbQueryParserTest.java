@@ -2,6 +2,7 @@ package tech.ydb.jdbc.query;
 
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.function.Supplier;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -9,7 +10,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import tech.ydb.jdbc.query.params.JdbcParameter;
+import tech.ydb.jdbc.query.params.JdbcPrm;
 import tech.ydb.table.values.PrimitiveType;
 
 
@@ -175,11 +176,12 @@ public class YdbQueryParserTest {
 
         Assertions.assertFalse(statement.getParams().isEmpty());
         int idx = 0;
-        for (JdbcParameter prm : statement.getParams()) {
+        for (Supplier<JdbcPrm> prmGen : statement.getParams()) {
+            JdbcPrm prm = prmGen.get();
             idx++;
             Assertions.assertEquals("$jp" + idx, prm.getName());
-            Assertions.assertNotNull(prm.getForcedType()); // forced UInt64 type
-            Assertions.assertEquals(PrimitiveType.Uint64, prm.getForcedType().ydbType()); // forced UInt64 type
+            Assertions.assertNotNull(prm.getType()); // forced UInt64 type
+            Assertions.assertEquals(PrimitiveType.Uint64, prm.getType().ydbType()); // forced UInt64 type
         }
     }
 
@@ -204,10 +206,11 @@ public class YdbQueryParserTest {
 
         Assertions.assertFalse(statement.getParams().isEmpty());
         int idx = 0;
-        for (JdbcParameter prm : statement.getParams()) {
+        for (Supplier<JdbcPrm> prmGen : statement.getParams()) {
+            JdbcPrm prm = prmGen.get();
             idx++;
             Assertions.assertEquals("$jp" + idx, prm.getName());
-            Assertions.assertNull(prm.getForcedType()); // uknown type
+            Assertions.assertNull(prm.getType()); // uknown type
         }
     }
 
