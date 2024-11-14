@@ -1,3 +1,7 @@
+## 2.3.5 ##
+
+* Disabled stream reader sets for SCAN queries
+
 ## 2.3.4 ##
 
 * Upgraded to YDB Java SDK 2.3.6
