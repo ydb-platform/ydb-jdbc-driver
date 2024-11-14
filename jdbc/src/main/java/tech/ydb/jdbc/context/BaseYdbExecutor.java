@@ -2,16 +2,20 @@ package tech.ydb.jdbc.context;
 
 import java.sql.SQLException;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 
 import tech.ydb.core.Result;
 import tech.ydb.core.grpc.GrpcReadStream;
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTracer;
 import tech.ydb.jdbc.impl.YdbQueryResult;
+import tech.ydb.jdbc.impl.YdbStaticResultSet;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.Session;
@@ -19,6 +23,7 @@ import tech.ydb.table.SessionRetryContext;
 import tech.ydb.table.TableClient;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
+import tech.ydb.table.result.impl.ProtoValueReaders;
 import tech.ydb.table.settings.ExecuteScanQuerySettings;
 import tech.ydb.table.settings.ExecuteSchemeQuerySettings;
 import tech.ydb.table.values.ListValue;
@@ -31,6 +36,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
     private final SessionRetryContext retryCtx;
     private final Duration sessionTimeout;
     private final TableClient tableClient;
+    private final boolean useStreamResultSet;
 
     private final AtomicReference<YdbQueryResult> currResult;
     protected final boolean traceEnabled;
@@ -40,6 +46,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
         this.retryCtx = ctx.getRetryCtx();
         this.traceEnabled = ctx.isTxTracerEnabled();
         this.sessionTimeout = ctx.getOperationProperties().getSessionTimeout();
+        this.useStreamResultSet = ctx.getOperationProperties().getUseStreamResultSets();
         this.tableClient = ctx.getTableClient();
         this.prefixPragma = ctx.getPrefixPragma();
         this.currResult = new AtomicReference<>();
@@ -138,6 +145,24 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
         tracer.query(yql);
 
         final Session session = createNewTableSession(validator);
+
+        if (!useStreamResultSet) {
+            try {
+                Collection<ResultSetReader> resultSets = new LinkedBlockingQueue<>();
+
+                ctx.traceQuery(query, yql);
+                validator.execute(QueryType.SCAN_QUERY + " >>\n" + yql, tracer,
+                        () -> session.executeScanQuery(yql, params, settings).start(resultSets::add)
+                );
+
+                YdbResultSet rs = new YdbStaticResultSet(statement, ProtoValueReaders.forResultSets(resultSets));
+                return updateCurrentResult(new StaticQueryResult(query, Collections.singletonList(rs)));
+            } finally {
+                session.close();
+                tracer.close();
+            }
+        }
+
         StreamQueryResult lazy = validator.call(msg, () -> {
             final CompletableFuture<Result<StreamQueryResult>> future = new CompletableFuture<>();
             final GrpcReadStream<ResultSetReader> stream = session.executeScanQuery(yql, params, settings);
