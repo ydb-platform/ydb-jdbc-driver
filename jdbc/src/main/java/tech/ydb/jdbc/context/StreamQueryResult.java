@@ -167,6 +167,15 @@ public class StreamQueryResult implements YdbQueryResult {
             return;
         }
 
+        for (CompletableFuture<Result<LazyResultSet>> future: resultFutures) {
+            if (future.isDone()) {
+                Result<LazyResultSet> res = future.join();
+                if (res.isSuccess()) {
+                    res.getValue().close();
+                }
+            }
+        }
+
         LOGGER.log(Level.FINE, "Stream closed with status {0}", status);
         if (!status.isSuccess()) {
             throw ExceptionFactory.createException("Cannot execute '" + msg + "' with " + status,

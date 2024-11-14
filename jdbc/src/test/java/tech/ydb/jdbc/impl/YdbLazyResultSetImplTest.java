@@ -64,7 +64,8 @@ public class YdbLazyResultSetImplTest {
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
     @RegisterExtension
-    private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb);
+    private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb)
+            .withArg("useStreamResultSets", "true");
 
     private static final SqlQueries TEST_TABLE = new SqlQueries("ydb_result_set_test");
 
@@ -96,7 +97,7 @@ public class YdbLazyResultSetImplTest {
     @BeforeEach
     public void beforeEach() throws SQLException {
         statement = jdbc.connection().createStatement();
-        resultSet = statement.executeQuery(TEST_TABLE.scanSelectSQL());
+        resultSet = statement.executeQuery(TEST_TABLE.selectSQL());
     }
 
     @AfterEach
