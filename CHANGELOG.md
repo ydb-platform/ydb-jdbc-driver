@@ -1,3 +1,7 @@
+## 2.3.6 ##
+
+* Added jdbc_table which can be converted to AS_TABLE($list)
+
 ## 2.3.5 ##
 
 * Disabled stream reader sets for SCAN queries
