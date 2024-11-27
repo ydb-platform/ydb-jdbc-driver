@@ -166,6 +166,19 @@ public class YdbQueryParser {
                             fragmentStart = i;
                         }
                     }
+
+                    // Process JDBC_TABLE (?, ?, ... )
+                    if (i < chars.length && detectJdbcArgs && isConvertJdbcInToList) {
+                        if (parseJdbcTableKeyword(chars, keywordStart, keywordLength)) {
+                            parsed.append(chars, fragmentStart, keywordStart - fragmentStart);
+                            fragmentStart = keywordStart;
+                            int updated = parseJdbcTableListParameters(chars, i, statement);
+                            if (updated != i) {
+                                i = updated;
+                                fragmentStart = updated;
+                            }
+                        }
+                    }
                 } else {
                     boolean skipped = false;
                     if (isDetectQueryType) {
@@ -362,6 +375,63 @@ public class YdbQueryParser {
                     parsed.append(' '); // add extra space to avoid IN$jpN
                     parsed.append(name);
                     st.addJdbcPrmFactory(JdbcPrm.inListOrm(name, listSize));
+                    return offset + 1;
+                case '-': // possibly -- style comment
+                    offset = parseLineComment(query, offset);
+                    break;
+                case '/': // possibly /* */ style comment
+                    offset = parseBlockComment(query, offset);
+                    break;
+                default:
+                    if (!Character.isWhitespace(query[offset])) {
+                        return start;
+                    }
+                    break;
+            }
+            offset++;
+        }
+
+        return start;
+    }
+
+    private int parseJdbcTableListParameters(char[] query, int offset, QueryStatement st) {
+        int start = offset;
+        int listStartedAt = -1;
+        int listSize = 0;
+        boolean waitPrm = false;
+        while (offset < query.length) {
+            char ch = query[offset];
+            switch (ch) {
+                case '(': // start of list
+                    if (listStartedAt >= 0) {
+                        return start;
+                    }
+                    listStartedAt = offset;
+                    waitPrm = true;
+                    break;
+                case ',':
+                    if (listStartedAt < 0 || waitPrm) {
+                        return start;
+                    }
+                    waitPrm = true;
+                    break;
+                case '?' :
+                    if (!waitPrm || (offset + 1 < query.length && query[offset + 1] == '?')) {
+                        return start;
+                    }
+                    listSize++;
+                    waitPrm = false;
+                    break;
+                case ')':
+                    if (waitPrm || listSize == 0 || listStartedAt < 0) {
+                        return start;
+                    }
+
+                    String name = nextJdbcPrmName();
+                    parsed.append(" AS_TABLE(");
+                    parsed.append(name);
+                    parsed.append(")");
+                    st.addJdbcPrmFactory(JdbcPrm.jdbcTableListOrm(name, listSize));
                     return offset + 1;
                 case '-': // possibly -- style comment
                     offset = parseLineComment(query, offset);
@@ -656,5 +726,22 @@ public class YdbQueryParser {
 
         return (query[offset] | 32) == 'i'
                 && (query[offset + 1] | 32) == 'n';
+    }
+
+    private static boolean parseJdbcTableKeyword(char[] query, int offset, int length) {
+        if (length != 10) {
+            return false;
+        }
+
+        return (query[offset] | 32) == 'j'
+                && (query[offset + 1] | 32) == 'd'
+                && (query[offset + 2] | 32) == 'b'
+                && (query[offset + 3] | 32) == 'c'
+                && (query[offset + 4]) == '_'
+                && (query[offset + 5] | 32) == 't'
+                && (query[offset + 6] | 32) == 'a'
+                && (query[offset + 7] | 32) == 'b'
+                && (query[offset + 8] | 32) == 'l'
+                && (query[offset + 9] | 32) == 'e';
     }
 }
