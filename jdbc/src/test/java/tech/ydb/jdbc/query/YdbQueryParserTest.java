@@ -269,7 +269,35 @@ public class YdbQueryParserTest {
         }
     }
 
-    @ParameterizedTest(name = "[{index}] {0} has in list parameter")
+    @ParameterizedTest(name = "[{index}] {0} has as_table list parameter")
+    @CsvSource(value = {
+        "'select * from jdbc_table(?) as t join test_table on id=t.x'"
+            + "@'select * from  AS_TABLE($jp1) as t join test_table on id=t.x'",
+        "'select * from jdbc_table(?,\n?, ?, \t?)'"
+            + "@'select * from  AS_TABLE($jp1)'",
+        "'select * from JDbc_Table  (?--comment\n,?,?/**other /** inner */ comment*/)'"
+            + "@'select * from  AS_TABLE($jp1)'",
+    }, delimiter = '@')
+    public void jdbcTableinListParameterTest(String query, String parsed) throws SQLException {
+        YdbQueryParser parser = new YdbQueryParser(query, true, true, true);
+        Assertions.assertEquals(parsed, parser.parseSQL());
+
+        Assertions.assertEquals(1, parser.getStatements().size());
+
+        QueryStatement statement = parser.getStatements().get(0);
+        Assertions.assertEquals(QueryType.DATA_QUERY, statement.getType());
+
+        Assertions.assertTrue(statement.hasJdbcParameters());
+        int idx = 0;
+        for (JdbcPrm.Factory factory : statement.getJdbcPrmFactories()) {
+            for (JdbcPrm prm: factory.create()) {
+                Assertions.assertEquals("$jp1[" + idx + "]", prm.getName());
+                idx++;
+            }
+        }
+    }
+
+    @ParameterizedTest(name = "[{index}] {0} has not in list parameter")
     @CsvSource(value = {
         "'select * from test_table where id in (?)'"
             + "@'select * from test_table where id in ($jp1)'",

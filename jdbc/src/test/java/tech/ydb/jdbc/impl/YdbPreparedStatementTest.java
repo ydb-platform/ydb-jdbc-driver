@@ -614,6 +614,85 @@ public class YdbPreparedStatementTest {
         }
     }
 
+    @Test
+    public void jdbcTableListTest() throws SQLException {
+        String arg2Name = "$jp1[1]";
+        String upsert = TEST_TABLE.upsertOne(SqlQueries.JdbcQuery.STANDARD, "c_Text", "Text");
+        String selectByIds = TEST_TABLE.withTableName(
+                "select count(*) from jdbc_table(?,?) as j join #tableName t on t.key=j.x"
+        );
+        String selectByValue = TEST_TABLE.withTableName(
+                "select count(*) from jdbc_table(?,?) as j join #tableName t on t.c_Text=j.x"
+        );
+
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert)) {
+            ps.setInt(1, 1);
+            ps.setString(2, "1");
+            ps.addBatch();
+
+            ps.setInt(1, 2);
+            ps.setString(2, null);
+            ps.addBatch();
+
+            ps.setInt(1, 3);
+            ps.setString(2, "3");
+            ps.addBatch();
+
+            ps.setInt(1, 4);
+            ps.setString(2, "null");
+            ps.addBatch();
+
+            ps.executeBatch();
+        }
+
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(selectByIds)) {
+            ps.setInt(1, 1);
+            ExceptionAssert.sqlException("Missing value for parameter: " + arg2Name, ps::executeQuery);
+
+            ps.setInt(1, 1);
+            ps.setInt(2, 2);
+            assertResultSetCount(ps.executeQuery(), 2);
+
+            ps.setInt(1, 1);
+            ps.setInt(2, 5);
+            assertResultSetCount(ps.executeQuery(), 1);
+
+            ps.setInt(1, 1);
+            ExceptionAssert.sqlException("Cannot cast [class java.lang.String: text] to [Int32]", () -> {
+                ps.setString(2, "text");
+            });
+        }
+
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(selectByValue)) {
+            ps.setString(1, null);
+            ExceptionAssert.sqlException("Missing value for parameter: " + arg2Name, ps::executeQuery);
+
+            ps.setString(1, null);
+            ps.setString(2, null);
+            assertResultSetCount(ps.executeQuery(), 0);
+
+            ps.setString(1, "1");
+            ps.setString(2, null);
+            assertResultSetCount(ps.executeQuery(), 1);
+
+            ps.setString(1, null);
+            ps.setString(2, "2");
+            assertResultSetCount(ps.executeQuery(), 0);
+
+            ps.setString(1, "1");
+            ps.setString(2, "1");
+            assertResultSetCount(ps.executeQuery(), 2);
+
+            ps.setString(1, "1");
+            ps.setString(2, "2");
+            assertResultSetCount(ps.executeQuery(), 1);
+
+            ps.setString(1, "1");
+            ps.setString(2, "3");
+            assertResultSetCount(ps.executeQuery(), 2);
+        }
+    }
+
     @ParameterizedTest(name = "with {0}")
     @EnumSource(SqlQueries.JdbcQuery.class)
     public void int32Test(SqlQueries.JdbcQuery query) throws SQLException {

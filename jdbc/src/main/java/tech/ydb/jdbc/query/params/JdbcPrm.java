@@ -36,4 +36,8 @@ public interface JdbcPrm {
     static Factory inListOrm(String name, int count) {
         return () -> new InListJdbcPrm(name, count).toJdbcPrmList();
     }
+
+    static Factory jdbcTableListOrm(String name, int count) {
+        return () -> new AsTableJdbcPrm(name, count).toJdbcPrmList();
+    }
 }
