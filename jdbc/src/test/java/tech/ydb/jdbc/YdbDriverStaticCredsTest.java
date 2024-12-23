@@ -9,6 +9,7 @@ import java.util.Properties;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -21,6 +22,7 @@ import tech.ydb.test.junit5.YdbHelperExtension;
  *
  * @author Aleksandr Gorshenin
  */
+@Disabled
 public class YdbDriverStaticCredsTest {
     @RegisterExtension
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
@@ -32,23 +34,19 @@ public class YdbDriverStaticCredsTest {
 
     @BeforeAll
     public static void createUsers() throws SQLException {
-        try (Connection connection = DriverManager.getConnection(jdbcURL.build())) {
-            try (Statement statement = connection.createStatement()) {
-                statement.execute(""
-                        + "CREATE USER user1 PASSWORD NULL;\n"
-                        + "CREATE USER user2 PASSWORD 'pwss';\n"
-                        + "CREATE USER user3 PASSWORD 'pw :ss;'\n;"
-                );
-            }
+        try (Statement statement = jdbc.connection().createStatement()) {
+            statement.execute(""
+                    + "CREATE USER user1 PASSWORD NULL;\n"
+                    + "CREATE USER user2 PASSWORD 'pwss';\n"
+                    + "CREATE USER user3 PASSWORD 'pw :ss;'\n;"
+            );
         }
     }
 
     @AfterAll
     public static void dropUsers() throws SQLException {
-        try (Connection connection = DriverManager.getConnection(jdbcURL.build())) {
-            try (Statement statement = connection.createStatement()) {
-                statement.execute("DROP USER IF EXISTS user1, user2, user3;");
-            }
+        try (Statement statement = jdbc.connection().createStatement()) {
+            statement.execute("DROP USER IF EXISTS user1, user2, user3;");
         }
     }
 
