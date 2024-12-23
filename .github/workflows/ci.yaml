@@ -11,7 +11,7 @@ on:
 jobs:
   prepare:
     name: Prepare Maven cache
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     env:
         MAVEN_ARGS: --batch-mode -Dstyle.color=always
@@ -47,7 +47,7 @@ jobs:
 
   build:
     name: YDB JDBC Driver CI on JDK
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: prepare
 
     strategy:
