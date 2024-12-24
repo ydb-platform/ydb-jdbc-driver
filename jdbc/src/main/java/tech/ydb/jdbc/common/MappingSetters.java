@@ -503,14 +503,14 @@ public class MappingSetters {
     }
 
     private static DecimalValue validateValue(DecimalType type, DecimalValue value, Object x) throws SQLException {
+        if (value.isNan()) {
+            throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST_TO_DECIMAL, type, toString(x), "NaN"));
+        }
         if (value.isInf()) {
             throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST_TO_DECIMAL, type, toString(x), "Infinite"));
         }
         if (value.isNegativeInf()) {
             throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST_TO_DECIMAL, type, toString(x), "-Infinite"));
-        }
-        if (value.isNan()) {
-            throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST_TO_DECIMAL, type, toString(x), "NaN"));
         }
         return value;
     }
