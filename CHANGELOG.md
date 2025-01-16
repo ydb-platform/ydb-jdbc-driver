@@ -1,3 +1,8 @@
+## 2.3.7 ##
+
+* Added slf4j-to-jul to shaded jar
+* Upgrade to use Java SDK v2.3.8
+
 ## 2.3.6 ##
 
 * Added jdbc_table which can be converted to AS_TABLE($list)
