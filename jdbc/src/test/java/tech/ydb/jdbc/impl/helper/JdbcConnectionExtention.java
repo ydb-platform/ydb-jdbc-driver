@@ -39,9 +39,8 @@ public class JdbcConnectionExtention implements ExecutionCondition,
     public JdbcConnectionExtention(YdbHelperExtension ydb, boolean autoCommit) {
         this(new JdbcUrlHelper(ydb)
                 .withArg("failOnTruncatedResult", "true")
-                .withArg("enableTxTracer", "true")
                 .withArg("autoCommit", String.valueOf(autoCommit))
-//                .withArg("useQueryService", "true")
+//                .withArg("useQueryService", "false")
         );
     }
 
