@@ -317,6 +317,22 @@ public class FixedResultSetFactory {
             return value.getInterval();
         }
 
+        public LocalDate getDate32() {
+            throw new UnsupportedOperationException("Not supported yet.");
+        }
+
+        public LocalDateTime getDatetime64() {
+            throw new UnsupportedOperationException("Not supported yet.");
+        }
+
+        public Instant getTimestamp64() {
+            throw new UnsupportedOperationException("Not supported yet.");
+        }
+
+        public Duration getInterval64() {
+            throw new UnsupportedOperationException("Not supported yet.");
+        }
+
         @Override
         public ZonedDateTime getTzDate() {
             return value.getTzDate();
