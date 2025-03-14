@@ -127,7 +127,7 @@ public class YdbPreparedStatementTest {
     }
 
     @ParameterizedTest(name = "with {0}")
-    @EnumSource(value=SqlQueries.JdbcQuery.class, names = { "BATCHED", "TYPED" })
+    @EnumSource(value=SqlQueries.JdbcQuery.class, names = { "BATCHED", "TYPED", "BULK" })
     public void executeWithMissingParameter(SqlQueries.JdbcQuery query) throws SQLException {
         String sql = TEST_TABLE.upsertOne(query, "c_Text", "Text");
 
@@ -138,7 +138,7 @@ public class YdbPreparedStatementTest {
     }
 
     @ParameterizedTest(name = "with {0}")
-    @EnumSource(value=SqlQueries.JdbcQuery.class, names = { "BATCHED", "TYPED" })
+    @EnumSource(value=SqlQueries.JdbcQuery.class, names = { "BATCHED", "TYPED", "BULK" })
     public void executeWithWrongType(SqlQueries.JdbcQuery query) throws SQLException {
         String sql = TEST_TABLE.upsertOne(query, "c_Text", "Text"); // Must be Optional<Text>
 
@@ -149,6 +149,44 @@ public class YdbPreparedStatementTest {
             );
         }
     }
+
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(value=SqlQueries.JdbcQuery.class, names = { "BATCHED", "TYPED", "BULK" })
+    public void executeWithWrongNameReal(SqlQueries.JdbcQuery query) throws SQLException {
+        String upsert = TEST_TABLE.upsertOne(query, "c_NotText", "Text");
+        ExceptionAssert.ydbException("No such column: c_NotText", () -> jdbc.connection().prepareStatement(upsert));
+    };
+
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(value=SqlQueries.JdbcQuery.class, names = { "STANDARD", "IN_MEMORY" })
+    public void executeWithWrongNameInMemory(SqlQueries.JdbcQuery query) throws SQLException {
+        String upsert = TEST_TABLE.upsertOne(query, "c_NotText", "Text");
+
+        try (PreparedStatement statement = jdbc.connection().prepareStatement(upsert)) {
+            statement.setInt(1, 1);
+            statement.setString(2, "value-1");
+            ExceptionAssert.ydbException("No such column: c_NotText", statement::execute);
+        }
+    };
+
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(value=SqlQueries.JdbcQuery.class, names = { "BATCHED", "TYPED", "BULK" })
+    public void executeWithWrongTableReal(SqlQueries.JdbcQuery query) throws SQLException {
+        String upsert = new SqlQueries("unknown_table").upsertOne(query, "c_NotText", "Text");
+        ExceptionAssert.ydbException("Cannot find table", () -> jdbc.connection().prepareStatement(upsert));
+    };
+
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(value=SqlQueries.JdbcQuery.class, names = { "STANDARD", "IN_MEMORY" })
+    public void executeWithWrongTableInMemory(SqlQueries.JdbcQuery query) throws SQLException {
+        String upsert = new SqlQueries("unknown_table").upsertOne(query, "c_NotText", "Text");
+
+        try (PreparedStatement statement = jdbc.connection().prepareStatement(upsert)) {
+            statement.setInt(1, 1);
+            statement.setString(2, "value-1");
+            ExceptionAssert.ydbException("Cannot find table", statement::execute);
+        }
+    };
 
     @ParameterizedTest(name = "with {0}")
     @EnumSource(SqlQueries.JdbcQuery.class)
