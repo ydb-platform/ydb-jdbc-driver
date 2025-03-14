@@ -20,6 +20,7 @@ import java.time.ZoneOffset;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
+import java.util.function.Function;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -126,21 +127,40 @@ public class YdbPreparedStatementTest {
         }
     }
 
-    @ParameterizedTest(name = "with {0}")
-    @EnumSource(value=SqlQueries.JdbcQuery.class, names = { "BATCHED", "TYPED" })
-    public void executeWithMissingParameter(SqlQueries.JdbcQuery query) throws SQLException {
-        String sql = TEST_TABLE.upsertOne(query, "c_Text", "Text");
+    @Test
+    public void executeWithMissingParameter() throws SQLException {
+        Function<SqlQueries.JdbcQuery, String> upsert = mode -> TEST_TABLE.upsertOne(mode, "c_Text", "Text");
 
-        try (PreparedStatement statement = jdbc.connection().prepareStatement(sql)) {
-            statement.setInt(1, 1);
-            ExceptionAssert.sqlDataException("Missing value for parameter", statement::execute);
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert.apply(SqlQueries.JdbcQuery.STANDARD))) {
+            ps.setInt(1, 1);
+            ExceptionAssert.sqlDataException("Missing value for parameter: $p2", ps::execute);
+        }
+
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert.apply(SqlQueries.JdbcQuery.IN_MEMORY))) {
+            ps.setInt(1, 1);
+            ExceptionAssert.sqlDataException("Missing value for parameter: $jp2", ps::execute);
+        }
+
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert.apply(SqlQueries.JdbcQuery.TYPED))) {
+            ps.setInt(1, 1);
+            ExceptionAssert.sqlDataException("Missing value for parameter: $p2", ps::execute);
+        }
+
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert.apply(SqlQueries.JdbcQuery.BATCHED))) {
+            ps.setInt(1, 1);
+            ExceptionAssert.sqlDataException("Missing value for parameter: $p2", ps::execute);
+        }
+
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert.apply(SqlQueries.JdbcQuery.BULK))) {
+            ps.setInt(1, 1);
+            ExceptionAssert.sqlDataException("Missing value for parameter: $c_Text", ps::execute);
         }
     }
 
     @ParameterizedTest(name = "with {0}")
     @EnumSource(value=SqlQueries.JdbcQuery.class, names = { "BATCHED", "TYPED" })
     public void executeWithWrongType(SqlQueries.JdbcQuery query) throws SQLException {
-        String sql = TEST_TABLE.upsertOne(query, "c_Text", "Text"); // Must be Optional<Text>
+        String sql = TEST_TABLE.upsertOne(query, "c_Text", "Text");
 
         try (PreparedStatement statement = jdbc.connection().prepareStatement(sql)) {
             statement.setInt(1, 1);
@@ -149,6 +169,65 @@ public class YdbPreparedStatementTest {
             );
         }
     }
+
+    @ParameterizedTest(name = "with {0}")
+    @ValueSource(strings = { "c_NotText" , "C_TEXT", "c_text" })
+    public void executeWithWrongColumnName(String columnName) throws SQLException {
+        String errorMessage = "No such column: " + columnName;
+
+        String standard = TEST_TABLE.upsertOne(SqlQueries.JdbcQuery.STANDARD, columnName, "Text");
+        String inMemory = TEST_TABLE.upsertOne(SqlQueries.JdbcQuery.IN_MEMORY, columnName, "Text");
+        String typed = TEST_TABLE.upsertOne(SqlQueries.JdbcQuery.TYPED, columnName, "Text");
+        String batched = TEST_TABLE.upsertOne(SqlQueries.JdbcQuery.BATCHED, columnName, "Text");
+        String bulk = TEST_TABLE.upsertOne(SqlQueries.JdbcQuery.BULK, columnName, "Text");
+
+        try (PreparedStatement statement = jdbc.connection().prepareStatement(standard)) {
+            statement.setInt(1, 1);
+            statement.setString(2, "value-1");
+            ExceptionAssert.ydbException(errorMessage, statement::execute);
+        }
+
+        try (PreparedStatement statement = jdbc.connection().prepareStatement(inMemory)) {
+            statement.setInt(1, 1);
+            statement.setString(2, "value-1");
+            ExceptionAssert.ydbException(errorMessage, statement::execute);
+        }
+
+        ExceptionAssert.ydbException(errorMessage, () -> jdbc.connection().prepareStatement(typed));
+        ExceptionAssert.ydbException(errorMessage, () -> jdbc.connection().prepareStatement(batched));
+        ExceptionAssert.sqlException("Cannot parse BULK upsert: column " + columnName + " not found",
+                () -> jdbc.connection().prepareStatement(bulk));
+    };
+
+    @ParameterizedTest(name = "with {0}")
+    @ValueSource(strings = { "unknown_table"/*, "YDB_PREPARED_TEST", "ydD_prepared_test"*/ })
+    public void executeWithWrongTableName(String tableName) throws SQLException {
+        String errorMessage = "Cannot find table 'db.[" + jdbc.database() + "/" + tableName + "]";
+        SqlQueries queries = new SqlQueries(tableName);
+
+        String standard = queries.upsertOne(SqlQueries.JdbcQuery.STANDARD, "c_Text", "Text");
+        String inMemory = queries.upsertOne(SqlQueries.JdbcQuery.IN_MEMORY, "c_Text", "Text");
+        String typed = queries.upsertOne(SqlQueries.JdbcQuery.TYPED, "c_Text", "Text");
+        String batched = queries.upsertOne(SqlQueries.JdbcQuery.BATCHED, "c_Text", "Text");
+        String bulk = queries.upsertOne(SqlQueries.JdbcQuery.BULK, "c_Text", "Text");
+
+        try (PreparedStatement statement = jdbc.connection().prepareStatement(standard)) {
+            statement.setInt(1, 1);
+            statement.setString(2, "value-1");
+            ExceptionAssert.ydbException(errorMessage, statement::execute);
+        }
+
+        try (PreparedStatement statement = jdbc.connection().prepareStatement(inMemory)) {
+            statement.setInt(1, 1);
+            statement.setString(2, "value-1");
+            ExceptionAssert.ydbException(errorMessage, statement::execute);
+        }
+
+        ExceptionAssert.ydbException(errorMessage, () -> jdbc.connection().prepareStatement(typed));
+        ExceptionAssert.ydbException(errorMessage, () -> jdbc.connection().prepareStatement(batched));
+        ExceptionAssert.sqlException("Cannot parse BULK upsert: Status{code = SCHEME_ERROR(code=400070)}",
+                () -> jdbc.connection().prepareStatement(bulk));
+    };
 
     @ParameterizedTest(name = "with {0}")
     @EnumSource(SqlQueries.JdbcQuery.class)

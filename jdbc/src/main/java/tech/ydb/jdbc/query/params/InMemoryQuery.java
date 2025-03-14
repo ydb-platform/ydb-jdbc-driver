@@ -2,6 +2,7 @@ package tech.ydb.jdbc.query.params;
 
 
 
+import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -109,7 +110,7 @@ public class InMemoryQuery implements YdbPreparedQuery {
     @Override
     public String getNameByIndex(int index) throws SQLException {
         if (index <= 0 || index > parameters.size()) {
-            throw new SQLException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + index);
+            throw new SQLDataException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + index);
         }
         return parameters.get(index - 1).getName();
     }
@@ -117,7 +118,7 @@ public class InMemoryQuery implements YdbPreparedQuery {
     @Override
     public TypeDescription getDescription(int index) throws SQLException {
         if (index <= 0 || index > parameters.size()) {
-            throw new SQLException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + index);
+            throw new SQLDataException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + index);
         }
 
         JdbcPrm p = parameters.get(index - 1);
@@ -127,7 +128,7 @@ public class InMemoryQuery implements YdbPreparedQuery {
     @Override
     public void setParam(int index, Object obj, int sqlType) throws SQLException {
         if (index <= 0 || index > parameters.size()) {
-            throw new SQLException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + index);
+            throw new SQLDataException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + index);
         }
 
         parameters.get(index - 1).setValue(obj, sqlType);
@@ -137,7 +138,7 @@ public class InMemoryQuery implements YdbPreparedQuery {
     public void setParam(String name, Object obj, int sqlType) throws SQLException {
         JdbcPrm param = parametersByName.get(name);
         if (param == null) {
-            throw new SQLException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + name);
+            throw new SQLDataException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + name);
         }
         param.setValue(obj, sqlType);
     }

@@ -1,5 +1,6 @@
 package tech.ydb.jdbc.query.params;
 
+import java.sql.SQLDataException;
 import java.sql.SQLException;
 
 import tech.ydb.jdbc.YdbConst;
@@ -34,7 +35,7 @@ class SimpleJdbcPrm implements JdbcPrm {
     @Override
     public void copyToParams(Params params) throws SQLException {
         if (value == null) {
-            throw new SQLException(YdbConst.MISSING_VALUE_FOR_PARAMETER + name);
+            throw new SQLDataException(YdbConst.MISSING_VALUE_FOR_PARAMETER + name);
         }
         params.put(name, value);
     }
@@ -56,7 +57,7 @@ class SimpleJdbcPrm implements JdbcPrm {
 
         Type type = YdbTypes.findType(obj, sqlType);
         if (type == null) {
-            throw new SQLException(String.format(YdbConst.PARAMETER_TYPE_UNKNOWN, sqlType, obj));
+            throw new SQLDataException(String.format(YdbConst.PARAMETER_TYPE_UNKNOWN, sqlType, obj));
         }
 
         if (obj == null) {

@@ -29,8 +29,9 @@ public class ExceptionAssert {
         SQLDataException ex = Assertions.assertThrows(SQLDataException.class, exec,
                 "Invalid statement must throw SQLDataException"
         );
-        Assertions.assertTrue(ex.getMessage().contains(message),
-                "SQLDataException '" + ex.getMessage() + "' doesn't contain message '" + message + "'");
+        Assertions.assertEquals(message, ex.getMessage());
+//        Assertions.assertTrue(ex.getMessage().contains(message),
+//                "SQLDataException '" + ex.getMessage() + "' doesn't contain message '" + message + "'");
     }
 
     public static void sqlRecoverable(String message, Executable exec) {

@@ -41,6 +41,7 @@ public class JdbcConnectionExtention implements ExecutionCondition,
                 .withArg("failOnTruncatedResult", "true")
                 .withArg("autoCommit", String.valueOf(autoCommit))
 //                .withArg("useQueryService", "false")
+
         );
     }
 
@@ -70,6 +71,10 @@ public class JdbcConnectionExtention implements ExecutionCondition,
 
     public String jdbcURL() {
         return jdbcURL.build();
+    }
+
+    public String database() {
+        return jdbcURL.database();
     }
 
     public Connection connection() {

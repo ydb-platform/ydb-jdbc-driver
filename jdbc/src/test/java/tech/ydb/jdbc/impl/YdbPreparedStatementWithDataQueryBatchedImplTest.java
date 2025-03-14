@@ -130,7 +130,8 @@ public class YdbPreparedStatementWithDataQueryBatchedImplTest {
     @Test
     public void executeEmptyNoResultSet() throws SQLException {
         try (YdbPreparedStatement statement = prepareBatchUpsert("c_Text", "Optional<Text>")) {
-            statement.setInt("key", 1); // key is requiered value
+            statement.setInt("key", 1);
+            statement.setString("c_Text", "value-1");
             ExceptionAssert.sqlException("Query must return ResultSet", statement::executeQuery);
         }
         jdbc.connection().commit();

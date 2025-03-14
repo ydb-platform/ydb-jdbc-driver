@@ -119,7 +119,7 @@ public class YdbPreparedStatementWithDataQueryImplTest {
         String sql = upsertSql("c_Text", "Text");  // Must be Text?
         try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(sql)) {
             statement.setInt("key", 1);
-            ExceptionAssert.sqlDataException("Missing value for parameter", statement::execute);
+            ExceptionAssert.sqlDataException("Missing value for parameter: $c_Text", statement::execute);
         }
 
         try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(sql)) {
