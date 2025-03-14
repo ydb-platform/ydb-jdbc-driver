@@ -53,7 +53,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
     }
 
     protected Session createNewTableSession(YdbValidator validator) throws SQLException {
-        return validator.call("Get session", () -> tableClient.createSession(sessionTimeout));
+        return validator.call("Get session", null, () -> tableClient.createSession(sessionTimeout));
     }
 
     protected void closeCurrentResult() throws SQLException {
@@ -163,7 +163,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
             }
         }
 
-        StreamQueryResult lazy = validator.call(msg, () -> {
+        StreamQueryResult lazy = validator.call(msg, null, () -> {
             final CompletableFuture<Result<StreamQueryResult>> future = new CompletableFuture<>();
             final GrpcReadStream<ResultSetReader> stream = session.executeScanQuery(yql, params, settings);
             final StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);

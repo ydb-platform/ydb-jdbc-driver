@@ -10,6 +10,8 @@ import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import io.grpc.Context;
+
 import tech.ydb.core.Issue;
 import tech.ydb.core.Result;
 import tech.ydb.core.Status;
@@ -54,8 +56,18 @@ public class YdbValidator {
         this.issues.clear();
     }
 
+    private <T> T joinFuture(Supplier<CompletableFuture<T>> supplier) {
+        Context ctx = Context.current().fork();
+        Context previous = ctx.attach();
+        try {
+            return supplier.get().join();
+        } finally {
+            ctx.detach(previous);
+        }
+    }
+
     public void execute(String msg, YdbTracer tracer, Supplier<CompletableFuture<Status>> fn) throws SQLException {
-        Status status = fn.get().join();
+        Status status = joinFuture(fn);
         addStatusIssues(status);
 
         tracer.trace("<-- " + status.toString());
@@ -67,25 +79,18 @@ public class YdbValidator {
         }
     }
 
-    public <R> R call(String msg, Supplier<CompletableFuture<Result<R>>> fn) throws SQLException {
-        try {
-            Result<R> result = fn.get().join();
-            addStatusIssues(result.getStatus());
-            return result.getValue();
-        } catch (UnexpectedResultException ex) {
-            LOGGER.log(Level.FINE, "call problem {0}", ex.getStatus());
-            throw ExceptionFactory.createException("Cannot call '" + msg + "' with " + ex.getStatus(), ex);
-        }
-    }
-
     public <R> R call(String msg, YdbTracer tracer, Supplier<CompletableFuture<Result<R>>> fn) throws SQLException {
         try {
-            Result<R> result = fn.get().join();
+            Result<R> result = joinFuture(fn);
             addStatusIssues(result.getStatus());
-            tracer.trace("<-- " + result.getStatus().toString());
+            if (tracer != null) {
+                tracer.trace("<-- " + result.getStatus().toString());
+            }
             return result.getValue();
         } catch (UnexpectedResultException ex) {
-            tracer.close();
+            if (tracer != null) {
+                tracer.close();
+            }
             LOGGER.log(Level.FINE, "call problem {0}", ex.getStatus());
             throw ExceptionFactory.createException("Cannot call '" + msg + "' with " + ex.getStatus(), ex);
         }
