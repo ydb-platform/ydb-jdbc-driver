@@ -51,6 +51,10 @@ public class JdbcUrlHelper {
         return new JdbcUrlHelper(ydb, extra, newAuthority.append("@").toString(), disableToken);
     }
 
+    public String database() {
+        return ydb.database();
+    }
+
     public String build() {
         if (!YdbHelperFactory.getInstance().isEnabled()) {
             return "jdbc:ydb:grpc://localhost/local";

@@ -249,9 +249,10 @@ public class YdbTablePreparedStatementImplTest {
     @EnumSource(SqlQueries.YqlQuery.class)
     public void executeEmptyBatch(SqlQueries.YqlQuery mode) throws SQLException {
         String yql = TEST_TABLE.upsertOne(mode, "c_Text", "Text");
+        String prm = mode == SqlQueries.YqlQuery.SIMPLE ? "$key" : "$c_Text";
         try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(yql)) {
-            ExceptionAssert.sqlDataException("Missing value for parameter", () -> statement.execute());
-            ExceptionAssert.sqlDataException("Missing value for parameter", () -> statement.executeUpdate());
+            ExceptionAssert.sqlDataException("Missing value for parameter: " + prm, statement::execute);
+            ExceptionAssert.sqlDataException("Missing value for parameter: " + prm, statement::executeUpdate);
             statement.executeBatch();
         }
 
