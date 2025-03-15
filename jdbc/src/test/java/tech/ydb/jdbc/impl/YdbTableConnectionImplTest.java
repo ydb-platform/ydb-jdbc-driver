@@ -41,7 +41,8 @@ public class YdbTableConnectionImplTest {
 
     @RegisterExtension
     private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb)
-            .withArg("useQueryService", "false");
+            .withArg("useQueryService", "false")
+            .withArg("grpcCompression", "none");
 
     private static final SqlQueries QUERIES = new SqlQueries("ydb_connection_test");
     private static final String SELECT_2_2 = "select 2 + 2";

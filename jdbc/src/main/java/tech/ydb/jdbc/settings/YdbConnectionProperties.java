@@ -9,6 +9,7 @@ import tech.ydb.auth.TokenAuthProvider;
 import tech.ydb.auth.iam.CloudAuthHelper;
 import tech.ydb.core.auth.StaticCredentials;
 import tech.ydb.core.grpc.BalancingSettings;
+import tech.ydb.core.grpc.GrpcCompression;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
 import tech.ydb.jdbc.YdbDriver;
 
@@ -47,6 +48,10 @@ public class YdbConnectionProperties {
     static final YdbProperty<String> METADATA_URL = YdbProperty.content("metadataURL",
             "Custom URL for the metadata service authentication");
 
+    static final YdbProperty<String> GRPC_COMPRESSION = YdbProperty.string(
+            "grpcCompression", "Use specified GRPC compressor (supported only none and gzip)"
+    );
+
     private final String username;
     private final String password;
 
@@ -60,6 +65,7 @@ public class YdbConnectionProperties {
     private final YdbValue<Boolean> useMetadata;
     private final YdbValue<String> iamEndpoint;
     private final YdbValue<String> metadataUrl;
+    private final YdbValue<String> grpcCompression;
 
     public YdbConnectionProperties(YdbConfig config) throws SQLException {
         this.username = config.getUsername();
@@ -77,6 +83,7 @@ public class YdbConnectionProperties {
         this.useMetadata = USE_METADATA.readValue(props);
         this.iamEndpoint = IAM_ENDPOINT.readValue(props);
         this.metadataUrl = METADATA_URL.readValue(props);
+        this.grpcCompression = GRPC_COMPRESSION.readValue(props);
     }
 
     String getLocalDataCenter() {
@@ -172,6 +179,17 @@ public class YdbConnectionProperties {
                 builder = builder.withAuthProvider(CloudAuthHelper.getServiceAccountJsonAuthProvider(json, endpoint));
             } else {
                 builder = builder.withAuthProvider(CloudAuthHelper.getServiceAccountJsonAuthProvider(json));
+            }
+        }
+
+        if (grpcCompression.hasValue()) {
+            String value = grpcCompression.getValue();
+            if ("none".equalsIgnoreCase(value)) {
+                builder = builder.withGrpcCompression(GrpcCompression.NO_COMPRESSION);
+            } else if ("gzip".equalsIgnoreCase(value)) {
+                builder = builder.withGrpcCompression(GrpcCompression.GZIP);
+            } else {
+                LOGGER.log(Level.WARNING, "Unknown value for option 'grpcCompression' : {0}", value);
             }
         }
 
