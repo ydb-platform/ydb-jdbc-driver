@@ -1,3 +1,9 @@
+## 2.3.8 ##
+
+* Added option 'grpcCompression'
+* Added bulk upsert validation
+* All grpc calls isolated from parent context
+
 ## 2.3.7 ##
 
 * Added slf4j-to-jul to shaded jar
