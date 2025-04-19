@@ -8,6 +8,7 @@ import java.util.List;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.query.params.JdbcPrm;
+import tech.ydb.jdbc.settings.YdbQueryProperties;
 
 
 /**
@@ -17,6 +18,7 @@ import tech.ydb.jdbc.query.params.JdbcPrm;
 public class YdbQueryParser {
     private final boolean isDetectQueryType;
     private final boolean isDetectJdbcParameters;
+    private final boolean isForceJdbcParamters;
     private final boolean isConvertJdbcInToList;
 
     private final List<QueryStatement> statements = new ArrayList<>();
@@ -26,10 +28,11 @@ public class YdbQueryParser {
 
     private int jdbcPrmIndex = 0;
 
-    public YdbQueryParser(String origin, boolean isDetectQueryType, boolean isDetectParameters, boolean isConvertIn) {
-        this.isDetectQueryType = isDetectQueryType;
-        this.isDetectJdbcParameters = isDetectParameters;
-        this.isConvertJdbcInToList = isConvertIn;
+    public YdbQueryParser(String origin, YdbQueryProperties props) {
+        this.isDetectQueryType = props.isDetectQueryType();
+        this.isDetectJdbcParameters = props.isDetectJdbcParameters();
+        this.isForceJdbcParamters = props.isForceJdbcParameters();
+        this.isConvertJdbcInToList = props.isReplaceJdbcInByYqlList();
         this.origin = origin;
         this.parsed = new StringBuilder(origin.length() + 10);
     }
@@ -45,7 +48,7 @@ public class YdbQueryParser {
     public QueryType detectQueryType() throws SQLException {
         QueryType type = null;
         for (QueryStatement st: statements) {
-            if (st.getType() == QueryType.UNKNOWN) {
+            if (st.getType() == QueryType.UNKNOWN || st.getType() == QueryType.DECLARE) {
                 continue;
             }
 
@@ -218,6 +221,12 @@ public class YdbQueryParser {
                             batcher.readIdentifier(chars, keywordStart, keywordLength);
                         }
 
+                        // starts with DECLARE
+                        if (parseDeclareKeyword(chars, keywordStart, keywordLength)) {
+                            statement = new QueryStatement(type, QueryType.DECLARE, QueryCmd.UNKNOWN);
+                            batcher.readIdentifier(chars, keywordStart, keywordLength);
+                        }
+
                         // starts with INSERT, UPSERT
                         if (parseInsertKeyword(chars, keywordStart, keywordLength)) {
                             statement = new QueryStatement(type, QueryType.DATA_QUERY, QueryCmd.INSERT_UPSERT);
@@ -251,9 +260,13 @@ public class YdbQueryParser {
                         }
 
                         statements.add(statement);
-                        detectJdbcArgs = statement.getType() != QueryType.SCHEME_QUERY
-                                && statement.getType() != QueryType.UNKNOWN
-                                && isDetectJdbcParameters;
+
+                        detectJdbcArgs = isDetectJdbcParameters;
+                        detectJdbcArgs = detectJdbcArgs && statement.getType() != QueryType.SCHEME_QUERY;
+                        detectJdbcArgs = detectJdbcArgs && statement.getType() != QueryType.DECLARE;
+                        if (!isForceJdbcParamters) {
+                            detectJdbcArgs = detectJdbcArgs && statement.getType() != QueryType.UNKNOWN;
+                        }
                     }
                 }
 
@@ -610,6 +623,20 @@ public class YdbQueryParser {
                 && (query[offset + 3] | 32) == 'e'
                 && (query[offset + 4] | 32) == 'c'
                 && (query[offset + 5] | 32) == 't';
+    }
+
+    private static boolean parseDeclareKeyword(char[] query, int offset, int length) {
+        if (length != 7) {
+            return false;
+        }
+
+        return (query[offset] | 32) == 'd'
+                && (query[offset + 1] | 32) == 'e'
+                && (query[offset + 2] | 32) == 'c'
+                && (query[offset + 3] | 32) == 'l'
+                && (query[offset + 4] | 32) == 'a'
+                && (query[offset + 5] | 32) == 'r'
+                && (query[offset + 6] | 32) == 'e';
     }
 
     private static boolean parseUpdateKeyword(char[] query, int offset, int length) {

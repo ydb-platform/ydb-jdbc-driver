@@ -59,9 +59,7 @@ public class YdbQuery {
     }
 
     public static YdbQuery parseQuery(String query, YdbQueryProperties opts) throws SQLException {
-        YdbQueryParser parser = new YdbQueryParser(
-                query, opts.isDetectQueryType(), opts.isDetectJdbcParameters(), opts.isReplaceJdbcInByYqlList()
-        );
+        YdbQueryParser parser = new YdbQueryParser(query, opts);
         String preparedYQL = parser.parseSQL();
 
         QueryType type = null;
