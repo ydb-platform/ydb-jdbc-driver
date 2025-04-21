@@ -43,6 +43,11 @@ class YdbProperty<T> {
             }
         }
 
+        if (clazz == Object.class) {
+            T typed = clazz.cast(value);
+            return new YdbValue<>(true, typed.toString(), typed);
+        }
+
         if (value instanceof String) {
             try {
                 String stringValue = (String) value;
@@ -67,6 +72,10 @@ class YdbProperty<T> {
         info.description = description;
         info.required = false;
         return info;
+    }
+
+    public static YdbProperty<Object> object(String name, String description) {
+        return new YdbProperty<>(name, description, null, Object.class, v -> v);
     }
 
     public static YdbProperty<String> string(String name, String description) {
@@ -141,11 +150,6 @@ class YdbProperty<T> {
                         targetValue + "] as Duration: " + e.getMessage(), e);
             }
         });
-    }
-
-    @Deprecated
-    public static YdbProperty<byte[]> bytes(String name, String description) {
-        return new YdbProperty<>(name, description, null, byte[].class, YdbLookup::byteFileReference);
     }
 
     public static YdbProperty<String> content(String name, String description) {
