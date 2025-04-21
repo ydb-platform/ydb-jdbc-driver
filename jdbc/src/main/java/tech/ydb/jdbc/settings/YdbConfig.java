@@ -202,6 +202,7 @@ public class YdbConfig {
             YdbConnectionProperties.USE_METADATA.toInfo(properties),
             YdbConnectionProperties.IAM_ENDPOINT.toInfo(properties),
             YdbConnectionProperties.METADATA_URL.toInfo(properties),
+            YdbConnectionProperties.TOKEN_PROVIDER.toInfo(properties),
             YdbConnectionProperties.GRPC_COMPRESSION.toInfo(properties),
 
             YdbClientProperties.KEEP_QUERY_TEXT.toInfo(properties),
