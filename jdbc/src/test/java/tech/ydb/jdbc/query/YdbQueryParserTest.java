@@ -68,6 +68,8 @@ public class YdbQueryParserTest {
         "  Alter table set;",
         "Alter--comment\ntable set;",
         "drOp table 'test'",
+        "Revoke--comment\npermission;",
+        "GRant table 'test'",
         "-- comment \nCreate;",
     })
     public void schemeQueryTest(String query) throws SQLException {

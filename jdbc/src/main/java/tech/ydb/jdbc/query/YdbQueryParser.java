@@ -254,7 +254,10 @@ public class YdbQueryParser {
                         // Detect scheme expression - starts with ALTER, DROP, CREATE
                         if (parseAlterKeyword(chars, keywordStart, keywordLength)
                                 || parseCreateKeyword(chars, keywordStart, keywordLength)
-                                || parseDropKeyword(chars, keywordStart, keywordLength)) {
+                                || parseDropKeyword(chars, keywordStart, keywordLength)
+                                || parseGrantKeyword(chars, keywordStart, keywordLength)
+                                || parseRevokeKeyword(chars, keywordStart, keywordLength)
+                                ) {
                             statement = new QueryStatement(type, QueryType.SCHEME_QUERY, QueryCmd.CREATE_ALTER_DROP);
                             batcher.readIdentifier(chars, keywordStart, keywordLength);
                         }
@@ -576,6 +579,30 @@ public class YdbQueryParser {
                 && (query[offset + 3] | 32) == 'p';
     }
 
+    private static boolean parseGrantKeyword(char[] query, int offset, int length) {
+        if (length != 5) {
+            return false;
+        }
+
+        return (query[offset] | 32) == 'g'
+                && (query[offset + 1] | 32) == 'r'
+                && (query[offset + 2] | 32) == 'a'
+                && (query[offset + 3] | 32) == 'n'
+                && (query[offset + 4] | 32) == 't';
+    }
+
+    private static boolean parseRevokeKeyword(char[] query, int offset, int length) {
+        if (length != 6) {
+            return false;
+        }
+
+        return (query[offset] | 32) == 'r'
+                && (query[offset + 1] | 32) == 'e'
+                && (query[offset + 2] | 32) == 'v'
+                && (query[offset + 3] | 32) == 'o'
+                && (query[offset + 4] | 32) == 'k'
+                && (query[offset + 5] | 32) == 'e';
+    }
     private static boolean parseScanKeyword(char[] query, int offset, int length) {
         if (length != 4) {
             return false;
