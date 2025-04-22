@@ -32,7 +32,7 @@ import tech.ydb.jdbc.common.FixedResultSetFactory;
 import tech.ydb.jdbc.common.YdbFunctions;
 import tech.ydb.jdbc.context.SchemeExecutor;
 import tech.ydb.jdbc.context.YdbValidator;
-import tech.ydb.proto.scheme.SchemeOperationProtos;
+import tech.ydb.scheme.description.Entry;
 import tech.ydb.scheme.description.ListDirectoryResult;
 import tech.ydb.table.description.TableColumn;
 import tech.ydb.table.description.TableDescription;
@@ -725,7 +725,8 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
             this.name = name;
             this.isSystem = name.startsWith(".sys/")
                     || name.startsWith(".sys_health/")
-                    || name.startsWith(".sys_health_dev/");
+                    || name.startsWith(".sys_health_dev/")
+                    || name.startsWith(".metadata/");
         }
 
         @Override
@@ -1349,7 +1350,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         List<String> tables = new ArrayList<>();
         String pathPrefix = withSuffix(path);
 
-        for (SchemeOperationProtos.Entry entry : result.getChildren()) {
+        for (Entry entry : result.getEntryChildren()) {
             String tableName = entry.getName();
             String fullPath = pathPrefix + tableName;
             String tablePath = fullPath.substring(databasePrefix.length());
