@@ -1,3 +1,9 @@
+## 2.3.9 ##
+
+* Added option 'forceJdbcParameters' to detect ? in whole query text
+* Added option 'tokenProvider' to use custom auth provider
+* All grpc calls isolated from parent 
+
 ## 2.3.8 ##
 
 * Added option 'grpcCompression'
