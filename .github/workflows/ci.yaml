@@ -75,8 +75,10 @@ jobs:
       - name: Extract YDB JDBC Driver version
         working-directory: ./jdbc
         run: |
-          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          echo "JDBC_VERSION=$VERSION" >> "$GITHUB_ENV"
+          JDBC_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          SDK_VERSION=$(mvn help:evaluate -Dexpression=ydb.sdk.version -q -DforceStdout)
+          echo "JDBC_VERSION=$JDBC_VERSION" >> "$GITHUB_ENV"
+          echo "SDK_VERSION=$SDK_VERSION" >> "$GITHUB_ENV"
 
       - name: Build YDB JDBC Driver
         working-directory: ./jdbc
@@ -90,4 +92,4 @@ jobs:
 
       - name: Test examples with Maven
         working-directory: ./examples
-        run: mvn $MAVEN_ARGS -Dydb.jdbc.version=$JDBC_VERSION test
+        run: mvn $MAVEN_ARGS -Dydb.sdk.version=$SDK_VERSION -Dydb.jdbc.version=$JDBC_VERSION test
