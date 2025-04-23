@@ -1,8 +1,13 @@
+## 2.3.10 ##
+
+* Added .metadata folder to system tables
+* Added support of GRANT/REVOKE keywords
+
 ## 2.3.9 ##
 
 * Added option 'forceJdbcParameters' to detect ? in whole query text
 * Added option 'tokenProvider' to use custom auth provider
-* All grpc calls isolated from parent 
+* Upgrade to Java SDK 2.3.13
 
 ## 2.3.8 ##
 
