@@ -61,10 +61,10 @@ public class YdbDatabaseMetaDataImplTest {
                     + "create table `dir2/t1` (id Int32, value Int32, primary key (id));\n"
                     + "create table `dir2/dir1/t1` (id Int32, value Int32, primary key (id));\n"
                     + "create table " + INDEXES_TABLE + "("
-                            + "key1 Int32, key2 Text, value1 Int32, value2 Text, value3 Int32, "
-                            + "primary key(key1, key2), "
-                            + "index idx_2 global on (value1, value2),"
-                            + "index idx_1 global on (value3))\n;"
+                    + "key1 Int32, key2 Text, value1 Int32, value2 Text, value3 Int32, "
+                    + "primary key(key1, key2), "
+                    + "index idx_2 global on (value1, value2),"
+                    + "index idx_1 global on (value3))\n;"
             );
         }
     }
@@ -364,9 +364,9 @@ public class YdbDatabaseMetaDataImplTest {
 
     @Test
     public void getTypeInfo() throws SQLException {
-        short searchNone = (short)DatabaseMetaData.typePredNone;
-        short searchBasic = (short)DatabaseMetaData.typePredBasic;
-        short searchFull = (short)DatabaseMetaData.typeSearchable;
+        short searchNone = (short) DatabaseMetaData.typePredNone;
+        short searchBasic = (short) DatabaseMetaData.typePredBasic;
+        short searchFull = (short) DatabaseMetaData.typeSearchable;
 
         TableAssert types = new TableAssert();
         TableAssert.TextColumn name = types.addTextColumn("TYPE_NAME", "Text");
@@ -374,19 +374,27 @@ public class YdbDatabaseMetaDataImplTest {
         TableAssert.IntColumn precision = types.addIntColumn("PRECISION", "Int32");
         TableAssert.TextColumn prefix = types.addTextColumn("LITERAL_PREFIX", "Text").defaultNull();
         TableAssert.TextColumn suffix = types.addTextColumn("LITERAL_SUFFIX", "Text").defaultNull();
-        /* createParams = */types.addTextColumn("CREATE_PARAMS", "Text").defaultNull();
-        /* nullable = */types.addShortColumn("NULLABLE", "Int16").defaultValue((short) DatabaseMetaData.typeNullable);
-        /* caseSensitive = */types.addBoolColumn("CASE_SENSITIVE", "Bool").defaultValue(true);
+        /* createParams = */
+        types.addTextColumn("CREATE_PARAMS", "Text").defaultNull();
+        /* nullable = */
+        types.addShortColumn("NULLABLE", "Int16").defaultValue((short) DatabaseMetaData.typeNullable);
+        /* caseSensitive = */
+        types.addBoolColumn("CASE_SENSITIVE", "Bool").defaultValue(true);
         TableAssert.ShortColumn searchable = types.addShortColumn("SEARCHABLE", "Int16").defaultValue(searchBasic);
         TableAssert.BoolColumn unsigned = types.addBoolColumn("UNSIGNED_ATTRIBUTE", "Bool");
         TableAssert.BoolColumn fixedPrec = types.addBoolColumn("FIXED_PREC_SCALE", "Bool").defaultValue(false);
-        /* autoIncrement = */types.addBoolColumn("AUTO_INCREMENT", "Bool").defaultValue(false);
-        /* localName = */types.addTextColumn("LOCAL_TYPE_NAME", "Text").defaultNull();
+        /* autoIncrement = */
+        types.addBoolColumn("AUTO_INCREMENT", "Bool").defaultValue(false);
+        /* localName = */
+        types.addTextColumn("LOCAL_TYPE_NAME", "Text").defaultNull();
         TableAssert.ShortColumn minScale = types.addShortColumn("MINIMUM_SCALE", "Int16").defaultValue((short) 0);
         TableAssert.ShortColumn maxScale = types.addShortColumn("MAXIMUM_SCALE", "Int16").defaultValue((short) 0);
-        /* sqlDataType = */types.addIntColumn("SQL_DATA_TYPE", "Int32").defaultValue(0);
-        /* sqlDatetimeSub = */types.addIntColumn("SQL_DATETIME_SUB", "Int32").defaultValue(0);
-        /* numPrecRadix = */types.addIntColumn("NUM_PREC_RADIX", "Int32").defaultValue(10);
+        /* sqlDataType = */
+        types.addIntColumn("SQL_DATA_TYPE", "Int32").defaultValue(0);
+        /* sqlDatetimeSub = */
+        types.addIntColumn("SQL_DATETIME_SUB", "Int32").defaultValue(0);
+        /* numPrecRadix = */
+        types.addIntColumn("NUM_PREC_RADIX", "Int32").defaultValue(10);
 
         TableAssert.ResultSetAssert rs = types.check(metaData.getTypeInfo())
                 .assertMetaColumns();
@@ -427,6 +435,11 @@ public class YdbDatabaseMetaDataImplTest {
         rs.nextRow(name.eq("Decimal(22, 9)"), type.eq(Types.DECIMAL), precision.eq(22),
                 unsigned.eq(false), fixedPrec.eq(true), minScale.eq(9), maxScale.eq(9)).assertAll();
 
+        rs.nextRow(name.eq("Date32"), type.eq(Types.DATE), precision.eq(10), unsigned.eq(false)).assertAll();
+        rs.nextRow(name.eq("Datetime64"), type.eq(Types.TIMESTAMP), precision.eq(19), unsigned.eq(false)).assertAll();
+        rs.nextRow(name.eq("Timestamp64"), type.eq(Types.TIMESTAMP), precision.eq(26), unsigned.eq(false)).assertAll();
+        rs.nextRow(name.eq("Interval64"), type.eq(Types.BIGINT), precision.eq(8), unsigned.eq(false)).assertAll();
+
         rs.assertNoRows();
     }
 
@@ -442,17 +455,25 @@ public class YdbDatabaseMetaDataImplTest {
                 "all_types"
         );
 
-        TableAssert tables  = new TableAssert();
-        /* tableCatalog = */ tables.addTextColumn("TABLE_CAT", "Text").defaultNull();
-        /* tableSchema = */  tables.addTextColumn("TABLE_SCHEM", "Text").defaultNull();
+        TableAssert tables = new TableAssert();
+        /* tableCatalog = */
+        tables.addTextColumn("TABLE_CAT", "Text").defaultNull();
+        /* tableSchema = */
+        tables.addTextColumn("TABLE_SCHEM", "Text").defaultNull();
         TableAssert.TextColumn tableName = tables.addTextColumn("TABLE_NAME", "Text");
         TableAssert.TextColumn tableType = tables.addTextColumn("TABLE_TYPE", "Text");
-        /* remarks = */ tables.addTextColumn("REMARKS", "Text").defaultNull();
-        /* typeCatalog = */ tables.addTextColumn("TYPE_CAT", "Text").defaultNull();
-        /* typeSchema = */ tables.addTextColumn("TYPE_SCHEM", "Text").defaultNull();
-        /* typeName = */ tables.addTextColumn("TYPE_NAME", "Text").defaultNull();
-        /* selfRefColName = */ tables.addTextColumn("SELF_REFERENCING_COL_NAME", "Text").defaultNull();
-        /* refGeneration = */ tables.addTextColumn("REF_GENERATION", "Text").defaultNull();
+        /* remarks = */
+        tables.addTextColumn("REMARKS", "Text").defaultNull();
+        /* typeCatalog = */
+        tables.addTextColumn("TYPE_CAT", "Text").defaultNull();
+        /* typeSchema = */
+        tables.addTextColumn("TYPE_SCHEM", "Text").defaultNull();
+        /* typeName = */
+        tables.addTextColumn("TYPE_NAME", "Text").defaultNull();
+        /* selfRefColName = */
+        tables.addTextColumn("SELF_REFERENCING_COL_NAME", "Text").defaultNull();
+        /* refGeneration = */
+        tables.addTextColumn("REF_GENERATION", "Text").defaultNull();
 
         // wrong filters
         tables.check(metaData.getTables("-", null, null, null)).assertMetaColumns().assertNoRows();
@@ -474,10 +495,10 @@ public class YdbDatabaseMetaDataImplTest {
         TableAssert.ResultSetAssert rs = tables.check(metaData.getTables(null, null, null, null))
                 .assertMetaColumns();
         // system tables are first
-        for (String name: systemTables) {
+        for (String name : systemTables) {
             rs.nextRow(tableName.eq(name), tableType.eq(SYSTEM_TABLE_TYPE));
         }
-        for (String name: simpleTables) {
+        for (String name : simpleTables) {
             rs.nextRow(tableName.eq(name), tableType.eq(TABLE_TYPE));
         }
         // TODO: fix
@@ -486,7 +507,7 @@ public class YdbDatabaseMetaDataImplTest {
         // read only non system tables
         rs = tables.check(metaData.getTables(null, null, null, asArray(TABLE_TYPE)))
                 .assertMetaColumns();
-        for (String name: simpleTables) {
+        for (String name : simpleTables) {
             rs.nextRow(tableName.eq(name), tableType.eq(TABLE_TYPE));
         }
         // TODO: fix
@@ -496,10 +517,10 @@ public class YdbDatabaseMetaDataImplTest {
         rs = tables.check(metaData.getTables(null, null, null, asArray(TABLE_TYPE, "some string", SYSTEM_TABLE_TYPE)))
                 .assertMetaColumns();
         // system tables are first
-        for (String name: systemTables) {
+        for (String name : systemTables) {
             rs.nextRow(tableName.eq(name), tableType.eq(SYSTEM_TABLE_TYPE));
         }
-        for (String name: simpleTables) {
+        for (String name : simpleTables) {
             rs.nextRow(tableName.eq(name), tableType.eq(TABLE_TYPE));
         }
         // TODO: fix
@@ -553,7 +574,7 @@ public class YdbDatabaseMetaDataImplTest {
         columns.addTextColumn("SCOPE_CATALOG", "Text").defaultNull();
         columns.addTextColumn("SCOPE_SCHEMA", "Text").defaultNull();
         columns.addTextColumn("SCOPE_TABLE", "Text").defaultNull();
-        columns.addShortColumn("SOURCE_DATA_TYPE", "Int16").defaultValue((short)0);
+        columns.addShortColumn("SOURCE_DATA_TYPE", "Int16").defaultValue((short) 0);
         columns.addTextColumn("IS_AUTOINCREMENT", "Text").defaultValue("NO");
         columns.addTextColumn("IS_GENERATEDCOLUMN", "Text").defaultValue("NO");
 
@@ -629,7 +650,7 @@ public class YdbDatabaseMetaDataImplTest {
 
         // find only one column
         rs = columns.check(metaData.getColumns(null, null, ALL_TYPES_TABLE, "c_JsonDocument"))
-            .assertMetaColumns();
+                .assertMetaColumns();
         rs.nextRow(columnName.eq("c_JsonDocument"), dataType.eq(Types.VARCHAR), typeName.eq("JsonDocument"),
                 columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq(16)).assertAll();
         rs.assertNoRows();
@@ -730,8 +751,8 @@ public class YdbDatabaseMetaDataImplTest {
         TableAssert.TextColumn typeName = rowIdentifiers.addTextColumn("TYPE_NAME", "Text");
         rowIdentifiers.addIntColumn("COLUMN_SIZE", "Int32").defaultValue(0);
         rowIdentifiers.addIntColumn("BUFFER_LENGTH", "Int32").defaultValue(0);
-        rowIdentifiers.addShortColumn("DECIMAL_DIGITS", "Int16").defaultValue((short)0);
-        rowIdentifiers.addShortColumn("PSEUDO_COLUMN", "Int16").defaultValue((short)DatabaseMetaData.bestRowNotPseudo);
+        rowIdentifiers.addShortColumn("DECIMAL_DIGITS", "Int16").defaultValue((short) 0);
+        rowIdentifiers.addShortColumn("PSEUDO_COLUMN", "Int16").defaultValue((short) DatabaseMetaData.bestRowNotPseudo);
 
 
         rowIdentifiers.check(metaData.getBestRowIdentifier("-", null, null, DatabaseMetaData.bestRowSession, true))
@@ -750,21 +771,21 @@ public class YdbDatabaseMetaDataImplTest {
                 .getBestRowIdentifier(null, null, ALL_TYPES_TABLE, DatabaseMetaData.bestRowSession, false));
 
         rowIdentifiers.check(metaData
-                .getBestRowIdentifier(null, null, ALL_TYPES_TABLE, DatabaseMetaData.bestRowSession, true))
+                        .getBestRowIdentifier(null, null, ALL_TYPES_TABLE, DatabaseMetaData.bestRowSession, true))
                 .assertMetaColumns()
                 .nextRow(name.eq("key"), dataType.eq(Types.INTEGER), typeName.eq("Int32"),
                         scope.eq(DatabaseMetaData.bestRowSession)).assertAll()
                 .assertNoRows();
 
         rowIdentifiers.check(metaData
-                .getBestRowIdentifier(null, null, ALL_TYPES_TABLE, DatabaseMetaData.bestRowTransaction, true))
+                        .getBestRowIdentifier(null, null, ALL_TYPES_TABLE, DatabaseMetaData.bestRowTransaction, true))
                 .assertMetaColumns()
                 .nextRow(name.eq("key"), dataType.eq(Types.INTEGER), typeName.eq("Int32"),
                         scope.eq(DatabaseMetaData.bestRowTransaction)).assertAll()
                 .assertNoRows();
 
         rowIdentifiers.check(metaData
-                .getBestRowIdentifier(null, null, INDEXES_TABLE, DatabaseMetaData.bestRowTemporary, true))
+                        .getBestRowIdentifier(null, null, INDEXES_TABLE, DatabaseMetaData.bestRowTemporary, true))
                 .assertMetaColumns()
                 .nextRow(name.eq("key1"), dataType.eq(Types.INTEGER), typeName.eq("Int32"),
                         scope.eq(DatabaseMetaData.bestRowTemporary)).assertAll()

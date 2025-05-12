@@ -31,7 +31,12 @@ declare $list as List<Struct<
 
     c_Decimal:Optional<Decimal(22, 9)>,
     c_BigDecimal:Optional<Decimal(35, 0)>,
-    c_BankDecimal:Optional<Decimal(31, 9)>
+    c_BankDecimal:Optional<Decimal(31, 9)>,
+
+    c_Date32:Optional<Date32>,
+    c_Datetime64:Optional<Datetime64>,
+    c_Timestamp64:Optional<Timestamp64>,
+    c_Interval64:Optional<Interval64>,
 >>;
 
 upsert into #tableName select * from as_table($list)

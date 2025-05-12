@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.YdbJdbcCode;
 import tech.ydb.table.values.DecimalType;
 import tech.ydb.table.values.DecimalValue;
 import tech.ydb.table.values.PrimitiveType;
@@ -64,6 +65,11 @@ public class YdbTypes {
         typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 22, PrimitiveType.TzTimestamp);
 
         typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 23, PrimitiveType.JsonDocument);
+
+        typeBySqlType.put(YdbJdbcCode.DATE_32, PrimitiveType.Date32);
+        typeBySqlType.put(YdbJdbcCode.DATETIME_64, PrimitiveType.Datetime64);
+        typeBySqlType.put(YdbJdbcCode.TIMESTAMP_64, PrimitiveType.Timestamp64);
+        typeBySqlType.put(YdbJdbcCode.INTERVAL_64, PrimitiveType.Interval64);
 
         typeBySqlType.put(Types.VARCHAR, PrimitiveType.Text);
         typeBySqlType.put(Types.BIGINT, PrimitiveType.Int64);
@@ -192,16 +198,19 @@ public class YdbTypes {
                     case Int64:
                     case Uint64:
                     case Interval:
+                    case Interval64:
                         return Types.BIGINT;
                     case Float:
                         return Types.FLOAT;
                     case Double:
                         return Types.DOUBLE;
                     case Date:
+                    case Date32:
                         return Types.DATE;
                     case Datetime:
-                        return Types.TIMESTAMP;
                     case Timestamp:
+                    case Datetime64:
+                    case Timestamp64:
                         return Types.TIMESTAMP;
                     case TzDate:
                     case TzDatetime:
@@ -294,7 +303,11 @@ public class YdbTypes {
                 PrimitiveType.Datetime,
                 PrimitiveType.Timestamp,
                 PrimitiveType.Interval,
-                DecimalType.getDefault());
+                DecimalType.getDefault(),
+                PrimitiveType.Date32,
+                PrimitiveType.Datetime64,
+                PrimitiveType.Timestamp64,
+                PrimitiveType.Interval64);
     }
 
     private int getSqlPrecisionImpl(PrimitiveType type) {
@@ -314,6 +327,7 @@ public class YdbTypes {
             case Uint64:
             case Double:
             case Interval:
+            case Interval64:
                 return 8;
             case Bytes:
             case Text:
@@ -324,10 +338,13 @@ public class YdbTypes {
             case Uuid:
                 return 8 + 8;
             case Date:
+            case Date32:
                 return "0000-00-00".length();
             case Datetime:
+            case Datetime64:
                 return "0000-00-00 00:00:00".length();
             case Timestamp:
+            case Timestamp64:
                 return "0000-00-00T00:00:00.000000".length();
             case TzDate:
                 return "0000-00-00+00:00".length();

@@ -31,6 +31,11 @@ upsert into #tableName (
     c_Decimal,
     c_BigDecimal,
     c_BankDecimal
+
+    c_Date32,
+    c_Datetime64,
+    c_Timestamp64,
+    c_Interval64
 )
 values
     (1,
@@ -57,7 +62,11 @@ values
     cast (3111113 as Interval),
     Decimal('3.335', 22, 9),
     Decimal('12345678901234567890123456789012345', 35, 0),
-    Decimal('9999999999999999999999.999999999', 31, 9)
+    Decimal('9999999999999999999999.999999999', 31, 9),
+    cast (-3111 as Date32),
+    cast (-311111156 as DateTime64),
+    cast (-311111223342 as Timestamp64),
+    cast (-3111113 as Interval64)
     ),
     (2,
     false,
@@ -83,7 +92,11 @@ values
     cast (3112113 as Interval),
     Decimal('-3.335', 22, 9),
     Decimal('-98765432109876543210987654321098765', 35, 0),
-    Decimal('-9999999999999999999999.999999999', 31, 9)
+    Decimal('-9999999999999999999999.999999999', 31, 9),
+    cast (3112 as Date32),
+    cast (211211100 as DateTime64),
+    cast (111111223342 as Timestamp64),
+    cast (3112113 as Interval64)
     ),
     (3,
     false,
@@ -135,9 +148,16 @@ values
     cast (1 as Interval),
     Decimal('1', 22, 9),
     Decimal('1', 35, 0),
-    Decimal('1', 31, 9)
+    Decimal('1', 31, 9),
+    cast (1 as Date32),
+    cast (1 as DateTime64),
+    cast (1 as Timestamp64),
+    cast (1 as Interval64)
     ),
     (5,
+    null,
+    null,
+    null,
     null,
     null,
     null,

@@ -28,7 +28,7 @@ public class ColumnInfo {
         this.isOptional = desc.isOptional();
         this.ydbType = desc.ydbType();
 
-        this.isTimestamp = ydbType == PrimitiveType.Timestamp;
+        this.isTimestamp = ydbType == PrimitiveType.Timestamp || ydbType == PrimitiveType.Timestamp64;
         this.isNumber = ydbType == PrimitiveType.Int8 || ydbType == PrimitiveType.Uint8
                 || ydbType == PrimitiveType.Int16 || ydbType == PrimitiveType.Uint16
                 || ydbType == PrimitiveType.Int32 || ydbType == PrimitiveType.Uint32

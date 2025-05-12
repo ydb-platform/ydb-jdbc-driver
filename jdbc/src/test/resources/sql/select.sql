@@ -30,5 +30,10 @@ select
 
     c_Decimal,
     c_BigDecimal,
-    c_BankDecimal
+    c_BankDecimal,
+
+    c_Date32,
+    c_Datetime64,
+    c_Timestamp64,
+    c_Interval64
 from #tableName order by key
