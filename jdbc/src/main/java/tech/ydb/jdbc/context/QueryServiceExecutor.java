@@ -15,12 +15,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import tech.ydb.common.transaction.TxMode;
 import tech.ydb.core.Issue;
 import tech.ydb.core.Result;
-import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTracer;
-import tech.ydb.jdbc.exception.ExceptionFactory;
 import tech.ydb.jdbc.impl.YdbQueryResult;
 import tech.ydb.jdbc.impl.YdbStaticResultSet;
 import tech.ydb.jdbc.query.QueryType;
@@ -70,14 +68,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     }
 
     protected QuerySession createNewQuerySession(YdbValidator validator) throws SQLException {
-        try {
-            Result<QuerySession> result = queryClient.createSession(sessionTimeout).join();
-            validator.addStatusIssues(result.getStatus());
-            QuerySession session = result.getValue();
-            return session;
-        } catch (UnexpectedResultException ex) {
-            throw ExceptionFactory.createException("Cannot create session with " + ex.getStatus(), ex);
-        }
+        return validator.call("Get query session", null, () -> queryClient.createSession(sessionTimeout));
     }
 
     @Override
@@ -264,7 +255,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             tracer.query(yql);
             String msg = "STREAM_QUERY >>\n" + yql;
 
-            StreamQueryResult lazy = validator.call(msg, () -> {
+            StreamQueryResult lazy = validator.call(msg, tracer, () -> {
                 final CompletableFuture<Result<StreamQueryResult>> future = new CompletableFuture<>();
                 final QueryStream stream = localTx.createQuery(yql, isAutoCommit, params, settings);
                 final StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);

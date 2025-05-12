@@ -7,7 +7,6 @@ import java.util.Properties;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import tech.ydb.jdbc.settings.YdbConfig;
 import tech.ydb.jdbc.settings.YdbQueryProperties;
 
 
@@ -26,8 +25,7 @@ public class YdbQueryTest {
         }
 
         YdbQueryProperties build() throws SQLException {
-            YdbConfig config = YdbConfig.from("jdbc:ydb:localhost:2136/local", props);
-            return new YdbQueryProperties(config);
+            return new YdbQueryProperties(props);
         }
     }
 

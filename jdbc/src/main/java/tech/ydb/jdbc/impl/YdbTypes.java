@@ -14,12 +14,9 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import io.grpc.netty.shaded.io.netty.util.collection.IntObjectHashMap;
-import io.grpc.netty.shaded.io.netty.util.collection.IntObjectMap;
+import java.util.UUID;
 
 import tech.ydb.jdbc.YdbConst;
-import tech.ydb.jdbc.YdbJdbcCode;
 import tech.ydb.table.values.DecimalType;
 import tech.ydb.table.values.DecimalValue;
 import tech.ydb.table.values.PrimitiveType;
@@ -30,22 +27,43 @@ import tech.ydb.table.values.VoidType;
 public class YdbTypes {
     private static final YdbTypes INSTANCE = new YdbTypes();
 
-    private final IntObjectMap<Type> typeBySqlType;
+    private final Map<Integer, Type> typeBySqlType;
     private final Map<Class<?>, Type> typeByClass;
 
-    private final Map<Type, Integer> sqlTypeByPrimitiveNumId;
-
     private YdbTypes() {
-        typeBySqlType = new IntObjectHashMap<>(18 + PrimitiveType.values().length);
+        typeBySqlType = new HashMap<>();
 
-        // Store custom type ids to use it for PreparedStatement.setObject
-        for (PrimitiveType type : PrimitiveType.values()) {
-            typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + type.ordinal(), type);
-        }
+        // Store custom type ids to use it for PrepaparedStatement.setObject
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 0, PrimitiveType.Bool);
 
-        typeBySqlType.put(YdbJdbcCode.DECIMAL_22_9, DecimalType.of(22, 9));
-        typeBySqlType.put(YdbJdbcCode.DECIMAL_31_9, DecimalType.of(31, 9));
-        typeBySqlType.put(YdbJdbcCode.DECIMAL_35_9, DecimalType.of(35, 9));
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 1, PrimitiveType.Int8);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 2, PrimitiveType.Uint8);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 3, PrimitiveType.Int16);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 4, PrimitiveType.Uint16);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 5, PrimitiveType.Int32);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 6, PrimitiveType.Uint32);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 7, PrimitiveType.Int64);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 8, PrimitiveType.Uint64);
+
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 9, PrimitiveType.Float);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 10, PrimitiveType.Double);
+
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 11, PrimitiveType.Bytes);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 12, PrimitiveType.Text);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 13, PrimitiveType.Yson);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 14, PrimitiveType.Json);
+
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 15, PrimitiveType.Uuid);
+
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 16, PrimitiveType.Date);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 17, PrimitiveType.Datetime);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 18, PrimitiveType.Timestamp);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 19, PrimitiveType.Interval);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 20, PrimitiveType.TzDate);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 21, PrimitiveType.TzDatetime);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 22, PrimitiveType.TzTimestamp);
+
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 23, PrimitiveType.JsonDocument);
 
         typeBySqlType.put(Types.VARCHAR, PrimitiveType.Text);
         typeBySqlType.put(Types.BIGINT, PrimitiveType.Int64);
@@ -95,6 +113,7 @@ public class YdbTypes {
         typeByClass.put(String.class, PrimitiveType.Text);
         typeByClass.put(byte[].class, PrimitiveType.Bytes);
 
+        typeByClass.put(UUID.class, PrimitiveType.Uuid);
         typeByClass.put(java.sql.Date.class, PrimitiveType.Date);
         typeByClass.put(LocalDate.class, PrimitiveType.Date);
         typeByClass.put(LocalDateTime.class, PrimitiveType.Datetime);
@@ -109,64 +128,6 @@ public class YdbTypes {
         typeByClass.put(DecimalValue.class, DecimalType.getDefault());
         typeByClass.put(BigDecimal.class, DecimalType.getDefault());
         typeByClass.put(Duration.class, PrimitiveType.Interval);
-
-        sqlTypeByPrimitiveNumId = new HashMap<>(PrimitiveType.values().length);
-        for (PrimitiveType id : PrimitiveType.values()) {
-            final int sqlType;
-            switch (id) {
-                case Text:
-                case Json:
-                case JsonDocument:
-                case Uuid:
-                    sqlType = Types.VARCHAR;
-                    break;
-                case Bytes:
-                case Yson:
-                    sqlType = Types.BINARY;
-                    break;
-                case Bool:
-                    sqlType = Types.BOOLEAN;
-                    break;
-                case Int8:
-                case Int16:
-                    sqlType = Types.SMALLINT;
-                    break;
-                case Uint8:
-                case Int32:
-                case Uint16:
-                    sqlType = Types.INTEGER;
-                    break;
-                case Uint32:
-                case Int64:
-                case Uint64:
-                case Interval:
-                    sqlType = Types.BIGINT;
-                    break;
-                case Float:
-                    sqlType = Types.FLOAT;
-                    break;
-                case Double:
-                    sqlType = Types.DOUBLE;
-                    break;
-                case Date:
-                    sqlType = Types.DATE;
-                    break;
-                case Datetime:
-                    sqlType = Types.TIMESTAMP;
-                    break;
-                case Timestamp:
-                    sqlType = Types.TIMESTAMP;
-                    break;
-                case TzDate:
-                case TzDatetime:
-                case TzTimestamp:
-                    sqlType = Types.TIMESTAMP_WITH_TIMEZONE;
-                    break;
-                default:
-                    sqlType = Types.JAVA_OBJECT;
-            }
-            sqlTypeByPrimitiveNumId.put(id, sqlType);
-        }
     }
 
     public static Type findType(Object obj, int sqlType) {
@@ -174,6 +135,14 @@ public class YdbTypes {
     }
 
     private Type findTypeImpl(Object obj, int sqlType) {
+        if ((sqlType & YdbConst.SQL_KIND_DECIMAL) != 0) {
+            int precision = ((sqlType - YdbConst.SQL_KIND_DECIMAL) >> 6);
+            int scale = ((sqlType - YdbConst.SQL_KIND_DECIMAL) & 0b111111);
+            if (precision > 0 && precision < 36 && scale >= 0 && scale <= precision) {
+                return DecimalType.of(precision, scale);
+            }
+        }
+
         if (typeBySqlType.containsKey(sqlType)) {
             return typeBySqlType.get(sqlType);
         }
@@ -201,10 +170,46 @@ public class YdbTypes {
     private int toSqlTypeImpl(Type type) {
         switch (type.getKind()) {
             case PRIMITIVE:
-                if (!sqlTypeByPrimitiveNumId.containsKey(type)) {
-                    throw new RuntimeException("Internal error. Unsupported YDB type: " + type);
+                switch ((PrimitiveType) type) {
+                    case Text:
+                    case Json:
+                    case JsonDocument:
+                    case Uuid:
+                        return Types.VARCHAR;
+                    case Bytes:
+                    case Yson:
+                        return Types.BINARY;
+                    case Bool:
+                        return Types.BOOLEAN;
+                    case Int8:
+                    case Int16:
+                        return Types.SMALLINT;
+                    case Uint8:
+                    case Int32:
+                    case Uint16:
+                        return Types.INTEGER;
+                    case Uint32:
+                    case Int64:
+                    case Uint64:
+                    case Interval:
+                        return Types.BIGINT;
+                    case Float:
+                        return Types.FLOAT;
+                    case Double:
+                        return Types.DOUBLE;
+                    case Date:
+                        return Types.DATE;
+                    case Datetime:
+                        return Types.TIMESTAMP;
+                    case Timestamp:
+                        return Types.TIMESTAMP;
+                    case TzDate:
+                    case TzDatetime:
+                    case TzTimestamp:
+                        return Types.TIMESTAMP_WITH_TIMEZONE;
+                    default:
+                        return Types.JAVA_OBJECT;
                 }
-                return sqlTypeByPrimitiveNumId.get(type);
             case OPTIONAL:
                 return toSqlTypeImpl(type.unwrapOptional());
             case DECIMAL:
@@ -250,7 +255,7 @@ public class YdbTypes {
             case OPTIONAL:
                 return getSqlPrecisionImpl(type.unwrapOptional());
             case DECIMAL:
-                return 8 + 8;
+                return ((DecimalType) type).getPrecision();
             case PRIMITIVE:
                 return getSqlPrecisionImpl((PrimitiveType) type);
             default:
@@ -291,8 +296,6 @@ public class YdbTypes {
                 PrimitiveType.Interval,
                 DecimalType.getDefault());
     }
-
-    //
 
     private int getSqlPrecisionImpl(PrimitiveType type) {
         switch (type) {

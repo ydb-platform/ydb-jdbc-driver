@@ -21,12 +21,16 @@ upsert into #tableName (
     c_JsonDocument,
     c_Yson,
 
+    c_Uuid,
+
     c_Date,
     c_Datetime,
     c_Timestamp,
     c_Interval,
 
-    c_Decimal
+    c_Decimal,
+    c_BigDecimal,
+    c_BankDecimal
 )
 values
     (1,
@@ -46,11 +50,14 @@ values
     cast ('{"key": "value Json"}' as Json),
     cast ('{"key": "value JsonDocument"}' as JsonDocument),
     Yson(@@{key="value yson"}@@),
+    cast ('6E73B41C-4EDE-4D08-9CFB-B7462D9E498B' as Uuid),
     cast (3111 as Date),
     cast (311111156 as DateTime),
     cast (311111223342 as Timestamp),
     cast (3111113 as Interval),
-    cast('3.335' as Decimal(22, 9))
+    Decimal('3.335', 22, 9),
+    Decimal('12345678901234567890123456789012345', 35, 0),
+    Decimal('9999999999999999999999.999999999', 31, 9)
     ),
     (2,
     false,
@@ -69,11 +76,14 @@ values
     cast ('' as Json),
     cast ('' as JsonDocument),
     Yson(@@""@@),
+    cast ('' as Uuid),
     cast (3112 as Date),
     cast (211211100 as DateTime),
     cast (111111223342 as Timestamp),
     cast (3112113 as Interval),
-    cast('-3.335' as Decimal(22, 9))
+    Decimal('-3.335', 22, 9),
+    Decimal('-98765432109876543210987654321098765', 35, 0),
+    Decimal('-9999999999999999999999.999999999', 31, 9)
     ),
     (3,
     false,
@@ -92,11 +102,14 @@ values
     cast ('' as Json),
     cast ('' as JsonDocument),
     Yson(@@0@@),
+    cast ('' as Uuid),
     cast (0 as Date),
     cast (0 as DateTime),
     cast (0 as Timestamp),
     cast (0 as Interval),
-    cast('0' as Decimal(22, 9))
+    Decimal('0', 22, 9),
+    Decimal('0', 35, 0),
+    Decimal('0', 31, 9)
     ),
     (4,
     true,
@@ -115,13 +128,19 @@ values
     cast ('{}' as Json),
     cast ('{}' as JsonDocument),
     Yson(@@1@@),
+    cast ('00000000-0000-0000-0000-000000000000' as Uuid),
     cast (1 as Date),
     cast (1 as DateTime),
     cast (1 as Timestamp),
     cast (1 as Interval),
-    cast('1' as Decimal(22, 9))
+    Decimal('1', 22, 9),
+    Decimal('1', 35, 0),
+    Decimal('1', 31, 9)
     ),
     (5,
+    null,
+    null,
+    null,
     null,
     null,
     null,

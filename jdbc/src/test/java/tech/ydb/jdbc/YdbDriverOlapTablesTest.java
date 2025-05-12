@@ -10,7 +10,6 @@ import java.sql.Statement;
 import java.time.LocalDate;
 
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -22,7 +21,6 @@ import tech.ydb.test.junit5.YdbHelperExtension;
  *
  * @author Aleksandr Gorshenin
  */
-@Disabled
 public class YdbDriverOlapTablesTest {
     @RegisterExtension
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
@@ -33,10 +31,6 @@ public class YdbDriverOlapTablesTest {
 
     private final static String ERROR_DATA_MANIPULATION =
             "Data manipulation queries do not support column shard tables. (S_ERROR)";
-    private final static String ERROR_TRANSACTIONS =
-            "Transactions between column and row tables are disabled at current time. (S_ERROR)";
-    private final static String ERROR_SCAN_QUERY =
-            "Scan query should have a single result set. (S_ERROR)";
 
     private final static String ERROR_BULK_UNSUPPORTED =
             "BULK mode is available only for prepared statement with one UPSERT";
@@ -76,7 +70,7 @@ public class YdbDriverOlapTablesTest {
                 ps.setInt(1, ++idx);
                 ps.setString(2, prefix + idx);
                 ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
-                ExceptionAssert.ydbException(ERROR_DATA_MANIPULATION, ps::executeUpdate);
+                ps.executeUpdate();
             }
 
             // single insert
@@ -84,7 +78,7 @@ public class YdbDriverOlapTablesTest {
                 ps.setInt(1, ++idx);
                 ps.setString(2, prefix + idx);
                 ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
-                ExceptionAssert.ydbException(ERROR_DATA_MANIPULATION, ps::executeUpdate);
+                ps.executeUpdate();
             }
 
             // batch upsert
@@ -95,7 +89,7 @@ public class YdbDriverOlapTablesTest {
                     ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
                     ps.addBatch();
                 }
-                ExceptionAssert.ydbException(ERROR_DATA_MANIPULATION, ps::executeBatch);
+                ps.executeBatch();
             }
 
             // batch insert
@@ -106,25 +100,34 @@ public class YdbDriverOlapTablesTest {
                     ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
                     ps.addBatch();
                 }
-                ExceptionAssert.ydbException(ERROR_DATA_MANIPULATION, ps::executeBatch);
+                ps.executeBatch();
             }
 
             // read all
-            try (Statement st = connection.createStatement()) {
-                ExceptionAssert.ydbException(ERROR_TRANSACTIONS, () -> st.executeQuery(SELECT_ALL));
+            try (PreparedStatement ps = connection.prepareStatement(SELECT_ALL)) {
+                int readed = 0;
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        readed++;
+                        Assertions.assertEquals(readed, rs.getInt("id"));
+                        Assertions.assertEquals(prefix + readed, rs.getString("value"));
+                        Assertions.assertEquals(Date.valueOf(ld.plusDays(readed)), rs.getDate("date"));
+            }
+                }
+                Assertions.assertEquals(2002, readed);
             }
 
             // single update
             try (PreparedStatement ps = connection.prepareStatement(UPDATE_ROW)) {
                 ps.setString(1, "updated-value");
                 ps.setInt(2, 1);
-                ExceptionAssert.ydbException(ERROR_TRANSACTIONS, ps::execute);
+                ps.executeUpdate();
             }
 
             // single delete
             try (PreparedStatement ps = connection.prepareStatement(DELETE_ROW)) {
                 ps.setInt(1, 2);
-                ExceptionAssert.ydbException(ERROR_TRANSACTIONS, ps::execute);
+                ps.executeUpdate();
             }
         }
     }
@@ -318,13 +321,13 @@ public class YdbDriverOlapTablesTest {
             try (PreparedStatement ps = conn.prepareStatement(UPDATE_ROW)) {
                 ps.setString(1, "updated-value");
                 ps.setInt(2, 1);
-                ExceptionAssert.ydbException(ERROR_SCAN_QUERY, ps::execute);
+                ps.executeUpdate();
             }
 
             // single delete
             try (PreparedStatement ps = conn.prepareStatement(DELETE_ROW)) {
                 ps.setInt(1, 2);
-                ExceptionAssert.ydbException(ERROR_SCAN_QUERY, ps::execute);
+                ps.executeUpdate();
             }
         }
     }
@@ -332,7 +335,6 @@ public class YdbDriverOlapTablesTest {
     @Test
     public void streamResultsTest() throws SQLException {
         try (Connection conn = DriverManager.getConnection(jdbcURL
-                .withArg("useQueryService", "true")
                 .withArg("useStreamResultSets", "true")
                 .build()
         )) {
@@ -453,6 +455,79 @@ public class YdbDriverOlapTablesTest {
             try (PreparedStatement ps = conn.prepareStatement(DELETE_ROW)) {
                 ps.setInt(1, 2);
                 ps.executeUpdate();
+            }
+        }
+    }
+
+    @Test
+    public void tableServiceModeTest() throws SQLException {
+        try (Connection connection = DriverManager.getConnection(jdbcURL.withArg("useQueryService", "false").build())) {
+            try {
+                connection.createStatement().execute(DROP_TABLE);
+            } catch (SQLException e) {
+                // ignore
+            }
+
+            connection.createStatement().execute(CREATE_TABLE);
+
+            LocalDate ld = LocalDate.of(2017, 12, 3);
+            String prefix = "text-value-";
+            int idx = 0;
+
+            // single upsert
+            try (PreparedStatement ps = connection.prepareStatement(UPSERT_ROW)) {
+                ps.setInt(1, ++idx);
+                ps.setString(2, prefix + idx);
+                ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
+                ExceptionAssert.ydbException(ERROR_DATA_MANIPULATION, ps::executeUpdate);
+            }
+
+            // single insert
+            try (PreparedStatement ps = connection.prepareStatement(INSERT_ROW)) {
+                ps.setInt(1, ++idx);
+                ps.setString(2, prefix + idx);
+                ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
+                ExceptionAssert.ydbException(ERROR_DATA_MANIPULATION, ps::executeUpdate);
+            }
+
+            // batch upsert
+            try (PreparedStatement ps = connection.prepareStatement(UPSERT_ROW)) {
+                for (int j = 0; j < 1000; j++) {
+                    ps.setInt(1, ++idx);
+                    ps.setString(2, prefix + idx);
+                    ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
+                    ps.addBatch();
+                }
+                ExceptionAssert.ydbException(ERROR_DATA_MANIPULATION, ps::executeBatch);
+            }
+
+            // batch insert
+            try (PreparedStatement ps = connection.prepareStatement(INSERT_ROW)) {
+                for (int j = 0; j < 1000; j++) {
+                    ps.setInt(1, ++idx);
+                    ps.setString(2, prefix + idx);
+                    ps.setDate(3, Date.valueOf(ld.plusDays(idx)));
+                    ps.addBatch();
+                }
+                ExceptionAssert.ydbException(ERROR_DATA_MANIPULATION, ps::executeBatch);
+            }
+
+            // read all
+            try (Statement st = connection.createStatement()) {
+                ExceptionAssert.ydbException(ERROR_DATA_MANIPULATION, () -> st.executeQuery(SELECT_ALL));
+            }
+
+            // single update
+            try (PreparedStatement ps = connection.prepareStatement(UPDATE_ROW)) {
+                ps.setString(1, "updated-value");
+                ps.setInt(2, 1);
+                ExceptionAssert.ydbException(ERROR_DATA_MANIPULATION, ps::executeUpdate);
+            }
+
+            // single delete
+            try (PreparedStatement ps = connection.prepareStatement(DELETE_ROW)) {
+                ps.setInt(1, 2);
+                ExceptionAssert.ydbException(ERROR_DATA_MANIPULATION, ps::executeUpdate);
             }
         }
     }

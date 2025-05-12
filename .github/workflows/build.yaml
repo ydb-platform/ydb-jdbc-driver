@@ -12,7 +12,7 @@ on:
 jobs:
   prepare:
     name: Prepare Maven cache
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     env:
         MAVEN_ARGS: --batch-mode -Dstyle.color=always
@@ -33,7 +33,7 @@ jobs:
 
   build:
     name: Build JDBC Driver
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: prepare
 
     strategy:
@@ -103,7 +103,7 @@ jobs:
   coverage:
     if: github.repository == 'ydb-platform/ydb-jdbc-driver'
     name: Coverage JDBC Driver
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: build
 
     env:

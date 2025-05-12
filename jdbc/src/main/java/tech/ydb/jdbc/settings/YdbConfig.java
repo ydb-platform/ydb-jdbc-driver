@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.concurrent.ThreadLocalRandom;
 
 import tech.ydb.core.utils.URITools;
 import tech.ydb.jdbc.YdbConst;
@@ -50,6 +51,9 @@ public class YdbConfig {
     static final YdbProperty<Boolean> TRANSACTION_TRACER = YdbProperty.bool(
             "enableTxTracer", "Enable collecting of transaction execution traces", false
     );
+    static final YdbProperty<Integer> CACHED_TRANSPORT_COUNT = YdbProperty.integer(
+            "cachedTransportsCount", "Use specified count of YDB transports in context cache", 1
+    );
 
     private final String url;
     private final String username;
@@ -67,6 +71,7 @@ public class YdbConfig {
 
     private final boolean fullScanDetectorEnabled;
     private final boolean txTracerEnabled;
+    private final int transportIndex;
 
     private YdbConfig(
             String url, String safeUrl, String connectionString, String username, String password, Properties props
@@ -85,6 +90,13 @@ public class YdbConfig {
 
         this.fullScanDetectorEnabled = FULLSCAN_DETECTOR_ENABLED.readValue(props).getValue();
         this.txTracerEnabled = TRANSACTION_TRACER.readValue(props).getValue();
+
+        int transportsCount = CACHED_TRANSPORT_COUNT.readValue(props).getValue();
+        if (transportsCount > 1) {
+            this.transportIndex = ThreadLocalRandom.current().nextInt(transportsCount);
+        } else {
+            this.transportIndex = 0;
+        }
     }
 
     public Properties getSafeProps() {
@@ -144,12 +156,14 @@ public class YdbConfig {
             return false;
         }
         YdbConfig that = (YdbConfig) o;
-        return Objects.equals(url, that.url) && Objects.equals(properties, that.properties);
+        return Objects.equals(url, that.url)
+                && Objects.equals(properties, that.properties)
+                && transportIndex == that.transportIndex;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(url, properties);
+        return Objects.hash(url, properties, transportIndex);
     }
 
     public String getUrl() {
@@ -188,6 +202,8 @@ public class YdbConfig {
             YdbConnectionProperties.USE_METADATA.toInfo(properties),
             YdbConnectionProperties.IAM_ENDPOINT.toInfo(properties),
             YdbConnectionProperties.METADATA_URL.toInfo(properties),
+            YdbConnectionProperties.TOKEN_PROVIDER.toInfo(properties),
+            YdbConnectionProperties.GRPC_COMPRESSION.toInfo(properties),
 
             YdbClientProperties.KEEP_QUERY_TEXT.toInfo(properties),
             YdbClientProperties.SESSION_KEEP_ALIVE_TIME.toInfo(properties),
@@ -213,6 +229,8 @@ public class YdbConfig {
             YdbQueryProperties.DISABLE_DETECT_SQL_OPERATIONS.toInfo(properties),
             YdbQueryProperties.DISABLE_JDBC_PARAMETERS.toInfo(properties),
             YdbQueryProperties.DISABLE_JDBC_PARAMETERS_DECLARE.toInfo(properties),
+            YdbQueryProperties.FORCE_JDBC_PARAMETERS.toInfo(properties),
+            YdbQueryProperties.REPLACE_JDBC_IN_BY_YQL_LIST.toInfo(properties),
 
             YdbQueryProperties.REPLACE_INSERT_TO_UPSERT.toInfo(properties),
             YdbQueryProperties.FORCE_BULK_UPSERT.toInfo(properties),

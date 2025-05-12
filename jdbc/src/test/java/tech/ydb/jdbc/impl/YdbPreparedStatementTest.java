@@ -1,7 +1,7 @@
 package tech.ydb.jdbc.impl;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
+import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -19,6 +19,8 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
+import java.util.UUID;
+import java.util.function.Function;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -28,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
@@ -124,21 +127,40 @@ public class YdbPreparedStatementTest {
         }
     }
 
-    @ParameterizedTest(name = "with {0}")
-    @EnumSource(value=SqlQueries.JdbcQuery.class, names = { "BATCHED", "TYPED" })
-    public void executeWithMissingParameter(SqlQueries.JdbcQuery query) throws SQLException {
-        String sql = TEST_TABLE.upsertOne(query, "c_Text", "Text");
+    @Test
+    public void executeWithMissingParameter() throws SQLException {
+        Function<SqlQueries.JdbcQuery, String> upsert = mode -> TEST_TABLE.upsertOne(mode, "c_Text", "Text");
 
-        try (PreparedStatement statement = jdbc.connection().prepareStatement(sql)) {
-            statement.setInt(1, 1);
-            ExceptionAssert.sqlDataException("Missing value for parameter", statement::execute);
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert.apply(SqlQueries.JdbcQuery.STANDARD))) {
+            ps.setInt(1, 1);
+            ExceptionAssert.sqlDataException("Missing value for parameter: $p2", ps::execute);
+        }
+
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert.apply(SqlQueries.JdbcQuery.IN_MEMORY))) {
+            ps.setInt(1, 1);
+            ExceptionAssert.sqlDataException("Missing value for parameter: $jp2", ps::execute);
+        }
+
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert.apply(SqlQueries.JdbcQuery.TYPED))) {
+            ps.setInt(1, 1);
+            ExceptionAssert.sqlDataException("Missing value for parameter: $p2", ps::execute);
+        }
+
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert.apply(SqlQueries.JdbcQuery.BATCHED))) {
+            ps.setInt(1, 1);
+            ExceptionAssert.sqlDataException("Missing value for parameter: $p2", ps::execute);
+        }
+
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert.apply(SqlQueries.JdbcQuery.BULK))) {
+            ps.setInt(1, 1);
+            ExceptionAssert.sqlDataException("Missing value for parameter: $c_Text", ps::execute);
         }
     }
 
     @ParameterizedTest(name = "with {0}")
     @EnumSource(value=SqlQueries.JdbcQuery.class, names = { "BATCHED", "TYPED" })
     public void executeWithWrongType(SqlQueries.JdbcQuery query) throws SQLException {
-        String sql = TEST_TABLE.upsertOne(query, "c_Text", "Text"); // Must be Optional<Text>
+        String sql = TEST_TABLE.upsertOne(query, "c_Text", "Text");
 
         try (PreparedStatement statement = jdbc.connection().prepareStatement(sql)) {
             statement.setInt(1, 1);
@@ -147,6 +169,65 @@ public class YdbPreparedStatementTest {
             );
         }
     }
+
+    @ParameterizedTest(name = "with {0}")
+    @ValueSource(strings = { "c_NotText" , "C_TEXT", "c_text" })
+    public void executeWithWrongColumnName(String columnName) throws SQLException {
+        String errorMessage = "No such column: " + columnName;
+
+        String standard = TEST_TABLE.upsertOne(SqlQueries.JdbcQuery.STANDARD, columnName, "Text");
+        String inMemory = TEST_TABLE.upsertOne(SqlQueries.JdbcQuery.IN_MEMORY, columnName, "Text");
+        String typed = TEST_TABLE.upsertOne(SqlQueries.JdbcQuery.TYPED, columnName, "Text");
+        String batched = TEST_TABLE.upsertOne(SqlQueries.JdbcQuery.BATCHED, columnName, "Text");
+        String bulk = TEST_TABLE.upsertOne(SqlQueries.JdbcQuery.BULK, columnName, "Text");
+
+        try (PreparedStatement statement = jdbc.connection().prepareStatement(standard)) {
+            statement.setInt(1, 1);
+            statement.setString(2, "value-1");
+            ExceptionAssert.ydbException(errorMessage, statement::execute);
+        }
+
+        try (PreparedStatement statement = jdbc.connection().prepareStatement(inMemory)) {
+            statement.setInt(1, 1);
+            statement.setString(2, "value-1");
+            ExceptionAssert.ydbException(errorMessage, statement::execute);
+        }
+
+        ExceptionAssert.ydbException(errorMessage, () -> jdbc.connection().prepareStatement(typed));
+        ExceptionAssert.ydbException(errorMessage, () -> jdbc.connection().prepareStatement(batched));
+        ExceptionAssert.sqlException("Cannot parse BULK upsert: column " + columnName + " not found",
+                () -> jdbc.connection().prepareStatement(bulk));
+    };
+
+    @ParameterizedTest(name = "with {0}")
+    @ValueSource(strings = { "unknown_table"/*, "YDB_PREPARED_TEST", "ydD_prepared_test"*/ })
+    public void executeWithWrongTableName(String tableName) throws SQLException {
+        String errorMessage = "Cannot find table 'db.[" + jdbc.database() + "/" + tableName + "]";
+        SqlQueries queries = new SqlQueries(tableName);
+
+        String standard = queries.upsertOne(SqlQueries.JdbcQuery.STANDARD, "c_Text", "Text");
+        String inMemory = queries.upsertOne(SqlQueries.JdbcQuery.IN_MEMORY, "c_Text", "Text");
+        String typed = queries.upsertOne(SqlQueries.JdbcQuery.TYPED, "c_Text", "Text");
+        String batched = queries.upsertOne(SqlQueries.JdbcQuery.BATCHED, "c_Text", "Text");
+        String bulk = queries.upsertOne(SqlQueries.JdbcQuery.BULK, "c_Text", "Text");
+
+        try (PreparedStatement statement = jdbc.connection().prepareStatement(standard)) {
+            statement.setInt(1, 1);
+            statement.setString(2, "value-1");
+            ExceptionAssert.ydbException(errorMessage, statement::execute);
+        }
+
+        try (PreparedStatement statement = jdbc.connection().prepareStatement(inMemory)) {
+            statement.setInt(1, 1);
+            statement.setString(2, "value-1");
+            ExceptionAssert.ydbException(errorMessage, statement::execute);
+        }
+
+        ExceptionAssert.ydbException(errorMessage, () -> jdbc.connection().prepareStatement(typed));
+        ExceptionAssert.ydbException(errorMessage, () -> jdbc.connection().prepareStatement(batched));
+        ExceptionAssert.sqlException("Cannot parse BULK upsert: Status{code = SCHEME_ERROR(code=400070)}",
+                () -> jdbc.connection().prepareStatement(bulk));
+    };
 
     @ParameterizedTest(name = "with {0}")
     @EnumSource(SqlQueries.JdbcQuery.class)
@@ -225,6 +306,10 @@ public class YdbPreparedStatementTest {
         return YdbConst.SQL_KIND_PRIMITIVE + type.ordinal();
     }
 
+    private int ydbType(DecimalType type) {
+        return YdbConst.SQL_KIND_DECIMAL + (type.getPrecision() << 6) + type.getScale();
+    }
+
     private void fillRowValues(PreparedStatement statement, int id, boolean castingSupported) throws SQLException {
         statement.setInt(1, id);                // id
 
@@ -250,31 +335,40 @@ public class YdbPreparedStatementTest {
         statement.setFloat(11, 1.5f * id);      // c_Float
         statement.setDouble(12, 2.5d * id);     // c_Double
 
-        statement.setBytes(13, new byte[] { (byte)id });      // c_Bytes
-        statement.setString(14, "Text_" + id);                // c_Text
+        statement.setBytes(13, ("bytes" + id).getBytes()); // c_Bytes
+        statement.setString(14, "Text_" + id);             // c_Text
 
+        UUID uuid = UUID.nameUUIDFromBytes(("uuid" + id).getBytes());
         if (castingSupported) {
             statement.setString(15, "{\"json\": " + id + "}");    // c_Json
             statement.setString(16, "{\"jsonDoc\": " + id + "}"); // c_JsonDocument
             statement.setString(17, "{yson=" + id + "}");         // c_Yson
+            statement.setString(18, uuid.toString()); // c_Uuid
         } else {
             statement.setObject(15, "{\"json\": " + id + "}",    ydbType(PrimitiveType.Json));         // c_Json
             statement.setObject(16, "{\"jsonDoc\": " + id + "}", ydbType(PrimitiveType.JsonDocument)); // c_JsonDocument
             statement.setObject(17, "{yson=" + id + "}",         ydbType(PrimitiveType.Yson));         // c_Yson
+            statement.setObject(18, uuid, ydbType(PrimitiveType.Uuid)); // c_Uuid
         }
-
 
         Date sqlDate = new Date(TEST_TS.toEpochMilli());
         LocalDateTime dateTime = LocalDateTime.ofInstant(TEST_TS, ZoneOffset.UTC).plusMinutes(id);
         Timestamp timestamp = Timestamp.from(TEST_TS.plusSeconds(id));
         Duration duration = Duration.ofMinutes(id);
 
-        statement.setDate(18, sqlDate);        // c_Date
-        statement.setObject(19, dateTime);     // c_Datetime
-        statement.setTimestamp(20, timestamp); // c_Timestamp
-        statement.setObject(21, duration);     // c_Interval
+        statement.setDate(19, sqlDate);        // c_Date
+        statement.setObject(20, dateTime);     // c_Datetime
+        statement.setTimestamp(21, timestamp); // c_Timestamp
+        statement.setObject(22, duration);     // c_Interval
 
-        statement.setBigDecimal(22, BigDecimal.valueOf(10000 + id, 3)); // c_Decimal
+        statement.setBigDecimal(23, BigDecimal.valueOf(10000 + id, 3)); // c_Decimal
+        if (castingSupported) {
+            statement.setBigDecimal(24, BigDecimal.valueOf(20000 + id, 0)); // c_BigDecimal
+            statement.setBigDecimal(25, BigDecimal.valueOf(30000 + id, 6)); // c_BankDecimal
+        } else {
+            statement.setObject(24, BigDecimal.valueOf(20000 + id, 0), ydbType(DecimalType.of(35, 0))); // c_BigDecimal
+            statement.setObject(25, BigDecimal.valueOf(30000 + id, 6), ydbType(DecimalType.of(31, 9))); // c_BankDecimal
+        }
     }
 
     private void assertRowValues(ResultSet rs, int id) throws SQLException {
@@ -297,12 +391,12 @@ public class YdbPreparedStatementTest {
         Assertions.assertEquals(1.5f * id, rs.getFloat("c_Float"), 0.001f);
         Assertions.assertEquals(2.5d * id, rs.getDouble("c_Double"), 0.001d);
 
-        Assertions.assertArrayEquals(new byte[] { (byte)id }, rs.getBytes("c_Bytes"));
+        Assertions.assertArrayEquals(("bytes" + id).getBytes(), rs.getBytes("c_Bytes"));
         Assertions.assertEquals("Text_" + id, rs.getString("c_Text"));
         Assertions.assertEquals("{\"json\": " + id + "}", rs.getString("c_Json"));
         Assertions.assertEquals("{\"jsonDoc\":" + id + "}", rs.getString("c_JsonDocument"));
         Assertions.assertEquals("{yson=" + id + "}", rs.getString("c_Yson"));
-
+        Assertions.assertEquals(UUID.nameUUIDFromBytes(("uuid" + id).getBytes()).toString(), rs.getString("c_Uuid"));
 
         Date sqlDate = new Date(TEST_TS.toEpochMilli());
         LocalDateTime dateTime = LocalDateTime.ofInstant(TEST_TS, ZoneOffset.UTC).plusMinutes(id)
@@ -315,6 +409,8 @@ public class YdbPreparedStatementTest {
         Assertions.assertEquals(Duration.ofMinutes(id), rs.getObject("c_Interval"));
 
         Assertions.assertEquals(BigDecimal.valueOf(1000000l * (10000 + id), 9), rs.getBigDecimal("c_Decimal"));
+        Assertions.assertEquals(BigDecimal.valueOf(20000 + id), rs.getBigDecimal("c_BigDecimal"));
+        Assertions.assertEquals(BigDecimal.valueOf(1000l * (30000 + id), 9), rs.getBigDecimal("c_BankDecimal"));
     }
 
     private void assertStructMember(Value<?> value, StructValue sv, String name) {
@@ -350,7 +446,7 @@ public class YdbPreparedStatementTest {
         Assertions.assertTrue(obj instanceof StructValue);
         StructValue sv = (StructValue) obj;
 
-        Assertions.assertEquals(22, sv.getType().getMembersCount());
+        Assertions.assertEquals(25, sv.getType().getMembersCount());
 
         assertStructMember(PrimitiveValue.newInt32(id), sv, "key");
         assertStructMember(PrimitiveValue.newBool(id % 2 == 0), sv, "c_Bool");
@@ -368,12 +464,13 @@ public class YdbPreparedStatementTest {
         assertStructMember(PrimitiveValue.newFloat(1.5f * id), sv, "c_Float");
         assertStructMember(PrimitiveValue.newDouble(2.5d * id), sv, "c_Double");
 
-        assertStructMember(PrimitiveValue.newBytes(new byte[] { (byte)id }), sv, "c_Bytes");
+        assertStructMember(PrimitiveValue.newBytes(("bytes" + id).getBytes()), sv, "c_Bytes");
         assertStructMember(PrimitiveValue.newText("Text_" + id), sv, "c_Text");
         assertStructMember(PrimitiveValue.newJson("{\"json\": " + id + "}"), sv, "c_Json");
         assertStructMember(PrimitiveValue.newJsonDocument("{\"jsonDoc\":" + id + "}"), sv, "c_JsonDocument");
         assertStructMember(PrimitiveValue.newYson(("{yson=" + id + "}").getBytes()), sv, "c_Yson");
 
+        assertStructMember(PrimitiveValue.newUuid(UUID.nameUUIDFromBytes(("uuid" + id).getBytes())), sv, "c_Uuid");
 
         Date sqlDate = new Date(TEST_TS.toEpochMilli());
         LocalDateTime dateTime = LocalDateTime.ofInstant(TEST_TS, ZoneOffset.UTC).plusMinutes(id)
@@ -385,6 +482,8 @@ public class YdbPreparedStatementTest {
         assertStructMember(PrimitiveValue.newInterval(Duration.ofMinutes(id)), sv, "c_Interval");
 
         assertStructMember(DecimalType.getDefault().newValue(BigDecimal.valueOf(10000 + id, 3)), sv, "c_Decimal");
+        assertStructMember(DecimalType.of(35, 0).newValue(BigDecimal.valueOf(20000 + id, 0)), sv, "c_BigDecimal");
+        assertStructMember(DecimalType.of(31, 9).newValue(BigDecimal.valueOf(30000 + id, 6)), sv, "c_BankDecimal");
     }
 
     @ParameterizedTest(name = "with {0}")
@@ -431,6 +530,54 @@ public class YdbPreparedStatementTest {
     };
 
     @Test
+    public void setStringTest() throws SQLException {
+        String upsert = TEST_TABLE.upsertAll(SqlQueries.JdbcQuery.STANDARD);
+        int id = 120;
+        UUID uuid = UUID.nameUUIDFromBytes(("uuid" + id).getBytes());
+
+        try (PreparedStatement statement = jdbc.connection().prepareStatement(upsert)) {
+            statement.setString(1, String.valueOf(id)); // id
+            statement.setString(2, String.valueOf(id % 2 == 0));   // c_Bool
+            statement.setString(3, String.valueOf(id + 1)); // c_Int8
+            statement.setString(4, String.valueOf(id + 2)); // c_Int16
+            statement.setString(5, String.valueOf(id + 3)); // c_Int32
+            statement.setString(6, String.valueOf(id + 4)); // c_Int64
+            statement.setString(7, String.valueOf(id + 5)); // c_Uint8
+            statement.setString(8, String.valueOf(id + 6)); // c_Uint16
+            statement.setString(9, String.valueOf(id + 7)); // c_Uint32
+            statement.setString(10, String.valueOf(id + 8));    // c_Uint64
+            statement.setString(11, String.valueOf(1.5f * id)); // c_Float
+            statement.setString(12, String.valueOf(2.5d * id)); // c_Double
+            statement.setString(13, "bytes" + id);              // c_Bytes
+            statement.setString(14, "Text_" + id);              // c_Text
+            statement.setString(15, "{\"json\": " + id + "}");  // c_Json
+            statement.setString(16, "{\"jsonDoc\": " + id + "}"); // c_JsonDocument
+            statement.setString(17, "{yson=" + id + "}");         // c_Yson
+            statement.setString(18, uuid.toString()); // c_Uuid
+
+            Date sqlDate = new Date(TEST_TS.toEpochMilli());
+            LocalDateTime dateTime = LocalDateTime.ofInstant(TEST_TS, ZoneOffset.UTC).plusMinutes(id);
+
+            statement.setString(19, sqlDate.toString());   // c_Date
+            statement.setString(20, dateTime.toString());  // c_Datetime
+            statement.setString(21, TEST_TS.plusSeconds(id).toString()); // c_Timestamp
+            statement.setString(22, Duration.ofMinutes(id).toString());  // c_Interval
+
+            statement.setString(23, BigDecimal.valueOf(10000 + id, 3).toString()); // c_Decimal
+            statement.setString(24, BigDecimal.valueOf(20000 + id, 0).toString()); // c_BigDecimal
+            statement.setString(25, BigDecimal.valueOf(30000 + id, 6).toString()); // c_BankDecimal
+            statement.execute();
+        }
+
+        try (Statement statement = jdbc.connection().createStatement()) {
+            try (ResultSet rs = statement.executeQuery(TEST_TABLE.selectSQL())) {
+                assertRowValues(rs, id);
+                Assertions.assertFalse(rs.next());
+            }
+        }
+    };
+
+    @Test
     public void tableRowTest() throws SQLException {
         String upsert = TEST_TABLE.upsertAll(SqlQueries.JdbcQuery.BATCHED);
         String selectTableRow = TEST_TABLE.withTableName("select TableRow() from #tableName");
@@ -451,6 +598,178 @@ public class YdbPreparedStatementTest {
             }
         }
     };
+
+    private void assertResultSetCount(ResultSet rs, int count) throws SQLException {
+        Assertions.assertTrue(rs.next());
+        Assertions.assertEquals(count, rs.getInt(1));
+        Assertions.assertFalse(rs.next());
+        rs.close();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "true", "false" })
+    public void inListTest(boolean convertInToList) throws SQLException {
+        String option = String.valueOf(convertInToList);
+        String arg2Name = convertInToList ? "$jp1[1]" : "$jp2";
+        try (Connection conn = jdbc.createCustomConnection("replaceJdbcInByYqlList", option)) {
+            String upsert = TEST_TABLE.upsertOne(SqlQueries.JdbcQuery.STANDARD, "c_Text", "Text");
+            String selectByIds = TEST_TABLE.withTableName("select count(*) from #tableName where key in (?, ?)");
+            String selectByValue = TEST_TABLE.withTableName("select count(*) from #tableName where c_Text in (?, ?)");
+
+            try (PreparedStatement ps = conn.prepareStatement(upsert)) {
+                ps.setInt(1, 1);
+                ps.setString(2, "1");
+                ps.addBatch();
+
+                ps.setInt(1, 2);
+                ps.setString(2, null);
+                ps.addBatch();
+
+                ps.setInt(1, 3);
+                ps.setString(2, "3");
+                ps.addBatch();
+
+                ps.setInt(1, 4);
+                ps.setString(2, "null");
+                ps.addBatch();
+
+                ps.executeBatch();
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement(selectByIds)) {
+                ps.setInt(1, 1);
+                ExceptionAssert.sqlException("Missing value for parameter: " + arg2Name, ps::executeQuery);
+
+                ps.setInt(1, 1);
+                ps.setInt(2, 2);
+                assertResultSetCount(ps.executeQuery(), 2);
+
+                ps.setInt(1, 1);
+                ps.setInt(2, 5);
+                assertResultSetCount(ps.executeQuery(), 1);
+
+                ps.setInt(1, 1);
+                if (convertInToList) {
+                    ExceptionAssert.sqlException("Cannot cast [class java.lang.String: text] to [Int32]", () -> {
+                        ps.setString(2, "text");
+                    });
+                } else {
+                    ExceptionAssert.ydbException("Can't compare Optional<Int32> with Utf8 (S_ERROR)", () -> {
+                        ps.setString(2, "text");
+                        ps.executeQuery();
+                    });
+                }
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement(selectByValue)) {
+                ps.setString(1, null);
+                ExceptionAssert.sqlException("Missing value for parameter: " + arg2Name, ps::executeQuery);
+
+                ps.setString(1, null);
+                ps.setString(2, null);
+                assertResultSetCount(ps.executeQuery(), 0);
+
+                ps.setString(1, "1");
+                ps.setString(2, null);
+                assertResultSetCount(ps.executeQuery(), 1);
+
+                ps.setString(1, null);
+                ps.setString(2, "2");
+                assertResultSetCount(ps.executeQuery(), 0);
+
+                ps.setString(1, "1");
+                ps.setString(2, "1");
+                assertResultSetCount(ps.executeQuery(), 1);
+
+                ps.setString(1, "1");
+                ps.setString(2, "2");
+                assertResultSetCount(ps.executeQuery(), 1);
+
+                ps.setString(1, "1");
+                ps.setString(2, "3");
+                assertResultSetCount(ps.executeQuery(), 2);
+            }
+        }
+    }
+
+    @Test
+    public void jdbcTableListTest() throws SQLException {
+        String arg2Name = "$jp1[1]";
+        String upsert = TEST_TABLE.upsertOne(SqlQueries.JdbcQuery.STANDARD, "c_Text", "Text");
+        String selectByIds = TEST_TABLE.withTableName(
+                "select count(*) from jdbc_table(?,?) as j join #tableName t on t.key=j.x"
+        );
+        String selectByValue = TEST_TABLE.withTableName(
+                "select count(*) from jdbc_table(?,?) as j join #tableName t on t.c_Text=j.x"
+        );
+
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert)) {
+            ps.setInt(1, 1);
+            ps.setString(2, "1");
+            ps.addBatch();
+
+            ps.setInt(1, 2);
+            ps.setString(2, null);
+            ps.addBatch();
+
+            ps.setInt(1, 3);
+            ps.setString(2, "3");
+            ps.addBatch();
+
+            ps.setInt(1, 4);
+            ps.setString(2, "null");
+            ps.addBatch();
+
+            ps.executeBatch();
+        }
+
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(selectByIds)) {
+            ps.setInt(1, 1);
+            ExceptionAssert.sqlException("Missing value for parameter: " + arg2Name, ps::executeQuery);
+
+            ps.setInt(1, 1);
+            ps.setInt(2, 2);
+            assertResultSetCount(ps.executeQuery(), 2);
+
+            ps.setInt(1, 1);
+            ps.setInt(2, 5);
+            assertResultSetCount(ps.executeQuery(), 1);
+
+            ps.setInt(1, 1);
+            ExceptionAssert.sqlException("Cannot cast [class java.lang.String: text] to [Int32]", () -> {
+                ps.setString(2, "text");
+            });
+        }
+
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(selectByValue)) {
+            ps.setString(1, null);
+            ExceptionAssert.sqlException("Missing value for parameter: " + arg2Name, ps::executeQuery);
+
+            ps.setString(1, null);
+            ps.setString(2, null);
+            assertResultSetCount(ps.executeQuery(), 0);
+
+            ps.setString(1, "1");
+            ps.setString(2, null);
+            assertResultSetCount(ps.executeQuery(), 1);
+
+            ps.setString(1, null);
+            ps.setString(2, "2");
+            assertResultSetCount(ps.executeQuery(), 0);
+
+            ps.setString(1, "1");
+            ps.setString(2, "1");
+            assertResultSetCount(ps.executeQuery(), 2);
+
+            ps.setString(1, "1");
+            ps.setString(2, "2");
+            assertResultSetCount(ps.executeQuery(), 1);
+
+            ps.setString(1, "1");
+            ps.setString(2, "3");
+            assertResultSetCount(ps.executeQuery(), 2);
+        }
+    }
 
     @ParameterizedTest(name = "with {0}")
     @EnumSource(SqlQueries.JdbcQuery.class)
@@ -989,10 +1308,13 @@ public class YdbPreparedStatementTest {
     public void decimalTest(SqlQueries.JdbcQuery query) throws SQLException {
         String upsert = TEST_TABLE.upsertOne(query, "c_Decimal", "Decimal(22, 9)");
 
-        // YDB partially ignores Decimal(22, 9) limit, but have hard limit to 35 digits
-        String maxValue = "9999999999" + "9999999999" + "9999999999" + "99999";
-        BigDecimal closeToInf = new BigDecimal(new BigInteger(maxValue), 9);
-        BigDecimal closeToNegInf = new BigDecimal(new BigInteger(maxValue).negate(), 9);
+        BigDecimal closeToInf = new BigDecimal("9999999999999.999999999");
+        BigDecimal closeToNegInf = new BigDecimal("-9999999999999.999999999");
+
+        BigDecimal inf = closeToInf.add(BigDecimal.valueOf(1, 9));
+        BigDecimal negInf = closeToNegInf.subtract(BigDecimal.valueOf(1, 9));
+        BigDecimal nan = new BigDecimal("100000000000000000000000000.000000001");
+
         try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert)) {
             ps.setInt(1, 1);
             ps.setBigDecimal(2, BigDecimal.valueOf(1.5d));
@@ -1013,20 +1335,20 @@ public class YdbPreparedStatementTest {
             ps.setInt(1, 5);
             ExceptionAssert.sqlException(""
                     + "Cannot cast to decimal type Decimal(22, 9): "
-                    + "[class java.math.BigDecimal: 100000000000000000000000000.000000000] is Infinite",
-                    () -> ps.setBigDecimal(2, closeToInf.add(BigDecimal.valueOf(1, 9)))
+                    + "[class java.math.BigDecimal: " + inf + "] is Infinite",
+                    () -> ps.setBigDecimal(2, inf)
             );
 
             ExceptionAssert.sqlException(""
                     + "Cannot cast to decimal type Decimal(22, 9): "
-                    + "[class java.math.BigDecimal: -100000000000000000000000000.000000000] is -Infinite",
-                    () -> ps.setBigDecimal(2, closeToNegInf.subtract(BigDecimal.valueOf(1, 9)))
+                    + "[class java.math.BigDecimal: " + negInf + "] is -Infinite",
+                    () -> ps.setBigDecimal(2, negInf)
             );
 
             ExceptionAssert.sqlException(""
                     + "Cannot cast to decimal type Decimal(22, 9): "
-                    + "[class java.math.BigDecimal: 100000000000000000000000000.000000001] is NaN",
-                    () -> ps.setBigDecimal(2, closeToInf.add(BigDecimal.valueOf(2, 9)))
+                    + "[class java.math.BigDecimal: " + nan + "] is NaN",
+                    () -> ps.setBigDecimal(2, nan)
             );
         }
 
@@ -1051,6 +1373,118 @@ public class YdbPreparedStatementTest {
         Assertions.assertEquals(bg, obj);
 
         BigDecimal decimal = rs.getBigDecimal("c_Decimal");
+        Assertions.assertEquals(bg, decimal);
+    }
+
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(SqlQueries.JdbcQuery.class)
+    public void bankDecimalTest(SqlQueries.JdbcQuery query) throws SQLException {
+        String upsert = TEST_TABLE.upsertOne(query, "c_BankDecimal", "Decimal(31, 9)");
+        boolean castingSupported = query != SqlQueries.JdbcQuery.IN_MEMORY;
+
+        BigDecimal closeToInf = new BigDecimal("9999999999999999999999.999999999");
+        BigDecimal closeToNegInf = new BigDecimal("-9999999999999999999999.999999999");
+
+        BigDecimal inf = closeToInf.add(BigDecimal.valueOf(1, 9));
+        BigDecimal negInf = closeToNegInf.subtract(BigDecimal.valueOf(1, 9));
+        BigDecimal nan = new BigDecimal("100000000000000000000000000.000000001");
+
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert)) {
+            if (castingSupported) {
+                ps.setInt(1, 1);
+                ps.setBigDecimal(2, BigDecimal.valueOf(1.5d));
+                ps.execute();
+
+                ps.setInt(1, 2);
+                ps.setBigDecimal(2, BigDecimal.valueOf(-12345, 10)); // will be rounded to -0.000001234
+                ps.execute();
+
+                ps.setInt(1, 3);
+                ps.setBigDecimal(2, closeToInf);
+                ps.execute();
+
+                ps.setInt(1, 4);
+                ps.setBigDecimal(2, closeToNegInf);
+                ps.execute();
+
+                ps.setInt(1, 5);
+                ExceptionAssert.sqlException(""
+                        + "Cannot cast to decimal type Decimal(31, 9): "
+                        + "[class java.math.BigDecimal: " + inf + "] is Infinite",
+                        () -> ps.setBigDecimal(2, inf)
+                );
+
+                ExceptionAssert.sqlException(""
+                        + "Cannot cast to decimal type Decimal(31, 9): "
+                        + "[class java.math.BigDecimal: " + negInf + "] is -Infinite",
+                        () -> ps.setBigDecimal(2, negInf)
+                );
+
+                ExceptionAssert.sqlException(""
+                        + "Cannot cast to decimal type Decimal(31, 9): "
+                        + "[class java.math.BigDecimal: " + nan + "] is NaN",
+                        () -> ps.setBigDecimal(2, nan)
+                );
+            } else {
+                int sqlType = ydbType(DecimalType.of(31, 9));
+                ps.setInt(1, 1);
+                ps.setObject(2, BigDecimal.valueOf(1.5d), sqlType);
+                ps.execute();
+
+                ps.setInt(1, 2);
+                ps.setObject(2, BigDecimal.valueOf(-12345, 10), sqlType); // will be rounded to -0.000001234
+                ps.execute();
+
+                ps.setInt(1, 3);
+                ps.setObject(2, closeToInf, sqlType);
+                ps.execute();
+
+                ps.setInt(1, 4);
+                ps.setObject(2, closeToNegInf, sqlType);
+                ps.execute();
+
+                ps.setInt(1, 5);
+                ExceptionAssert.sqlException(""
+                        + "Cannot cast to decimal type Decimal(31, 9): "
+                        + "[class java.math.BigDecimal: " + inf + "] is Infinite",
+                        () -> ps.setObject(2, inf, sqlType)
+                );
+
+                ExceptionAssert.sqlException(""
+                        + "Cannot cast to decimal type Decimal(31, 9): "
+                        + "[class java.math.BigDecimal: " + negInf + "] is -Infinite",
+                        () -> ps.setObject(2, negInf, sqlType)
+                );
+
+                ExceptionAssert.sqlException(""
+                        + "Cannot cast to decimal type Decimal(31, 9): "
+                        + "[class java.math.BigDecimal: " + nan + "] is NaN",
+                        () -> ps.setObject(2, nan, sqlType)
+                );
+            }
+        }
+
+        try (Statement st = jdbc.connection().createStatement()) {
+            try (ResultSet rs = st.executeQuery(TEST_TABLE.selectColumn("c_BankDecimal"))) {
+                assertNextBankDecimal(rs, 1, BigDecimal.valueOf(1.5d).setScale(9));
+                assertNextBankDecimal(rs, 2, BigDecimal.valueOf(-1234, 9));
+                assertNextBankDecimal(rs, 3, closeToInf);
+                assertNextBankDecimal(rs, 4, closeToNegInf);
+
+                Assertions.assertFalse(rs.next());
+            }
+        }
+    };
+
+    private void assertNextBankDecimal(ResultSet rs, int key, BigDecimal bg) throws SQLException {
+        Assertions.assertTrue(rs.next());
+        Assertions.assertEquals(key, rs.getInt("key"));
+
+        Object obj = rs.getObject("c_BankDecimal");
+        Assertions.assertTrue(obj instanceof BigDecimal);
+        Assertions.assertEquals(bg, obj);
+
+        BigDecimal decimal = rs.getBigDecimal("c_BankDecimal");
         Assertions.assertEquals(bg, decimal);
     }
 }

@@ -27,11 +27,11 @@ public class YdbQuery {
         this.type = type;
         this.batcher = batcher;
 
-        boolean hasJdbcParamters = false;
+        boolean hasJdbcParameters = false;
         for (QueryStatement st: statements) {
-            hasJdbcParamters = hasJdbcParamters || !st.getParams().isEmpty();
+            hasJdbcParameters = hasJdbcParameters || st.hasJdbcParameters();
         }
-        this.isPlainYQL = !hasJdbcParamters;
+        this.isPlainYQL = !hasJdbcParameters;
     }
 
     public QueryType getType() {
@@ -59,8 +59,8 @@ public class YdbQuery {
     }
 
     public static YdbQuery parseQuery(String query, YdbQueryProperties opts) throws SQLException {
-        YdbQueryParser parser = new YdbQueryParser(opts.isDetectQueryType(), opts.isDetectJdbcParameters());
-        String preparedYQL = parser.parseSQL(query);
+        YdbQueryParser parser = new YdbQueryParser(query, opts);
+        String preparedYQL = parser.parseSQL();
 
         QueryType type = null;
         YqlBatcher batcher = parser.getYqlBatcher();

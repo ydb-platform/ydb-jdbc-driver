@@ -10,6 +10,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.sql.Date;
 import java.sql.JDBCType;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -25,6 +26,7 @@ import java.time.Month;
 import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.Locale;
+import java.util.UUID;
 
 import javax.sql.rowset.serial.SerialBlob;
 import javax.sql.rowset.serial.SerialClob;
@@ -56,14 +58,14 @@ import tech.ydb.table.values.PrimitiveValue;
 import tech.ydb.table.values.Value;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
-
-
 public class YdbLazyResultSetImplTest {
+
     @RegisterExtension
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
     @RegisterExtension
-    private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb);
+    private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb)
+            .withArg("useStreamResultSets", "true");
 
     private static final SqlQueries TEST_TABLE = new SqlQueries("ydb_result_set_test");
 
@@ -95,7 +97,7 @@ public class YdbLazyResultSetImplTest {
     @BeforeEach
     public void beforeEach() throws SQLException {
         statement = jdbc.connection().createStatement();
-        resultSet = statement.executeQuery(TEST_TABLE.scanSelectSQL());
+        resultSet = statement.executeQuery(TEST_TABLE.selectSQL());
     }
 
     @AfterEach
@@ -123,7 +125,6 @@ public class YdbLazyResultSetImplTest {
         resultSet.close();
         Assertions.assertTrue(resultSet.isClosed());
     }
-
 
     @Test
     public void unwrap() throws SQLException {
@@ -180,7 +181,7 @@ public class YdbLazyResultSetImplTest {
 
         ExceptionAssert.sqlException("Column is out of range: 995", () -> metadata.getColumnName(995));
 
-        Assertions.assertEquals(22, metadata.getColumnCount());
+        Assertions.assertEquals(25, metadata.getColumnCount());
 
         for (int index = 0; index < metadata.getColumnCount(); index++) {
             int column = index + 1;
@@ -208,7 +209,13 @@ public class YdbLazyResultSetImplTest {
             if (name.startsWith("c_")) {
                 String expectType = name.substring("c_".length()).toLowerCase();
                 if (expectType.equals("decimal")) {
-                    expectType += "(22, 9)";
+                    expectType = "decimal(22, 9)";
+                }
+                if (expectType.equals("bigdecimal")) {
+                    expectType = "decimal(35, 0)";
+                }
+                if (expectType.equals("bankdecimal")) {
+                    expectType = "decimal(31, 9)";
                 }
 
                 String actualType = metadata.getColumnTypeName(column);
@@ -256,6 +263,58 @@ public class YdbLazyResultSetImplTest {
             Assertions.assertFalse(rs.next());
             assertIsEmpty(rs);
         }
+    }
+
+    @Test
+    public void closeResultSetOnExecuteNext() throws SQLException {
+        ResultSet rs1 = statement.executeQuery(TEST_TABLE.selectSQL());
+        Assertions.assertFalse(rs1.isClosed());
+        ResultSet rs2 = statement.executeQuery(TEST_TABLE.selectSQL());
+        Assertions.assertTrue(rs1.isClosed());
+        Assertions.assertFalse(rs2.isClosed());
+
+        rs2.close();
+    }
+
+    @Test
+    public void closeResultSetOnCreateStatement() throws SQLException {
+        ResultSet rs1 = statement.executeQuery(TEST_TABLE.selectSQL());
+        Assertions.assertFalse(rs1.isClosed());
+
+        Statement other = jdbc.connection().createStatement();
+
+        Assertions.assertFalse(rs1.isClosed()); // new statement doesn't close current result set
+
+        ResultSet rs2 = other.executeQuery(TEST_TABLE.selectSQL());
+        Assertions.assertTrue(rs1.isClosed());
+        Assertions.assertFalse(rs2.isClosed());
+
+        other.close();
+        Assertions.assertFalse(rs2.isClosed());
+
+        rs2.close();
+    }
+
+    @Test
+    public void closeResultSetOnPrepareStatement() throws SQLException {
+        ResultSet rs1 = statement.executeQuery(TEST_TABLE.selectSQL());
+        Assertions.assertFalse(rs1.isClosed());
+
+        PreparedStatement ps = jdbc.connection().prepareStatement(TEST_TABLE.selectAllByKey("?"));
+
+        Assertions.assertFalse(rs1.isClosed()); // prepare statement doesn't close current result set
+        ps.setInt(1, 1);
+
+        Assertions.assertFalse(rs1.isClosed()); // prepare statement doesn't close current result set
+
+        ResultSet rs2 = ps.executeQuery();
+        Assertions.assertTrue(rs1.isClosed());
+        Assertions.assertFalse(rs2.isClosed());
+
+        ps.close();
+        Assertions.assertFalse(rs2.isClosed());
+
+        rs2.close();
     }
 
     @Test
@@ -521,11 +580,14 @@ public class YdbLazyResultSetImplTest {
                 .value(15, "c_Json", "{\"key\": \"value Json\"}")
                 .value(16, "c_JsonDocument", "{\"key\":\"value JsonDocument\"}")
                 .value(17, "c_Yson", "{key=\"value yson\"}")
-                .value(18, "c_Date", "1978-07-09")
-                .value(19, "c_Datetime", "1979-11-10T19:45:56")
-                .value(20, "c_Timestamp", "1970-01-04T14:25:11.223342Z")
-                .value(21, "c_Interval", "PT3.111113S")
-                .value(22, "c_Decimal", "3.335000000");
+                .value(18, "c_Uuid", "6e73b41c-4ede-4d08-9cfb-b7462d9e498b")
+                .value(19, "c_Date", "1978-07-09")
+                .value(20, "c_Datetime", "1979-11-10T19:45:56")
+                .value(21, "c_Timestamp", "1970-01-04T14:25:11.223342Z")
+                .value(22, "c_Interval", "PT3.111113S")
+                .value(23, "c_Decimal", "3.335000000")
+                .value(24, "c_BigDecimal", "12345678901234567890123456789012345")
+                .value(25, "c_BankDecimal", "9999999999999999999999.999999999");
 
         checker.nextRow()
                 .value(1, "key", "2")
@@ -545,11 +607,14 @@ public class YdbLazyResultSetImplTest {
                 .value(15, "c_Json", null)
                 .value(16, "c_JsonDocument", null)
                 .value(17, "c_Yson", "\"\"")
-                .value(18, "c_Date", "1978-07-10")
-                .value(19, "c_Datetime", "1976-09-10T13:45")
-                .value(20, "c_Timestamp", "1970-01-02T06:51:51.223342Z")
-                .value(21, "c_Interval", "PT3.112113S")
-                .value(22, "c_Decimal", "-3.335000000");
+                .value(18, "c_Uuid", null)
+                .value(19, "c_Date", "1978-07-10")
+                .value(20, "c_Datetime", "1976-09-10T13:45")
+                .value(21, "c_Timestamp", "1970-01-02T06:51:51.223342Z")
+                .value(22, "c_Interval", "PT3.112113S")
+                .value(23, "c_Decimal", "-3.335000000")
+                .value(24, "c_BigDecimal", "-98765432109876543210987654321098765")
+                .value(25, "c_BankDecimal", "-9999999999999999999999.999999999");
 
         checker.nextRow()
                 .value(1, "key", "3")
@@ -569,11 +634,14 @@ public class YdbLazyResultSetImplTest {
                 .value(15, "c_Json", null)
                 .value(16, "c_JsonDocument", null)
                 .value(17, "c_Yson", "0")
-                .value(18, "c_Date", "1970-01-01")
-                .value(19, "c_Datetime", "1970-01-01T00:00")
-                .value(20, "c_Timestamp", "1970-01-01T00:00:00Z")
-                .value(21, "c_Interval", "PT0S")
-                .value(22, "c_Decimal", "0"); // Zero always converts without scale
+                .value(18, "c_Uuid", null)
+                .value(19, "c_Date", "1970-01-01")
+                .value(20, "c_Datetime", "1970-01-01T00:00")
+                .value(21, "c_Timestamp", "1970-01-01T00:00:00Z")
+                .value(22, "c_Interval", "PT0S")
+                .value(23, "c_Decimal", "0")      // Zero always converts without scale
+                .value(24, "c_BigDecimal", "0")   // Zero always converts without scale
+                .value(25, "c_BankDecimal", "0"); // Zero always converts without scale
 
         checker.nextRow()
                 .value(1, "key", "4")
@@ -593,11 +661,14 @@ public class YdbLazyResultSetImplTest {
                 .value(15, "c_Json", "{}")
                 .value(16, "c_JsonDocument", "{}")
                 .value(17, "c_Yson", "1")
-                .value(18, "c_Date", "1970-01-02")
-                .value(19, "c_Datetime", "1970-01-01T00:00:01")
-                .value(20, "c_Timestamp", "1970-01-01T00:00:00.000001Z")
-                .value(21, "c_Interval", "PT0.000001S")
-                .value(22, "c_Decimal", "1.000000000");
+                .value(18, "c_Uuid", "00000000-0000-0000-0000-000000000000")
+                .value(19, "c_Date", "1970-01-02")
+                .value(20, "c_Datetime", "1970-01-01T00:00:01")
+                .value(21, "c_Timestamp", "1970-01-01T00:00:00.000001Z")
+                .value(22, "c_Interval", "PT0.000001S")
+                .value(23, "c_Decimal", "1.000000000")
+                .value(24, "c_BigDecimal", "1")
+                .value(25, "c_BankDecimal", "1.000000000");
 
         checker.nextRow()
                 .value(1, "key", "5")
@@ -617,11 +688,14 @@ public class YdbLazyResultSetImplTest {
                 .value(15, "c_Json", null)
                 .value(16, "c_JsonDocument", null)
                 .value(17, "c_Yson", null)
-                .value(18, "c_Date", null)
-                .value(19, "c_Datetime", null)
-                .value(20, "c_Timestamp", null)
-                .value(21, "c_Interval", null)
-                .value(22, "c_Decimal", null);
+                .value(18, "c_Uuid", null)
+                .value(19, "c_Date", null)
+                .value(20, "c_Datetime", null)
+                .value(21, "c_Timestamp", null)
+                .value(22, "c_Interval", null)
+                .value(23, "c_Decimal", null)
+                .value(24, "c_BigDecimal", null)
+                .value(25, "c_BankDecimal", null);
 
         checker.assertNoRows();
     }
@@ -693,7 +767,9 @@ public class YdbLazyResultSetImplTest {
                 .exceptionValue(8, "c_Uint16", "Cannot cast [Uint16] with value [20002] to [byte]")
                 .exceptionValue(9, "c_Uint32", "Cannot cast [Uint32] with value [2000000002] to [byte]")
                 .exceptionValue(10, "c_Uint64", "Cannot cast [Uint64] with value [2000000000002] to [byte]")
-                .exceptionValue(22, "c_Decimal", "Cannot cast [DECIMAL] to [byte]");
+                .exceptionValue(23, "c_Decimal", "Cannot cast [DECIMAL] to [byte]")
+                .exceptionValue(24, "c_BigDecimal", "Cannot cast [DECIMAL] to [byte]")
+                .exceptionValue(25, "c_BankDecimal", "Cannot cast [DECIMAL] to [byte]");
 
         checker.nextRow()
                 .value(1, "key", (byte)2)
@@ -706,8 +782,9 @@ public class YdbLazyResultSetImplTest {
                 .exceptionValue(8, "c_Uint16", "Cannot cast [Uint16] with value [40002] to [byte]")
                 .exceptionValue(9, "c_Uint32", "Cannot cast [Uint32] with value [4000000002] to [byte]")
                 .exceptionValue(10, "c_Uint64", "Cannot cast [Uint64] with value [4000000000002] to [byte]")
-                .exceptionValue(22, "c_Decimal", "Cannot cast [DECIMAL] to [byte]");
-
+                .exceptionValue(23, "c_Decimal", "Cannot cast [DECIMAL] to [byte]")
+                .exceptionValue(24, "c_BigDecimal", "Cannot cast [DECIMAL] to [byte]")
+                .exceptionValue(25, "c_BankDecimal", "Cannot cast [DECIMAL] to [byte]");
 
         checker.nextRow()
                 .value(1, "key", (byte)3)
@@ -720,7 +797,9 @@ public class YdbLazyResultSetImplTest {
                 .value(8, "c_Uint16", (byte)0)
                 .value(9, "c_Uint32", (byte)0)
                 .value(10, "c_Uint64", (byte)0)
-                .exceptionValue(22, "c_Decimal", "Cannot cast [DECIMAL] to [byte]");
+                .exceptionValue(23, "c_Decimal", "Cannot cast [DECIMAL] to [byte]")
+                .exceptionValue(24, "c_BigDecimal", "Cannot cast [DECIMAL] to [byte]")
+                .exceptionValue(25, "c_BankDecimal", "Cannot cast [DECIMAL] to [byte]");
 
         checker.nextRow()
                 .value(1, "key", (byte)4)
@@ -733,7 +812,9 @@ public class YdbLazyResultSetImplTest {
                 .value(8, "c_Uint16", (byte)1)
                 .value(9, "c_Uint32", (byte)1)
                 .value(10, "c_Uint64", (byte)1)
-                .exceptionValue(22, "c_Decimal", "Cannot cast [DECIMAL] to [byte]");
+                .exceptionValue(23, "c_Decimal", "Cannot cast [DECIMAL] to [byte]")
+                .exceptionValue(24, "c_BigDecimal", "Cannot cast [DECIMAL] to [byte]")
+                .exceptionValue(25, "c_BankDecimal", "Cannot cast [DECIMAL] to [byte]");
 
         checker.nextRow()
                 .value(1, "key", (byte)5)
@@ -746,7 +827,21 @@ public class YdbLazyResultSetImplTest {
                 .nullValue(8, "c_Uint16", (byte)0)
                 .nullValue(9, "c_Uint32", (byte)0)
                 .nullValue(10, "c_Uint64", (byte)0)
-                .nullValue(22, "c_Decimal", (byte)0);
+                .nullValue(11, "c_Float", (byte)0)
+                .nullValue(12, "c_Double", (byte)0)
+                .nullValue(13, "c_Bytes", (byte)0)
+                .nullValue(14, "c_Text", (byte)0)
+                .nullValue(15, "c_Json", (byte)0)
+                .nullValue(16, "c_JsonDocument", (byte)0)
+                .nullValue(17, "c_Yson", (byte)0)
+                .nullValue(18, "c_Uuid", (byte)0)
+                .nullValue(19, "c_Date", (byte)0)
+                .nullValue(20, "c_Datetime", (byte)0)
+                .nullValue(21, "c_Timestamp", (byte)0)
+                .nullValue(22, "c_Interval", (byte)0)
+                .nullValue(23, "c_Decimal", (byte)0)
+                .nullValue(24, "c_BigDecimal", (byte)0)
+                .nullValue(25, "c_BankDecimal", (byte)0);
 
         checker.assertNoRows();
     }
@@ -766,7 +861,9 @@ public class YdbLazyResultSetImplTest {
                 .value(8, "c_Uint16",  (short)20002)
                 .exceptionValue(9, "c_Uint32", "Cannot cast [Uint32] with value [2000000002] to [short]")
                 .exceptionValue(10, "c_Uint64", "Cannot cast [Uint64] with value [2000000000002] to [short]")
-                .exceptionValue(22, "c_Decimal", "Cannot cast [DECIMAL] to [short]");
+                .exceptionValue(23, "c_Decimal", "Cannot cast [DECIMAL] to [short]")
+                .exceptionValue(24, "c_BigDecimal", "Cannot cast [DECIMAL] to [short]")
+                .exceptionValue(25, "c_BankDecimal", "Cannot cast [DECIMAL] to [short]");
 
         checker.nextRow()
                 .value(1, "key", (short)2)
@@ -779,7 +876,9 @@ public class YdbLazyResultSetImplTest {
                 .exceptionValue(8, "c_Uint16", "Cannot cast [Uint16] with value [40002] to [short]")
                 .exceptionValue(9, "c_Uint32", "Cannot cast [Uint32] with value [4000000002] to [short]")
                 .exceptionValue(10, "c_Uint64", "Cannot cast [Uint64] with value [4000000000002] to [short]")
-                .exceptionValue(22, "c_Decimal", "Cannot cast [DECIMAL] to [short]");
+                .exceptionValue(23, "c_Decimal", "Cannot cast [DECIMAL] to [short]")
+                .exceptionValue(24, "c_BigDecimal", "Cannot cast [DECIMAL] to [short]")
+                .exceptionValue(25, "c_BankDecimal", "Cannot cast [DECIMAL] to [short]");
 
 
         checker.nextRow()
@@ -793,7 +892,9 @@ public class YdbLazyResultSetImplTest {
                 .value(8, "c_Uint16", (short)0)
                 .value(9, "c_Uint32", (short)0)
                 .value(10, "c_Uint64", (short)0)
-                .exceptionValue(22, "c_Decimal", "Cannot cast [DECIMAL] to [short]");
+                .exceptionValue(23, "c_Decimal", "Cannot cast [DECIMAL] to [short]")
+                .exceptionValue(24, "c_BigDecimal", "Cannot cast [DECIMAL] to [short]")
+                .exceptionValue(25, "c_BankDecimal", "Cannot cast [DECIMAL] to [short]");
 
         checker.nextRow()
                 .value(1, "key", (short)4)
@@ -806,7 +907,9 @@ public class YdbLazyResultSetImplTest {
                 .value(8, "c_Uint16", (short)1)
                 .value(9, "c_Uint32", (short)1)
                 .value(10, "c_Uint64", (short)1)
-                .exceptionValue(22, "c_Decimal", "Cannot cast [DECIMAL] to [short]");
+                .exceptionValue(23, "c_Decimal", "Cannot cast [DECIMAL] to [short]")
+                .exceptionValue(24, "c_BigDecimal", "Cannot cast [DECIMAL] to [short]")
+                .exceptionValue(25, "c_BankDecimal", "Cannot cast [DECIMAL] to [short]");
 
         checker.nextRow()
                 .value(1, "key", (short)5)
@@ -819,7 +922,21 @@ public class YdbLazyResultSetImplTest {
                 .nullValue(8, "c_Uint16", (short)0)
                 .nullValue(9, "c_Uint32", (short)0)
                 .nullValue(10, "c_Uint64", (short)0)
-                .nullValue(22, "c_Decimal", (short)0);
+                .nullValue(11, "c_Float", (short)0)
+                .nullValue(12, "c_Double", (short)0)
+                .nullValue(13, "c_Bytes", (short)0)
+                .nullValue(14, "c_Text", (short)0)
+                .nullValue(15, "c_Json", (short)0)
+                .nullValue(16, "c_JsonDocument", (short)0)
+                .nullValue(17, "c_Yson", (short)0)
+                .nullValue(18, "c_Uuid", (short)0)
+                .nullValue(19, "c_Date", (short)0)
+                .nullValue(20, "c_Datetime", (short)0)
+                .nullValue(21, "c_Timestamp", (short)0)
+                .nullValue(22, "c_Interval", (short)0)
+                .nullValue(23, "c_Decimal", (short)0)
+                .nullValue(24, "c_BigDecimal", (short)0)
+                .nullValue(25, "c_BankDecimal", (short)0);
 
         checker.assertNoRows();
     }
@@ -839,7 +956,21 @@ public class YdbLazyResultSetImplTest {
                 .value(8, "c_Uint16", 20002)
                 .value(9, "c_Uint32", 2000000002)
                 .exceptionValue(10, "c_Uint64", "Cannot cast [Uint64] with value [2000000000002] to [int]")
-                .value(22, "c_Decimal", 3);
+                .exceptionValue(11, "c_Float", "Cannot cast [Float] to [int]")
+                .exceptionValue(12, "c_Double", "Cannot cast [Double] to [int]")
+                .exceptionValue(13, "c_Bytes", "Cannot cast [Bytes] to [int]")
+                .exceptionValue(14, "c_Text", "Cannot cast [Text] to [int]")
+                .exceptionValue(15, "c_Json", "Cannot cast [Json] to [int]")
+                .exceptionValue(16, "c_JsonDocument", "Cannot cast [JsonDocument] to [int]")
+                .exceptionValue(17, "c_Yson", "Cannot cast [Yson] to [int]")
+                .exceptionValue(18, "c_Uuid", "Cannot cast [Uuid] to [int]")
+                .value(19, "c_Date", 3111)
+                .exceptionValue(20, "c_Datetime", "Cannot cast [Datetime] to [int]")
+                .exceptionValue(21, "c_Timestamp", "Cannot cast [Timestamp] to [int]")
+                .exceptionValue(22, "c_Interval", "Cannot cast [Interval] to [int]")
+                .exceptionValue(23, "c_Decimal", "Cannot cast [Decimal(22, 9)] with value [3.335000000] to [int]")
+                .exceptionValue(24, "c_BigDecimal", "Cannot cast [Decimal(35, 0)] with value [12345678901234567890123456789012345] to [int]")
+                .exceptionValue(25, "c_BankDecimal", "Cannot cast [Decimal(31, 9)] with value [9999999999999999999999.999999999] to [int]");
 
         checker.nextRow()
                 .value(1, "key", 2)
@@ -852,7 +983,21 @@ public class YdbLazyResultSetImplTest {
                 .value(8, "c_Uint16", 40002)
                 .exceptionValue(9, "c_Uint32", "Cannot cast [Uint32] with value [4000000002] to [int]")
                 .exceptionValue(10, "c_Uint64", "Cannot cast [Uint64] with value [4000000000002] to [int]")
-                .value(22, "c_Decimal", -3);
+                .exceptionValue(11, "c_Float", "Cannot cast [Float] to [int]")
+                .exceptionValue(12, "c_Double", "Cannot cast [Double] to [int]")
+                .exceptionValue(13, "c_Bytes", "Cannot cast [Bytes] to [int]")
+                .exceptionValue(14, "c_Text", "Cannot cast [Text] to [int]")
+                .nullValue(15, "c_Json", 0)
+                .nullValue(16, "c_JsonDocument", 0)
+                .exceptionValue(17, "c_Yson", "Cannot cast [Yson] to [int]")
+                .nullValue(18, "c_Uuid", 0)
+                .value(19, "c_Date", 3112)
+                .exceptionValue(20, "c_Datetime", "Cannot cast [Datetime] to [int]")
+                .exceptionValue(21, "c_Timestamp", "Cannot cast [Timestamp] to [int]")
+                .exceptionValue(22, "c_Interval", "Cannot cast [Interval] to [int]")
+                .exceptionValue(23, "c_Decimal", "Cannot cast [Decimal(22, 9)] with value [-3.335000000] to [int]")
+                .exceptionValue(24, "c_BigDecimal", "Cannot cast [Decimal(35, 0)] with value [-98765432109876543210987654321098765] to [int]")
+                .exceptionValue(25, "c_BankDecimal", "Cannot cast [Decimal(31, 9)] with value [-9999999999999999999999.999999999] to [int]");
 
 
         checker.nextRow()
@@ -866,7 +1011,21 @@ public class YdbLazyResultSetImplTest {
                 .value(8, "c_Uint16", 0)
                 .value(9, "c_Uint32", 0)
                 .value(10, "c_Uint64", 0)
-                .value(22, "c_Decimal", 0);
+                .exceptionValue(11, "c_Float", "Cannot cast [Float] to [int]")
+                .exceptionValue(12, "c_Double", "Cannot cast [Double] to [int]")
+                .exceptionValue(13, "c_Bytes", "Cannot cast [Bytes] to [int]")
+                .exceptionValue(14, "c_Text", "Cannot cast [Text] to [int]")
+                .nullValue(15, "c_Json", 0)
+                .nullValue(16, "c_JsonDocument", 0)
+                .exceptionValue(17, "c_Yson", "Cannot cast [Yson] to [int]")
+                .nullValue(18, "c_Uuid", 0)
+                .value(19, "c_Date", 0)
+                .exceptionValue(20, "c_Datetime", "Cannot cast [Datetime] to [int]")
+                .exceptionValue(21, "c_Timestamp", "Cannot cast [Timestamp] to [int]")
+                .exceptionValue(22, "c_Interval", "Cannot cast [Interval] to [int]")
+                .value(23, "c_Decimal", 0)
+                .value(24, "c_BigDecimal", 0)
+                .value(25, "c_BankDecimal", 0);
 
         checker.nextRow()
                 .value(1, "key", 4)
@@ -879,7 +1038,21 @@ public class YdbLazyResultSetImplTest {
                 .value(8, "c_Uint16", 1)
                 .value(9, "c_Uint32", 1)
                 .value(10, "c_Uint64", 1)
-                .value(22, "c_Decimal", 1);
+                .exceptionValue(11, "c_Float", "Cannot cast [Float] to [int]")
+                .exceptionValue(12, "c_Double", "Cannot cast [Double] to [int]")
+                .exceptionValue(13, "c_Bytes", "Cannot cast [Bytes] to [int]")
+                .exceptionValue(14, "c_Text", "Cannot cast [Text] to [int]")
+                .exceptionValue(15, "c_Json", "Cannot cast [Json] to [int]")
+                .exceptionValue(16, "c_JsonDocument", "Cannot cast [JsonDocument] to [int]")
+                .exceptionValue(17, "c_Yson", "Cannot cast [Yson] to [int]")
+                .exceptionValue(18, "c_Uuid", "Cannot cast [Uuid] to [int]")
+                .value(19, "c_Date", 1)
+                .exceptionValue(20, "c_Datetime", "Cannot cast [Datetime] to [int]")
+                .exceptionValue(21, "c_Timestamp", "Cannot cast [Timestamp] to [int]")
+                .exceptionValue(22, "c_Interval", "Cannot cast [Interval] to [int]")
+                .value(23, "c_Decimal", 1)
+                .value(24, "c_BigDecimal", 1)
+                .value(25, "c_BankDecimal", 1);
 
         checker.nextRow()
                 .value(1, "key", 5)
@@ -892,7 +1065,21 @@ public class YdbLazyResultSetImplTest {
                 .nullValue(8, "c_Uint16", 0)
                 .nullValue(9, "c_Uint32", 0)
                 .nullValue(10, "c_Uint64", 0)
-                .nullValue(22, "c_Decimal", 0);
+                .nullValue(11, "c_Float", 0)
+                .nullValue(12, "c_Double", 0)
+                .nullValue(13, "c_Bytes", 0)
+                .nullValue(14, "c_Text", 0)
+                .nullValue(15, "c_Json", 0)
+                .nullValue(16, "c_JsonDocument", 0)
+                .nullValue(17, "c_Yson", 0)
+                .nullValue(18, "c_Uuid", 0)
+                .nullValue(19, "c_Date", 0)
+                .nullValue(20, "c_Datetime", 0)
+                .nullValue(21, "c_Timestamp", 0)
+                .nullValue(22, "c_Interval", 0)
+                .nullValue(23, "c_Decimal", 0)
+                .nullValue(24, "c_BigDecimal", 0)
+                .nullValue(25, "c_BankDecimal", 0);
 
         checker.assertNoRows();
     }
@@ -912,11 +1099,21 @@ public class YdbLazyResultSetImplTest {
                 .value(8, "c_Uint16", 20002L)
                 .value(9, "c_Uint32", 2000000002L)
                 .value(10, "c_Uint64", 2000000000002L)
-                .value(18, "c_Date", 3111l)
-                .value(19, "c_Datetime", 311111156L)
-                .value(20, "c_Timestamp", 311111223342L / 1000)
-                .value(21, "c_Interval", 3111113L)
-                .value(22, "c_Decimal", 3L);
+                .exceptionValue(11, "c_Float", "Cannot cast [Float] to [long]")
+                .exceptionValue(12, "c_Double", "Cannot cast [Double] to [long]")
+                .exceptionValue(13, "c_Bytes", "Cannot cast [Bytes] to [long]")
+                .exceptionValue(14, "c_Text", "Cannot cast [Text] to [long]")
+                .exceptionValue(15, "c_Json", "Cannot cast [Json] to [long]")
+                .exceptionValue(16, "c_JsonDocument", "Cannot cast [JsonDocument] to [long]")
+                .exceptionValue(17, "c_Yson", "Cannot cast [Yson] to [long]")
+                .exceptionValue(18, "c_Uuid", "Cannot cast [Uuid] to [long]")
+                .value(19, "c_Date", 3111l)
+                .value(20, "c_Datetime", 311111156L)
+                .value(21, "c_Timestamp", 311111223342L / 1000)
+                .value(22, "c_Interval", 3111113L)
+                .exceptionValue(23, "c_Decimal", "Cannot cast [Decimal(22, 9)] with value [3.335000000] to [long]")
+                .exceptionValue(24, "c_BigDecimal", "Cannot cast [Decimal(35, 0)] with value [12345678901234567890123456789012345] to [long]")
+                .exceptionValue(25, "c_BankDecimal", "Cannot cast [Decimal(31, 9)] with value [9999999999999999999999.999999999] to [long]");
 
         checker.nextRow()
                 .value(1, "key", 2L)
@@ -929,28 +1126,48 @@ public class YdbLazyResultSetImplTest {
                 .value(8, "c_Uint16", 40002L)
                 .value(9, "c_Uint32", 4000000002L)
                 .value(10, "c_Uint64", 4000000000002L)
-                .value(18, "c_Date", 3112l)
-                .value(19, "c_Datetime", 211211100L)
-                .value(20, "c_Timestamp", 111111223342L / 1000)
-                .value(21, "c_Interval", 3112113L)
-                .value(22, "c_Decimal", -3L);
+                .exceptionValue(11, "c_Float", "Cannot cast [Float] to [long]")
+                .exceptionValue(12, "c_Double", "Cannot cast [Double] to [long]")
+                .exceptionValue(13, "c_Bytes", "Cannot cast [Bytes] to [long]")
+                .exceptionValue(14, "c_Text", "Cannot cast [Text] to [long]")
+                .nullValue(15, "c_Json", 0l)
+                .nullValue(16, "c_JsonDocument", 0l)
+                .exceptionValue(17, "c_Yson", "Cannot cast [Yson] to [long]")
+                .nullValue(18, "c_Uuid", 0l)
+                .value(19, "c_Date", 3112l)
+                .value(20, "c_Datetime", 211211100L)
+                .value(21, "c_Timestamp", 111111223342L / 1000)
+                .value(22, "c_Interval", 3112113L)
+                .exceptionValue(23, "c_Decimal", "Cannot cast [Decimal(22, 9)] with value [-3.335000000] to [long]")
+                .exceptionValue(24, "c_BigDecimal", "Cannot cast [Decimal(35, 0)] with value [-98765432109876543210987654321098765] to [long]")
+                .exceptionValue(25, "c_BankDecimal", "Cannot cast [Decimal(31, 9)] with value [-9999999999999999999999.999999999] to [long]");
 
         checker.nextRow()
-                .value(1, "key", 3L)
-                .value(2, "c_Bool", 0L)
-                .value(3, "c_Int8", 0L)
-                .value(4, "c_Int16", 0L)
-                .value(5, "c_Int32", 0L)
-                .value(6, "c_Int64", 0L)
-                .value(7, "c_Uint8", 0L)
-                .value(8, "c_Uint16", 0L)
-                .value(9, "c_Uint32", 0L)
-                .value(10, "c_Uint64", 0L)
-                .value(18, "c_Date", 0L)
-                .value(19, "c_Datetime", 0L)
-                .value(20, "c_Timestamp", 0L)
-                .value(21, "c_Interval", 0L)
-                .value(22, "c_Decimal", 0L);
+                .value(1, "key", 3l)
+                .value(2, "c_Bool", 0l)
+                .value(3, "c_Int8", 0l)
+                .value(4, "c_Int16", 0l)
+                .value(5, "c_Int32", 0l)
+                .value(6, "c_Int64", 0l)
+                .value(7, "c_Uint8", 0l)
+                .value(8, "c_Uint16", 0l)
+                .value(9, "c_Uint32", 0l)
+                .value(10, "c_Uint64", 0l)
+                .exceptionValue(11, "c_Float", "Cannot cast [Float] to [long]")
+                .exceptionValue(12, "c_Double", "Cannot cast [Double] to [long]")
+                .exceptionValue(13, "c_Bytes", "Cannot cast [Bytes] to [long]")
+                .exceptionValue(14, "c_Text", "Cannot cast [Text] to [long]")
+                .nullValue(15, "c_Json", 0l)
+                .nullValue(16, "c_JsonDocument", 0l)
+                .exceptionValue(17, "c_Yson", "Cannot cast [Yson] to [long]")
+                .nullValue(18, "c_Uuid", 0l)
+                .value(19, "c_Date", 0l)
+                .value(20, "c_Datetime", 0l)
+                .value(21, "c_Timestamp", 0l)
+                .value(22, "c_Interval", 0l)
+                .value(23, "c_Decimal", 0l)
+                .value(24, "c_BigDecimal", 0l)
+                .value(25, "c_BankDecimal", 0l);
 
         checker.nextRow()
                 .value(1, "key", 4L)
@@ -963,11 +1180,21 @@ public class YdbLazyResultSetImplTest {
                 .value(8, "c_Uint16", 1L)
                 .value(9, "c_Uint32", 1L)
                 .value(10, "c_Uint64", 1L)
-                .value(18, "c_Date", 1L)
-                .value(19, "c_Datetime", 1L)
-                .value(20, "c_Timestamp", 1L / 1000)
-                .value(21, "c_Interval", 1L)
-                .value(22, "c_Decimal", 1L);
+                .exceptionValue(11, "c_Float", "Cannot cast [Float] to [long]")
+                .exceptionValue(12, "c_Double", "Cannot cast [Double] to [long]")
+                .exceptionValue(13, "c_Bytes", "Cannot cast [Bytes] to [long]")
+                .exceptionValue(14, "c_Text", "Cannot cast [Text] to [long]")
+                .exceptionValue(15, "c_Json", "Cannot cast [Json] to [long]")
+                .exceptionValue(16, "c_JsonDocument", "Cannot cast [JsonDocument] to [long]")
+                .exceptionValue(17, "c_Yson", "Cannot cast [Yson] to [long]")
+                .exceptionValue(18, "c_Uuid", "Cannot cast [Uuid] to [long]")
+                .value(19, "c_Date", 1l)
+                .value(20, "c_Datetime", 1l)
+                .value(21, "c_Timestamp", 1l / 1000)
+                .value(22, "c_Interval", 1l)
+                .value(23, "c_Decimal", 1l)
+                .value(24, "c_BigDecimal", 1l)
+                .value(25, "c_BankDecimal", 1l);
 
         checker.nextRow()
                 .value(1, "key", 5L)
@@ -980,11 +1207,21 @@ public class YdbLazyResultSetImplTest {
                 .nullValue(8, "c_Uint16", 0l)
                 .nullValue(9, "c_Uint32", 0l)
                 .nullValue(10, "c_Uint64", 0l)
-                .nullValue(18, "c_Date", 0l)
-                .nullValue(19, "c_Datetime", 0l)
-                .nullValue(20, "c_Timestamp", 0l)
-                .nullValue(21, "c_Interval", 0l)
-                .nullValue(22, "c_Decimal", 0l);
+                .nullValue(11, "c_Float", 0l)
+                .nullValue(12, "c_Double", 0l)
+                .nullValue(13, "c_Bytes", 0l)
+                .nullValue(14, "c_Text", 0l)
+                .nullValue(15, "c_Json", 0l)
+                .nullValue(16, "c_JsonDocument", 0l)
+                .nullValue(17, "c_Yson", 0l)
+                .nullValue(18, "c_Uuid", 0l)
+                .nullValue(19, "c_Date", 0l)
+                .nullValue(20, "c_Datetime", 0l)
+                .nullValue(21, "c_Timestamp", 0l)
+                .nullValue(22, "c_Interval", 0l)
+                .nullValue(23, "c_Decimal", 0l)
+                .nullValue(24, "c_BigDecimal", 0l)
+                .nullValue(25, "c_BankDecimal", 0l);
 
         checker.assertNoRows();
     }
@@ -1006,7 +1243,9 @@ public class YdbLazyResultSetImplTest {
                 .value(10, "c_Uint64", 2000000000002f)
                 .value(11, "c_Float", 123456.78f)
                 .value(12, "c_Double", 123456789.123456789f)
-                .value(22, "c_Decimal", 3.335f);
+                .value(23, "c_Decimal", 3.335f)
+                .value(24, "c_BigDecimal", 1.2345679e34f)
+                .value(25, "c_BankDecimal", 1e22f);
 
         checker.nextRow()
                 .value(1, "key", 2f)
@@ -1021,7 +1260,9 @@ public class YdbLazyResultSetImplTest {
                 .value(10, "c_Uint64", 4000000000002f)
                 .value(11, "c_Float", -123456.78f)
                 .value(12, "c_Double", -123456789.123456789f)
-                .value(22, "c_Decimal", -3.335f);
+                .value(23, "c_Decimal", -3.335f)
+                .value(24, "c_BigDecimal", -9.8765432e34f)
+                .value(25, "c_BankDecimal", -1e22f);
 
         checker.nextRow()
                 .value(1, "key", 3f)
@@ -1036,7 +1277,9 @@ public class YdbLazyResultSetImplTest {
                 .value(10, "c_Uint64", 0f)
                 .value(11, "c_Float", 0f)
                 .value(12, "c_Double", 0f)
-                .value(22, "c_Decimal", 0f);
+                .value(23, "c_Decimal", 0f)
+                .value(24, "c_BigDecimal", 0f)
+                .value(25, "c_BankDecimal", 0f);
 
         checker.nextRow()
                 .value(1, "key", 4f)
@@ -1051,7 +1294,9 @@ public class YdbLazyResultSetImplTest {
                 .value(10, "c_Uint64", 1f)
                 .value(11, "c_Float", 1f)
                 .value(12, "c_Double", 1f)
-                .value(22, "c_Decimal", 1f);
+                .value(23, "c_Decimal", 1f)
+                .value(24, "c_BigDecimal", 1f)
+                .value(25, "c_BankDecimal", 1f);
 
         checker.nextRow()
                 .value(1, "key", 5f)
@@ -1066,7 +1311,9 @@ public class YdbLazyResultSetImplTest {
                 .nullValue(10, "c_Uint64", 0f)
                 .nullValue(11, "c_Float", 0f)
                 .nullValue(12, "c_Double", 0f)
-                .nullValue(22, "c_Decimal", 0f);
+                .nullValue(23, "c_Decimal", 0f)
+                .nullValue(24, "c_BigDecimal", 0f)
+                .nullValue(25, "c_BankDecimal", 0f);
 
         checker.assertNoRows();
     }
@@ -1088,7 +1335,9 @@ public class YdbLazyResultSetImplTest {
                 .value(10, "c_Uint64", 2000000000002d)
                 .value(11, "c_Float", 123456.78125d) // TODO: cannot be casted from float without loosing precision
                 .value(12, "c_Double", 123456789.123456789d)
-                .value(22, "c_Decimal", 3.335d);
+                .value(23, "c_Decimal", 3.335d)
+                .value(24, "c_BigDecimal", 1.234567890123456789e34d)
+                .value(25, "c_BankDecimal", 1e22d);
 
         checker.nextRow()
                 .value(1, "key", 2d)
@@ -1103,7 +1352,9 @@ public class YdbLazyResultSetImplTest {
                 .value(10, "c_Uint64", 4000000000002d)
                 .value(11, "c_Float", -123456.78125d) // TODO: cannot be casted from float without loosing precision
                 .value(12, "c_Double", -123456789.123456789d)
-                .value(22, "c_Decimal", -3.335d);
+                .value(23, "c_Decimal", -3.335d)
+                .value(24, "c_BigDecimal", -9.876543210987654e34d)
+                .value(25, "c_BankDecimal", -1e22d);
 
         checker.nextRow()
                 .value(1, "key", 3d)
@@ -1118,7 +1369,9 @@ public class YdbLazyResultSetImplTest {
                 .value(10, "c_Uint64", 0d)
                 .value(11, "c_Float", 0d)
                 .value(12, "c_Double", 0d)
-                .value(22, "c_Decimal", 0d);
+                .value(23, "c_Decimal", 0d)
+                .value(24, "c_BigDecimal", 0d)
+                .value(25, "c_BankDecimal", 0d);
 
         checker.nextRow()
                 .value(1, "key", 4d)
@@ -1133,7 +1386,9 @@ public class YdbLazyResultSetImplTest {
                 .value(10, "c_Uint64", 1d)
                 .value(11, "c_Float", 1d)
                 .value(12, "c_Double", 1d)
-                .value(22, "c_Decimal", 1d);
+                .value(23, "c_Decimal", 1d)
+                .value(24, "c_BigDecimal", 1d)
+                .value(25, "c_BankDecimal", 1d);
 
         checker.nextRow()
                 .value(1, "key", 5d)
@@ -1148,7 +1403,9 @@ public class YdbLazyResultSetImplTest {
                 .nullValue(10, "c_Uint64", 0d)
                 .nullValue(11, "c_Float", 0d)
                 .nullValue(12, "c_Double", 0d)
-                .nullValue(22, "c_Decimal", 0d);
+                .nullValue(23, "c_Decimal", 0d)
+                .nullValue(24, "c_BigDecimal", 0d)
+                .nullValue(25, "c_BankDecimal", 0d);
 
         checker.assertNoRows();
     }
@@ -1170,7 +1427,9 @@ public class YdbLazyResultSetImplTest {
                 .value(10, "c_Uint64", BigDecimal.valueOf(2000000000002l))
                 .value(11, "c_Float", BigDecimal.valueOf(123456.78125f))
                 .value(12, "c_Double", BigDecimal.valueOf(123456789.123456789d))
-                .value(22, "c_Decimal", new BigDecimal("3.335000000"));
+                .value(23, "c_Decimal", new BigDecimal("3.335000000"))
+                .value(24, "c_BigDecimal", new BigDecimal("12345678901234567890123456789012345"))
+                .value(25, "c_BankDecimal", new BigDecimal("9999999999999999999999.999999999"));
 
         checker.nextRow()
                 .value(1, "key", BigDecimal.valueOf(2))
@@ -1185,7 +1444,9 @@ public class YdbLazyResultSetImplTest {
                 .value(10, "c_Uint64", BigDecimal.valueOf(4000000000002l))
                 .value(11, "c_Float", BigDecimal.valueOf(-123456.78125f))
                 .value(12, "c_Double", BigDecimal.valueOf(-123456789.123456789d))
-                .value(22, "c_Decimal", new BigDecimal("-3.335000000"));
+                .value(23, "c_Decimal", new BigDecimal("-3.335000000"))
+                .value(24, "c_BigDecimal", new BigDecimal("-98765432109876543210987654321098765"))
+                .value(25, "c_BankDecimal", new BigDecimal("-9999999999999999999999.999999999"));
 
         checker.nextRow()
                 .value(1, "key", BigDecimal.valueOf(3))
@@ -1200,7 +1461,9 @@ public class YdbLazyResultSetImplTest {
                 .value(10, "c_Uint64", BigDecimal.ZERO)
                 .value(11, "c_Float", new BigDecimal("0.0"))
                 .value(12, "c_Double", new BigDecimal("0.0"))
-                .value(22, "c_Decimal", new BigDecimal("0E-9"));
+                .value(23, "c_Decimal", new BigDecimal("0.000000000"))
+                .value(24, "c_BigDecimal", new BigDecimal("0"))
+                .value(25, "c_BankDecimal", new BigDecimal("0.000000000"));
 
         checker.nextRow()
                 .value(1, "key", BigDecimal.valueOf(4))
@@ -1215,7 +1478,9 @@ public class YdbLazyResultSetImplTest {
                 .value(10, "c_Uint64", BigDecimal.valueOf(1))
                 .value(11, "c_Float", new BigDecimal("1.0"))
                 .value(12, "c_Double", new BigDecimal("1.0"))
-                .value(22, "c_Decimal", new BigDecimal("1.000000000"));
+                .value(23, "c_Decimal", new BigDecimal("1.000000000"))
+                .value(24, "c_BigDecimal", new BigDecimal("1"))
+                .value(25, "c_BankDecimal", new BigDecimal("1.000000000"));
 
         checker.nextRow()
                 .value(1, "key", BigDecimal.valueOf(5))
@@ -1230,7 +1495,9 @@ public class YdbLazyResultSetImplTest {
                 .value(10, "c_Uint64", null)
                 .value(11, "c_Float", null)
                 .value(12, "c_Double", null)
-                .value(22, "c_Decimal", null);
+                .value(23, "c_Decimal", null)
+                .value(24, "c_BigDecimal", null)
+                .value(25, "c_BankDecimal", null);
 
         checker.assertNoRows();
     }
@@ -1297,11 +1564,11 @@ public class YdbLazyResultSetImplTest {
                 .exceptionValue(10, "c_Uint64",
                         "Cannot cast [Uint64] with value [2000000000002] to [class java.sql.Date]")
                 // 3111 unix days = Sunday, July 9, 1978 0:00:00 UTC
-                .value(18, "c_Date",      Date.valueOf(LocalDate.of(1978, Month.JULY, 9)))
+                .value(19, "c_Date",      Date.valueOf(LocalDate.of(1978, Month.JULY, 9)))
                 // 311111156 unix seconds = Sat Nov 10 1979 19:45:56 UTC
-                .value(19, "c_Datetime",  Date.valueOf(LocalDate.of(1979, Month.NOVEMBER, 10)))
+                .value(20, "c_Datetime",  Date.valueOf(LocalDate.of(1979, Month.NOVEMBER, 10)))
                 // 311111223342 unix microseconds = Sun Jan 04 1970 14:25:11 UTC
-                .value(20, "c_Timestamp", new Date(311111223342l / 1000));
+                .value(21, "c_Timestamp", new Date(311111223342l / 1000));
 
         checker.nextRow()
                 .value(3, "c_Int8", Date.valueOf(LocalDate.ofEpochDay(-101)))
@@ -1314,11 +1581,11 @@ public class YdbLazyResultSetImplTest {
                 .value(9, "c_Uint32", Date.valueOf(LocalDate.ofEpochDay(4000000002l)))
                 .exceptionValue(10, "c_Uint64",
                         "Cannot cast [Uint64] with value [4000000000002] to [class java.sql.Date]")
-                .value(18, "c_Date",      Date.valueOf(LocalDate.of(1978, Month.JULY, 10)))
+                .value(19, "c_Date",      Date.valueOf(LocalDate.of(1978, Month.JULY, 10)))
                 // 211211100 unix seconds = Fri Sep 10 1976 13:45:00 UTC
-                .value(19, "c_Datetime",  Date.valueOf(LocalDate.of(1976, Month.SEPTEMBER, 10)))
+                .value(20, "c_Datetime",  Date.valueOf(LocalDate.of(1976, Month.SEPTEMBER, 10)))
                 // 111111223342 unix microseconds = Fri Jan 02 1970 06:51:51 UTC
-                .value(20, "c_Timestamp", new Date(111111223342l / 1000));
+                .value(21, "c_Timestamp", new Date(111111223342l / 1000));
 
         checker.nextRow()
                 .value(3, "c_Int8", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
@@ -1329,9 +1596,9 @@ public class YdbLazyResultSetImplTest {
                 .value(8, "c_Uint16", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
                 .value(9, "c_Uint32", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
                 .value(10, "c_Uint64", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
-                .value(18, "c_Date",      Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
-                .value(19, "c_Datetime",  Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
-                .value(20, "c_Timestamp", new Date(1 / 1000));
+                .value(19, "c_Date",      Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
+                .value(20, "c_Datetime",  Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
+                .value(21, "c_Timestamp", new Date(1 / 1000));
 
         checker.nextRow()
                 .value(3, "c_Int8", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 2)))
@@ -1342,9 +1609,9 @@ public class YdbLazyResultSetImplTest {
                 .value(8, "c_Uint16", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 2)))
                 .value(9, "c_Uint32", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 2)))
                 .value(10, "c_Uint64", Date.valueOf(LocalDate.of(1970, Month.JANUARY, 2)))
-                .value(18, "c_Date",      Date.valueOf(LocalDate.of(1970, Month.JANUARY, 2)))
-                .value(19, "c_Datetime",  Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
-                .value(20, "c_Timestamp", new Date(0));
+                .value(19, "c_Date",      Date.valueOf(LocalDate.of(1970, Month.JANUARY, 2)))
+                .value(20, "c_Datetime",  Date.valueOf(LocalDate.of(1970, Month.JANUARY, 1)))
+                .value(21, "c_Timestamp", new Date(0));
 
         checker.nextRow()
                 .value(3, "c_Int8", null)
@@ -1355,9 +1622,9 @@ public class YdbLazyResultSetImplTest {
                 .value(8, "c_Uint16", null)
                 .value(9, "c_Uint32", null)
                 .value(10, "c_Uint64", null)
-                .value(18, "c_Date", null)
-                .value(19, "c_Datetime", null)
-                .value(20, "c_Timestamp", null);
+                .value(19, "c_Date", null)
+                .value(20, "c_Datetime", null)
+                .value(21, "c_Timestamp", null);
 
         checker.assertNoRows();
     }
@@ -1376,11 +1643,11 @@ public class YdbLazyResultSetImplTest {
                 .exceptionValue(9, "c_Uint32", "Cannot cast [Uint32] with value [2000000002] to [class java.sql.Time]")
                 .exceptionValue(10, "c_Uint64", "Cannot cast [Uint64] with value [2000000000002] to [class java.sql.Time]")
                 // Any value of Date doesn't have a time
-                .value(18, "c_Date", Time.valueOf(LocalTime.MIN))
+                .value(19, "c_Date", Time.valueOf(LocalTime.MIN))
                 // 311111156 unix seconds = Sat Nov 10 1979 19:45:56 UTC
-                .value(19, "c_Datetime", Time.valueOf(LocalTime.of(19, 45, 56)))
+                .value(20, "c_Datetime", Time.valueOf(LocalTime.of(19, 45, 56)))
                 // 311111223342 unix microseconds = Sun Jan 04 1970 10:25:11 in UTC-04
-                .value(20, "c_Timestamp", new Time(311111223342l / 1000));
+                .value(21, "c_Timestamp", new Time(311111223342l / 1000));
 
         checker.nextRow()
                 .exceptionValue(3, "c_Int8", "Cannot cast [Int8] with value [-101] to [class java.sql.Time]")
@@ -1391,11 +1658,11 @@ public class YdbLazyResultSetImplTest {
                 .value(8, "c_Uint16", Time.valueOf(LocalTime.ofSecondOfDay(40002)))
                 .exceptionValue(9, "c_Uint32", "Cannot cast [Uint32] with value [4000000002] to [class java.sql.Time]")
                 .exceptionValue(10, "c_Uint64", "Cannot cast [Uint64] with value [4000000000002] to [class java.sql.Time]")
-                .value(18, "c_Date", Time.valueOf(LocalTime.MIN))
+                .value(19, "c_Date", Time.valueOf(LocalTime.MIN))
                 // 211211100 unix seconds = Fri Sep 10 1976 13:45:00 UTC
-                .value(19, "c_Datetime", Time.valueOf(LocalTime.of(13, 45, 00)))
+                .value(20, "c_Datetime", Time.valueOf(LocalTime.of(13, 45, 00)))
                 // 111111223342 unix microseconds = Fri Jan 02 1970 06:51:51 in UTC-04
-                .value(20, "c_Timestamp", new Time(111111223342l / 1000));
+                .value(21, "c_Timestamp", new Time(111111223342l / 1000));
 
         checker.nextRow()
                 .value(3, "c_Int8", Time.valueOf(LocalTime.MIN))
@@ -1406,9 +1673,9 @@ public class YdbLazyResultSetImplTest {
                 .value(8, "c_Uint16", Time.valueOf(LocalTime.MIN))
                 .value(9, "c_Uint32", Time.valueOf(LocalTime.MIN))
                 .value(10, "c_Uint64", Time.valueOf(LocalTime.MIN))
-                .value(18, "c_Date", Time.valueOf(LocalTime.MIN))
-                .value(19, "c_Datetime",  Time.valueOf(LocalTime.MIN))
-                .value(20, "c_Timestamp", new Time(0));
+                .value(19, "c_Date", Time.valueOf(LocalTime.MIN))
+                .value(20, "c_Datetime",  Time.valueOf(LocalTime.MIN))
+                .value(21, "c_Timestamp", new Time(0));
 
         checker.nextRow()
                 .value(3, "c_Int8", Time.valueOf(LocalTime.ofSecondOfDay(1)))
@@ -1419,9 +1686,9 @@ public class YdbLazyResultSetImplTest {
                 .value(8, "c_Uint16", Time.valueOf(LocalTime.ofSecondOfDay(1)))
                 .value(9, "c_Uint32", Time.valueOf(LocalTime.ofSecondOfDay(1)))
                 .value(10, "c_Uint64", Time.valueOf(LocalTime.ofSecondOfDay(1)))
-                .value(18, "c_Date", Time.valueOf(LocalTime.MIN))
-                .value(19, "c_Datetime",  Time.valueOf(LocalTime.ofSecondOfDay(1)))
-                .value(20, "c_Timestamp", new Time(1 / 1000));
+                .value(19, "c_Date", Time.valueOf(LocalTime.MIN))
+                .value(20, "c_Datetime",  Time.valueOf(LocalTime.ofSecondOfDay(1)))
+                .value(21, "c_Timestamp", new Time(1 / 1000));
 
         checker.nextRow()
                 .value(3, "c_Int8", null)
@@ -1432,9 +1699,9 @@ public class YdbLazyResultSetImplTest {
                 .value(8, "c_Uint16", null)
                 .value(9, "c_Uint32", null)
                 .value(10, "c_Uint64", null)
-                .value(18, "c_Date", null)
-                .value(19, "c_Datetime", null)
-                .value(20, "c_Timestamp", null);
+                .value(19, "c_Date", null)
+                .value(20, "c_Datetime", null)
+                .value(21, "c_Timestamp", null);
 
         checker.assertNoRows();
     }
@@ -1460,9 +1727,9 @@ public class YdbLazyResultSetImplTest {
                 .value(8, "c_Uint16", new Timestamp(20002))
                 .value(9, "c_Uint32", new Timestamp(2000000002))
                 .value(10, "c_Uint64", new Timestamp(2000000000002l))
-                .value(18, "c_Date", timestampUTC(3111 * 24 * 60 * 60, 0))
-                .value(19, "c_Datetime", timestampUTC(311111156, 0))
-                .value(20, "c_Timestamp", timestampDefault(311111, 223342000));
+                .value(19, "c_Date", timestampUTC(3111 * 24 * 60 * 60, 0))
+                .value(20, "c_Datetime", timestampUTC(311111156, 0))
+                .value(21, "c_Timestamp", timestampDefault(311111, 223342000));
 
         checker.nextRow()
                 .value(3, "c_Int8", new Timestamp(-101))
@@ -1473,9 +1740,9 @@ public class YdbLazyResultSetImplTest {
                 .value(8, "c_Uint16", new Timestamp(40002))
                 .value(9, "c_Uint32", new Timestamp(4000000002l))
                 .value(10, "c_Uint64", new Timestamp(4000000000002l))
-                .value(18, "c_Date", timestampUTC(3112 * 24 * 60 * 60, 0))
-                .value(19, "c_Datetime", timestampUTC(211211100, 0))
-                .value(20, "c_Timestamp", timestampDefault(111111, 223342000));
+                .value(19, "c_Date", timestampUTC(3112 * 24 * 60 * 60, 0))
+                .value(20, "c_Datetime", timestampUTC(211211100, 0))
+                .value(21, "c_Timestamp", timestampDefault(111111, 223342000));
 
         checker.nextRow()
                 .value(3, "c_Int8", new Timestamp(0))
@@ -1486,9 +1753,9 @@ public class YdbLazyResultSetImplTest {
                 .value(8, "c_Uint16", new Timestamp(0))
                 .value(9, "c_Uint32", new Timestamp(0))
                 .value(10, "c_Uint64", new Timestamp(0))
-                .value(18, "c_Date", timestampUTC(0, 0))
-                .value(19, "c_Datetime", timestampUTC(0, 0))
-                .value(20, "c_Timestamp", timestampDefault(0, 0));
+                .value(19, "c_Date", timestampUTC(0, 0))
+                .value(20, "c_Datetime", timestampUTC(0, 0))
+                .value(21, "c_Timestamp", timestampDefault(0, 0));
 
         checker.nextRow()
                 .value(3, "c_Int8", new Timestamp(1))
@@ -1499,9 +1766,9 @@ public class YdbLazyResultSetImplTest {
                 .value(8, "c_Uint16", new Timestamp(1))
                 .value(9, "c_Uint32", new Timestamp(1))
                 .value(10, "c_Uint64", new Timestamp(1))
-                .value(18, "c_Date", timestampUTC(1 * 24 * 60 * 60, 0))
-                .value(19, "c_Datetime", timestampUTC(1, 0))
-                .value(20, "c_Timestamp", timestampDefault(0, 1000));
+                .value(19, "c_Date", timestampUTC(1 * 24 * 60 * 60, 0))
+                .value(20, "c_Datetime", timestampUTC(1, 0))
+                .value(21, "c_Timestamp", timestampDefault(0, 1000));
 
         checker.nextRow()
                 .value(3, "c_Int8", null)
@@ -1512,9 +1779,9 @@ public class YdbLazyResultSetImplTest {
                 .value(8, "c_Uint16", null)
                 .value(9, "c_Uint32", null)
                 .value(10, "c_Uint64", null)
-                .value(18, "c_Date", null)
-                .value(19, "c_Datetime", null)
-                .value(20, "c_Timestamp", null);
+                .value(19, "c_Date", null)
+                .value(20, "c_Datetime", null)
+                .value(21, "c_Timestamp", null);
 
         checker.assertNoRows();
     }
@@ -1632,11 +1899,14 @@ public class YdbLazyResultSetImplTest {
                 .typedValue(15, "c_Json", "{\"key\": \"value Json\"}")
                 .typedValue(16, "c_JsonDocument", "{\"key\":\"value JsonDocument\"}")
                 .typedValue(17, "c_Yson", bytes("{key=\"value yson\"}"))
-                .typedValue(18, "c_Date", LocalDate.ofEpochDay(3111))
-                .typedValue(19, "c_Datetime", LocalDateTime.ofEpochSecond(311111156, 0, ZoneOffset.UTC))
-                .typedValue(20, "c_Timestamp", Instant.ofEpochSecond(311111, 223342000))
-                .typedValue(21, "c_Interval", Duration.parse("PT3.111113S"))
-                .typedValue(22, "c_Decimal", new BigDecimal("3.335000000"));
+                .typedValue(18, "c_Uuid", UUID.fromString("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B"))
+                .typedValue(19, "c_Date", LocalDate.ofEpochDay(3111))
+                .typedValue(20, "c_Datetime", LocalDateTime.ofEpochSecond(311111156, 0, ZoneOffset.UTC))
+                .typedValue(21, "c_Timestamp", Instant.ofEpochSecond(311111, 223342000))
+                .typedValue(22, "c_Interval", Duration.parse("PT3.111113S"))
+                .typedValue(23, "c_Decimal", new BigDecimal("3.335000000"))
+                .typedValue(24, "c_BigDecimal", new BigDecimal("12345678901234567890123456789012345"))
+                .typedValue(25, "c_BankDecimal", new BigDecimal("9999999999999999999999.999999999"));
 
         checker.nextRow()
                 .typedValue(1, "key", 2)
@@ -1656,11 +1926,14 @@ public class YdbLazyResultSetImplTest {
                 .value(15, "c_Json", null)
                 .value(16, "c_JsonDocument", null)
                 .typedValue(17, "c_Yson", bytes("\"\""))
-                .typedValue(18, "c_Date", LocalDate.ofEpochDay(3112))
-                .typedValue(19, "c_Datetime", LocalDateTime.ofEpochSecond(211211100, 0, ZoneOffset.UTC))
-                .typedValue(20, "c_Timestamp", Instant.ofEpochSecond(111111, 223342000))
-                .typedValue(21, "c_Interval", Duration.parse("PT3.112113S"))
-                .typedValue(22, "c_Decimal", new BigDecimal("-3.335000000"));
+                .value(18, "c_Uuid", null)
+                .typedValue(19, "c_Date", LocalDate.ofEpochDay(3112))
+                .typedValue(20, "c_Datetime", LocalDateTime.ofEpochSecond(211211100, 0, ZoneOffset.UTC))
+                .typedValue(21, "c_Timestamp", Instant.ofEpochSecond(111111, 223342000))
+                .typedValue(22, "c_Interval", Duration.parse("PT3.112113S"))
+                .typedValue(23, "c_Decimal", new BigDecimal("-3.335000000"))
+                .typedValue(24, "c_BigDecimal", new BigDecimal("-98765432109876543210987654321098765"))
+                .typedValue(25, "c_BankDecimal", new BigDecimal("-9999999999999999999999.999999999"));
 
         checker.nextRow()
                 .typedValue(1, "key", 3)
@@ -1680,11 +1953,14 @@ public class YdbLazyResultSetImplTest {
                 .value(15, "c_Json", null)
                 .value(16, "c_JsonDocument", null)
                 .typedValue(17, "c_Yson", bytes("0"))
-                .typedValue(18, "c_Date", LocalDate.ofEpochDay(0))
-                .typedValue(19, "c_Datetime", LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC))
-                .typedValue(20, "c_Timestamp", Instant.ofEpochSecond(0, 0))
-                .typedValue(21, "c_Interval", Duration.parse("PT0.000000S"))
-                .typedValue(22, "c_Decimal", new BigDecimal("0.000000000"));
+                .value(18, "c_Uuid", null)
+                .typedValue(19, "c_Date", LocalDate.ofEpochDay(0))
+                .typedValue(20, "c_Datetime", LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC))
+                .typedValue(21, "c_Timestamp", Instant.ofEpochSecond(0, 0))
+                .typedValue(22, "c_Interval", Duration.parse("PT0.000000S"))
+                .typedValue(23, "c_Decimal", new BigDecimal("0.000000000"))
+                .typedValue(24, "c_BigDecimal", new BigDecimal("0"))
+                .typedValue(25, "c_BankDecimal", new BigDecimal("0.000000000"));
 
         checker.nextRow()
                 .typedValue(1, "key", 4)
@@ -1704,11 +1980,14 @@ public class YdbLazyResultSetImplTest {
                 .typedValue(15, "c_Json", "{}")
                 .typedValue(16, "c_JsonDocument", "{}")
                 .typedValue(17, "c_Yson", bytes("1"))
-                .typedValue(18, "c_Date", LocalDate.ofEpochDay(1))
-                .typedValue(19, "c_Datetime", LocalDateTime.ofEpochSecond(1, 0, ZoneOffset.UTC))
-                .typedValue(20, "c_Timestamp", Instant.ofEpochSecond(0, 1000))
-                .typedValue(21, "c_Interval", Duration.parse("PT0.000001S"))
-                .typedValue(22, "c_Decimal", new BigDecimal("1.000000000"));
+                .typedValue(18, "c_Uuid", UUID.fromString("00000000-0000-0000-0000-000000000000"))
+                .typedValue(19, "c_Date", LocalDate.ofEpochDay(1))
+                .typedValue(20, "c_Datetime", LocalDateTime.ofEpochSecond(1, 0, ZoneOffset.UTC))
+                .typedValue(21, "c_Timestamp", Instant.ofEpochSecond(0, 1000))
+                .typedValue(22, "c_Interval", Duration.parse("PT0.000001S"))
+                .typedValue(23, "c_Decimal", new BigDecimal("1.000000000"))
+                .typedValue(24, "c_BigDecimal", new BigDecimal("1"))
+                .typedValue(25, "c_BankDecimal", new BigDecimal("1.000000000"));
 
         checker.nextRow()
                 .value(1, "key", 5)
@@ -1728,11 +2007,14 @@ public class YdbLazyResultSetImplTest {
                 .value(15, "c_Json", null)
                 .value(16, "c_JsonDocument", null)
                 .value(17, "c_Yson", null)
+                .value(18, "c_Uuid", null)
                 .value(18, "c_Date", null)
                 .value(19, "c_Datetime", null)
                 .value(20, "c_Timestamp", null)
                 .value(21, "c_Interval", null)
-                .value(22, "c_Decimal", null);
+                .value(22, "c_Decimal", null)
+                .value(22, "c_BigDecimal", null)
+                .value(22, "c_BankDecimal", null);
 
         checker.assertNoRows();
     }
@@ -1953,11 +2235,14 @@ public class YdbLazyResultSetImplTest {
                 .typedValue(15, "c_Json", PrimitiveValue.newJson("{\"key\": \"value Json\"}"))
                 .typedValue(16, "c_JsonDocument", PrimitiveValue.newJsonDocument("{\"key\":\"value JsonDocument\"}"))
                 .typedValue(17, "c_Yson", PrimitiveValue.newYson(bytes("{key=\"value yson\"}")))
-                .typedValue(18, "c_Date", PrimitiveValue.newDate(LocalDate.ofEpochDay(3111)))
-                .typedValue(19, "c_Datetime", PrimitiveValue.newDatetime(Instant.ofEpochSecond(311111156)))
-                .typedValue(20, "c_Timestamp", PrimitiveValue.newTimestamp(Instant.ofEpochSecond(311111, 223342000)))
-                .typedValue(21, "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT3.111113S")))
-                .typedValue(22, "c_Decimal", DecimalType.getDefault().newValue("3.335000000"));
+                .typedValue(18, "c_Uuid", PrimitiveValue.newUuid("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B"))
+                .typedValue(19, "c_Date", PrimitiveValue.newDate(LocalDate.ofEpochDay(3111)))
+                .typedValue(20, "c_Datetime", PrimitiveValue.newDatetime(Instant.ofEpochSecond(311111156)))
+                .typedValue(21, "c_Timestamp", PrimitiveValue.newTimestamp(Instant.ofEpochSecond(311111, 223342000)))
+                .typedValue(22, "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT3.111113S")))
+                .typedValue(23, "c_Decimal", DecimalType.getDefault().newValue("3.335000000"))
+                .typedValue(24, "c_BigDecimal", DecimalType.of(35, 0).newValue("12345678901234567890123456789012345"))
+                .typedValue(25, "c_BankDecimal", DecimalType.of(31, 9).newValue("9999999999999999999999.999999999"));
 
         checker.nextRow()
                 .typedValue(1, "key", PrimitiveValue.newInt32(2))
@@ -1977,11 +2262,14 @@ public class YdbLazyResultSetImplTest {
                 .value(15, "c_Json", null)
                 .value(16, "c_JsonDocument", null)
                 .typedValue(17, "c_Yson", PrimitiveValue.newYson(bytes("\"\"")))
-                .typedValue(18, "c_Date", PrimitiveValue.newDate(LocalDate.ofEpochDay(3112)))
-                .typedValue(19, "c_Datetime", PrimitiveValue.newDatetime(Instant.ofEpochSecond(211211100)))
-                .typedValue(20, "c_Timestamp", PrimitiveValue.newTimestamp(Instant.ofEpochSecond(111111, 223342000)))
-                .typedValue(21, "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT3.112113S")))
-                .typedValue(22, "c_Decimal", DecimalType.getDefault().newValue("-3.335000000"));
+                .value(18, "c_Uuid", null)
+                .typedValue(19, "c_Date", PrimitiveValue.newDate(LocalDate.ofEpochDay(3112)))
+                .typedValue(20, "c_Datetime", PrimitiveValue.newDatetime(Instant.ofEpochSecond(211211100)))
+                .typedValue(21, "c_Timestamp", PrimitiveValue.newTimestamp(Instant.ofEpochSecond(111111, 223342000)))
+                .typedValue(22, "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT3.112113S")))
+                .typedValue(23, "c_Decimal", DecimalType.getDefault().newValue("-3.335000000"))
+                .typedValue(24, "c_BigDecimal", DecimalType.of(35, 0).newValue("-98765432109876543210987654321098765"))
+                .typedValue(25, "c_BankDecimal", DecimalType.of(31, 9).newValue("-9999999999999999999999.999999999"));
 
         checker.nextRow()
                 .typedValue(1, "key", PrimitiveValue.newInt32(3))
@@ -2001,11 +2289,14 @@ public class YdbLazyResultSetImplTest {
                 .value(15, "c_Json", null)
                 .value(16, "c_JsonDocument", null)
                 .typedValue(17, "c_Yson", PrimitiveValue.newYson(bytes("0")))
-                .typedValue(18, "c_Date", PrimitiveValue.newDate(LocalDate.parse("1970-01-01")))
-                .typedValue(19, "c_Datetime", PrimitiveValue.newDatetime(Instant.parse("1970-01-01T00:00:00Z")))
-                .typedValue(20, "c_Timestamp", PrimitiveValue.newTimestamp(Instant.ofEpochMilli(0)))
-                .typedValue(21, "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT0S")))
-                .typedValue(22, "c_Decimal", DecimalType.getDefault().newValue(0));
+                .value(18, "c_Uuid", null)
+                .typedValue(19, "c_Date", PrimitiveValue.newDate(LocalDate.parse("1970-01-01")))
+                .typedValue(20, "c_Datetime", PrimitiveValue.newDatetime(Instant.parse("1970-01-01T00:00:00Z")))
+                .typedValue(21, "c_Timestamp", PrimitiveValue.newTimestamp(Instant.ofEpochMilli(0)))
+                .typedValue(22, "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT0S")))
+                .typedValue(23, "c_Decimal", DecimalType.getDefault().newValue(0))
+                .typedValue(24, "c_BigDecimal", DecimalType.of(35, 0).newValue(0))
+                .typedValue(25, "c_BankDecimal", DecimalType.of(31, 9).newValue(0));
 
         checker.nextRow()
                 .typedValue(1, "key", PrimitiveValue.newInt32(4))
@@ -2025,11 +2316,14 @@ public class YdbLazyResultSetImplTest {
                 .typedValue(15, "c_Json", PrimitiveValue.newJson("{}"))
                 .typedValue(16, "c_JsonDocument", PrimitiveValue.newJsonDocument("{}"))
                 .typedValue(17, "c_Yson", PrimitiveValue.newYson(bytes("1")))
-                .typedValue(18, "c_Date", PrimitiveValue.newDate(LocalDate.parse("1970-01-02")))
-                .typedValue(19, "c_Datetime", PrimitiveValue.newDatetime(Instant.parse("1970-01-01T00:00:01Z")))
-                .typedValue(20, "c_Timestamp", PrimitiveValue.newTimestamp(1))
-                .typedValue(21, "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT0.000001S")))
-                .typedValue(22, "c_Decimal", DecimalType.getDefault().newValue("1.000000000"));
+                .typedValue(18, "c_Uuid", PrimitiveValue.newUuid("00000000-0000-0000-0000-000000000000"))
+                .typedValue(19, "c_Date", PrimitiveValue.newDate(LocalDate.parse("1970-01-02")))
+                .typedValue(20, "c_Datetime", PrimitiveValue.newDatetime(Instant.parse("1970-01-01T00:00:01Z")))
+                .typedValue(21, "c_Timestamp", PrimitiveValue.newTimestamp(1))
+                .typedValue(22, "c_Interval", PrimitiveValue.newInterval(Duration.parse("PT0.000001S")))
+                .typedValue(23, "c_Decimal", DecimalType.getDefault().newValue(1))
+                .typedValue(24, "c_BigDecimal", DecimalType.of(35, 0).newValue(1))
+                .typedValue(25, "c_BankDecimal", DecimalType.of(31, 9).newValue(1));
 
         checker.nextRow()
                 .value(1, "key", PrimitiveValue.newInt32(5))
@@ -2049,11 +2343,14 @@ public class YdbLazyResultSetImplTest {
                 .value(15, "c_Json", null)
                 .value(16, "c_JsonDocument", null)
                 .value(17, "c_Yson", null)
-                .value(18, "c_Date", null)
-                .value(19, "c_Datetime", null)
-                .value(20, "c_Timestamp", null)
-                .value(21, "c_Interval", null)
-                .value(22, "c_Decimal", null);
+                .value(18, "c_Uuid", null)
+                .value(19, "c_Date", null)
+                .value(20, "c_Datetime", null)
+                .value(21, "c_Timestamp", null)
+                .value(22, "c_Interval", null)
+                .value(23, "c_Decimal", null)
+                .value(24, "c_BigDecimal", null)
+                .value(25, "c_BankDecimal", null);
 
         checker.assertNoRows();
     }

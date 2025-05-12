@@ -271,7 +271,7 @@ public class YdbContext implements AutoCloseable {
 
     public static YdbContext createContext(YdbConfig config) throws SQLException {
         try {
-            LOGGER.log(Level.INFO, "Creating new YDB connection to {0}", config.getConnectionString());
+            LOGGER.log(Level.FINE, "Creating new YDB context to {0}", config.getConnectionString());
 
             YdbConnectionProperties connProps = new YdbConnectionProperties(config);
             YdbClientProperties clientProps = new YdbClientProperties(config);
@@ -392,7 +392,8 @@ public class YdbContext implements AutoCloseable {
             }
         }
 
-        if (type == QueryType.EXPLAIN_QUERY || type == QueryType.SCHEME_QUERY) {
+        if (type == QueryType.EXPLAIN_QUERY || type == QueryType.SCHEME_QUERY ||
+                !queryOptions.isPrepareDataQueries() || mode == YdbPrepareMode.IN_MEMORY) {
             return new InMemoryQuery(query, queryOptions.isDeclareJdbcParameters());
         }
 
@@ -432,9 +433,7 @@ public class YdbContext implements AutoCloseable {
             }
         }
 
-        if (!query.isPlainYQL()
-                || mode == YdbPrepareMode.IN_MEMORY
-                || !queryOptions.isPrepareDataQueries()) {
+        if (!query.isPlainYQL()) {
             return new InMemoryQuery(query, queryOptions.isDeclareJdbcParameters());
         }
 

@@ -57,6 +57,9 @@ public class BulkUpsertQuery extends BatchedQuery {
 
         Map<String, Type> structTypes = new HashMap<>();
         for (String column: columns) {
+            if (!columnTypes.containsKey(column)) {
+                throw new SQLException("Cannot parse BULK upsert: column " + column + " not found");
+            }
             structTypes.put(column, columnTypes.get(column));
         }
 

@@ -248,8 +248,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         try {
             KeepAliveSessionSettings settings = new KeepAliveSessionSettings().setTimeout(Duration.ofSeconds(timeout));
             Session.State keepAlive = validator.call(
-                    "Keep alive: " + tx.txID(), null,
-                    () -> session.keepAlive(settings)
+                    "Keep alive: " + tx.txID(), null, () -> session.keepAlive(settings)
             );
             return keepAlive == Session.State.READY;
         } finally {

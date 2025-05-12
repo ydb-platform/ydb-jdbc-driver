@@ -41,7 +41,8 @@ public class YdbTableConnectionImplTest {
 
     @RegisterExtension
     private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb)
-            .withArg("useQueryService", "false");
+            .withArg("useQueryService", "false")
+            .withArg("grpcCompression", "none");
 
     private static final SqlQueries QUERIES = new SqlQueries("ydb_connection_test");
     private static final String SELECT_2_2 = "select 2 + 2";
@@ -883,9 +884,9 @@ public class YdbTableConnectionImplTest {
         Random rnd = new Random(0x234567);
         int payloadLength = 1000;
 
-        try {
+        try (Connection conn = jdbc.createCustomConnection("useStreamResultSets", "true")) {
             // BULK UPSERT
-            try (PreparedStatement ps = jdbc.connection().prepareStatement(bulkUpsert)) {
+            try (PreparedStatement ps = conn.prepareStatement(bulkUpsert)) {
                 for (int idx = 1; idx <= 10000; idx++) {
                     ps.setInt(1, idx);
                     String payload = createPayload(rnd, payloadLength);
@@ -899,7 +900,7 @@ public class YdbTableConnectionImplTest {
             }
 
             // SCAN all table
-            try (PreparedStatement ps = jdbc.connection().prepareStatement(scanSelectAll)) {
+            try (PreparedStatement ps = conn.prepareStatement(scanSelectAll)) {
                 int readed = 0;
                 Assertions.assertTrue(ps.execute());
                 try (ResultSet rs = ps.getResultSet()) {
@@ -913,7 +914,7 @@ public class YdbTableConnectionImplTest {
             }
 
             // Canceled scan
-            try (PreparedStatement ps = jdbc.connection().prepareStatement(scanSelectAll)) {
+            try (PreparedStatement ps = conn.prepareStatement(scanSelectAll)) {
                 Assertions.assertTrue(ps.execute());
                 ps.getResultSet().next();
                 ps.getResultSet().close();
@@ -931,7 +932,7 @@ public class YdbTableConnectionImplTest {
             }
 
             //  Scan was cancelled, but connection still work
-            try (PreparedStatement ps = jdbc.connection().prepareStatement(selectOne)) {
+            try (PreparedStatement ps = conn.prepareStatement(selectOne)) {
                 ps.setInt(1, 1234);
 
                 Assertions.assertTrue(ps.execute());

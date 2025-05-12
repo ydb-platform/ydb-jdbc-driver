@@ -47,7 +47,7 @@ public class YdbDriver implements Driver {
         }
 
         YdbConfig config = YdbConfig.from(url, info);
-        LOGGER.log(Level.FINE, "About to connect to [{0}] using properties {1}", new Object[] {
+        LOGGER.log(Level.FINE, "Connect to [{0}] using properties {1}", new Object[] {
             config.getSafeUrl(),
             config.getSafeProps()
         });
@@ -80,7 +80,7 @@ public class YdbDriver implements Driver {
         // Was fixed in Java 9+
         YdbContext context = cache.get(config);
         if (context != null) {
-            LOGGER.log(Level.FINE, "Reusing YDB connection to {0}", config.getSafeUrl());
+            LOGGER.log(Level.FINEST, "Reusing YDB connection to {0}", config.getSafeUrl());
             return context;
         }
 

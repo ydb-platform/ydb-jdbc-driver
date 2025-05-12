@@ -11,6 +11,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -230,9 +231,10 @@ public class YdbPreparedStatementImplTest {
     @EnumSource(SqlQueries.YqlQuery.class)
     public void executeEmptyBatch(SqlQueries.YqlQuery mode) throws SQLException {
         String yql = TEST_TABLE.upsertOne(mode, "c_Text", "Text");
+        String prm = mode == SqlQueries.YqlQuery.SIMPLE ? "$key" : "$c_Text";
         try (YdbPreparedStatement statement = jdbc.connection().unwrap(YdbConnection.class).prepareStatement(yql)) {
-            ExceptionAssert.sqlDataException("Missing value for parameter", () -> statement.execute());
-            ExceptionAssert.sqlDataException("Missing value for parameter", () -> statement.executeUpdate());
+            ExceptionAssert.sqlDataException("Missing value for parameter: " + prm, statement::execute);
+            ExceptionAssert.sqlDataException("Missing value for parameter: " + prm, statement::executeUpdate);
             statement.executeBatch();
         }
 
@@ -414,6 +416,7 @@ public class YdbPreparedStatementImplTest {
             ps.setNull("c_Bytes", Types.BINARY);
             ps.setNull("c_Text", Types.VARCHAR);
             ps.setNull("c_Json", Types.VARCHAR);
+            ps.setNull("c_Uuid", Types.VARCHAR);
             ps.setNull("c_JsonDocument", Types.VARCHAR);
             ps.setNull("c_Yson", Types.VARBINARY);
             ps.setNull("c_Date", Types.DATE);
@@ -421,6 +424,8 @@ public class YdbPreparedStatementImplTest {
             ps.setNull("c_Timestamp", Types.TIMESTAMP);
             ps.setNull("c_Interval", Types.JAVA_OBJECT);
             ps.setNull("c_Decimal", Types.DECIMAL);
+            ps.setNull("c_BigDecimal", Types.DECIMAL);
+            ps.setNull("c_BankDecimal", Types.DECIMAL);
 
             ps.executeUpdate();
         }
@@ -443,11 +448,14 @@ public class YdbPreparedStatementImplTest {
             ps.setNull("c_Json", -1, "Json");
             ps.setNull("c_JsonDocument", -1, "JsonDocument");
             ps.setNull("c_Yson", -1, "Yson");
+            ps.setNull("c_Uuid", -1, "Uuid");
             ps.setNull("c_Date", -1, "Date");
             ps.setNull("c_Datetime", -1, "Datetime");
             ps.setNull("c_Timestamp", -1, "Timestamp");
             ps.setNull("c_Interval", -1, "Interval");
             ps.setNull("c_Decimal", -1, "Decimal(22, 9)");
+            ps.setNull("c_BigDecimal", -1, "Decimal(35, 0)");
+            ps.setNull("c_BankDecimal", -1, "Decimal(31, 9)");
 
             ps.executeUpdate();
         }
@@ -470,11 +478,14 @@ public class YdbPreparedStatementImplTest {
             ps.setNull("c_Json", -1);
             ps.setNull("c_JsonDocument", -1);
             ps.setNull("c_Yson", -1);
+            ps.setNull("c_Uuid", -1);
             ps.setNull("c_Date", -1);
             ps.setNull("c_Datetime", -1);
             ps.setNull("c_Timestamp", -1);
             ps.setNull("c_Interval", -1);
             ps.setNull("c_Decimal", -1);
+            ps.setNull("c_BigDecimal", -1);
+            ps.setNull("c_BankDecimal", -1);
 
             ps.executeUpdate();
         }
@@ -486,7 +497,7 @@ public class YdbPreparedStatementImplTest {
                 Assertions.assertTrue(rs.next());
 
                 ResultSetMetaData metaData = rs.getMetaData();
-                Assertions.assertEquals(22, metaData.getColumnCount());
+                Assertions.assertEquals(25, metaData.getColumnCount());
                 Assertions.assertEquals(key, rs.getInt("key")); // key
 
                 for (int i = 2; i <= metaData.getColumnCount(); i++) {
@@ -510,7 +521,7 @@ public class YdbPreparedStatementImplTest {
                     () -> meta.getParameterType(335)
             );
 
-            Assertions.assertEquals(22, meta.getParameterCount());
+            Assertions.assertEquals(25, meta.getParameterCount());
             for (int param = 1; param <= meta.getParameterCount(); param++) {
                 String name = ydbMeta.getParameterName(param);
                 boolean isKey = "key".equals(name);
@@ -534,7 +545,13 @@ public class YdbPreparedStatementImplTest {
 
                 String expectType = isKey ? "int32" : name.substring("c_".length()).toLowerCase();
                 if (expectType.equals("decimal")) {
-                    expectType += "(22, 9)";
+                    expectType = "decimal(22, 9)";
+                }
+                if (expectType.equals("bigdecimal")) {
+                    expectType = "decimal(35, 0)";
+                }
+                if (expectType.equals("bankdecimal")) {
+                    expectType = "decimal(31, 9)";
                 }
 
                 String actualType = meta.getParameterTypeName(param);
@@ -579,6 +596,9 @@ public class YdbPreparedStatementImplTest {
                     case "c_Yson":
                         expectClassName = byte[].class.getName();
                         break;
+                    case "c_Uuid":
+                        expectClassName = UUID.class.getName();
+                        break;
                     case "c_Date":
                         expectClassName = LocalDate.class.getName();
                         break;
@@ -592,6 +612,8 @@ public class YdbPreparedStatementImplTest {
                         expectClassName = Duration.class.getName();
                         break;
                     case "c_Decimal":
+                    case "c_BigDecimal":
+                    case "c_BankDecimal":
                         expectClassName = DecimalValue.class.getName();
                         break;
                     default:

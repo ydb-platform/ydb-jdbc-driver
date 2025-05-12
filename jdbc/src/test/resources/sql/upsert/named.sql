@@ -21,12 +21,16 @@ declare $c_Json as Optional<Json>;
 declare $c_JsonDocument as Optional<JsonDocument>;
 declare $c_Yson as Optional<Yson>;
 
+declare $c_Uuid as Optional<Uuid>;
+
 declare $c_Date as Optional<Date>;
 declare $c_Datetime as Optional<Datetime>;
 declare $c_Timestamp as Optional<Timestamp>;
 declare $c_Interval as Optional<Interval>;
 
-declare $c_Decimal as Optional<Decimal(22,9)>;
+declare $c_Decimal as Optional<Decimal(22, 9)>;
+declare $c_BigDecimal as Optional<Decimal(35, 0)>;
+declare $c_BankDecimal as Optional<Decimal(31, 9)>;
 
 upsert into #tableName (
     key,
@@ -52,12 +56,16 @@ upsert into #tableName (
     c_JsonDocument,
     c_Yson,
 
+    c_Uuid,
+
     c_Date,
     c_Datetime,
     c_Timestamp,
     c_Interval,
 
-    c_Decimal
+    c_Decimal,
+    c_BigDecimal,
+    c_BankDecimal
 ) values (
     $key,
 
@@ -82,10 +90,14 @@ upsert into #tableName (
     $c_JsonDocument,
     $c_Yson,
 
+    $c_Uuid,
+
     $c_Date,
     $c_Datetime,
     $c_Timestamp,
     $c_Interval,
 
-    $c_Decimal
+    $c_Decimal,
+    $c_BigDecimal,
+    $c_BankDecimal
 )

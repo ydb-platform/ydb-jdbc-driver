@@ -95,16 +95,9 @@ public class BatchedQuery implements YdbPreparedQuery {
 
     protected StructValue getCurrentValues() throws SQLException {
         for (ParamDescription prm: params) {
-            if (currentValues.containsKey(prm.name())) {
-                continue;
+            if (!currentValues.containsKey(prm.name())) {
+                throw new SQLDataException(YdbConst.MISSING_VALUE_FOR_PARAMETER + prm.displayName());
             }
-
-            if (prm.type().isOptional()) {
-                currentValues.put(prm.name(), prm.type().nullValue());
-                continue;
-            }
-
-            throw new SQLDataException(YdbConst.MISSING_VALUE_FOR_PARAMETER + prm.displayName());
         }
         return StructValue.of(currentValues);
     }
