@@ -30,7 +30,7 @@ upsert into #tableName (
 
     c_Decimal,
     c_BigDecimal,
-    c_BankDecimal
+    c_BankDecimal,
 
     c_Date32,
     c_Datetime64,
@@ -122,7 +122,11 @@ values
     cast (0 as Interval),
     Decimal('0', 22, 9),
     Decimal('0', 35, 0),
-    Decimal('0', 31, 9)
+    Decimal('0', 31, 9),
+    cast (0 as Date32),
+    cast (0 as DateTime64),
+    cast (0 as Timestamp64),
+    cast (0 as Interval64)
     ),
     (4,
     true,
@@ -155,6 +159,7 @@ values
     cast (1 as Interval64)
     ),
     (5,
+    null,
     null,
     null,
     null,

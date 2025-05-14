@@ -1,14 +1,11 @@
 package tech.ydb.jdbc.impl;
 
 import java.math.BigDecimal;
-import java.sql.Blob;
-import java.sql.Clob;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.SQLType;
 import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -36,7 +33,6 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import tech.ydb.jdbc.YdbConst;
-import tech.ydb.jdbc.YdbJdbcCode;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.SqlQueries;
@@ -378,10 +374,10 @@ public class YdbPreparedStatementTest {
             statement.setObject(24, BigDecimal.valueOf(20000 + id, 0), ydbType(DecimalType.of(35, 0))); // c_BigDecimal
             statement.setObject(25, BigDecimal.valueOf(30000 + id, 6), ydbType(DecimalType.of(31, 9))); // c_BankDecimal
 
-            statement.setObject(26, sqlDate, YdbJdbcCode.DATE_32);              // c_Date32
-            statement.setObject(27, dateTime, YdbJdbcCode.DATETIME_64);         // c_Datetime64
-            statement.setObject(28, timestamp, YdbJdbcCode.TIMESTAMP_64);       // c_Timestamp64
-            statement.setObject(29, negativeDuration, YdbJdbcCode.INTERVAL_64); // c_Interval64
+            statement.setObject(26, sqlDate, ydbType(PrimitiveType.Date32));              // c_Date32
+            statement.setObject(27, dateTime, ydbType(PrimitiveType.Datetime64));         // c_Datetime64
+            statement.setObject(28, timestamp, ydbType(PrimitiveType.Timestamp64));       // c_Timestamp64
+            statement.setObject(29, negativeDuration, ydbType(PrimitiveType.Interval64)); // c_Interval64
         }
     }
 
@@ -589,7 +585,7 @@ public class YdbPreparedStatementTest {
             statement.setString(26, sqlDate.toString());   // c_Date
             statement.setString(27, dateTime.toString());  // c_Datetime
             statement.setString(28, TEST_TS.plusSeconds(id).toString()); // c_Timestamp
-            statement.setString(29, Duration.ofMinutes(id).toString());  // c_Interval
+            statement.setString(29, Duration.ofMinutes(-id).toString());  // c_Interval
 
             statement.execute();
         }

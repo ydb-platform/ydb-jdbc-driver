@@ -169,6 +169,14 @@ public class MappingGetters {
                 return value -> String.valueOf(value.getTimestamp());
             case Interval:
                 return value -> String.valueOf(value.getInterval());
+            case Date32:
+                return value -> String.valueOf(value.getDate32());
+            case Datetime64:
+                return value -> String.valueOf(value.getDatetime64());
+            case Timestamp64:
+                return value -> String.valueOf(value.getTimestamp64());
+            case Interval64:
+                return value -> String.valueOf(value.getInterval64());
             case TzDate:
                 return value -> String.valueOf(value.getTzDate());
             case TzDatetime:
@@ -377,6 +385,8 @@ public class MappingGetters {
                 return value -> checkIntValue(id, value.getUint64());
             case Date:
                 return value -> checkIntValue(id, value.getDate().toEpochDay());
+            case Date32:
+                return value -> checkIntValue(id, value.getDate32().toEpochDay());
             default:
                 return castToIntNotSupported(id.name());
         }
@@ -404,10 +414,16 @@ public class MappingGetters {
                 return PrimitiveReader::getUint64;
             case Date:
                 return value -> value.getDate().toEpochDay();
+            case Date32:
+                return value -> value.getDate32().toEpochDay();
             case Datetime:
                 return value -> value.getDatetime().toEpochSecond(ZoneOffset.UTC);
+            case Datetime64:
+                return value -> value.getDatetime64().toEpochSecond(ZoneOffset.UTC);
             case Timestamp:
                 return value -> value.getTimestamp().toEpochMilli();
+            case Timestamp64:
+                return value -> value.getTimestamp64().toEpochMilli();
             case TzDate:
             case TzDatetime:
             case TzTimestamp:
@@ -415,6 +431,8 @@ public class MappingGetters {
                 return value -> delegate.fromValue(value).toEpochMilli();
             case Interval:
                 return value -> TimeUnit.NANOSECONDS.toMicros(value.getInterval().toNanos());
+            case Interval64:
+                return value -> TimeUnit.NANOSECONDS.toMicros(value.getInterval64().toNanos());
             default:
                 return castToLongNotSupported(id.name());
         }
@@ -635,12 +653,16 @@ public class MappingGetters {
             case Double:
                 return new SqlType(sqlType, Double.class);
             case Date:
+            case Date32:
                 return new SqlType(sqlType, LocalDate.class);
             case Datetime:
+            case Datetime64:
                 return new SqlType(sqlType, LocalDateTime.class);
             case Timestamp:
+            case Timestamp64:
                 return new SqlType(sqlType, Instant.class);
             case Interval:
+            case Interval64:
                 return new SqlType(sqlType, Duration.class);
             case TzDate:
             case TzDatetime:

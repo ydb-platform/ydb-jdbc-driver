@@ -181,7 +181,7 @@ public class YdbLazyResultSetImplTest {
 
         ExceptionAssert.sqlException("Column is out of range: 995", () -> metadata.getColumnName(995));
 
-        Assertions.assertEquals(25, metadata.getColumnCount());
+        Assertions.assertEquals(29, metadata.getColumnCount());
 
         for (int index = 0; index < metadata.getColumnCount(); index++) {
             int column = index + 1;

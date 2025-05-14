@@ -154,7 +154,9 @@ public class YdbTablePreparedStatementImplTest {
                     .nextRow(3, "value-3")
                     .noNextRows();
         }
-    };
+    }
+
+    ;
 
     @ParameterizedTest(name = "with {0}")
     @EnumSource(SqlQueries.YqlQuery.class)
@@ -201,7 +203,7 @@ public class YdbTablePreparedStatementImplTest {
             statement.setInt("key", 3);
             statement.setString("c_Text", "value-3");
 
-            Assertions.assertArrayEquals(new int[]{ Statement.SUCCESS_NO_INFO, Statement.SUCCESS_NO_INFO },
+            Assertions.assertArrayEquals(new int[]{Statement.SUCCESS_NO_INFO, Statement.SUCCESS_NO_INFO},
                     statement.executeBatch());
 
             // does nothing
@@ -487,6 +489,10 @@ public class YdbTablePreparedStatementImplTest {
             ps.setNull("c_Decimal", Types.DECIMAL);
             ps.setNull("c_BigDecimal", Types.DECIMAL);
             ps.setNull("c_BankDecimal", Types.DECIMAL);
+            ps.setNull("c_Date32", Types.DATE);
+            ps.setNull("c_Datetime64", Types.TIMESTAMP);
+            ps.setNull("c_Timestamp64", Types.TIMESTAMP);
+            ps.setNull("c_Interval64", Types.JAVA_OBJECT);
 
             ps.executeUpdate();
         }
@@ -517,6 +523,10 @@ public class YdbTablePreparedStatementImplTest {
             ps.setNull("c_Decimal", -1, "Decimal(22, 9)");
             ps.setNull("c_BigDecimal", -1, "Decimal(35, 0)");
             ps.setNull("c_BankDecimal", -1, "Decimal(31, 9)");
+            ps.setNull("c_Date32", -1, "Date32");
+            ps.setNull("c_Datetime64", -1, "Datetime64");
+            ps.setNull("c_Timestamp64", -1, "Timestamp64");
+            ps.setNull("c_Interval64", -1, "Interval64");
 
             ps.executeUpdate();
         }
@@ -547,6 +557,10 @@ public class YdbTablePreparedStatementImplTest {
             ps.setNull("c_Decimal", -1);
             ps.setNull("c_BigDecimal", -1);
             ps.setNull("c_BankDecimal", -1);
+            ps.setNull("c_Date32", -1);
+            ps.setNull("c_Datetime64", -1);
+            ps.setNull("c_Timestamp64", -14);
+            ps.setNull("c_Interval64", -1);
 
             ps.executeUpdate();
         }
@@ -558,7 +572,7 @@ public class YdbTablePreparedStatementImplTest {
                 Assertions.assertTrue(rs.next());
 
                 ResultSetMetaData metaData = rs.getMetaData();
-                Assertions.assertEquals(25, metaData.getColumnCount());
+                Assertions.assertEquals(29, metaData.getColumnCount());
                 Assertions.assertEquals(key, rs.getInt("key")); // key
 
                 for (int i = 2; i <= metaData.getColumnCount(); i++) {
@@ -582,7 +596,7 @@ public class YdbTablePreparedStatementImplTest {
                     () -> meta.getParameterType(335)
             );
 
-            Assertions.assertEquals(25, meta.getParameterCount());
+            Assertions.assertEquals(29, meta.getParameterCount());
             for (int param = 1; param <= meta.getParameterCount(); param++) {
                 String name = ydbMeta.getParameterName(param);
                 boolean isKey = "key".equals(name);
@@ -661,15 +675,19 @@ public class YdbTablePreparedStatementImplTest {
                         expectClassName = UUID.class.getName();
                         break;
                     case "c_Date":
+                    case "c_Date32":
                         expectClassName = LocalDate.class.getName();
                         break;
                     case "c_Datetime":
+                    case "c_Datetime64":
                         expectClassName = LocalDateTime.class.getName();
                         break;
                     case "c_Timestamp":
+                    case "c_Timestamp64":
                         expectClassName = Instant.class.getName();
                         break;
                     case "c_Interval":
+                    case "c_Interval64":
                         expectClassName = Duration.class.getName();
                         break;
                     case "c_Decimal":

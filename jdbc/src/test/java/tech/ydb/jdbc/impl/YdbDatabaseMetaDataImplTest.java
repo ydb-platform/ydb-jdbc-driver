@@ -587,64 +587,73 @@ public class YdbDatabaseMetaDataImplTest {
         TableAssert.ResultSetAssert rs = columns.check(metaData.getColumns(null, null, ALL_TYPES_TABLE, null))
                 .assertMetaColumns();
 
+        rs.nextRow(columnName.eq("c_Interval64"), dataType.eq(Types.BIGINT), typeName.eq("Interval64"),
+                columnSize.eq(8), ordinal.eq(1)).assertAll();
         rs.nextRow(columnName.eq("key"), dataType.eq(Types.INTEGER), typeName.eq("Int32"),
-                columnSize.eq(4), ordinal.eq(1)).assertAll();
+                columnSize.eq(4), ordinal.eq(2)).assertAll();
 
         rs.nextRow(columnName.eq("c_Bool"), dataType.eq(Types.BOOLEAN), typeName.eq("Bool"),
-                columnSize.eq(1), ordinal.eq(2)).assertAll();
+                columnSize.eq(1), ordinal.eq(3)).assertAll();
 
         rs.nextRow(columnName.eq("c_Int8"), dataType.eq(Types.SMALLINT), typeName.eq("Int8"),
-                columnSize.eq(1), ordinal.eq(3)).assertAll();
+                columnSize.eq(1), ordinal.eq(4)).assertAll();
         rs.nextRow(columnName.eq("c_Int16"), dataType.eq(Types.SMALLINT), typeName.eq("Int16"),
-                columnSize.eq(2), ordinal.eq(4)).assertAll();
+                columnSize.eq(2), ordinal.eq(5)).assertAll();
         rs.nextRow(columnName.eq("c_Int32"), dataType.eq(Types.INTEGER), typeName.eq("Int32"),
-                columnSize.eq(4), ordinal.eq(5)).assertAll();
+                columnSize.eq(4), ordinal.eq(6)).assertAll();
         rs.nextRow(columnName.eq("c_Int64"), dataType.eq(Types.BIGINT), typeName.eq("Int64"),
-                columnSize.eq(8), ordinal.eq(6)).assertAll();
+                columnSize.eq(8), ordinal.eq(7)).assertAll();
 
         rs.nextRow(columnName.eq("c_Uint8"), dataType.eq(Types.INTEGER), typeName.eq("Uint8"),
-                columnSize.eq(1), ordinal.eq(7)).assertAll();
+                columnSize.eq(1), ordinal.eq(8)).assertAll();
         rs.nextRow(columnName.eq("c_Uint16"), dataType.eq(Types.INTEGER), typeName.eq("Uint16"),
-                columnSize.eq(2), ordinal.eq(8)).assertAll();
+                columnSize.eq(2), ordinal.eq(9)).assertAll();
         rs.nextRow(columnName.eq("c_Uint32"), dataType.eq(Types.BIGINT), typeName.eq("Uint32"),
-                columnSize.eq(4), ordinal.eq(9)).assertAll();
+                columnSize.eq(4), ordinal.eq(10)).assertAll();
         rs.nextRow(columnName.eq("c_Uint64"), dataType.eq(Types.BIGINT), typeName.eq("Uint64"),
-                columnSize.eq(8), ordinal.eq(10)).assertAll();
+                columnSize.eq(8), ordinal.eq(11)).assertAll();
 
         rs.nextRow(columnName.eq("c_Float"), dataType.eq(Types.FLOAT), typeName.eq("Float"),
-                columnSize.eq(4), ordinal.eq(11)).assertAll();
+                columnSize.eq(4), ordinal.eq(12)).assertAll();
         rs.nextRow(columnName.eq("c_Double"), dataType.eq(Types.DOUBLE), typeName.eq("Double"),
-                columnSize.eq(8), ordinal.eq(12)).assertAll();
+                columnSize.eq(8), ordinal.eq(13)).assertAll();
 
         rs.nextRow(columnName.eq("c_Bytes"), dataType.eq(Types.BINARY), typeName.eq("Bytes"),
-                columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq(13)).assertAll();
-        rs.nextRow(columnName.eq("c_Text"), dataType.eq(Types.VARCHAR), typeName.eq("Text"),
                 columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq(14)).assertAll();
-        rs.nextRow(columnName.eq("c_Json"), dataType.eq(Types.VARCHAR), typeName.eq("Json"),
+        rs.nextRow(columnName.eq("c_Text"), dataType.eq(Types.VARCHAR), typeName.eq("Text"),
                 columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq(15)).assertAll();
-        rs.nextRow(columnName.eq("c_JsonDocument"), dataType.eq(Types.VARCHAR), typeName.eq("JsonDocument"),
+        rs.nextRow(columnName.eq("c_Json"), dataType.eq(Types.VARCHAR), typeName.eq("Json"),
                 columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq(16)).assertAll();
-        rs.nextRow(columnName.eq("c_Yson"), dataType.eq(Types.BINARY), typeName.eq("Yson"),
+        rs.nextRow(columnName.eq("c_JsonDocument"), dataType.eq(Types.VARCHAR), typeName.eq("JsonDocument"),
                 columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq(17)).assertAll();
+        rs.nextRow(columnName.eq("c_Yson"), dataType.eq(Types.BINARY), typeName.eq("Yson"),
+                columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq(18)).assertAll();
 
         rs.nextRow(columnName.eq("c_Uuid"), dataType.eq(Types.VARCHAR), typeName.eq("Uuid"),
-                columnSize.eq(16), ordinal.eq(18)).assertAll();
+                columnSize.eq(16), ordinal.eq(19)).assertAll();
 
         rs.nextRow(columnName.eq("c_Date"), dataType.eq(Types.DATE), typeName.eq("Date"),
-                columnSize.eq(10), ordinal.eq(19)).assertAll();
+                columnSize.eq(10), ordinal.eq(20)).assertAll();
         rs.nextRow(columnName.eq("c_Datetime"), dataType.eq(Types.TIMESTAMP), typeName.eq("Datetime"),
-                columnSize.eq(19), ordinal.eq(20)).assertAll();
+                columnSize.eq(19), ordinal.eq(21)).assertAll();
         rs.nextRow(columnName.eq("c_Timestamp"), dataType.eq(Types.TIMESTAMP), typeName.eq("Timestamp"),
-                columnSize.eq(26), ordinal.eq(21)).assertAll();
+                columnSize.eq(26), ordinal.eq(22)).assertAll();
         rs.nextRow(columnName.eq("c_Interval"), dataType.eq(Types.BIGINT), typeName.eq("Interval"),
-                columnSize.eq(8), ordinal.eq(22)).assertAll();
+                columnSize.eq(8), ordinal.eq(23)).assertAll();
 
         rs.nextRow(columnName.eq("c_Decimal"), dataType.eq(Types.DECIMAL), typeName.eq("Decimal(22, 9)"),
-                columnSize.eq(22), ordinal.eq(23), decimalDigits.eq(22)).assertAll();
+                columnSize.eq(22), ordinal.eq(24), decimalDigits.eq(22)).assertAll();
         rs.nextRow(columnName.eq("c_BigDecimal"), dataType.eq(Types.DECIMAL), typeName.eq("Decimal(35, 0)"),
-                columnSize.eq(35), ordinal.eq(24), decimalDigits.eq(35)).assertAll();
+                columnSize.eq(35), ordinal.eq(25), decimalDigits.eq(35)).assertAll();
         rs.nextRow(columnName.eq("c_BankDecimal"), dataType.eq(Types.DECIMAL), typeName.eq("Decimal(31, 9)"),
-                columnSize.eq(31), ordinal.eq(25), decimalDigits.eq(31)).assertAll();
+                columnSize.eq(31), ordinal.eq(26), decimalDigits.eq(31)).assertAll();
+
+        rs.nextRow(columnName.eq("c_Date32"), dataType.eq(Types.DATE), typeName.eq("Date32"),
+                columnSize.eq(10), ordinal.eq(27)).assertAll();
+        rs.nextRow(columnName.eq("c_Datetime64"), dataType.eq(Types.TIMESTAMP), typeName.eq("Datetime64"),
+                columnSize.eq(19), ordinal.eq(28)).assertAll();
+        rs.nextRow(columnName.eq("c_Timestamp64"), dataType.eq(Types.TIMESTAMP), typeName.eq("Timestamp64"),
+                columnSize.eq(26), ordinal.eq(29)).assertAll();
 
         rs.assertNoRows();
 
@@ -652,7 +661,7 @@ public class YdbDatabaseMetaDataImplTest {
         rs = columns.check(metaData.getColumns(null, null, ALL_TYPES_TABLE, "c_JsonDocument"))
                 .assertMetaColumns();
         rs.nextRow(columnName.eq("c_JsonDocument"), dataType.eq(Types.VARCHAR), typeName.eq("JsonDocument"),
-                columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq(16)).assertAll();
+                columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq(17)).assertAll();
         rs.assertNoRows();
     }
 

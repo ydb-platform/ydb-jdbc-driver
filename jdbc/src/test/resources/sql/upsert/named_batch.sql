@@ -36,7 +36,7 @@ declare $list as List<Struct<
     c_Date32:Optional<Date32>,
     c_Datetime64:Optional<Datetime64>,
     c_Timestamp64:Optional<Timestamp64>,
-    c_Interval64:Optional<Interval64>,
+    c_Interval64:Optional<Interval64>
 >>;
 
 upsert into #tableName select * from as_table($list)

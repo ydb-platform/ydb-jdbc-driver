@@ -17,7 +17,6 @@ import java.util.Map;
 import java.util.UUID;
 
 import tech.ydb.jdbc.YdbConst;
-import tech.ydb.jdbc.YdbJdbcCode;
 import tech.ydb.table.values.DecimalType;
 import tech.ydb.table.values.DecimalValue;
 import tech.ydb.table.values.PrimitiveType;
@@ -65,11 +64,12 @@ public class YdbTypes {
         typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 22, PrimitiveType.TzTimestamp);
 
         typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 23, PrimitiveType.JsonDocument);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 24, PrimitiveType.DyNumber);
 
-        typeBySqlType.put(YdbJdbcCode.DATE_32, PrimitiveType.Date32);
-        typeBySqlType.put(YdbJdbcCode.DATETIME_64, PrimitiveType.Datetime64);
-        typeBySqlType.put(YdbJdbcCode.TIMESTAMP_64, PrimitiveType.Timestamp64);
-        typeBySqlType.put(YdbJdbcCode.INTERVAL_64, PrimitiveType.Interval64);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 25, PrimitiveType.Date32);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 26, PrimitiveType.Datetime64);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 27, PrimitiveType.Timestamp64);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 28, PrimitiveType.Interval64);
 
         typeBySqlType.put(Types.VARCHAR, PrimitiveType.Text);
         typeBySqlType.put(Types.BIGINT, PrimitiveType.Int64);
