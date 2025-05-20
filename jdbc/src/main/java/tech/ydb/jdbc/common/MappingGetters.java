@@ -782,7 +782,7 @@ public class MappingGetters {
         }
     }
 
-
+    @SuppressWarnings("MethodLength")
     private static ValueToClass valueToClass(PrimitiveType id) {
         ValueToClassBuilder builder = new ValueToClassBuilder(id);
         switch (id) {
