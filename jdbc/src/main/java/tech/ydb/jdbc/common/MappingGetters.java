@@ -914,7 +914,8 @@ public class MappingGetters {
                         .register(LocalDate.class, ValueReader::getDate32)
                         .register(LocalDateTime.class, v -> v.getDate32().atStartOfDay())
                         .register(java.sql.Date.class, v -> java.sql.Date.valueOf(v.getDate32()))
-                        .register(java.sql.Timestamp.class, v -> java.sql.Timestamp.valueOf(v.getDate32().atStartOfDay()))
+                        .register(java.sql.Timestamp.class,
+                                v -> java.sql.Timestamp.valueOf(v.getDate32().atStartOfDay()))
                         .register(Instant.class, v -> v.getDate32().atStartOfDay(ZoneId.systemDefault()).toInstant())
                         .register(java.util.Date.class, v -> java.util.Date.from(
                                 v.getDate32().atStartOfDay(ZoneId.systemDefault()).toInstant()))
