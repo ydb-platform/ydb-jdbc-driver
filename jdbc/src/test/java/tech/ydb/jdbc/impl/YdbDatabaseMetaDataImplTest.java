@@ -61,10 +61,10 @@ public class YdbDatabaseMetaDataImplTest {
                     + "create table `dir2/t1` (id Int32, value Int32, primary key (id));\n"
                     + "create table `dir2/dir1/t1` (id Int32, value Int32, primary key (id));\n"
                     + "create table " + INDEXES_TABLE + "("
-                            + "key1 Int32, key2 Text, value1 Int32, value2 Text, value3 Int32, "
-                            + "primary key(key1, key2), "
-                            + "index idx_2 global on (value1, value2),"
-                            + "index idx_1 global on (value3))\n;"
+                    + "key1 Int32, key2 Text, value1 Int32, value2 Text, value3 Int32, "
+                    + "primary key(key1, key2), "
+                    + "index idx_2 global on (value1, value2),"
+                    + "index idx_1 global on (value3))\n;"
             );
         }
     }
@@ -364,9 +364,9 @@ public class YdbDatabaseMetaDataImplTest {
 
     @Test
     public void getTypeInfo() throws SQLException {
-        short searchNone = (short)DatabaseMetaData.typePredNone;
-        short searchBasic = (short)DatabaseMetaData.typePredBasic;
-        short searchFull = (short)DatabaseMetaData.typeSearchable;
+        short searchNone = (short) DatabaseMetaData.typePredNone;
+        short searchBasic = (short) DatabaseMetaData.typePredBasic;
+        short searchFull = (short) DatabaseMetaData.typeSearchable;
 
         TableAssert types = new TableAssert();
         TableAssert.TextColumn name = types.addTextColumn("TYPE_NAME", "Text");
@@ -474,10 +474,10 @@ public class YdbDatabaseMetaDataImplTest {
         TableAssert.ResultSetAssert rs = tables.check(metaData.getTables(null, null, null, null))
                 .assertMetaColumns();
         // system tables are first
-        for (String name: systemTables) {
+        for (String name : systemTables) {
             rs.nextRow(tableName.eq(name), tableType.eq(SYSTEM_TABLE_TYPE));
         }
-        for (String name: simpleTables) {
+        for (String name : simpleTables) {
             rs.nextRow(tableName.eq(name), tableType.eq(TABLE_TYPE));
         }
         // TODO: fix
@@ -486,7 +486,7 @@ public class YdbDatabaseMetaDataImplTest {
         // read only non system tables
         rs = tables.check(metaData.getTables(null, null, null, asArray(TABLE_TYPE)))
                 .assertMetaColumns();
-        for (String name: simpleTables) {
+        for (String name : simpleTables) {
             rs.nextRow(tableName.eq(name), tableType.eq(TABLE_TYPE));
         }
         // TODO: fix
@@ -496,10 +496,10 @@ public class YdbDatabaseMetaDataImplTest {
         rs = tables.check(metaData.getTables(null, null, null, asArray(TABLE_TYPE, "some string", SYSTEM_TABLE_TYPE)))
                 .assertMetaColumns();
         // system tables are first
-        for (String name: systemTables) {
+        for (String name : systemTables) {
             rs.nextRow(tableName.eq(name), tableType.eq(SYSTEM_TABLE_TYPE));
         }
-        for (String name: simpleTables) {
+        for (String name : simpleTables) {
             rs.nextRow(tableName.eq(name), tableType.eq(TABLE_TYPE));
         }
         // TODO: fix
@@ -553,7 +553,7 @@ public class YdbDatabaseMetaDataImplTest {
         columns.addTextColumn("SCOPE_CATALOG", "Text").defaultNull();
         columns.addTextColumn("SCOPE_SCHEMA", "Text").defaultNull();
         columns.addTextColumn("SCOPE_TABLE", "Text").defaultNull();
-        columns.addShortColumn("SOURCE_DATA_TYPE", "Int16").defaultValue((short)0);
+        columns.addShortColumn("SOURCE_DATA_TYPE", "Int16").defaultValue((short) 0);
         columns.addTextColumn("IS_AUTOINCREMENT", "Text").defaultValue("NO");
         columns.addTextColumn("IS_GENERATEDCOLUMN", "Text").defaultValue("NO");
 
@@ -629,7 +629,7 @@ public class YdbDatabaseMetaDataImplTest {
 
         // find only one column
         rs = columns.check(metaData.getColumns(null, null, ALL_TYPES_TABLE, "c_JsonDocument"))
-            .assertMetaColumns();
+                .assertMetaColumns();
         rs.nextRow(columnName.eq("c_JsonDocument"), dataType.eq(Types.VARCHAR), typeName.eq("JsonDocument"),
                 columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq(16)).assertAll();
         rs.assertNoRows();
@@ -730,8 +730,8 @@ public class YdbDatabaseMetaDataImplTest {
         TableAssert.TextColumn typeName = rowIdentifiers.addTextColumn("TYPE_NAME", "Text");
         rowIdentifiers.addIntColumn("COLUMN_SIZE", "Int32").defaultValue(0);
         rowIdentifiers.addIntColumn("BUFFER_LENGTH", "Int32").defaultValue(0);
-        rowIdentifiers.addShortColumn("DECIMAL_DIGITS", "Int16").defaultValue((short)0);
-        rowIdentifiers.addShortColumn("PSEUDO_COLUMN", "Int16").defaultValue((short)DatabaseMetaData.bestRowNotPseudo);
+        rowIdentifiers.addShortColumn("DECIMAL_DIGITS", "Int16").defaultValue((short) 0);
+        rowIdentifiers.addShortColumn("PSEUDO_COLUMN", "Int16").defaultValue((short) DatabaseMetaData.bestRowNotPseudo);
 
 
         rowIdentifiers.check(metaData.getBestRowIdentifier("-", null, null, DatabaseMetaData.bestRowSession, true))

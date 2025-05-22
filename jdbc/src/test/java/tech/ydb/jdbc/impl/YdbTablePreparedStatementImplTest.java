@@ -154,7 +154,7 @@ public class YdbTablePreparedStatementImplTest {
                     .nextRow(3, "value-3")
                     .noNextRows();
         }
-    };
+    }
 
     @ParameterizedTest(name = "with {0}")
     @EnumSource(SqlQueries.YqlQuery.class)
@@ -201,7 +201,7 @@ public class YdbTablePreparedStatementImplTest {
             statement.setInt("key", 3);
             statement.setString("c_Text", "value-3");
 
-            Assertions.assertArrayEquals(new int[]{ Statement.SUCCESS_NO_INFO, Statement.SUCCESS_NO_INFO },
+            Assertions.assertArrayEquals(new int[]{Statement.SUCCESS_NO_INFO, Statement.SUCCESS_NO_INFO},
                     statement.executeBatch());
 
             // does nothing

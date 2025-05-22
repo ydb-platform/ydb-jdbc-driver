@@ -58,8 +58,6 @@ import tech.ydb.table.values.PrimitiveValue;
 import tech.ydb.table.values.Value;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
-
-
 public class YdbResultSetImplTest {
     @RegisterExtension
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
@@ -120,7 +118,7 @@ public class YdbResultSetImplTest {
     }
 
     @Test
-    public void close() throws SQLException  {
+    public void close() throws SQLException {
         Assertions.assertFalse(resultSet.isClosed());
         resultSet.close();
         Assertions.assertTrue(resultSet.isClosed());
@@ -139,16 +137,16 @@ public class YdbResultSetImplTest {
     @Test
     public void invalidColumnsTest() {
         // invalid location
-        ExceptionAssert.sqlException("Current row index is out of bounds: 0",  () -> resultSet.getString(2));
-        ExceptionAssert.sqlException("Current row index is out of bounds: 0",  () -> resultSet.getString("c_Text"));
+        ExceptionAssert.sqlException("Current row index is out of bounds: 0", () -> resultSet.getString(2));
+        ExceptionAssert.sqlException("Current row index is out of bounds: 0", () -> resultSet.getString("c_Text"));
 
         // invalid case
         ExceptionAssert.sqlException("Column not found: c_text", () -> resultSet.getString("c_text"));
-        ExceptionAssert.sqlException("Column not found: C_TEXT",  () -> resultSet.getString("C_TEXT"));
-        ExceptionAssert.sqlException("Current row index is out of bounds: 0",  () -> resultSet.getString("c_Text"));
+        ExceptionAssert.sqlException("Column not found: C_TEXT", () -> resultSet.getString("C_TEXT"));
+        ExceptionAssert.sqlException("Current row index is out of bounds: 0", () -> resultSet.getString("c_Text"));
 
         // invalid name
-        ExceptionAssert.sqlException("Column not found: value0",  () -> resultSet.getString("value0"));
+        ExceptionAssert.sqlException("Column not found: value0", () -> resultSet.getString("value0"));
     }
 
     @Test
@@ -619,8 +617,8 @@ public class YdbResultSetImplTest {
         assertCursorUpdates(() -> resultSet.updateString("value", "value"));
 
         // updateBytes
-        assertCursorUpdates(() -> resultSet.updateBytes(1, new byte[] { }));
-        assertCursorUpdates(() -> resultSet.updateBytes("value", new byte[] { }));
+        assertCursorUpdates(() -> resultSet.updateBytes(1, new byte[]{}));
+        assertCursorUpdates(() -> resultSet.updateBytes("value", new byte[]{}));
 
         // updateDate
         assertCursorUpdates(() -> resultSet.updateDate(1, new Date(0)));
@@ -918,13 +916,13 @@ public class YdbResultSetImplTest {
         ResultSetChecker<Byte> checker = check(resultSet, ResultSet::getByte, ResultSet::getByte);
 
         checker.nextRow()
-                .value(1, "key", (byte)1)
-                .value(2, "c_Bool", (byte)1)
-                .value(3, "c_Int8", (byte)101)
+                .value(1, "key", (byte) 1)
+                .value(2, "c_Bool", (byte) 1)
+                .value(3, "c_Int8", (byte) 101)
                 .exceptionValue(4, "c_Int16", "Cannot cast [Int16] with value [20001] to [byte]")
                 .exceptionValue(5, "c_Int32", "Cannot cast [Int32] with value [2000000001] to [byte]")
                 .exceptionValue(6, "c_Int64", "Cannot cast [Int64] with value [2000000000001] to [byte]")
-                .value(7, "c_Uint8",  (byte)100)
+                .value(7, "c_Uint8", (byte) 100)
                 .exceptionValue(8, "c_Uint16", "Cannot cast [Uint16] with value [20002] to [byte]")
                 .exceptionValue(9, "c_Uint32", "Cannot cast [Uint32] with value [2000000002] to [byte]")
                 .exceptionValue(10, "c_Uint64", "Cannot cast [Uint64] with value [2000000000002] to [byte]")
@@ -933,9 +931,9 @@ public class YdbResultSetImplTest {
                 .exceptionValue(25, "c_BankDecimal", "Cannot cast [DECIMAL] to [byte]");
 
         checker.nextRow()
-                .value(1, "key", (byte)2)
-                .value(2, "c_Bool", (byte)0)
-                .value(3, "c_Int8", (byte)(-101))
+                .value(1, "key", (byte) 2)
+                .value(2, "c_Bool", (byte) 0)
+                .value(3, "c_Int8", (byte) (-101))
                 .exceptionValue(4, "c_Int16", "Cannot cast [Int16] with value [-20001] to [byte]")
                 .exceptionValue(5, "c_Int32", "Cannot cast [Int32] with value [-2000000001] to [byte]")
                 .exceptionValue(6, "c_Int64", "Cannot cast [Int64] with value [-2000000000001] to [byte]")
@@ -948,61 +946,61 @@ public class YdbResultSetImplTest {
                 .exceptionValue(25, "c_BankDecimal", "Cannot cast [DECIMAL] to [byte]");
 
         checker.nextRow()
-                .value(1, "key", (byte)3)
-                .value(2, "c_Bool", (byte)0)
-                .value(3, "c_Int8", (byte)0)
-                .value(4, "c_Int16", (byte)0)
-                .value(5, "c_Int32", (byte)0)
-                .value(6, "c_Int64", (byte)0)
-                .value(7, "c_Uint8", (byte)0)
-                .value(8, "c_Uint16", (byte)0)
-                .value(9, "c_Uint32", (byte)0)
-                .value(10, "c_Uint64", (byte)0)
+                .value(1, "key", (byte) 3)
+                .value(2, "c_Bool", (byte) 0)
+                .value(3, "c_Int8", (byte) 0)
+                .value(4, "c_Int16", (byte) 0)
+                .value(5, "c_Int32", (byte) 0)
+                .value(6, "c_Int64", (byte) 0)
+                .value(7, "c_Uint8", (byte) 0)
+                .value(8, "c_Uint16", (byte) 0)
+                .value(9, "c_Uint32", (byte) 0)
+                .value(10, "c_Uint64", (byte) 0)
                 .exceptionValue(23, "c_Decimal", "Cannot cast [DECIMAL] to [byte]")
                 .exceptionValue(24, "c_BigDecimal", "Cannot cast [DECIMAL] to [byte]")
                 .exceptionValue(25, "c_BankDecimal", "Cannot cast [DECIMAL] to [byte]");
 
         checker.nextRow()
-                .value(1, "key", (byte)4)
-                .value(2, "c_Bool", (byte)1)
-                .value(3, "c_Int8", (byte)1)
-                .value(4, "c_Int16", (byte)1)
-                .value(5, "c_Int32", (byte)1)
-                .value(6, "c_Int64", (byte)1)
-                .value(7, "c_Uint8", (byte)1)
-                .value(8, "c_Uint16", (byte)1)
-                .value(9, "c_Uint32", (byte)1)
-                .value(10, "c_Uint64", (byte)1)
+                .value(1, "key", (byte) 4)
+                .value(2, "c_Bool", (byte) 1)
+                .value(3, "c_Int8", (byte) 1)
+                .value(4, "c_Int16", (byte) 1)
+                .value(5, "c_Int32", (byte) 1)
+                .value(6, "c_Int64", (byte) 1)
+                .value(7, "c_Uint8", (byte) 1)
+                .value(8, "c_Uint16", (byte) 1)
+                .value(9, "c_Uint32", (byte) 1)
+                .value(10, "c_Uint64", (byte) 1)
                 .exceptionValue(23, "c_Decimal", "Cannot cast [DECIMAL] to [byte]")
                 .exceptionValue(24, "c_BigDecimal", "Cannot cast [DECIMAL] to [byte]")
                 .exceptionValue(25, "c_BankDecimal", "Cannot cast [DECIMAL] to [byte]");
 
         checker.nextRow()
-                .value(1, "key", (byte)5)
-                .nullValue(2, "c_Bool", (byte)0)
-                .nullValue(3, "c_Int8", (byte)0)
-                .nullValue(4, "c_Int16", (byte)0)
-                .nullValue(5, "c_Int32", (byte)0)
-                .nullValue(6, "c_Int64", (byte)0)
-                .nullValue(7, "c_Uint8", (byte)0)
-                .nullValue(8, "c_Uint16", (byte)0)
-                .nullValue(9, "c_Uint32", (byte)0)
-                .nullValue(10, "c_Uint64", (byte)0)
-                .nullValue(11, "c_Float", (byte)0)
-                .nullValue(12, "c_Double", (byte)0)
-                .nullValue(13, "c_Bytes", (byte)0)
-                .nullValue(14, "c_Text", (byte)0)
-                .nullValue(15, "c_Json", (byte)0)
-                .nullValue(16, "c_JsonDocument", (byte)0)
-                .nullValue(17, "c_Yson", (byte)0)
-                .nullValue(18, "c_Uuid", (byte)0)
-                .nullValue(19, "c_Date", (byte)0)
-                .nullValue(20, "c_Datetime", (byte)0)
-                .nullValue(21, "c_Timestamp", (byte)0)
-                .nullValue(22, "c_Interval", (byte)0)
-                .nullValue(23, "c_Decimal", (byte)0)
-                .nullValue(24, "c_BigDecimal", (byte)0)
-                .nullValue(25, "c_BankDecimal", (byte)0);
+                .value(1, "key", (byte) 5)
+                .nullValue(2, "c_Bool", (byte) 0)
+                .nullValue(3, "c_Int8", (byte) 0)
+                .nullValue(4, "c_Int16", (byte) 0)
+                .nullValue(5, "c_Int32", (byte) 0)
+                .nullValue(6, "c_Int64", (byte) 0)
+                .nullValue(7, "c_Uint8", (byte) 0)
+                .nullValue(8, "c_Uint16", (byte) 0)
+                .nullValue(9, "c_Uint32", (byte) 0)
+                .nullValue(10, "c_Uint64", (byte) 0)
+                .nullValue(11, "c_Float", (byte) 0)
+                .nullValue(12, "c_Double", (byte) 0)
+                .nullValue(13, "c_Bytes", (byte) 0)
+                .nullValue(14, "c_Text", (byte) 0)
+                .nullValue(15, "c_Json", (byte) 0)
+                .nullValue(16, "c_JsonDocument", (byte) 0)
+                .nullValue(17, "c_Yson", (byte) 0)
+                .nullValue(18, "c_Uuid", (byte) 0)
+                .nullValue(19, "c_Date", (byte) 0)
+                .nullValue(20, "c_Datetime", (byte) 0)
+                .nullValue(21, "c_Timestamp", (byte) 0)
+                .nullValue(22, "c_Interval", (byte) 0)
+                .nullValue(23, "c_Decimal", (byte) 0)
+                .nullValue(24, "c_BigDecimal", (byte) 0)
+                .nullValue(25, "c_BankDecimal", (byte) 0);
 
         checker.assertNoRows();
     }
@@ -1012,14 +1010,14 @@ public class YdbResultSetImplTest {
         ResultSetChecker<Short> checker = check(resultSet, ResultSet::getShort, ResultSet::getShort);
 
         checker.nextRow()
-                .value(1, "key", (short)1)
-                .value(2, "c_Bool", (short)1)
-                .value(3, "c_Int8", (short)101)
-                .value(4, "c_Int16", (short)20001)
+                .value(1, "key", (short) 1)
+                .value(2, "c_Bool", (short) 1)
+                .value(3, "c_Int8", (short) 101)
+                .value(4, "c_Int16", (short) 20001)
                 .exceptionValue(5, "c_Int32", "Cannot cast [Int32] with value [2000000001] to [short]")
                 .exceptionValue(6, "c_Int64", "Cannot cast [Int64] with value [2000000000001] to [short]")
-                .value(7, "c_Uint8",  (short)100)
-                .value(8, "c_Uint16",  (short)20002)
+                .value(7, "c_Uint8", (short) 100)
+                .value(8, "c_Uint16", (short) 20002)
                 .exceptionValue(9, "c_Uint32", "Cannot cast [Uint32] with value [2000000002] to [short]")
                 .exceptionValue(10, "c_Uint64", "Cannot cast [Uint64] with value [2000000000002] to [short]")
                 .exceptionValue(23, "c_Decimal", "Cannot cast [DECIMAL] to [short]")
@@ -1027,13 +1025,13 @@ public class YdbResultSetImplTest {
                 .exceptionValue(25, "c_BankDecimal", "Cannot cast [DECIMAL] to [short]");
 
         checker.nextRow()
-                .value(1, "key", (short)2)
-                .value(2, "c_Bool", (short)0)
-                .value(3, "c_Int8", (short)(-101))
-                .value(4, "c_Int16", (short)-20001)
+                .value(1, "key", (short) 2)
+                .value(2, "c_Bool", (short) 0)
+                .value(3, "c_Int8", (short) (-101))
+                .value(4, "c_Int16", (short) -20001)
                 .exceptionValue(5, "c_Int32", "Cannot cast [Int32] with value [-2000000001] to [short]")
                 .exceptionValue(6, "c_Int64", "Cannot cast [Int64] with value [-2000000000001] to [short]")
-                .value(7, "c_Uint8", (short)200)
+                .value(7, "c_Uint8", (short) 200)
                 .exceptionValue(8, "c_Uint16", "Cannot cast [Uint16] with value [40002] to [short]")
                 .exceptionValue(9, "c_Uint32", "Cannot cast [Uint32] with value [4000000002] to [short]")
                 .exceptionValue(10, "c_Uint64", "Cannot cast [Uint64] with value [4000000000002] to [short]")
@@ -1043,61 +1041,61 @@ public class YdbResultSetImplTest {
 
 
         checker.nextRow()
-                .value(1, "key", (short)3)
-                .value(2, "c_Bool", (short)0)
-                .value(3, "c_Int8", (short)0)
-                .value(4, "c_Int16", (short)0)
-                .value(5, "c_Int32", (short)0)
-                .value(6, "c_Int64", (short)0)
-                .value(7, "c_Uint8", (short)0)
-                .value(8, "c_Uint16", (short)0)
-                .value(9, "c_Uint32", (short)0)
-                .value(10, "c_Uint64", (short)0)
+                .value(1, "key", (short) 3)
+                .value(2, "c_Bool", (short) 0)
+                .value(3, "c_Int8", (short) 0)
+                .value(4, "c_Int16", (short) 0)
+                .value(5, "c_Int32", (short) 0)
+                .value(6, "c_Int64", (short) 0)
+                .value(7, "c_Uint8", (short) 0)
+                .value(8, "c_Uint16", (short) 0)
+                .value(9, "c_Uint32", (short) 0)
+                .value(10, "c_Uint64", (short) 0)
                 .exceptionValue(23, "c_Decimal", "Cannot cast [DECIMAL] to [short]")
                 .exceptionValue(24, "c_BigDecimal", "Cannot cast [DECIMAL] to [short]")
                 .exceptionValue(25, "c_BankDecimal", "Cannot cast [DECIMAL] to [short]");
 
         checker.nextRow()
-                .value(1, "key", (short)4)
-                .value(2, "c_Bool", (short)1)
-                .value(3, "c_Int8", (short)1)
-                .value(4, "c_Int16", (short)1)
-                .value(5, "c_Int32", (short)1)
-                .value(6, "c_Int64", (short)1)
-                .value(7, "c_Uint8", (short)1)
-                .value(8, "c_Uint16", (short)1)
-                .value(9, "c_Uint32", (short)1)
-                .value(10, "c_Uint64", (short)1)
+                .value(1, "key", (short) 4)
+                .value(2, "c_Bool", (short) 1)
+                .value(3, "c_Int8", (short) 1)
+                .value(4, "c_Int16", (short) 1)
+                .value(5, "c_Int32", (short) 1)
+                .value(6, "c_Int64", (short) 1)
+                .value(7, "c_Uint8", (short) 1)
+                .value(8, "c_Uint16", (short) 1)
+                .value(9, "c_Uint32", (short) 1)
+                .value(10, "c_Uint64", (short) 1)
                 .exceptionValue(23, "c_Decimal", "Cannot cast [DECIMAL] to [short]")
                 .exceptionValue(24, "c_BigDecimal", "Cannot cast [DECIMAL] to [short]")
                 .exceptionValue(25, "c_BankDecimal", "Cannot cast [DECIMAL] to [short]");
 
         checker.nextRow()
-                .value(1, "key", (short)5)
-                .nullValue(2, "c_Bool", (short)0)
-                .nullValue(3, "c_Int8", (short)0)
-                .nullValue(4, "c_Int16", (short)0)
-                .nullValue(5, "c_Int32", (short)0)
-                .nullValue(6, "c_Int64", (short)0)
-                .nullValue(7, "c_Uint8", (short)0)
-                .nullValue(8, "c_Uint16", (short)0)
-                .nullValue(9, "c_Uint32", (short)0)
-                .nullValue(10, "c_Uint64", (short)0)
-                .nullValue(11, "c_Float", (short)0)
-                .nullValue(12, "c_Double", (short)0)
-                .nullValue(13, "c_Bytes", (short)0)
-                .nullValue(14, "c_Text", (short)0)
-                .nullValue(15, "c_Json", (short)0)
-                .nullValue(16, "c_JsonDocument", (short)0)
-                .nullValue(17, "c_Yson", (short)0)
-                .nullValue(18, "c_Uuid", (short)0)
-                .nullValue(19, "c_Date", (short)0)
-                .nullValue(20, "c_Datetime", (short)0)
-                .nullValue(21, "c_Timestamp", (short)0)
-                .nullValue(22, "c_Interval", (short)0)
-                .nullValue(23, "c_Decimal", (short)0)
-                .nullValue(24, "c_BigDecimal", (short)0)
-                .nullValue(25, "c_BankDecimal", (short)0);
+                .value(1, "key", (short) 5)
+                .nullValue(2, "c_Bool", (short) 0)
+                .nullValue(3, "c_Int8", (short) 0)
+                .nullValue(4, "c_Int16", (short) 0)
+                .nullValue(5, "c_Int32", (short) 0)
+                .nullValue(6, "c_Int64", (short) 0)
+                .nullValue(7, "c_Uint8", (short) 0)
+                .nullValue(8, "c_Uint16", (short) 0)
+                .nullValue(9, "c_Uint32", (short) 0)
+                .nullValue(10, "c_Uint64", (short) 0)
+                .nullValue(11, "c_Float", (short) 0)
+                .nullValue(12, "c_Double", (short) 0)
+                .nullValue(13, "c_Bytes", (short) 0)
+                .nullValue(14, "c_Text", (short) 0)
+                .nullValue(15, "c_Json", (short) 0)
+                .nullValue(16, "c_JsonDocument", (short) 0)
+                .nullValue(17, "c_Yson", (short) 0)
+                .nullValue(18, "c_Uuid", (short) 0)
+                .nullValue(19, "c_Date", (short) 0)
+                .nullValue(20, "c_Datetime", (short) 0)
+                .nullValue(21, "c_Timestamp", (short) 0)
+                .nullValue(22, "c_Interval", (short) 0)
+                .nullValue(23, "c_Decimal", (short) 0)
+                .nullValue(24, "c_BigDecimal", (short) 0)
+                .nullValue(25, "c_BankDecimal", (short) 0);
 
         checker.assertNoRows();
     }
@@ -1717,17 +1715,15 @@ public class YdbResultSetImplTest {
                 .value(3, "c_Int8", Date.valueOf(LocalDate.ofEpochDay(101)))
                 .value(4, "c_Int16", Date.valueOf(LocalDate.ofEpochDay(20001)))
                 .value(5, "c_Int32", Date.valueOf(LocalDate.ofEpochDay(2000000001)))
-                .exceptionValue(6, "c_Int64",
-                        "Cannot cast [Int64] with value [2000000000001] to [class java.sql.Date]")
+                .exceptionValue(6, "c_Int64", "Cannot cast [Int64] with value [2000000000001] to [class java.sql.Date]")
                 .value(7, "c_Uint8", Date.valueOf(LocalDate.ofEpochDay(100)))
                 .value(8, "c_Uint16", Date.valueOf(LocalDate.ofEpochDay(20002)))
                 .value(9, "c_Uint32", Date.valueOf(LocalDate.ofEpochDay(2000000002)))
-                .exceptionValue(10, "c_Uint64",
-                        "Cannot cast [Uint64] with value [2000000000002] to [class java.sql.Date]")
+                .exceptionValue(10, "c_Uint64", "Cannot cast [Uint64] with value [2000000000002] to [class java.sql.Date]")
                 // 3111 unix days = Sunday, July 9, 1978 0:00:00 UTC
-                .value(19, "c_Date",      Date.valueOf(LocalDate.of(1978, Month.JULY, 9)))
+                .value(19, "c_Date", Date.valueOf(LocalDate.of(1978, Month.JULY, 9)))
                 // 311111156 unix seconds = Sat Nov 10 1979 19:45:56 UTC
-                .value(20, "c_Datetime",  Date.valueOf(LocalDate.of(1979, Month.NOVEMBER, 10)))
+                .value(20, "c_Datetime", Date.valueOf(LocalDate.of(1979, Month.NOVEMBER, 10)))
                 // 311111223342 unix microseconds = Sun Jan 04 1970 14:25:11 UTC
                 .value(21, "c_Timestamp", new Date(311111223342l / 1000));
 
@@ -1735,16 +1731,15 @@ public class YdbResultSetImplTest {
                 .value(3, "c_Int8", Date.valueOf(LocalDate.ofEpochDay(-101)))
                 .value(4, "c_Int16", Date.valueOf(LocalDate.ofEpochDay(-20001)))
                 .value(5, "c_Int32", Date.valueOf(LocalDate.ofEpochDay(-2000000001)))
-                .exceptionValue(6, "c_Int64",
-                        "Cannot cast [Int64] with value [-2000000000001] to [class java.sql.Date]")
+                .exceptionValue(6, "c_Int64", "Cannot cast [Int64] with value [-2000000000001] to [class java.sql.Date]")
                 .value(7, "c_Uint8", Date.valueOf(LocalDate.ofEpochDay(200)))
                 .value(8, "c_Uint16", Date.valueOf(LocalDate.ofEpochDay(40002)))
                 .value(9, "c_Uint32", Date.valueOf(LocalDate.ofEpochDay(4000000002l)))
-                .exceptionValue(10, "c_Uint64",
-                        "Cannot cast [Uint64] with value [4000000000002] to [class java.sql.Date]")
-                .value(19, "c_Date",      Date.valueOf(LocalDate.of(1978, Month.JULY, 10)))
+                .exceptionValue(10, "c_Uint64", "Cannot cast [Uint64] with value [4000000000002] to [class java.sql.Date]")
+                // 3111 unix days = Sunday, July 9, 1978 0:00:00 UTC
+                .value(19, "c_Date", Date.valueOf(LocalDate.of(1978, Month.JULY, 10)))
                 // 211211100 unix seconds = Fri Sep 10 1976 13:45:00 UTC
-                .value(20, "c_Datetime",  Date.valueOf(LocalDate.of(1976, Month.SEPTEMBER, 10)))
+                .value(20, "c_Datetime", Date.valueOf(LocalDate.of(1976, Month.SEPTEMBER, 10)))
                 // 111111223342 unix microseconds = Fri Jan 02 1970 06:51:51 UTC
                 .value(21, "c_Timestamp", new Date(111111223342l / 1000));
 
@@ -2045,8 +2040,8 @@ public class YdbResultSetImplTest {
         checker.nextRow()
                 .typedValue(1, "key", 1)
                 .typedValue(2, "c_Bool", true)
-                .typedValue(3, "c_Int8", (byte)101)
-                .typedValue(4, "c_Int16", (short)20001)
+                .typedValue(3, "c_Int8", (byte) 101)
+                .typedValue(4, "c_Int16", (short) 20001)
                 .typedValue(5, "c_Int32", 2000000001)
                 .typedValue(6, "c_Int64", 2000000000001l)
                 .typedValue(7, "c_Uint8", 100)
@@ -2072,8 +2067,8 @@ public class YdbResultSetImplTest {
         checker.nextRow()
                 .typedValue(1, "key", 2)
                 .typedValue(2, "c_Bool", false)
-                .typedValue(3, "c_Int8", (byte)-101)
-                .typedValue(4, "c_Int16", (short)-20001)
+                .typedValue(3, "c_Int8", (byte) -101)
+                .typedValue(4, "c_Int16", (short) -20001)
                 .typedValue(5, "c_Int32", -2000000001)
                 .typedValue(6, "c_Int64", -2000000000001l)
                 .typedValue(7, "c_Uint8", 200)
@@ -2099,8 +2094,8 @@ public class YdbResultSetImplTest {
         checker.nextRow()
                 .typedValue(1, "key", 3)
                 .typedValue(2, "c_Bool", false)
-                .typedValue(3, "c_Int8", (byte)0)
-                .typedValue(4, "c_Int16", (short)0)
+                .typedValue(3, "c_Int8", (byte) 0)
+                .typedValue(4, "c_Int16", (short) 0)
                 .typedValue(5, "c_Int32", 0)
                 .typedValue(6, "c_Int64", 0l)
                 .typedValue(7, "c_Uint8", 0)
@@ -2126,8 +2121,8 @@ public class YdbResultSetImplTest {
         checker.nextRow()
                 .typedValue(1, "key", 4)
                 .typedValue(2, "c_Bool", true)
-                .typedValue(3, "c_Int8", (byte)1)
-                .typedValue(4, "c_Int16", (short)1)
+                .typedValue(3, "c_Int8", (byte) 1)
+                .typedValue(4, "c_Int16", (short) 1)
                 .typedValue(5, "c_Int32", 1)
                 .typedValue(6, "c_Int64", 1l)
                 .typedValue(7, "c_Uint8", 1)
@@ -2381,8 +2376,8 @@ public class YdbResultSetImplTest {
         checker.nextRow()
                 .typedValue(1, "key", PrimitiveValue.newInt32(1))
                 .typedValue(2, "c_Bool", PrimitiveValue.newBool(true))
-                .typedValue(3, "c_Int8", PrimitiveValue.newInt8((byte)101))
-                .typedValue(4, "c_Int16", PrimitiveValue.newInt16((short)20001))
+                .typedValue(3, "c_Int8", PrimitiveValue.newInt8((byte) 101))
+                .typedValue(4, "c_Int16", PrimitiveValue.newInt16((short) 20001))
                 .typedValue(5, "c_Int32", PrimitiveValue.newInt32(2000000001))
                 .typedValue(6, "c_Int64", PrimitiveValue.newInt64(2000000000001L))
                 .typedValue(7, "c_Uint8", PrimitiveValue.newUint8((short) 100))
@@ -2408,8 +2403,8 @@ public class YdbResultSetImplTest {
         checker.nextRow()
                 .typedValue(1, "key", PrimitiveValue.newInt32(2))
                 .typedValue(2, "c_Bool", PrimitiveValue.newBool(false))
-                .typedValue(3, "c_Int8", PrimitiveValue.newInt8((byte)-101))
-                .typedValue(4, "c_Int16", PrimitiveValue.newInt16((short)-20001))
+                .typedValue(3, "c_Int8", PrimitiveValue.newInt8((byte) -101))
+                .typedValue(4, "c_Int16", PrimitiveValue.newInt16((short) -20001))
                 .typedValue(5, "c_Int32", PrimitiveValue.newInt32(-2000000001))
                 .typedValue(6, "c_Int64", PrimitiveValue.newInt64(-2000000000001L))
                 .typedValue(7, "c_Uint8", PrimitiveValue.newUint8((short) 200))
@@ -2435,8 +2430,8 @@ public class YdbResultSetImplTest {
         checker.nextRow()
                 .typedValue(1, "key", PrimitiveValue.newInt32(3))
                 .typedValue(2, "c_Bool", PrimitiveValue.newBool(false))
-                .typedValue(3, "c_Int8", PrimitiveValue.newInt8((byte)0))
-                .typedValue(4, "c_Int16", PrimitiveValue.newInt16((short)0))
+                .typedValue(3, "c_Int8", PrimitiveValue.newInt8((byte) 0))
+                .typedValue(4, "c_Int16", PrimitiveValue.newInt16((short) 0))
                 .typedValue(5, "c_Int32", PrimitiveValue.newInt32(0))
                 .typedValue(6, "c_Int64", PrimitiveValue.newInt64(0))
                 .typedValue(7, "c_Uint8", PrimitiveValue.newUint8((short) 0))
@@ -2462,8 +2457,8 @@ public class YdbResultSetImplTest {
         checker.nextRow()
                 .typedValue(1, "key", PrimitiveValue.newInt32(4))
                 .typedValue(2, "c_Bool", PrimitiveValue.newBool(true))
-                .typedValue(3, "c_Int8", PrimitiveValue.newInt8((byte)1))
-                .typedValue(4, "c_Int16", PrimitiveValue.newInt16((short)1))
+                .typedValue(3, "c_Int8", PrimitiveValue.newInt8((byte) 1))
+                .typedValue(4, "c_Int16", PrimitiveValue.newInt16((short) 1))
                 .typedValue(5, "c_Int32", PrimitiveValue.newInt32(1))
                 .typedValue(6, "c_Int64", PrimitiveValue.newInt64(1))
                 .typedValue(7, "c_Uint8", PrimitiveValue.newUint8((short) 1))
@@ -2581,7 +2576,7 @@ public class YdbResultSetImplTest {
             }
 
             if (expected instanceof byte[]) {
-                Assertions.assertArrayEquals((byte[])expected, (byte[])value, "Wrong array value " + message);
+                Assertions.assertArrayEquals((byte[]) expected, (byte[]) value, "Wrong array value " + message);
                 Assertions.assertEquals(isNull, rs.wasNull(), "Unexpected wasNull " + message);
                 return value;
             }
