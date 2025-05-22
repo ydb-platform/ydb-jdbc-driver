@@ -28,9 +28,14 @@ declare $p20 as Optional<Datetime>;
 declare $p21 as Optional<Timestamp>;
 declare $p22 as Optional<Interval>;
 
-declare $p23 as Optional<Decimal(22, 9)>;
-declare $p24 as Optional<Decimal(35, 0)>;
-declare $p25 as Optional<Decimal(31, 9)>;
+declare $p23 as Optional<Date32>;
+declare $p24 as Optional<Datetime64>;
+declare $p25 as Optional<Timestamp64>;
+declare $p26 as Optional<Interval64>;
+
+declare $p27 as Optional<Decimal(22, 9)>;
+declare $p28 as Optional<Decimal(35, 0)>;
+declare $p29 as Optional<Decimal(31, 9)>;
 
 upsert into #tableName (
     key,
@@ -63,6 +68,11 @@ upsert into #tableName (
     c_Timestamp,
     c_Interval,
 
+    c_Date32,
+    c_Datetime64,
+    c_Timestamp64,
+    c_Interval64,
+
     c_Decimal,
     c_BigDecimal,
     c_BankDecimal
@@ -91,5 +101,9 @@ upsert into #tableName (
     $p22,
     $p23,
     $p24,
-    $p25
+    $p25,
+    $p26,
+    $p27,
+    $p28,
+    $p29
 )

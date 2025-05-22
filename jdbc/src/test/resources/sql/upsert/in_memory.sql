@@ -30,6 +30,11 @@ UPSERT INTO #tableName (
     c_Timestamp,
     c_Interval,
 
+    c_Date32,
+    c_Datetime64,
+    c_Timestamp64,
+    c_Interval64,
+
     c_Decimal,
     c_BigDecimal,
     c_BankDecimal
@@ -62,6 +67,11 @@ UPSERT INTO #tableName (
     ?, -- c_Datetime
     ?, -- c_Timestamp
     ?, -- c_Interval
+
+    ?, -- c_Date32
+    ?, -- c_Datetime64
+    ?, -- c_Timestamp64
+    ?, -- c_Interval64
 
     ?, -- c_Decimal
     ?, -- c_BigDecimal

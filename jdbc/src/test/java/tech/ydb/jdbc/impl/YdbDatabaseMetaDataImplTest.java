@@ -424,6 +424,11 @@ public class YdbDatabaseMetaDataImplTest {
         rs.nextRow(name.eq("Timestamp"), type.eq(Types.TIMESTAMP), precision.eq(26), unsigned.eq(false)).assertAll();
         rs.nextRow(name.eq("Interval"), type.eq(Types.BIGINT), precision.eq(8), unsigned.eq(false)).assertAll();
 
+        rs.nextRow(name.eq("Date32"), type.eq(Types.DATE), precision.eq(10), unsigned.eq(false)).assertAll();
+        rs.nextRow(name.eq("Datetime64"), type.eq(Types.TIMESTAMP), precision.eq(19), unsigned.eq(false)).assertAll();
+        rs.nextRow(name.eq("Timestamp64"), type.eq(Types.TIMESTAMP), precision.eq(26), unsigned.eq(false)).assertAll();
+        rs.nextRow(name.eq("Interval64"), type.eq(Types.BIGINT), precision.eq(8), unsigned.eq(false)).assertAll();
+
         rs.nextRow(name.eq("Decimal(22, 9)"), type.eq(Types.DECIMAL), precision.eq(22),
                 unsigned.eq(false), fixedPrec.eq(true), minScale.eq(9), maxScale.eq(9)).assertAll();
 
@@ -618,12 +623,24 @@ public class YdbDatabaseMetaDataImplTest {
         rs.nextRow(columnName.eq("c_Interval"), dataType.eq(Types.BIGINT), typeName.eq("Interval"),
                 columnSize.eq(8), ordinal.eq(22)).assertAll();
 
+        rs.nextRow(columnName.eq("c_Date32"), dataType.eq(Types.DATE), typeName.eq("Date32"),
+                columnSize.eq(10), ordinal.eq(23)).assertAll();
+        rs.nextRow(columnName.eq("c_Datetime64"), dataType.eq(Types.TIMESTAMP), typeName.eq("Datetime64"),
+                columnSize.eq(19), ordinal.eq(24)).assertAll();
+        rs.nextRow(columnName.eq("c_Timestamp64"), dataType.eq(Types.TIMESTAMP), typeName.eq("Timestamp64"),
+                columnSize.eq(26), ordinal.eq(25)).assertAll();
+        rs.nextRow(columnName.eq("c_Interval64"), dataType.eq(Types.BIGINT), typeName.eq("Interval64"),
+                columnSize.eq(8), ordinal.eq(26)).assertAll();
+
         rs.nextRow(columnName.eq("c_Decimal"), dataType.eq(Types.DECIMAL), typeName.eq("Decimal(22, 9)"),
-                columnSize.eq(22), ordinal.eq(23), decimalDigits.eq(22)).assertAll();
+                columnSize.eq(22), ordinal.eq(27), decimalDigits.eq(22)).assertAll();
         rs.nextRow(columnName.eq("c_BigDecimal"), dataType.eq(Types.DECIMAL), typeName.eq("Decimal(35, 0)"),
-                columnSize.eq(35), ordinal.eq(24), decimalDigits.eq(35)).assertAll();
+                columnSize.eq(35), ordinal.eq(28), decimalDigits.eq(35)).assertAll();
         rs.nextRow(columnName.eq("c_BankDecimal"), dataType.eq(Types.DECIMAL), typeName.eq("Decimal(31, 9)"),
-                columnSize.eq(31), ordinal.eq(25), decimalDigits.eq(31)).assertAll();
+                columnSize.eq(31), ordinal.eq(29), decimalDigits.eq(31)).assertAll();
+
+        rs.nextRow(columnName.eq("c_Extra"), dataType.eq(Types.INTEGER), typeName.eq("Int32"),
+                columnSize.eq(4), ordinal.eq(30)).assertAll();
 
         rs.assertNoRows();
 
