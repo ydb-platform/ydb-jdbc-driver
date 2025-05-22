@@ -23,7 +23,7 @@ import tech.ydb.table.values.PrimitiveType;
  * @author Aleksandr Gorshenin
  */
 public class YdbQueryParserTest {
-    private final YdbTypes types = new YdbTypes();
+    private final YdbTypes types = new YdbTypes(false);
     private YdbQueryProperties props;
 
     @BeforeEach
