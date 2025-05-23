@@ -22,7 +22,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import tech.ydb.jdbc.YdbConst;
-import tech.ydb.jdbc.impl.YdbTypes;
 import tech.ydb.table.result.PrimitiveReader;
 import tech.ydb.table.result.ValueReader;
 import tech.ydb.table.values.DecimalValue;
@@ -644,10 +643,7 @@ public class MappingGetters {
         }
     }
 
-    static SqlType buildDataType(Type type) {
-        // All types must be the same as for #valueToObject
-        int sqlType = YdbTypes.toSqlType(type);
-
+    static SqlType buildDataType(int sqlType, Type type) {
         switch (type.getKind()) {
             case PRIMITIVE:
                 return buildPrimitiveType(sqlType, (PrimitiveType) type);

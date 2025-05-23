@@ -258,7 +258,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             StreamQueryResult lazy = validator.call(msg, tracer, () -> {
                 final CompletableFuture<Result<StreamQueryResult>> future = new CompletableFuture<>();
                 final QueryStream stream = localTx.createQuery(yql, isAutoCommit, params, settings);
-                final StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
+                final StreamQueryResult result = new StreamQueryResult(msg, types, statement, query, stream::cancel);
 
                 stream.execute(new QueryStream.PartsHandler() {
                     @Override
@@ -313,7 +313,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
             List<YdbResultSet> readers = new ArrayList<>();
             for (ResultSetReader rst: result) {
-                readers.add(new YdbStaticResultSet(statement, rst));
+                readers.add(new YdbStaticResultSet(types, statement, rst));
             }
             return updateCurrentResult(new StaticQueryResult(query, readers));
         } finally {
@@ -387,7 +387,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             }
 
             return updateCurrentResult(
-                    new StaticQueryResult(statement, res.getStats().getQueryAst(), res.getStats().getQueryPlan())
+                    new StaticQueryResult(types, statement, res.getStats().getQueryAst(), res.getStats().getQueryPlan())
             );
         } finally {
             if (tx.get() == null) {

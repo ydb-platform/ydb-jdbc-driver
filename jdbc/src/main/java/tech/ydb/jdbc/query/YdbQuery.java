@@ -5,6 +5,7 @@ package tech.ydb.jdbc.query;
 import java.sql.SQLException;
 import java.util.List;
 
+import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.jdbc.settings.YdbQueryProperties;
 
 /**
@@ -58,8 +59,8 @@ public class YdbQuery {
         return statements;
     }
 
-    public static YdbQuery parseQuery(String query, YdbQueryProperties opts) throws SQLException {
-        YdbQueryParser parser = new YdbQueryParser(query, opts);
+    public static YdbQuery parseQuery(String query, YdbQueryProperties opts, YdbTypes types) throws SQLException {
+        YdbQueryParser parser = new YdbQueryParser(types, query, opts);
         String preparedYQL = parser.parseSQL();
 
         QueryType type = null;

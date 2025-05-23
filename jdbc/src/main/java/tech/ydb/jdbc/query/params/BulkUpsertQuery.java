@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.table.description.TableColumn;
 import tech.ydb.table.description.TableDescription;
 import tech.ydb.table.values.ListType;
@@ -22,11 +23,11 @@ public class BulkUpsertQuery extends BatchedQuery {
     private final String tablePath;
     private final ListType bulkType;
 
-    private BulkUpsertQuery(String tablePath, String yql, List<String> columns, Map<String, Type> types)
+    private BulkUpsertQuery(YdbTypes types, String path, String yql, List<String> columns, Map<String, Type> paramTypes)
             throws SQLException {
-        super(yql, "$bulk", columns, types);
-        this.tablePath = tablePath;
-        this.bulkType = ListType.of(StructType.of(types));
+        super(types, yql, "$bulk", columns, paramTypes);
+        this.tablePath = path;
+        this.bulkType = ListType.of(StructType.of(paramTypes));
     }
 
     public String getTablePath() {
@@ -41,11 +42,11 @@ public class BulkUpsertQuery extends BatchedQuery {
         return bulkType.newValue(getBatchedValues());
     }
 
-    public static BulkUpsertQuery build(String tablePath, List<String> columns, TableDescription description)
+    public static BulkUpsertQuery build(YdbTypes types, String path, List<String> columns, TableDescription description)
             throws SQLException {
         StringBuilder yql = new StringBuilder();
         yql.append("BULK UPSERT INTO `");
-        yql.append(tablePath);
+        yql.append(path);
         yql.append("` (");
         yql.append(columns.stream().collect(Collectors.joining(", ")));
         yql.append(")");
@@ -63,6 +64,6 @@ public class BulkUpsertQuery extends BatchedQuery {
             structTypes.put(column, columnTypes.get(column));
         }
 
-        return new BulkUpsertQuery(tablePath, yql.toString(), columns, structTypes);
+        return new BulkUpsertQuery(types, path, yql.toString(), columns, structTypes);
     }
 }

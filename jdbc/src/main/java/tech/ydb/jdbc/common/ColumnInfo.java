@@ -19,14 +19,13 @@ public class ColumnInfo {
     private final boolean isNumber;
     private final boolean isNull;
 
-    public ColumnInfo(String name, Type type) {
+    public ColumnInfo(String name, TypeDescription type) {
         this.name = name;
 
-        TypeDescription desc = TypeDescription.of(type);
-        this.sqlType = desc.sqlType();
-        this.getters = desc.getters();
-        this.isOptional = desc.isOptional();
-        this.ydbType = desc.ydbType();
+        this.sqlType = type.sqlType();
+        this.getters = type.getters();
+        this.isOptional = type.isOptional();
+        this.ydbType = type.ydbType();
 
         this.isTimestamp = ydbType == PrimitiveType.Timestamp;
         this.isNumber = ydbType == PrimitiveType.Int8 || ydbType == PrimitiveType.Uint8
@@ -68,10 +67,11 @@ public class ColumnInfo {
         return this.getters;
     }
 
-    public static ColumnInfo[] fromResultSetReader(ResultSetReader rsr) {
+    public static ColumnInfo[] fromResultSetReader(YdbTypes types, ResultSetReader rsr) {
         ColumnInfo[] columns = new ColumnInfo[rsr.getColumnCount()];
         for (int idx = 0; idx < rsr.getColumnCount(); idx += 1) {
-            columns[idx] = new ColumnInfo(rsr.getColumnName(idx), rsr.getColumnType(idx));
+            TypeDescription type = types.find(rsr.getColumnType(idx));
+            columns[idx] = new ColumnInfo(rsr.getColumnName(idx), type);
         }
         return columns;
     }

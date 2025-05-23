@@ -189,7 +189,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         try (Session session = createNewTableSession(validator)) {
             String msg = QueryType.EXPLAIN_QUERY + " >>\n" + yql;
             ExplainDataQueryResult res = validator.call(msg, tracer, () -> session.explainDataQuery(yql, settings));
-            return updateCurrentResult(new StaticQueryResult(statement, res.getQueryAst(), res.getQueryPlan()));
+            return updateCurrentResult(new StaticQueryResult(types, statement, res.getQueryAst(), res.getQueryPlan()));
         } finally {
             if (!tx.isInsideTransaction()) {
                 tracer.close();
@@ -224,7 +224,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
                     throw new SQLException(msg);
                 }
 
-                readers.add(new YdbStaticResultSet(statement, rs));
+                readers.add(new YdbStaticResultSet(types, statement, rs));
             }
 
             return updateCurrentResult(new StaticQueryResult(query, readers));

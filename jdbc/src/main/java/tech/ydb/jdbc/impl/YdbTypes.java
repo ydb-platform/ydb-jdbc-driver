@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.impl;
+package tech.ydb.jdbc.common;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.table.values.DecimalType;
@@ -25,14 +26,11 @@ import tech.ydb.table.values.Value;
 import tech.ydb.table.values.VoidType;
 
 public class YdbTypes {
-    private static final YdbTypes INSTANCE = new YdbTypes();
-
-    private final Map<Integer, Type> typeBySqlType;
+    private final Map<Integer, Type> typeBySqlType = new HashMap<>();
     private final Map<Class<?>, Type> typeByClass;
+    private final Map<Type, TypeDescription> types = new ConcurrentHashMap<>();
 
-    private YdbTypes() {
-        typeBySqlType = new HashMap<>();
-
+    public YdbTypes() {
         // Store custom type ids to use it for PrepaparedStatement.setObject
         typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 0, PrimitiveType.Bool);
 
@@ -130,11 +128,11 @@ public class YdbTypes {
         typeByClass.put(Duration.class, PrimitiveType.Interval);
     }
 
-    public static Type findType(Object obj, int sqlType) {
-        return INSTANCE.findTypeImpl(obj, sqlType);
+    public TypeDescription find(Type type) {
+        return types.computeIfAbsent(type, t -> TypeDescription.buildType(this, t));
     }
 
-    private Type findTypeImpl(Object obj, int sqlType) {
+    public Type findType(Object obj, int sqlType) {
         if ((sqlType & YdbConst.SQL_KIND_DECIMAL) != 0) {
             int precision = ((sqlType - YdbConst.SQL_KIND_DECIMAL) >> 6);
             int scale = ((sqlType - YdbConst.SQL_KIND_DECIMAL) & 0b111111);
@@ -163,11 +161,7 @@ public class YdbTypes {
      * @param type YDB type to convert
      * @return sqlType
      */
-    public static int toSqlType(Type type) {
-        return INSTANCE.toSqlTypeImpl(type);
-    }
-
-    private int toSqlTypeImpl(Type type) {
+    public int toSqlType(Type type) {
         switch (type.getKind()) {
             case PRIMITIVE:
                 switch ((PrimitiveType) type) {
@@ -211,7 +205,7 @@ public class YdbTypes {
                         return Types.JAVA_OBJECT;
                 }
             case OPTIONAL:
-                return toSqlTypeImpl(type.unwrapOptional());
+                return toSqlType(type.unwrapOptional());
             case DECIMAL:
                 return Types.DECIMAL;
             case STRUCT:
@@ -237,11 +231,7 @@ public class YdbTypes {
      * @param type YDB type
      * @return precision
      */
-    public static int getSqlPrecision(Type type) {
-        return INSTANCE.getSqlPrecisionImpl(type);
-    }
-
-    private int getSqlPrecisionImpl(Type type) {
+    public int getSqlPrecision(Type type) {
         // The <...> column specifies the column size for the given column.
         // For numeric data, this is the maximum precision.
         // For character data, this is the length in characters.
@@ -253,7 +243,7 @@ public class YdbTypes {
 
         switch (type.getKind()) {
             case OPTIONAL:
-                return getSqlPrecisionImpl(type.unwrapOptional());
+                return getSqlPrecision(type.unwrapOptional());
             case DECIMAL:
                 return ((DecimalType) type).getPrecision();
             case PRIMITIVE:
@@ -268,11 +258,7 @@ public class YdbTypes {
      *
      * @return list of YDB types that supported by database (could be stored in columns)
      */
-    public static List<Type> getAllDatabaseTypes() {
-        return INSTANCE.getAllDatabaseTypesImpl();
-    }
-
-    private List<Type> getAllDatabaseTypesImpl() {
+    public List<Type> getAllDatabaseTypes() {
         return Arrays.asList(
                 PrimitiveType.Bool,
                 PrimitiveType.Int8,

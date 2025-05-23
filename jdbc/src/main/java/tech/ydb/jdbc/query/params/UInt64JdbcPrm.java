@@ -4,6 +4,7 @@ import java.sql.SQLException;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
+import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.table.values.Value;
@@ -13,11 +14,12 @@ import tech.ydb.table.values.Value;
  * @author Aleksandr Gorshenin
  */
 class UInt64JdbcPrm implements JdbcPrm {
-    private static final TypeDescription DESC = TypeDescription.of(PrimitiveType.Uint64);
+    private final TypeDescription desc;
     private final String name;
     private Value<?> value;
 
-    UInt64JdbcPrm(String name) {
+    UInt64JdbcPrm(YdbTypes types, String name) {
+        this.desc = types.find(PrimitiveType.Uint64);
         this.name = name;
     }
 
@@ -42,11 +44,11 @@ class UInt64JdbcPrm implements JdbcPrm {
 
     @Override
     public TypeDescription getType() {
-        return DESC;
+        return desc;
     }
 
     @Override
     public void setValue(Object obj, int sqlType) throws SQLException {
-        value = DESC.setters().toValue(obj);
+        value = desc.setters().toValue(obj);
     }
 }
