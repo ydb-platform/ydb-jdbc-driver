@@ -111,7 +111,7 @@ public class YdbContext implements AutoCloseable {
         this.schemeClient = SchemeClient.newClient(transport).build();
         this.retryCtx = SessionRetryContext.create(tableClient).build();
 
-        this.types = new YdbTypes();
+        this.types = new YdbTypes(operationProperties.getForceNewDatetypes());
 
         int cacheSize = config.getPreparedStatementsCachecSize();
         if (cacheSize > 0) {

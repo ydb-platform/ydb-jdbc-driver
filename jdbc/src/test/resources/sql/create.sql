@@ -35,11 +35,19 @@ create table #tableName
     c_Timestamp    Timestamp,
     c_Interval     Interval,
 
+    -- New Dates
+    c_Date32       Date32,
+    c_Datetime64   Datetime64,
+    c_Timestamp64  Timestamp64,
+    c_Interval64   Interval64,
+
     -- Decimal
     c_Decimal      Decimal(22,9),
     c_BigDecimal   Decimal(35, 0),
     c_BankDecimal  Decimal(31, 9),
 
+    -- https://github.com/ydb-platform/ydb/issues/18622
+    c_Extra        Int32,
     -- unsupported c_TzDate TzDate,
     -- unsupported c_TzDatetime TzDatetime,
     -- unsupported c_TzTimestamp TzTimestamp,

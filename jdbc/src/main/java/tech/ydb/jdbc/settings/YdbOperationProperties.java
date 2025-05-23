@@ -57,6 +57,10 @@ public class YdbOperationProperties {
             "Use stream implementation of ResultSet", false
     );
 
+    static final YdbProperty<Boolean> FORCE_NEW_DATETYPES = YdbProperty.bool("forceSignedDatetimes",
+            "Use new data types Date32/Datetime64/Timestamp64 by default", false
+    );
+
     private static final int MAX_ROWS = 1000; // TODO: how to figure out the max rows of current connection?
 
     private final YdbValue<Duration> joinDuration;
@@ -73,6 +77,7 @@ public class YdbOperationProperties {
     private final YdbValue<FakeTxMode> bulkQueryTxMode;
 
     private final YdbValue<Boolean> useStreamResultSets;
+    private final YdbValue<Boolean> forceNewDatetypes;
 
     public YdbOperationProperties(YdbConfig config) throws SQLException {
         Properties props = config.getProperties();
@@ -91,6 +96,7 @@ public class YdbOperationProperties {
         this.bulkQueryTxMode = BULK_QUERY_TX_MODE.readValue(props);
 
         this.useStreamResultSets = USE_STREAM_RESULT_SETS.readValue(props);
+        this.forceNewDatetypes = FORCE_NEW_DATETYPES.readValue(props);
     }
 
     public Duration getJoinDuration() {
@@ -139,6 +145,10 @@ public class YdbOperationProperties {
 
     public boolean getUseStreamResultSets() {
         return useStreamResultSets.getValue();
+    }
+
+    public boolean getForceNewDatetypes() {
+        return forceNewDatetypes.getValue();
     }
 
     public int getMaxRows() {

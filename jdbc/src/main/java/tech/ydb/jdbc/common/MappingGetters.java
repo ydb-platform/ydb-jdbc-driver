@@ -167,6 +167,14 @@ public class MappingGetters {
                 return value -> String.valueOf(value.getTimestamp());
             case Interval:
                 return value -> String.valueOf(value.getInterval());
+            case Date32:
+                return value -> String.valueOf(value.getDate32());
+            case Datetime64:
+                return value -> String.valueOf(value.getDatetime64());
+            case Timestamp64:
+                return value -> String.valueOf(value.getTimestamp64());
+            case Interval64:
+                return value -> String.valueOf(value.getInterval64());
             case TzDate:
                 return value -> String.valueOf(value.getTzDate());
             case TzDatetime:
@@ -375,6 +383,8 @@ public class MappingGetters {
                 return value -> checkIntValue(id, value.getUint64());
             case Date:
                 return value -> checkIntValue(id, value.getDate().toEpochDay());
+            case Date32:
+                return value -> checkIntValue(id, value.getDate32().toEpochDay());
             default:
                 return castToIntNotSupported(id.name());
         }
@@ -402,10 +412,16 @@ public class MappingGetters {
                 return PrimitiveReader::getUint64;
             case Date:
                 return value -> value.getDate().toEpochDay();
+            case Date32:
+                return value -> value.getDate32().toEpochDay();
             case Datetime:
                 return value -> value.getDatetime().toEpochSecond(ZoneOffset.UTC);
+            case Datetime64:
+                return value -> value.getDatetime64().toEpochSecond(ZoneOffset.UTC);
             case Timestamp:
                 return value -> value.getTimestamp().toEpochMilli();
+            case Timestamp64:
+                return value -> value.getTimestamp64().toEpochMilli();
             case TzDate:
             case TzDatetime:
             case TzTimestamp:
@@ -413,6 +429,8 @@ public class MappingGetters {
                 return value -> delegate.fromValue(value).toEpochMilli();
             case Interval:
                 return value -> TimeUnit.NANOSECONDS.toMicros(value.getInterval().toNanos());
+            case Interval64:
+                return value -> TimeUnit.NANOSECONDS.toMicros(value.getInterval64().toNanos());
             default:
                 return castToLongNotSupported(id.name());
         }
@@ -514,6 +532,12 @@ public class MappingGetters {
                 return ValueReader::getTimestamp;
             case TzTimestamp:
                 return v -> v.getTzTimestamp().toInstant();
+            case Date32:
+                return v -> Instant.ofEpochSecond(v.getDate32().toEpochDay() * 24 * 60 * 60);
+            case Datetime64:
+                return v -> Instant.ofEpochSecond(v.getDatetime64().toEpochSecond(ZoneOffset.UTC));
+            case Timestamp64:
+                return ValueReader::getTimestamp64;
             default:
                 return castToInstantNotSupported(id.name());
         }
@@ -627,12 +651,16 @@ public class MappingGetters {
             case Double:
                 return new SqlType(sqlType, Double.class);
             case Date:
+            case Date32:
                 return new SqlType(sqlType, LocalDate.class);
             case Datetime:
+            case Datetime64:
                 return new SqlType(sqlType, LocalDateTime.class);
             case Timestamp:
+            case Timestamp64:
                 return new SqlType(sqlType, Instant.class);
             case Interval:
+            case Interval64:
                 return new SqlType(sqlType, Duration.class);
             case TzDate:
             case TzDatetime:
@@ -704,6 +732,14 @@ public class MappingGetters {
                 return PrimitiveReader::getTzDatetime;
             case TzTimestamp:
                 return PrimitiveReader::getTzTimestamp;
+            case Date32:
+                return PrimitiveReader::getDate32;
+            case Datetime64:
+                return PrimitiveReader::getDatetime64;
+            case Timestamp64:
+                return PrimitiveReader::getTimestamp64;
+            case Interval64:
+                return PrimitiveReader::getInterval64;
             default:
                 // DyNumber
                 return value -> {
@@ -741,7 +777,7 @@ public class MappingGetters {
         }
     }
 
-
+    @SuppressWarnings("MethodLength")
     private static ValueToClass valueToClass(PrimitiveType id) {
         ValueToClassBuilder builder = new ValueToClassBuilder(id);
         switch (id) {
@@ -865,6 +901,49 @@ public class MappingGetters {
             case Interval:
                 return builder
                         .register(Duration.class, ValueReader::getInterval)
+                        .build();
+            case Date32:
+                return builder
+                        .register(long.class, v -> v.getDate32().toEpochDay())
+                        .register(Long.class, v -> v.getDate32().toEpochDay())
+                        .register(LocalDate.class, ValueReader::getDate32)
+                        .register(LocalDateTime.class, v -> v.getDate32().atStartOfDay())
+                        .register(java.sql.Date.class, v -> java.sql.Date.valueOf(v.getDate32()))
+                        .register(java.sql.Timestamp.class,
+                                v -> java.sql.Timestamp.valueOf(v.getDate32().atStartOfDay()))
+                        .register(Instant.class, v -> v.getDate32().atStartOfDay(ZoneId.systemDefault()).toInstant())
+                        .register(java.util.Date.class, v -> java.util.Date.from(
+                                v.getDate32().atStartOfDay(ZoneId.systemDefault()).toInstant()))
+                        .build();
+            case Datetime64:
+                return builder
+                        .register(long.class, v -> v.getDatetime64().toEpochSecond(ZoneOffset.UTC))
+                        .register(Long.class, v -> v.getDatetime64().toEpochSecond(ZoneOffset.UTC))
+                        .register(LocalDate.class, v -> v.getDatetime64().toLocalDate())
+                        .register(LocalDateTime.class, ValueReader::getDatetime64)
+                        .register(java.sql.Date.class, v -> java.sql.Date.valueOf(v.getDatetime64().toLocalDate()))
+                        .register(java.sql.Timestamp.class, v -> java.sql.Timestamp.valueOf(v.getDatetime64()))
+                        .register(Instant.class, v -> v.getDatetime64().atZone(ZoneId.systemDefault()).toInstant())
+                        .register(java.util.Date.class, v -> java.util.Date.from(
+                                v.getDatetime64().atZone(ZoneId.systemDefault()).toInstant()))
+                        .build();
+            case Timestamp64:
+                return builder
+                        .register(long.class, v -> v.getTimestamp64().toEpochMilli())
+                        .register(Long.class, v -> v.getTimestamp64().toEpochMilli())
+                        .register(LocalDate.class, v -> v.getTimestamp64().atZone(ZoneId.systemDefault()).toLocalDate())
+                        .register(LocalDateTime.class, v -> v.getTimestamp64()
+                                .atZone(ZoneId.systemDefault()).toLocalDateTime())
+                        .register(java.sql.Date.class, v -> java.sql.Date
+                                .valueOf(v.getTimestamp64().atZone(ZoneId.systemDefault()).toLocalDate()))
+                        .register(java.sql.Timestamp.class, v -> java.sql.Timestamp
+                                .valueOf(v.getTimestamp64().atZone(ZoneId.systemDefault()).toLocalDateTime()))
+                        .register(Instant.class, ValueReader::getTimestamp64)
+                        .register(java.util.Date.class, v -> java.util.Date.from(v.getTimestamp64()))
+                        .build();
+            case Interval64:
+                return builder
+                        .register(Duration.class, ValueReader::getInterval64)
                         .build();
             case TzDate:
                 return builder

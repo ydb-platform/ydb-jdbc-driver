@@ -30,7 +30,7 @@ public class YdbTypes {
     private final Map<Class<?>, Type> typeByClass;
     private final Map<Type, TypeDescription> types = new ConcurrentHashMap<>();
 
-    public YdbTypes() {
+    public YdbTypes(boolean useNewDatetypes) {
         // Store custom type ids to use it for PrepaparedStatement.setObject
         typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 0, PrimitiveType.Bool);
 
@@ -62,6 +62,12 @@ public class YdbTypes {
         typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 22, PrimitiveType.TzTimestamp);
 
         typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 23, PrimitiveType.JsonDocument);
+        // typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 24, PrimitiveType.DyNumber); -- not supported
+
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 25, PrimitiveType.Date32);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 26, PrimitiveType.Datetime64);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 27, PrimitiveType.Timestamp64);
+        typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 28, PrimitiveType.Interval64);
 
         typeBySqlType.put(Types.VARCHAR, PrimitiveType.Text);
         typeBySqlType.put(Types.BIGINT, PrimitiveType.Int64);
@@ -78,8 +84,8 @@ public class YdbTypes {
         typeBySqlType.put(Types.BINARY, PrimitiveType.Bytes);
         typeBySqlType.put(Types.VARBINARY, PrimitiveType.Bytes);
 
-        typeBySqlType.put(Types.DATE, PrimitiveType.Date);
-        typeBySqlType.put(Types.TIMESTAMP, PrimitiveType.Timestamp);
+        typeBySqlType.put(Types.DATE, useNewDatetypes ? PrimitiveType.Date32 : PrimitiveType.Date);
+        typeBySqlType.put(Types.TIMESTAMP, useNewDatetypes ? PrimitiveType.Timestamp64 : PrimitiveType.Timestamp);
         typeBySqlType.put(Types.TIME, PrimitiveType.Int32); // YDB doesn't support TIME
 
         typeBySqlType.put(Types.TIMESTAMP_WITH_TIMEZONE, PrimitiveType.TzTimestamp);
@@ -112,20 +118,20 @@ public class YdbTypes {
         typeByClass.put(byte[].class, PrimitiveType.Bytes);
 
         typeByClass.put(UUID.class, PrimitiveType.Uuid);
-        typeByClass.put(java.sql.Date.class, PrimitiveType.Date);
-        typeByClass.put(LocalDate.class, PrimitiveType.Date);
-        typeByClass.put(LocalDateTime.class, PrimitiveType.Datetime);
+        typeByClass.put(java.sql.Date.class, useNewDatetypes ? PrimitiveType.Date32 : PrimitiveType.Date);
+        typeByClass.put(LocalDate.class, useNewDatetypes ? PrimitiveType.Date32 : PrimitiveType.Date);
+        typeByClass.put(LocalDateTime.class, useNewDatetypes ? PrimitiveType.Datetime64 : PrimitiveType.Datetime);
 
-        typeByClass.put(java.util.Date.class, PrimitiveType.Timestamp);
-        typeByClass.put(Timestamp.class, PrimitiveType.Timestamp);
-        typeByClass.put(Instant.class, PrimitiveType.Timestamp);
+        typeByClass.put(java.util.Date.class, useNewDatetypes ? PrimitiveType.Timestamp64 : PrimitiveType.Timestamp);
+        typeByClass.put(Timestamp.class, useNewDatetypes ? PrimitiveType.Timestamp64 : PrimitiveType.Timestamp);
+        typeByClass.put(Instant.class, useNewDatetypes ? PrimitiveType.Timestamp64 : PrimitiveType.Timestamp);
 
         typeByClass.put(LocalTime.class, PrimitiveType.Int32);
         typeByClass.put(Time.class, PrimitiveType.Int32);
 
         typeByClass.put(DecimalValue.class, DecimalType.getDefault());
         typeByClass.put(BigDecimal.class, DecimalType.getDefault());
-        typeByClass.put(Duration.class, PrimitiveType.Interval);
+        typeByClass.put(Duration.class, useNewDatetypes ? PrimitiveType.Interval64 : PrimitiveType.Interval);
     }
 
     public TypeDescription find(Type type) {
@@ -186,16 +192,19 @@ public class YdbTypes {
                     case Int64:
                     case Uint64:
                     case Interval:
+                    case Interval64:
                         return Types.BIGINT;
                     case Float:
                         return Types.FLOAT;
                     case Double:
                         return Types.DOUBLE;
                     case Date:
+                    case Date32:
                         return Types.DATE;
                     case Datetime:
-                        return Types.TIMESTAMP;
                     case Timestamp:
+                    case Datetime64:
+                    case Timestamp64:
                         return Types.TIMESTAMP;
                     case TzDate:
                     case TzDatetime:
@@ -280,6 +289,10 @@ public class YdbTypes {
                 PrimitiveType.Datetime,
                 PrimitiveType.Timestamp,
                 PrimitiveType.Interval,
+                PrimitiveType.Date32,
+                PrimitiveType.Datetime64,
+                PrimitiveType.Timestamp64,
+                PrimitiveType.Interval64,
                 DecimalType.getDefault());
     }
 
@@ -300,6 +313,7 @@ public class YdbTypes {
             case Uint64:
             case Double:
             case Interval:
+            case Interval64:
                 return 8;
             case Bytes:
             case Text:
@@ -310,10 +324,13 @@ public class YdbTypes {
             case Uuid:
                 return 8 + 8;
             case Date:
+            case Date32:
                 return "0000-00-00".length();
             case Datetime:
+            case Datetime64:
                 return "0000-00-00 00:00:00".length();
             case Timestamp:
+            case Timestamp64:
                 return "0000-00-00T00:00:00.000000".length();
             case TzDate:
                 return "0000-00-00+00:00".length();

@@ -77,7 +77,6 @@
                     <environmentVariables>
                         <TESTCONTAINERS_REUSE_ENABLE>true</TESTCONTAINERS_REUSE_ENABLE>
                         <YDB_DOCKER_IMAGE>ydbplatform/local-ydb:trunk</YDB_DOCKER_IMAGE>
-                        <YDB_DOCKER_FEATURE_FLAGS>enable_parameterized_decimal</YDB_DOCKER_FEATURE_FLAGS>
                     </environmentVariables>
                     <systemPropertyVariables>
                         <java.util.logging.config.file>src/test/resources/logging.properties</java.util.logging.config.file>
