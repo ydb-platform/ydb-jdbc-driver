@@ -291,6 +291,9 @@ public class YdbQueryParser {
                 case ',':
                     batcher.readComma();
                     break;
+                case '.':
+                    batcher.readPoint();
+                    break;
                 case '=':
                     batcher.readEqual();
                     break;

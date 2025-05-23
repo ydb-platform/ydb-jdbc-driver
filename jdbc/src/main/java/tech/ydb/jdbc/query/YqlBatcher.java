@@ -38,6 +38,8 @@ public class YqlBatcher {
         VALUES_CLOSE_PAREN,  // Readed ')'
 
         WHERE, // Readed WHERE keyword (only for UPDATE/DELETE)
+        WHERE_TABLE,  // Readed table name in WHERE clause as part of identifier
+        WHERE_POINT,  // Readed '.' after table name in WHERE clause
         WHERE_COLUMN, // Readed column name in WHERE clause
         WHERE_EQUAL,  // Readed '=' in WHERE clause
         WHERE_VALUE,  // Readed column value in WHERE clause (support only ?)
@@ -195,9 +197,22 @@ public class YqlBatcher {
         state = State.ERROR;
     }
 
+    public void readPoint() {
+        if (state == State.WHERE_TABLE) {
+            state = State.WHERE_POINT;
+            return;
+        }
+        state = State.ERROR;
+    }
+
     public void readEqual() {
         if (state == State.COLUMNS_NAME && cmd == Cmd.UPDATE) {
             state = State.COLUMNS_EQUAL;
+            return;
+        }
+        if (state == State.WHERE_TABLE) { // special case with column name == table name
+            keyColumns.add(tableName);
+            state = State.WHERE_EQUAL;
             return;
         }
         if (state == State.WHERE_COLUMN && (cmd == Cmd.UPDATE || cmd == Cmd.DELETE)) {
@@ -347,6 +362,17 @@ public class YqlBatcher {
         }
 
         if (state == State.WHERE || state == State.WHERE_AND) {
+            String identifier = unquote(query, start, length);
+            if (tableName.equals(identifier)) {
+                state = State.WHERE_TABLE;
+            } else {
+                keyColumns.add(identifier);
+                state = State.WHERE_COLUMN;
+            }
+            return;
+        }
+
+        if (state == State.WHERE_POINT) {
             keyColumns.add(unquote(query, start, length));
             state = State.WHERE_COLUMN;
             return;
