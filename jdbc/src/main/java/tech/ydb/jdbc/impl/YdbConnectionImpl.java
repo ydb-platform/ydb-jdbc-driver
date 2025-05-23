@@ -42,7 +42,6 @@ public class YdbConnectionImpl implements YdbConnection {
 
     public YdbConnectionImpl(YdbContext context) throws SQLException {
         this.ctx = context;
-
         this.validator = new YdbValidator();
         this.executor = ctx.createExecutor();
         this.ctx.register();

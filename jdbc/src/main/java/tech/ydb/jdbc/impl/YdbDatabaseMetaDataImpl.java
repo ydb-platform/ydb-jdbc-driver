@@ -30,6 +30,7 @@ import tech.ydb.jdbc.YdbDatabaseMetaData;
 import tech.ydb.jdbc.YdbDriverInfo;
 import tech.ydb.jdbc.common.FixedResultSetFactory;
 import tech.ydb.jdbc.common.YdbFunctions;
+import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.jdbc.context.SchemeExecutor;
 import tech.ydb.jdbc.context.YdbValidator;
 import tech.ydb.scheme.description.Entry;
@@ -778,6 +779,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         List<String> tableNames = listTables(tableNamePattern);
         Collections.sort(tableNames);
 
+        YdbTypes types = connection.getCtx().getTypes();
         FixedResultSetFactory.ResultSetBuilder rs = MetaDataTables.COLUMNS.createResultSet();
         for (String tableName: tableNames) {
             TableDescription tableDescription = describeTable(tableName);
@@ -813,9 +815,9 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
                 rs.newRow()
                         .withTextValue("TABLE_NAME", tableName)
                         .withTextValue("COLUMN_NAME", column.getName())
-                        .withIntValue("DATA_TYPE", YdbTypes.toSqlType(type))
+                        .withIntValue("DATA_TYPE", types.toSqlType(type))
                         .withTextValue("TYPE_NAME", type.toString())
-                        .withIntValue("COLUMN_SIZE", YdbTypes.getSqlPrecision(type))
+                        .withIntValue("COLUMN_SIZE", types.getSqlPrecision(type))
                         .withIntValue("BUFFER_LENGTH", 0)
                         .withIntValue("DECIMAL_DIGITS", decimalDigits)
                         .withIntValue("NUM_PREC_RADIX", 10)
@@ -879,6 +881,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         Map<String, TableColumn> columnMap = description.getColumns().stream()
                 .collect(Collectors.toMap(TableColumn::getName, Function.identity()));
 
+        YdbTypes types = connection.getCtx().getTypes();
         // Only primary keys could be used as row identifiers
         for (String key : description.getPrimaryKeys()) {
             TableColumn column = columnMap.get(key);
@@ -898,7 +901,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
             rs.newRow()
                     .withShortValue("SCOPE", (short) scope)
                     .withTextValue("COLUMN_NAME", key)
-                    .withIntValue("DATA_TYPE", YdbTypes.toSqlType(type))
+                    .withIntValue("DATA_TYPE", types.toSqlType(type))
                     .withTextValue("TYPE_NAME", type.toString())
                     .withIntValue("COLUMN_SIZE", 0)
                     .withIntValue("BUFFER_LENGTH", 0)
@@ -975,7 +978,8 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     public ResultSet getTypeInfo() {
         FixedResultSetFactory.ResultSetBuilder rs = MetaDataTables.TYPE_INFOS.createResultSet();
 
-        for (Type type: YdbTypes.getAllDatabaseTypes()) {
+        YdbTypes types = connection.getCtx().getTypes();
+        for (Type type: types.getAllDatabaseTypes()) {
             String literal = getLiteral(type);
             int scale = 0;
             if (type.getKind() == Type.Kind.DECIMAL) {
@@ -988,8 +992,8 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
             rs.newRow()
                     .withTextValue("TYPE_NAME", type.toString())
-                    .withIntValue("DATA_TYPE", YdbTypes.toSqlType(type))
-                    .withIntValue("PRECISION", YdbTypes.getSqlPrecision(type))
+                    .withIntValue("DATA_TYPE", types.toSqlType(type))
+                    .withIntValue("PRECISION", types.getSqlPrecision(type))
                     .withTextValue("LITERAL_PREFIX", literal)
                     .withTextValue("LITERAL_SUFFIX", literal)
                     .withShortValue("NULLABLE", (short) typeNullable)
@@ -1394,12 +1398,12 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     private ResultSet emptyResultSet(FixedResultSetFactory factory) {
         YdbStatementImpl statement = new YdbStatementImpl(connection, ResultSet.TYPE_SCROLL_INSENSITIVE);
-        return new YdbStaticResultSet(statement, factory.createResultSet().build());
+        return new YdbStaticResultSet(connection.getCtx().getTypes(), statement, factory.createResultSet().build());
     }
 
     private ResultSet resultSet(ResultSetReader rsReader) {
         YdbStatementImpl statement = new YdbStatementImpl(connection, ResultSet.TYPE_SCROLL_INSENSITIVE);
-        return new YdbStaticResultSet(statement, rsReader);
+        return new YdbStaticResultSet(connection.getCtx().getTypes(), statement, rsReader);
     }
 
     private boolean isMatchedCatalog(String catalog) {

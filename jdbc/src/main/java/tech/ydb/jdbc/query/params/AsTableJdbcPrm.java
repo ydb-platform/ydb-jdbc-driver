@@ -6,7 +6,7 @@ import java.util.List;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
-import tech.ydb.jdbc.impl.YdbTypes;
+import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.ListType;
 import tech.ydb.table.values.OptionalType;
@@ -23,11 +23,13 @@ public class AsTableJdbcPrm {
     private static final Value<?> NULL = VoidValue.of();
     private static final String COLUMN_NAME = "x";
 
+    private final YdbTypes types;
     private final String listName;
     private final List<Item> items = new ArrayList<>();
     private TypeDescription type;
 
-    public AsTableJdbcPrm(String listName, int listSize) {
+    public AsTableJdbcPrm(YdbTypes types, String listName, int listSize) {
+        this.types = types;
         this.listName = listName;
         for (int idx = 0; idx < listSize; idx++) {
             items.add(new Item(listName, idx));
@@ -97,7 +99,7 @@ public class AsTableJdbcPrm {
         @Override
         public void setValue(Object obj, int sqlType) throws SQLException {
             if (type == null) {
-                Type ydbType = YdbTypes.findType(obj, sqlType);
+                Type ydbType = types.findType(obj, sqlType);
                 if (ydbType == null) {
                     if (obj == null) {
                         value = NULL;
@@ -107,7 +109,7 @@ public class AsTableJdbcPrm {
                     }
                 }
 
-                type = TypeDescription.of(ydbType);
+                type = types.find(ydbType);
             }
 
             if (obj == null) {

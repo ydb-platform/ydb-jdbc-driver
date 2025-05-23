@@ -14,6 +14,7 @@ import java.util.TreeSet;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
+import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.jdbc.query.ParamDescription;
 import tech.ydb.jdbc.query.YdbPreparedQuery;
 import tech.ydb.jdbc.query.YdbQuery;
@@ -33,17 +34,17 @@ public class PreparedQuery implements YdbPreparedQuery {
     private final Map<String, Value<?>> paramValues = new HashMap<>();
     private final List<Params> batchList = new ArrayList<>();
 
-    public PreparedQuery(YdbQuery query, Map<String, Type> types) {
+    public PreparedQuery(YdbTypes types, YdbQuery query, Map<String, Type> paramTypes) {
         yql = query.getPreparedYql();
         params = new HashMap<>();
-        paramNames = new String[types.size()];
+        paramNames = new String[paramTypes.size()];
 
         // Firstly put all indexed params (p1, p2, ...,  pN) in correct places of paramNames
         Set<String> indexedNames = new HashSet<>();
         for (int idx = 0; idx < paramNames.length; idx += 1) {
             String indexedName = YdbConst.VARIABLE_PARAMETER_PREFIX + YdbConst.INDEXED_PARAMETER_PREFIX + (1 + idx);
-            if (types.containsKey(indexedName)) {
-                TypeDescription typeDesc = TypeDescription.of(types.get(indexedName));
+            if (paramTypes.containsKey(indexedName)) {
+                TypeDescription typeDesc = types.find(paramTypes.get(indexedName));
                 ParamDescription paramDesc = new ParamDescription(indexedName, typeDesc);
 
                 params.put(indexedName, paramDesc);
@@ -53,7 +54,7 @@ public class PreparedQuery implements YdbPreparedQuery {
         }
 
         // Then put all others params in free places of paramNames in alphabetic order
-        Iterator<String> sortedIter = new TreeSet<>(types.keySet()).iterator();
+        Iterator<String> sortedIter = new TreeSet<>(paramTypes.keySet()).iterator();
         for (int idx = 0; idx < paramNames.length; idx += 1) {
             if (paramNames[idx] != null) {
                 continue;
@@ -64,7 +65,7 @@ public class PreparedQuery implements YdbPreparedQuery {
                 param = sortedIter.next();
             }
 
-            TypeDescription typeDesc = TypeDescription.of(types.get(param));
+            TypeDescription typeDesc = types.find(paramTypes.get(param));
             ParamDescription paramDesc = new ParamDescription(param, typeDesc);
 
             params.put(param, paramDesc);

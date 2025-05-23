@@ -5,7 +5,7 @@ import java.sql.SQLException;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
-import tech.ydb.jdbc.impl.YdbTypes;
+import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Type;
 import tech.ydb.table.values.Value;
@@ -15,10 +15,12 @@ import tech.ydb.table.values.Value;
  * @author Aleksandr Gorshenin
  */
 class SimpleJdbcPrm implements JdbcPrm {
+    private final YdbTypes types;
     private final String name;
     private Value<?> value;
 
-    SimpleJdbcPrm(String name) {
+    SimpleJdbcPrm(YdbTypes types, String name) {
+        this.types = types;
         this.name = name;
     }
 
@@ -45,7 +47,7 @@ class SimpleJdbcPrm implements JdbcPrm {
         if (value == null) {
             return null;
         }
-        return TypeDescription.of(value.getType());
+        return types.find(value.getType());
     }
 
     @Override
@@ -55,7 +57,7 @@ class SimpleJdbcPrm implements JdbcPrm {
             return;
         }
 
-        Type type = YdbTypes.findType(obj, sqlType);
+        Type type = types.findType(obj, sqlType);
         if (type == null) {
             throw new SQLDataException(String.format(YdbConst.PARAMETER_TYPE_UNKNOWN, sqlType, obj));
         }
@@ -65,6 +67,6 @@ class SimpleJdbcPrm implements JdbcPrm {
             return;
         }
 
-        value = TypeDescription.of(type).setters().toValue(obj);
+        value = types.find(type).setters().toValue(obj);
     }
 }

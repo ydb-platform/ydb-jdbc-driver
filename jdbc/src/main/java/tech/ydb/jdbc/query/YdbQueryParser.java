@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.jdbc.query.params.JdbcPrm;
 import tech.ydb.jdbc.settings.YdbQueryProperties;
 
@@ -25,16 +26,18 @@ public class YdbQueryParser {
     private final YqlBatcher batcher = new YqlBatcher();
     private final String origin;
     private final StringBuilder parsed;
+    private final YdbTypes types;
 
     private int jdbcPrmIndex = 0;
 
-    public YdbQueryParser(String origin, YdbQueryProperties props) {
+    public YdbQueryParser(YdbTypes types, String origin, YdbQueryProperties props) {
         this.isDetectQueryType = props.isDetectQueryType();
         this.isDetectJdbcParameters = props.isDetectJdbcParameters();
         this.isForceJdbcParamters = props.isForceJdbcParameters();
         this.isConvertJdbcInToList = props.isReplaceJdbcInByYqlList();
         this.origin = origin;
         this.parsed = new StringBuilder(origin.length() + 10);
+        this.types = types;
     }
 
     public List<QueryStatement> getStatements() {
@@ -119,7 +122,7 @@ public class YdbQueryParser {
                             i++; // make sure the coming ? is not treated as a bind
                         } else {
                             String name = nextJdbcPrmName();
-                            statement.addJdbcPrmFactory(JdbcPrm.simplePrm(name));
+                            statement.addJdbcPrmFactory(JdbcPrm.simplePrm(types, name));
                             parsed.append(name);
                             batcher.readParameter();
                         }
@@ -334,7 +337,7 @@ public class YdbQueryParser {
                     String name = nextJdbcPrmName();
                     parsed.append(query, start, offset - start);
                     parsed.append(name);
-                    st.addJdbcPrmFactory(JdbcPrm.uint64Prm(name));
+                    st.addJdbcPrmFactory(JdbcPrm.uint64Prm(types, name));
                     return offset + 1;
                 case '-': // possibly -- style comment
                     offset = parseLineComment(query, offset);
@@ -390,7 +393,7 @@ public class YdbQueryParser {
                     parsed.append(query, start, listStartedAt - start);
                     parsed.append(' '); // add extra space to avoid IN$jpN
                     parsed.append(name);
-                    st.addJdbcPrmFactory(JdbcPrm.inListOrm(name, listSize));
+                    st.addJdbcPrmFactory(JdbcPrm.inListOrm(types, name, listSize));
                     return offset + 1;
                 case '-': // possibly -- style comment
                     offset = parseLineComment(query, offset);
@@ -447,7 +450,7 @@ public class YdbQueryParser {
                     parsed.append(" AS_TABLE(");
                     parsed.append(name);
                     parsed.append(")");
-                    st.addJdbcPrmFactory(JdbcPrm.jdbcTableListOrm(name, listSize));
+                    st.addJdbcPrmFactory(JdbcPrm.jdbcTableListOrm(types, name, listSize));
                     return offset + 1;
                 case '-': // possibly -- style comment
                     offset = parseLineComment(query, offset);

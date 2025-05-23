@@ -25,6 +25,7 @@ import tech.ydb.core.settings.BaseRequestSettings;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.YdbTracer;
+import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.jdbc.exception.ExceptionFactory;
 import tech.ydb.jdbc.impl.YdbTracerNone;
 import tech.ydb.jdbc.query.QueryType;
@@ -71,6 +72,7 @@ public class YdbContext implements AutoCloseable {
 
     private final YdbOperationProperties operationProps;
     private final YdbQueryProperties queryOptions;
+    private final YdbTypes types;
 
     private final GrpcTransport grpcTransport;
     private final PooledTableClient tableClient;
@@ -109,6 +111,8 @@ public class YdbContext implements AutoCloseable {
         this.schemeClient = SchemeClient.newClient(transport).build();
         this.retryCtx = SessionRetryContext.create(tableClient).build();
 
+        this.types = new YdbTypes();
+
         int cacheSize = config.getPreparedStatementsCachecSize();
         if (cacheSize > 0) {
             queriesCache = CacheBuilder.newBuilder().maximumSize(cacheSize).build();
@@ -133,6 +137,10 @@ public class YdbContext implements AutoCloseable {
             prefixPath = transport.getDatabase();
             prefixPragma = "";
         }
+    }
+
+    public YdbTypes getTypes() {
+        return types;
     }
 
     /**
@@ -334,7 +342,7 @@ public class YdbContext implements AutoCloseable {
     }
 
     public YdbQuery parseYdbQuery(String sql) throws SQLException {
-        return YdbQuery.parseQuery(sql, queryOptions);
+        return YdbQuery.parseQuery(sql, queryOptions, types);
     }
 
     public YdbQuery findOrParseYdbQuery(String sql) throws SQLException {
@@ -422,11 +430,11 @@ public class YdbContext implements AutoCloseable {
                 }
             }
             if (type == QueryType.BULK_QUERY) {
-                return BulkUpsertQuery.build(tablePath, query.getYqlBatcher().getColumns(), description);
+                return BulkUpsertQuery.build(types, tablePath, query.getYqlBatcher().getColumns(), description);
             }
 
             if (description != null) {
-                BatchedQuery params = BatchedQuery.createAutoBatched(query.getYqlBatcher(), description);
+                BatchedQuery params = BatchedQuery.createAutoBatched(types, query.getYqlBatcher(), description);
                 if (params != null) {
                     return params;
                 }
@@ -438,8 +446,8 @@ public class YdbContext implements AutoCloseable {
         }
 
         // try to prepare data query
-        Map<String, Type> types = queryParamsCache.getIfPresent(query.getOriginQuery());
-        if (types == null) {
+        Map<String, Type> queryTypes = queryParamsCache.getIfPresent(query.getOriginQuery());
+        if (queryTypes == null) {
             String yql = prefixPragma + query.getPreparedYql();
             YdbTracer tracer = getTracer();
             tracer.trace("--> prepare data query");
@@ -457,13 +465,13 @@ public class YdbContext implements AutoCloseable {
                         new UnexpectedResultException("Unexpected status", result.getStatus()));
             }
 
-            types = result.getValue().types();
-            queryParamsCache.put(query.getOriginQuery(), types);
+            queryTypes = result.getValue().types();
+            queryParamsCache.put(query.getOriginQuery(), queryTypes);
         }
 
         boolean requireBatch = mode == YdbPrepareMode.DATA_QUERY_BATCH;
         if (requireBatch || (mode == YdbPrepareMode.AUTO && queryOptions.isDetectBatchQueries())) {
-            BatchedQuery params = BatchedQuery.tryCreateBatched(query, types);
+            BatchedQuery params = BatchedQuery.tryCreateBatched(types, query, queryTypes);
             if (params != null) {
                 return params;
             }
@@ -472,6 +480,6 @@ public class YdbContext implements AutoCloseable {
                 throw new SQLDataException(YdbConst.STATEMENT_IS_NOT_A_BATCH + query.getOriginQuery());
             }
         }
-        return new PreparedQuery(query, types);
+        return new PreparedQuery(types, query, queryTypes);
     }
 }

@@ -16,6 +16,7 @@ import java.util.TreeSet;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
+import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.jdbc.query.ParamDescription;
 import tech.ydb.jdbc.query.YdbPreparedQuery;
 import tech.ydb.jdbc.query.YdbQuery;
@@ -43,19 +44,19 @@ public class BatchedQuery implements YdbPreparedQuery {
     private final List<StructValue> batchList = new ArrayList<>();
     private final Map<String, Value<?>> currentValues = new HashMap<>();
 
-    protected BatchedQuery(String yql, String listName, List<String> paramNames, Map<String, Type> types)
+    protected BatchedQuery(YdbTypes types, String yql, String listName, List<String> pnames, Map<String, Type> ptypes)
             throws SQLException {
         this.yql = yql;
         this.batchParamName = listName;
         this.paramsByName = new HashMap<>();
-        this.params = new ParamDescription[paramNames.size()];
+        this.params = new ParamDescription[pnames.size()];
 
-        for (int idx = 0; idx < paramNames.size(); idx += 1) {
-            String name = paramNames.get(idx);
-            if (!types.containsKey(name)) {
+        for (int idx = 0; idx < pnames.size(); idx += 1) {
+            String name = pnames.get(idx);
+            if (!ptypes.containsKey(name)) {
                 throw new SQLException(YdbConst.INVALID_BATCH_COLUMN + name);
             }
-            TypeDescription type = TypeDescription.of(types.get(name));
+            TypeDescription type = types.find(ptypes.get(name));
             ParamDescription desc = new ParamDescription(name, YdbConst.VARIABLE_PARAMETER_PREFIX + name, type);
             params[idx] = desc;
             paramsByName.put(name, desc);
@@ -159,7 +160,8 @@ public class BatchedQuery implements YdbPreparedQuery {
         return params[index - 1].type();
     }
 
-    public static BatchedQuery tryCreateBatched(YdbQuery query, Map<String, Type> preparedTypes) throws SQLException {
+    public static BatchedQuery tryCreateBatched(YdbTypes types, YdbQuery query, Map<String, Type> preparedTypes)
+            throws SQLException {
         // Only single parameter
         if (preparedTypes.size() != 1) {
             return null;
@@ -184,23 +186,23 @@ public class BatchedQuery implements YdbPreparedQuery {
         StructType itemType = (StructType) innerType;
 
         String[] columns = new String[itemType.getMembersCount()];
-        Map<String, Type> types = new HashMap<>();
+        Map<String, Type> paramTypes = new HashMap<>();
         for (int idx = 0; idx < itemType.getMembersCount(); idx += 1) {
-            types.put(itemType.getMemberName(idx), itemType.getMemberType(idx));
+            paramTypes.put(itemType.getMemberName(idx), itemType.getMemberType(idx));
         }
 
         // Firstly put all indexed params (p1, p2, ...,  pN) in correct places of paramNames
         Set<String> indexedNames = new HashSet<>();
         for (int idx = 0; idx < itemType.getMembersCount(); idx += 1) {
             String indexedName = YdbConst.INDEXED_PARAMETER_PREFIX + (1 + idx);
-            if (types.containsKey(indexedName)) {
+            if (paramTypes.containsKey(indexedName)) {
                 columns[idx] = indexedName;
                 indexedNames.add(indexedName);
             }
         }
 
         // Then put all others params in free places of paramNames in alphabetic order
-        Iterator<String> sortedIter = new TreeSet<>(types.keySet()).iterator();
+        Iterator<String> sortedIter = new TreeSet<>(paramTypes.keySet()).iterator();
         for (int idx = 0; idx < columns.length; idx += 1) {
             if (columns[idx] != null) {
                 continue;
@@ -214,10 +216,10 @@ public class BatchedQuery implements YdbPreparedQuery {
             columns[idx] = param;
         }
 
-        return new BatchedQuery(query.getPreparedYql(), listName, Arrays.asList(columns), types);
+        return new BatchedQuery(types, query.getPreparedYql(), listName, Arrays.asList(columns), paramTypes);
     }
 
-    public static BatchedQuery createAutoBatched(YqlBatcher batcher, TableDescription description)
+    public static BatchedQuery createAutoBatched(YdbTypes types, YqlBatcher batcher, TableDescription description)
             throws SQLException {
 
         // DELETE and UPDATE may be batched only if WHERE contains only primary key columns
@@ -294,6 +296,6 @@ public class BatchedQuery implements YdbPreparedQuery {
 
         sb.append(" FROM AS_TABLE($batch);");
 
-        return new BatchedQuery(sb.toString(), "$batch", columns, structTypes);
+        return new BatchedQuery(types, sb.toString(), "$batch", columns, structTypes);
     }
 }

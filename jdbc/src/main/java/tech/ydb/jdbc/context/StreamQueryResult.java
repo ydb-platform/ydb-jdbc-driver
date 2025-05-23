@@ -22,6 +22,7 @@ import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.common.ColumnInfo;
+import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.jdbc.exception.ExceptionFactory;
 import tech.ydb.jdbc.impl.BaseYdbResultSet;
 import tech.ydb.jdbc.impl.YdbQueryResult;
@@ -41,6 +42,7 @@ public class StreamQueryResult implements YdbQueryResult {
     private static final int UPDATE_EXPRESSION = -2;
 
     private final String msg;
+    private final YdbTypes types;
     private final YdbStatement statement;
     private final Runnable streamStopper;
 
@@ -53,10 +55,11 @@ public class StreamQueryResult implements YdbQueryResult {
     private int resultIndex = 0;
     private volatile boolean resultClosed = false;
 
-    public StreamQueryResult(String msg, YdbStatement statement, YdbQuery query, Runnable streamStopper) {
+    public StreamQueryResult(String msg, YdbTypes types, YdbStatement statement, YdbQuery query, Runnable stopper) {
         this.msg = msg;
+        this.types = types;
         this.statement = statement;
-        this.streamStopper = streamStopper;
+        this.streamStopper = stopper;
 
         this.resultIndexes = new int[query.getStatements().size()];
 
@@ -82,7 +85,7 @@ public class StreamQueryResult implements YdbQueryResult {
         CompletableFuture<Result<LazyResultSet>> future = resultFutures.get(index);
 
         if (!future.isDone()) {
-            ColumnInfo[] columns = ColumnInfo.fromResultSetReader(rsr);
+            ColumnInfo[] columns = ColumnInfo.fromResultSetReader(types, rsr);
             LazyResultSet rs = new LazyResultSet(statement, columns);
             rs.addResultSet(rsr);
             if (future.complete(Result.success(rs))) {
