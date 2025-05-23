@@ -158,7 +158,7 @@ public class YdbPreparedStatementTest {
     }
 
     @ParameterizedTest(name = "with {0}")
-    @EnumSource(value=SqlQueries.JdbcQuery.class, names = { "BATCHED", "TYPED" })
+    @EnumSource(value = SqlQueries.JdbcQuery.class, names = {"BATCHED", "TYPED"})
     public void executeWithWrongType(SqlQueries.JdbcQuery query) throws SQLException {
         String sql = TEST_TABLE.upsertOne(query, "c_Text", "Text");
 
@@ -171,7 +171,7 @@ public class YdbPreparedStatementTest {
     }
 
     @ParameterizedTest(name = "with {0}")
-    @ValueSource(strings = { "c_NotText" , "C_TEXT", "c_text" })
+    @ValueSource(strings = {"c_NotText", "C_TEXT", "c_text"})
     public void executeWithWrongColumnName(String columnName) throws SQLException {
         String errorMessage = "No such column: " + columnName;
 
@@ -197,10 +197,10 @@ public class YdbPreparedStatementTest {
         ExceptionAssert.ydbException(errorMessage, () -> jdbc.connection().prepareStatement(batched));
         ExceptionAssert.sqlException("Cannot parse BULK upsert: column " + columnName + " not found",
                 () -> jdbc.connection().prepareStatement(bulk));
-    };
+    }
 
     @ParameterizedTest(name = "with {0}")
-    @ValueSource(strings = { "unknown_table"/*, "YDB_PREPARED_TEST", "ydD_prepared_test"*/ })
+    @ValueSource(strings = {"unknown_table"/*, "YDB_PREPARED_TEST", "ydD_prepared_test"*/})
     public void executeWithWrongTableName(String tableName) throws SQLException {
         String errorMessage = "Cannot find table 'db.[" + jdbc.database() + "/" + tableName + "]";
         SqlQueries queries = new SqlQueries(tableName);
@@ -227,7 +227,7 @@ public class YdbPreparedStatementTest {
         ExceptionAssert.ydbException(errorMessage, () -> jdbc.connection().prepareStatement(batched));
         ExceptionAssert.sqlException("Cannot parse BULK upsert: Status{code = SCHEME_ERROR(code=400070)}",
                 () -> jdbc.connection().prepareStatement(bulk));
-    };
+    }
 
     @ParameterizedTest(name = "with {0}")
     @EnumSource(SqlQueries.JdbcQuery.class)
@@ -251,7 +251,7 @@ public class YdbPreparedStatementTest {
                     .nextRow(2, "value-2")
                     .noNextRows();
         }
-    };
+    }
 
     @ParameterizedTest(name = "with {0}")
     @EnumSource(SqlQueries.JdbcQuery.class)
@@ -300,7 +300,7 @@ public class YdbPreparedStatementTest {
                     .nextRow(6, "value-6")
                     .noNextRows();
         }
-    };
+    }
 
     private int ydbType(PrimitiveType type) {
         return YdbConst.SQL_KIND_PRIMITIVE + type.ordinal();
@@ -315,16 +315,16 @@ public class YdbPreparedStatementTest {
 
         statement.setBoolean(2, id % 2 == 0);   // c_Bool
 
-        statement.setByte(3, (byte)(id + 1));   // c_Int8
-        statement.setShort(4, (short)(id + 2)); // c_Int16
-        statement.setInt(5, id + 3);            // c_Int32
-        statement.setLong(6, id + 4);           // c_Int64
+        statement.setByte(3, (byte) (id + 1));   // c_Int8
+        statement.setShort(4, (short) (id + 2)); // c_Int16
+        statement.setInt(5, id + 3);             // c_Int32
+        statement.setLong(6, id + 4);            // c_Int64
 
         if (castingSupported) {
-            statement.setByte(7, (byte)(id + 5));   // c_Uint8
-            statement.setShort(8, (short)(id + 6)); // c_Uint16
-            statement.setInt(9, id + 7);            // c_Uint32
-            statement.setLong(10, id + 8);          // c_Uint64
+            statement.setByte(7, (byte) (id + 5));   // c_Uint8
+            statement.setShort(8, (short) (id + 6)); // c_Uint16
+            statement.setInt(9, id + 7);             // c_Uint32
+            statement.setLong(10, id + 8);           // c_Uint64
         } else {
             statement.setObject(7, id + 5, ydbType(PrimitiveType.Uint8));   // c_Uint8
             statement.setObject(8, id + 6, ydbType(PrimitiveType.Uint16));  // c_Uint16
@@ -345,10 +345,10 @@ public class YdbPreparedStatementTest {
             statement.setString(17, "{yson=" + id + "}");         // c_Yson
             statement.setString(18, uuid.toString()); // c_Uuid
         } else {
-            statement.setObject(15, "{\"json\": " + id + "}",    ydbType(PrimitiveType.Json));         // c_Json
+            statement.setObject(15, "{\"json\": " + id + "}", ydbType(PrimitiveType.Json));            // c_Json
             statement.setObject(16, "{\"jsonDoc\": " + id + "}", ydbType(PrimitiveType.JsonDocument)); // c_JsonDocument
-            statement.setObject(17, "{yson=" + id + "}",         ydbType(PrimitiveType.Yson));         // c_Yson
-            statement.setObject(18, uuid, ydbType(PrimitiveType.Uuid)); // c_Uuid
+            statement.setObject(17, "{yson=" + id + "}", ydbType(PrimitiveType.Yson));                 // c_Yson
+            statement.setObject(18, uuid, ydbType(PrimitiveType.Uuid));                                   // c_Uuid
         }
 
         Date sqlDate = new Date(TEST_TS.toEpochMilli());
@@ -451,8 +451,8 @@ public class YdbPreparedStatementTest {
         assertStructMember(PrimitiveValue.newInt32(id), sv, "key");
         assertStructMember(PrimitiveValue.newBool(id % 2 == 0), sv, "c_Bool");
 
-        assertStructMember(PrimitiveValue.newInt8((byte)(id + 1)), sv, "c_Int8");
-        assertStructMember(PrimitiveValue.newInt16((short)(id + 2)), sv, "c_Int16");
+        assertStructMember(PrimitiveValue.newInt8((byte) (id + 1)), sv, "c_Int8");
+        assertStructMember(PrimitiveValue.newInt16((short) (id + 2)), sv, "c_Int16");
         assertStructMember(PrimitiveValue.newInt32(id + 3), sv, "c_Int32");
         assertStructMember(PrimitiveValue.newInt64(id + 4), sv, "c_Int64");
 
@@ -527,7 +527,7 @@ public class YdbPreparedStatementTest {
                 Assertions.assertFalse(rs.next());
             }
         }
-    };
+    }
 
     @Test
     public void setStringTest() throws SQLException {
@@ -575,7 +575,7 @@ public class YdbPreparedStatementTest {
                 Assertions.assertFalse(rs.next());
             }
         }
-    };
+    }
 
     @Test
     public void tableRowTest() throws SQLException {
@@ -597,7 +597,7 @@ public class YdbPreparedStatementTest {
                 Assertions.assertFalse(rs.next());
             }
         }
-    };
+    }
 
     private void assertResultSetCount(ResultSet rs, int count) throws SQLException {
         Assertions.assertTrue(rs.next());
@@ -607,7 +607,7 @@ public class YdbPreparedStatementTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = { "true", "false" })
+    @ValueSource(strings = {"true", "false"})
     public void inListTest(boolean convertInToList) throws SQLException {
         String option = String.valueOf(convertInToList);
         String arg2Name = convertInToList ? "$jp1[1]" : "$jp2";
@@ -850,7 +850,7 @@ public class YdbPreparedStatementTest {
                 Assertions.assertFalse(rs.next());
             }
         }
-    };
+    }
 
     private void assertNextInt32(ResultSet rs, int key, Integer value) throws SQLException {
         Assertions.assertTrue(rs.next());
@@ -972,7 +972,7 @@ public class YdbPreparedStatementTest {
                 Assertions.assertFalse(rs.next());
             }
         }
-    };
+    }
 
     private void assertNextInt64(ResultSet rs, int key, Long value) throws SQLException {
         Assertions.assertTrue(rs.next());
@@ -1082,7 +1082,7 @@ public class YdbPreparedStatementTest {
                 Assertions.assertFalse(rs.next());
             }
         }
-    };
+    }
 
     private void assertNextTimestamp(ResultSet rs, int key, Instant ts) throws SQLException {
         Assertions.assertTrue(rs.next());
@@ -1177,7 +1177,7 @@ public class YdbPreparedStatementTest {
                 Assertions.assertFalse(rs.next());
             }
         }
-    };
+    }
 
     private void assertNextDatetime(ResultSet rs, int key, LocalDateTime ldt) throws SQLException {
         Assertions.assertTrue(rs.next());
@@ -1334,20 +1334,20 @@ public class YdbPreparedStatementTest {
 
             ps.setInt(1, 5);
             ExceptionAssert.sqlException(""
-                    + "Cannot cast to decimal type Decimal(22, 9): "
-                    + "[class java.math.BigDecimal: " + inf + "] is Infinite",
+                            + "Cannot cast to decimal type Decimal(22, 9): "
+                            + "[class java.math.BigDecimal: " + inf + "] is Infinite",
                     () -> ps.setBigDecimal(2, inf)
             );
 
             ExceptionAssert.sqlException(""
-                    + "Cannot cast to decimal type Decimal(22, 9): "
-                    + "[class java.math.BigDecimal: " + negInf + "] is -Infinite",
+                            + "Cannot cast to decimal type Decimal(22, 9): "
+                            + "[class java.math.BigDecimal: " + negInf + "] is -Infinite",
                     () -> ps.setBigDecimal(2, negInf)
             );
 
             ExceptionAssert.sqlException(""
-                    + "Cannot cast to decimal type Decimal(22, 9): "
-                    + "[class java.math.BigDecimal: " + nan + "] is NaN",
+                            + "Cannot cast to decimal type Decimal(22, 9): "
+                            + "[class java.math.BigDecimal: " + nan + "] is NaN",
                     () -> ps.setBigDecimal(2, nan)
             );
         }
@@ -1362,7 +1362,7 @@ public class YdbPreparedStatementTest {
                 Assertions.assertFalse(rs.next());
             }
         }
-    };
+    }
 
     private void assertNextDecimal(ResultSet rs, int key, BigDecimal bg) throws SQLException {
         Assertions.assertTrue(rs.next());
@@ -1409,20 +1409,20 @@ public class YdbPreparedStatementTest {
 
                 ps.setInt(1, 5);
                 ExceptionAssert.sqlException(""
-                        + "Cannot cast to decimal type Decimal(31, 9): "
-                        + "[class java.math.BigDecimal: " + inf + "] is Infinite",
+                                + "Cannot cast to decimal type Decimal(31, 9): "
+                                + "[class java.math.BigDecimal: " + inf + "] is Infinite",
                         () -> ps.setBigDecimal(2, inf)
                 );
 
                 ExceptionAssert.sqlException(""
-                        + "Cannot cast to decimal type Decimal(31, 9): "
-                        + "[class java.math.BigDecimal: " + negInf + "] is -Infinite",
+                                + "Cannot cast to decimal type Decimal(31, 9): "
+                                + "[class java.math.BigDecimal: " + negInf + "] is -Infinite",
                         () -> ps.setBigDecimal(2, negInf)
                 );
 
                 ExceptionAssert.sqlException(""
-                        + "Cannot cast to decimal type Decimal(31, 9): "
-                        + "[class java.math.BigDecimal: " + nan + "] is NaN",
+                                + "Cannot cast to decimal type Decimal(31, 9): "
+                                + "[class java.math.BigDecimal: " + nan + "] is NaN",
                         () -> ps.setBigDecimal(2, nan)
                 );
             } else {
@@ -1445,20 +1445,20 @@ public class YdbPreparedStatementTest {
 
                 ps.setInt(1, 5);
                 ExceptionAssert.sqlException(""
-                        + "Cannot cast to decimal type Decimal(31, 9): "
-                        + "[class java.math.BigDecimal: " + inf + "] is Infinite",
+                                + "Cannot cast to decimal type Decimal(31, 9): "
+                                + "[class java.math.BigDecimal: " + inf + "] is Infinite",
                         () -> ps.setObject(2, inf, sqlType)
                 );
 
                 ExceptionAssert.sqlException(""
-                        + "Cannot cast to decimal type Decimal(31, 9): "
-                        + "[class java.math.BigDecimal: " + negInf + "] is -Infinite",
+                                + "Cannot cast to decimal type Decimal(31, 9): "
+                                + "[class java.math.BigDecimal: " + negInf + "] is -Infinite",
                         () -> ps.setObject(2, negInf, sqlType)
                 );
 
                 ExceptionAssert.sqlException(""
-                        + "Cannot cast to decimal type Decimal(31, 9): "
-                        + "[class java.math.BigDecimal: " + nan + "] is NaN",
+                                + "Cannot cast to decimal type Decimal(31, 9): "
+                                + "[class java.math.BigDecimal: " + nan + "] is NaN",
                         () -> ps.setObject(2, nan, sqlType)
                 );
             }
@@ -1474,7 +1474,7 @@ public class YdbPreparedStatementTest {
                 Assertions.assertFalse(rs.next());
             }
         }
-    };
+    }
 
     private void assertNextBankDecimal(ResultSet rs, int key, BigDecimal bg) throws SQLException {
         Assertions.assertTrue(rs.next());
