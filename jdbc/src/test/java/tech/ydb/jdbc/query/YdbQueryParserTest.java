@@ -560,8 +560,8 @@ public class YdbQueryParserTest {
 
     @ParameterizedTest(name = "[{index}] {0} is batched update query")
     @ValueSource(strings = {
-        "Update table_name set c1 = ?, c2 = ?, c3 = ? where k1 = ? AND k2 = ?",
-        "\n  update `table_name` set\t`c1`=?,c2=?,c3=?\tWhere\nk1=? AND k2=?;;;",
+        "Update table_name set c1 = ?, c2 = ?, c3 = ? where table_name .k1 = ? AND k2 = ?",
+        "\n  update `table_name` set\t`c1`=?,c2=?,c3=?\tWhere\nk1=? AND `table_name`. `k2`=?;;;",
         "/* comment */ upDaTe `table_name` set  `c1` /* commect */ = ?, c2 = \n?, c3 = ? WHERE k1=? AND k2=?;;\n-- com",
         ";;UPDATE/* comment */table_name set  `c1`= ?, c2 = ?, c3 = ? WHERE k1\n=\t?--comment\nAND k2=?",
     })
@@ -588,8 +588,8 @@ public class YdbQueryParserTest {
     @ValueSource(strings = {
         "Update one_column set c1 = ? where k1 = ?",
         "\n  update `one_column` set\t`c1`=?\tWhere\nk1=?;;;",
-        "/* comment */ upDaTe `one_column` set  `c1` /* commect */ = ? WHERE k1=?;;\n-- com",
-        ";;UPDATE/* comment */one_column set  `c1`= ? WHERE k1=--comment\n?",
+        "/* comment */ upDaTe `one_column` set  `c1` /* commect */ = ? WHERE `one_column`.k1=?;;\n-- com",
+        ";;UPDATE/* comment */one_column set  `c1`= ? WHERE one_column.`k1`=--comment\n?",
     })
     public void batchedUpdateOneColumnTest(String query) throws SQLException {
         YdbQueryParser parser = new YdbQueryParser(types, query, props);
@@ -610,12 +610,38 @@ public class YdbQueryParserTest {
         Assertions.assertEquals(Arrays.asList("c1"), batch.getColumns());
     }
 
+    @ParameterizedTest(name = "[{index}] {0} is batched update query")
+    @ValueSource(strings = {
+        "Update test_table set column = ? where test_table = ?",
+        "Update test_table set column = ? where test_table . test_table = ?",
+        "Update test_table set column = ? where `test_table`.test_table = ?",
+        "Update test_table set column = ? where test_table.`test_table` = ?",
+    })
+    public void batchedUpdateOneColumnWithTableName(String query) throws SQLException {
+        YdbQueryParser parser = new YdbQueryParser(types, query, props);
+        parser.parseSQL();
+
+        Assertions.assertEquals(1, parser.getStatements().size());
+        Assertions.assertEquals(QueryType.DATA_QUERY, parser.getStatements().get(0).getType());
+        Assertions.assertEquals(QueryCmd.UPDATE_REPLACE_DELETE, parser.getStatements().get(0).getCmd());
+
+        YqlBatcher batch = parser.getYqlBatcher();
+        Assertions.assertTrue(batch.isValidBatch());
+        Assertions.assertEquals(YqlBatcher.Cmd.UPDATE, batch.getCommand());
+
+        Assertions.assertEquals("test_table", batch.getTableName());
+        Assertions.assertEquals(1, batch.getKeyColumns().size());
+        Assertions.assertEquals(Arrays.asList("test_table"), batch.getKeyColumns());
+        Assertions.assertEquals(1, batch.getColumns().size());
+        Assertions.assertEquals(Arrays.asList("column"), batch.getColumns());
+    }
+
     @ParameterizedTest(name = "[{index}] {0} is batched delete query")
     @ValueSource(strings = {
-        "Delete from table_name where k1 = ? AND k2 = ?",
+        "Delete from table_name where k1 = ? AND `table_name`.k2 = ?",
         "\n  delete fRom `table_name`\tWhere\nk1=? AND k2=?;;;",
         "/* comment */ deLete from `table_name` WHERE k1=? AND k2=?;;\n-- com",
-        ";;DELETE/* comment */FRom table_name WHERE k1\n=\t?--comment\nAND k2=?",
+        ";;DELETE/* comment */FRom table_name WHERE k1\n=\t?--comment\nAND table_name.`k2`=?",
     })
     public void batchedDeleteTest(String query) throws SQLException {
         YdbQueryParser parser = new YdbQueryParser(types, query, props);
@@ -674,6 +700,9 @@ public class YdbQueryParserTest {
         "upsert into table_name set c1 = ?, c2 = ?, c3 = ?",
         "upsert table_name (c1, c2, c3) values (?, ?, ?)",
         "upsert table_name set c1 = ?, c2 = ?, c3 = ?",
+        "update table_name set c1 = ?, c2 = ?, c3 = ? where other.id=?",
+        "update table_name set c1 = ?, c2 = ?, c3 = ? where table_name.name.id=?",
+        "update table_name set c1 = ?, c2 = ?, c3 = ? where Table_name.id=?",
         "upsert into table_name (c1, , c3) values (?, ?)",
         "upsert into table_name (c1, c2) values (?,,?)",
         "upsert into table_name (c1, c2, c3) values (?, ?, ?,)",
