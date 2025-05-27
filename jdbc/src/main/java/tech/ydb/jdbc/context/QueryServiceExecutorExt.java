@@ -79,7 +79,9 @@ public class QueryServiceExecutorExt extends QueryServiceExecutor {
             validator.clearWarnings();
             Status status = upsertAndCommit(localTx);
             if (StatusCode.UNDETERMINED.equals(status.getCode())) {
-                if (!checkTransaction(ctx, localTx.getId(), validator, tracer)) {
+                if (checkTransaction(ctx, localTx.getId(), validator, tracer)) {
+                    status = Status.SUCCESS;
+                } else {
                     status = Status.of(StatusCode.ABORTED, status.getCause(), status.getIssues());
                 }
             }
