@@ -355,11 +355,13 @@ public class YdbContext implements AutoCloseable {
         }
         LOGGER.log(Level.FINE, "Using table {} for UNDETERMINED processing", tableName);
         String sqlCreate = "CREATE TABLE IF NOT EXISTS `" + tableName
-                + "` (trans_id Text NOT NULL, trans_tv Timestamp,"
-                + "   PRIMARY KEY (trans_id)) WITH ("
+                + "` (trans_hash Int32 NOT NULL, trans_id Text NOT NULL, trans_tv Timestamp,"
+                + "   PRIMARY KEY (trans_hash, trans_id)) WITH ("
                 + "TTL=Interval('PT60M') ON trans_tv,"
+                /*
                 + "AUTO_PARTITIONING_MIN_PARTITIONS_COUNT=100,"
                 + "AUTO_PARTITIONING_MAX_PARTITIONS_COUNT=150,"
+                */
                 + "AUTO_PARTITIONING_BY_LOAD=ENABLED,"
                 + "AUTO_PARTITIONING_BY_SIZE=ENABLED,"
                 + "AUTO_PARTITIONING_PARTITION_SIZE_MB=100"

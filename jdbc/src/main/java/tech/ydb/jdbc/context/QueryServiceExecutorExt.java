@@ -31,10 +31,14 @@ public class QueryServiceExecutorExt extends QueryServiceExecutor {
     }
 
     private Status upsertAndCommit(QueryTransaction localTx) {
-        String sql = "DECLARE $trans_id AS Text; "
+        String sql = "DECLARE $trans_hash AS Int32; DECLARE $trans_id AS Text; "
                 + "UPSERT INTO `" + processUndeterminedTable
-                + "` (trans_id, trans_tv) VALUES ($trans_id, CurrentUtcTimestamp());";
-        Params params = Params.of("$trans_id", PrimitiveValue.newText(localTx.getId()));
+                + "` (trans_hash, trans_id, trans_tv) "
+                + "VALUES ($trans_hash, $trans_id, CurrentUtcTimestamp());";
+        Params params = Params.of(
+                "$trans_id", PrimitiveValue.newText(localTx.getId()),
+                "$trans_hash", PrimitiveValue.newInt32(localTx.getId().hashCode())
+        );
         return localTx.createQueryWithCommit(sql, params)
                 .execute()
                 .join()
@@ -43,10 +47,13 @@ public class QueryServiceExecutorExt extends QueryServiceExecutor {
 
     private boolean checkTransaction(YdbContext ctx, String transId,
             YdbValidator validator, YdbTracer tracer) throws SQLException {
-        String sql = "DECLARE $trans_id AS Text; "
+        String sql = "DECLARE $trans_hash AS Int32; DECLARE $trans_id AS Text; "
                 + "SELECT trans_id, trans_tv FROM `" + processUndeterminedTable
-                + "` WHERE trans_id=$trans_id;";
-        Params params = Params.of("$trans_id", PrimitiveValue.newText(transId));
+                + "` WHERE trans_hash=$trans_hash AND trans_id=$trans_id;";
+        Params params = Params.of(
+                "$trans_id", PrimitiveValue.newText(transId),
+                "$trans_hash", PrimitiveValue.newInt32(transId.hashCode())
+        );
         Result<DataQueryResult> result = ctx.getRetryCtx().supplyResult(
                 session -> session.executeDataQuery(sql, TxControl.onlineRo(), params))
                 .join();
