@@ -1,7 +1,5 @@
 package tech.ydb.jdbc.query;
 
-
-
 import java.sql.SQLException;
 import java.util.List;
 
@@ -20,8 +18,10 @@ public class YdbQuery {
 
     private final QueryType type;
     private final boolean isPlainYQL;
+    private final boolean writing;
 
-    YdbQuery(String originQuery, String preparedYQL, List<QueryStatement> stats, YqlBatcher batcher, QueryType type) {
+    YdbQuery(String originQuery, String preparedYQL, List<QueryStatement> stats,
+            YqlBatcher batcher, QueryType type, boolean writing) {
         this.originQuery = originQuery;
         this.preparedYQL = preparedYQL;
         this.statements = stats;
@@ -33,10 +33,15 @@ public class YdbQuery {
             hasJdbcParameters = hasJdbcParameters || st.hasJdbcParameters();
         }
         this.isPlainYQL = !hasJdbcParameters;
+        this.writing = writing;
     }
 
     public QueryType getType() {
         return type;
+    }
+
+    public boolean isWriting() {
+        return writing;
     }
 
     public YqlBatcher getYqlBatcher() {
@@ -62,6 +67,7 @@ public class YdbQuery {
     public static YdbQuery parseQuery(String query, YdbQueryProperties opts, YdbTypes types) throws SQLException {
         YdbQueryParser parser = new YdbQueryParser(types, query, opts);
         String preparedYQL = parser.parseSQL();
+        boolean writing = false;
 
         QueryType type = null;
         YqlBatcher batcher = parser.getYqlBatcher();
@@ -85,7 +91,10 @@ public class YdbQuery {
         if (type == null) {
             type = parser.detectQueryType();
         }
+        if (QueryType.DATA_QUERY.equals(type)) {
+            writing = parser.detectWriting();
+        }
 
-        return new YdbQuery(query, preparedYQL, statements, batcher, type);
+        return new YdbQuery(query, preparedYQL, statements, batcher, type, writing);
     }
 }

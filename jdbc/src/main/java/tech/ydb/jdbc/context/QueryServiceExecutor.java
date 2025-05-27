@@ -42,17 +42,17 @@ import tech.ydb.table.result.ResultSetReader;
  * @author Aleksandr Gorshenin
  */
 public class QueryServiceExecutor extends BaseYdbExecutor {
-    private final Duration sessionTimeout;
-    private final QueryClient queryClient;
+    protected final Duration sessionTimeout;
+    protected final QueryClient queryClient;
     private final boolean useStreamResultSet;
 
-    private int transactionLevel;
-    private boolean isReadOnly;
-    private boolean isAutoCommit;
-    private TxMode txMode;
+    protected int transactionLevel;
+    protected boolean isReadOnly;
+    protected boolean isAutoCommit;
+    protected TxMode txMode;
 
-    private final AtomicReference<QueryTransaction> tx = new AtomicReference<>();
-    private volatile boolean isClosed;
+    protected final AtomicReference<QueryTransaction> tx = new AtomicReference<>();
+    protected volatile boolean isClosed;
 
     public QueryServiceExecutor(YdbContext ctx, int transactionLevel, boolean autoCommit) throws SQLException {
         super(ctx);
