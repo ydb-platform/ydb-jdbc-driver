@@ -10,6 +10,7 @@ import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.ListType;
 import tech.ydb.table.values.OptionalType;
+import tech.ydb.table.values.StructType;
 import tech.ydb.table.values.Type;
 import tech.ydb.table.values.Value;
 import tech.ydb.table.values.VoidValue;
@@ -18,14 +19,16 @@ import tech.ydb.table.values.VoidValue;
  *
  * @author Aleksandr Gorshenin
  */
-public class InListJdbcPrm {
+public class AsTableJdbcPrm {
     private static final Value<?> NULL = VoidValue.of();
+    private static final String COLUMN_NAME = "x";
+
     private final YdbTypes types;
     private final String listName;
     private final List<Item> items = new ArrayList<>();
     private TypeDescription type;
 
-    public InListJdbcPrm(YdbTypes types, String listName, int listSize) {
+    public AsTableJdbcPrm(YdbTypes types, String listName, int listSize) {
         this.types = types;
         this.listName = listName;
         for (int idx = 0; idx < listSize; idx++) {
@@ -52,22 +55,24 @@ public class InListJdbcPrm {
 
         List<Value<?>> values = new ArrayList<>();
         if (!hasNull) {
+            StructType structType = StructType.of(COLUMN_NAME, type.ydbType());
             for (Item item: items) {
-                values.add(item.value);
+                values.add(structType.newValue(COLUMN_NAME, item.value));
             }
-            return ListType.of(type.ydbType()).newValue(values);
+            return ListType.of(structType).newValue(values);
         }
 
         OptionalType optional = type.ydbType().makeOptional();
+        StructType structType = StructType.of(COLUMN_NAME, optional);
         for (Item item: items) {
             if (item.value == NULL) {
-                values.add(optional.emptyValue());
+                values.add(structType.newValue(COLUMN_NAME, optional.emptyValue()));
             } else {
-                values.add(item.value.makeOptional());
+                values.add(structType.newValue(COLUMN_NAME, item.value.makeOptional()));
             }
         }
 
-        return ListType.of(optional).newValue(values);
+        return ListType.of(structType).newValue(values);
 
     }
 

@@ -68,7 +68,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     }
 
     protected QuerySession createNewQuerySession(YdbValidator validator) throws SQLException {
-        return validator.call("Get query session", () -> queryClient.createSession(sessionTimeout));
+        return validator.call("Get query session", null, () -> queryClient.createSession(sessionTimeout));
     }
 
     @Override
@@ -255,10 +255,10 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             tracer.query(yql);
             String msg = "STREAM_QUERY >>\n" + yql;
 
-            StreamQueryResult lazy = validator.call(msg, () -> {
+            StreamQueryResult lazy = validator.call(msg, tracer, () -> {
                 final CompletableFuture<Result<StreamQueryResult>> future = new CompletableFuture<>();
                 final QueryStream stream = localTx.createQuery(yql, isAutoCommit, params, settings);
-                final StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
+                final StreamQueryResult result = new StreamQueryResult(msg, types, statement, query, stream::cancel);
 
                 stream.execute(new QueryStream.PartsHandler() {
                     @Override
@@ -313,7 +313,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
             List<YdbResultSet> readers = new ArrayList<>();
             for (ResultSetReader rst: result) {
-                readers.add(new YdbStaticResultSet(statement, rst));
+                readers.add(new YdbStaticResultSet(types, statement, rst));
             }
             return updateCurrentResult(new StaticQueryResult(query, readers));
         } finally {
@@ -387,7 +387,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             }
 
             return updateCurrentResult(
-                    new StaticQueryResult(statement, res.getStats().getQueryAst(), res.getStats().getQueryPlan())
+                    new StaticQueryResult(types, statement, res.getStats().getQueryAst(), res.getStats().getQueryPlan())
             );
         } finally {
             if (tx.get() == null) {

@@ -57,6 +57,10 @@ public class YdbOperationProperties {
             "Use stream implementation of ResultSet", false
     );
 
+    static final YdbProperty<Boolean> FORCE_NEW_DATETYPES = YdbProperty.bool("forceSignedDatetimes",
+            "Use new data types Date32/Datetime64/Timestamp64 by default", false
+    );
+
     static final YdbProperty<Boolean> PROCESS_UNDETERMINED = YdbProperty.bool("processUndetermined",
             "Enable automatic processing of UNDETERMINED errors", false
     );
@@ -81,6 +85,7 @@ public class YdbOperationProperties {
     private final YdbValue<FakeTxMode> bulkQueryTxMode;
 
     private final YdbValue<Boolean> useStreamResultSets;
+    private final YdbValue<Boolean> forceNewDatetypes;
     private final YdbValue<Boolean> processUndetermined;
     private final YdbValue<String> processUndeterminedTable;
 
@@ -101,6 +106,7 @@ public class YdbOperationProperties {
         this.bulkQueryTxMode = BULK_QUERY_TX_MODE.readValue(props);
 
         this.useStreamResultSets = USE_STREAM_RESULT_SETS.readValue(props);
+        this.forceNewDatetypes = FORCE_NEW_DATETYPES.readValue(props);
         this.processUndetermined = PROCESS_UNDETERMINED.readValue(props);
         this.processUndeterminedTable = PROCESS_UNDETERMINED_TABLE.readValue(props);
     }
@@ -151,6 +157,10 @@ public class YdbOperationProperties {
 
     public boolean getUseStreamResultSets() {
         return useStreamResultSets.getValue();
+    }
+
+    public boolean getForceNewDatetypes() {
+        return forceNewDatetypes.getValue();
     }
 
     public boolean getProcessUndetermined() {

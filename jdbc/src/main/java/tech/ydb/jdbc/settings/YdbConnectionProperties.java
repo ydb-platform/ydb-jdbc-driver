@@ -1,20 +1,26 @@
 package tech.ydb.jdbc.settings;
 
+import java.lang.reflect.InvocationTargetException;
 import java.sql.SQLException;
 import java.util.Properties;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 import tech.ydb.auth.TokenAuthProvider;
 import tech.ydb.auth.iam.CloudAuthHelper;
 import tech.ydb.core.auth.StaticCredentials;
 import tech.ydb.core.grpc.BalancingSettings;
+import tech.ydb.core.grpc.GrpcCompression;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
 import tech.ydb.jdbc.YdbDriver;
 
 
 public class YdbConnectionProperties {
     private static final Logger LOGGER = Logger.getLogger(YdbDriver.class.getName());
+    private static final String ID_PATTERN = "\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*";
+    private static final Pattern FQCN = Pattern.compile(ID_PATTERN + "(\\." + ID_PATTERN + ")*");
 
     static final YdbProperty<String> TOKEN = YdbProperty.content(YdbConfig.TOKEN_KEY, "Authentication token");
 
@@ -47,6 +53,13 @@ public class YdbConnectionProperties {
     static final YdbProperty<String> METADATA_URL = YdbProperty.content("metadataURL",
             "Custom URL for the metadata service authentication");
 
+    static final YdbProperty<Object> TOKEN_PROVIDER = YdbProperty.object("tokenProvider",
+            "Custom token provider, use object instance or class full name impementing Supplier<String>");
+
+    static final YdbProperty<String> GRPC_COMPRESSION = YdbProperty.string(
+            "grpcCompression", "Use specified GRPC compressor (supported only none and gzip)"
+    );
+
     private final String username;
     private final String password;
 
@@ -60,12 +73,12 @@ public class YdbConnectionProperties {
     private final YdbValue<Boolean> useMetadata;
     private final YdbValue<String> iamEndpoint;
     private final YdbValue<String> metadataUrl;
+    private final YdbValue<Object> tokenProvider;
+    private final YdbValue<String> grpcCompression;
 
-    public YdbConnectionProperties(YdbConfig config) throws SQLException {
-        this.username = config.getUsername();
-        this.password = config.getPassword();
-
-        Properties props = config.getProperties();
+    public YdbConnectionProperties(String username, String password, Properties props) throws SQLException {
+        this.username = username;
+        this.password = password;
 
         this.localDatacenter = LOCAL_DATACENTER.readValue(props);
         this.useSecureConnection = USE_SECURE_CONNECTION.readValue(props);
@@ -77,6 +90,12 @@ public class YdbConnectionProperties {
         this.useMetadata = USE_METADATA.readValue(props);
         this.iamEndpoint = IAM_ENDPOINT.readValue(props);
         this.metadataUrl = METADATA_URL.readValue(props);
+        this.tokenProvider = TOKEN_PROVIDER.readValue(props);
+        this.grpcCompression = GRPC_COMPRESSION.readValue(props);
+    }
+
+    public YdbConnectionProperties(YdbConfig config) throws SQLException {
+        this(config.getUsername(), config.getPassword(), config.getProperties());
     }
 
     String getLocalDataCenter() {
@@ -91,7 +110,7 @@ public class YdbConnectionProperties {
         return secureConnectionCertificate.getValue();
     }
 
-    public GrpcTransportBuilder applyToGrpcTransport(GrpcTransportBuilder builder) {
+    public GrpcTransportBuilder applyToGrpcTransport(GrpcTransportBuilder builder) throws SQLException {
         if (localDatacenter.hasValue()) {
             builder = builder.withBalancingSettings(BalancingSettings.fromLocation(localDatacenter.getValue()));
         }
@@ -172,6 +191,54 @@ public class YdbConnectionProperties {
                 builder = builder.withAuthProvider(CloudAuthHelper.getServiceAccountJsonAuthProvider(json, endpoint));
             } else {
                 builder = builder.withAuthProvider(CloudAuthHelper.getServiceAccountJsonAuthProvider(json));
+            }
+            usedProvider = "service account file credentitals";
+        }
+
+        if (tokenProvider.hasValue()) {
+            if (usedProvider != null) {
+                LOGGER.log(Level.WARNING, "Dublicate authentication config! Token Provider credentials replaces {0}",
+                        usedProvider);
+            }
+
+            Object provider = tokenProvider.getValue();
+            if (provider instanceof Supplier) {
+                Supplier<?> prov = (Supplier<?>) provider;
+                builder = builder.withAuthProvider((rpc) -> () -> prov.get().toString());
+            } else if (provider instanceof String) {
+                String className = (String) provider;
+                if (!FQCN.matcher(className).matches()) {
+                    throw new SQLException("tokenProvider must be full class name or instance of Supplier<String>");
+                }
+
+                try {
+                    Class<?> clazz = Class.forName(className);
+                    if (!Supplier.class.isAssignableFrom(clazz)) {
+                        throw new SQLException("tokenProvider " + className + " is not implement Supplier<String>");
+                    }
+                    Supplier<?> prov = clazz.asSubclass(Supplier.class)
+                            .getConstructor(new Class<?>[0])
+                            .newInstance(new Object[0]);
+                    builder = builder.withAuthProvider((rpc) -> () -> prov.get().toString());
+                } catch (ClassNotFoundException ex) {
+                    throw new SQLException("tokenProvider " + className + " not found", ex);
+                } catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException
+                        | IllegalArgumentException | InvocationTargetException ex) {
+                    throw new SQLException("Cannot construct tokenProvider " + className, ex);
+                }
+            } else {
+                throw new SQLException("Cannot parse tokenProvider " + provider.getClass().getName());
+            }
+        }
+
+        if (grpcCompression.hasValue()) {
+            String value = grpcCompression.getValue();
+            if ("none".equalsIgnoreCase(value)) {
+                builder = builder.withGrpcCompression(GrpcCompression.NO_COMPRESSION);
+            } else if ("gzip".equalsIgnoreCase(value)) {
+                builder = builder.withGrpcCompression(GrpcCompression.GZIP);
+            } else {
+                LOGGER.log(Level.WARNING, "Unknown value for option 'grpcCompression' : {0}", value);
             }
         }
 

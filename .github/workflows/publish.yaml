@@ -8,7 +8,7 @@ on:
 jobs:
   validate:
     name: Validate YDB JDBC Driver
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
@@ -52,7 +52,7 @@ jobs:
 
   publish:
     name: Publish YDB JDBC Driver
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: validate
 
     env:

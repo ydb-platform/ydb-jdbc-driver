@@ -10,6 +10,7 @@ import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.common.FixedResultSetFactory;
+import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.jdbc.impl.YdbQueryResult;
 import tech.ydb.jdbc.impl.YdbStaticResultSet;
 import tech.ydb.jdbc.query.QueryStatement;
@@ -75,7 +76,7 @@ public class StaticQueryResult implements YdbQueryResult {
         }
     }
 
-    public StaticQueryResult(YdbStatement statement, String ast, String plan) {
+    public StaticQueryResult(YdbTypes types, YdbStatement statement, String ast, String plan) {
         ResultSetReader result = EXPLAIN_RS_FACTORY.createResultSet()
                 .newRow()
                 .withTextValue(YdbConst.EXPLAIN_COLUMN_AST, ast)
@@ -83,7 +84,7 @@ public class StaticQueryResult implements YdbQueryResult {
                 .build()
                 .build();
 
-        YdbResultSet rs = new YdbStaticResultSet(statement, result);
+        YdbResultSet rs = new YdbStaticResultSet(types, statement, result);
         this.results = Collections.singletonList(new ExpressionResult(rs));
         this.resultIndex = 0;
     }

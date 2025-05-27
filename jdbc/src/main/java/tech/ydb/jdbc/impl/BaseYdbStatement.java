@@ -21,6 +21,7 @@ import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.settings.FakeTxMode;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.table.query.Params;
+import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.values.ListValue;
 
 /**
@@ -183,7 +184,8 @@ public abstract class BaseYdbStatement implements YdbStatement {
         YdbContext ctx = connection.getCtx();
         if (ctx.queryStatsEnabled()) {
             if (QueryStat.isPrint(yql)) {
-                YdbResultSet rs = new YdbStaticResultSet(this, QueryStat.toResultSetReader(ctx.getQueryStats()));
+                ResultSetReader rsr = QueryStat.toResultSetReader(ctx.getQueryStats());
+                YdbResultSet rs = new YdbStaticResultSet(ctx.getTypes(), this, rsr);
                 return new StaticQueryResult(query, Collections.singletonList(rs));
             }
             if (QueryStat.isReset(yql)) {

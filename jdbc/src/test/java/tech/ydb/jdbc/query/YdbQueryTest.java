@@ -7,7 +7,7 @@ import java.util.Properties;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import tech.ydb.jdbc.settings.YdbConfig;
+import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.jdbc.settings.YdbQueryProperties;
 
 
@@ -26,18 +26,17 @@ public class YdbQueryTest {
         }
 
         YdbQueryProperties build() throws SQLException {
-            YdbConfig config = YdbConfig.from("jdbc:ydb:localhost:2136/local", props);
-            return new YdbQueryProperties(config);
+            return new YdbQueryProperties(props);
         }
     }
 
     private static QueryType parsedQueryType(YdbQueryProperties opts, String sql) throws SQLException {
-        return YdbQuery.parseQuery(sql, opts).getType();
+        return YdbQuery.parseQuery(sql, opts, new YdbTypes(false)).getType();
     }
 
     private void assertMixType(YdbQueryProperties opts, String types, String sql) {
         SQLException ex = Assertions.assertThrows(SQLException.class,
-                () -> YdbQuery.parseQuery(sql, opts),
+                () -> YdbQuery.parseQuery(sql, opts, new YdbTypes(false)),
                 "Mix type query must throw SQLException"
         );
         Assertions.assertEquals("Query cannot contain expressions with different types: " + types, ex.getMessage());

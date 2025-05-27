@@ -3,6 +3,8 @@ package tech.ydb.jdbc.query;
 public enum QueryType {
     UNKNOWN,
 
+    DECLARE,
+
     // DDL
     SCHEME_QUERY,
 

@@ -40,7 +40,8 @@ public class YdbConnectionImplTest {
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
     @RegisterExtension
-    private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb);
+    private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb)
+            .withArg("grpcCompression", "gzip");
 
     private static final SqlQueries QUERIES = new SqlQueries("ydb_connection_test");
     private static final String SELECT_2_2 = "select 2 + 2";

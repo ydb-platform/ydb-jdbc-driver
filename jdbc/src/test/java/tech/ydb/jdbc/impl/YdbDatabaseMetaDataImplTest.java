@@ -61,10 +61,10 @@ public class YdbDatabaseMetaDataImplTest {
                     + "create table `dir2/t1` (id Int32, value Int32, primary key (id));\n"
                     + "create table `dir2/dir1/t1` (id Int32, value Int32, primary key (id));\n"
                     + "create table " + INDEXES_TABLE + "("
-                            + "key1 Int32, key2 Text, value1 Int32, value2 Text, value3 Int32, "
-                            + "primary key(key1, key2), "
-                            + "index idx_2 global on (value1, value2),"
-                            + "index idx_1 global on (value3))\n;"
+                    + "key1 Int32, key2 Text, value1 Int32, value2 Text, value3 Int32, "
+                    + "primary key(key1, key2), "
+                    + "index idx_2 global on (value1, value2),"
+                    + "index idx_1 global on (value3))\n;"
             );
         }
     }
@@ -364,9 +364,9 @@ public class YdbDatabaseMetaDataImplTest {
 
     @Test
     public void getTypeInfo() throws SQLException {
-        short searchNone = (short)DatabaseMetaData.typePredNone;
-        short searchBasic = (short)DatabaseMetaData.typePredBasic;
-        short searchFull = (short)DatabaseMetaData.typeSearchable;
+        short searchNone = (short) DatabaseMetaData.typePredNone;
+        short searchBasic = (short) DatabaseMetaData.typePredBasic;
+        short searchFull = (short) DatabaseMetaData.typeSearchable;
 
         TableAssert types = new TableAssert();
         TableAssert.TextColumn name = types.addTextColumn("TYPE_NAME", "Text");
@@ -424,6 +424,11 @@ public class YdbDatabaseMetaDataImplTest {
         rs.nextRow(name.eq("Timestamp"), type.eq(Types.TIMESTAMP), precision.eq(26), unsigned.eq(false)).assertAll();
         rs.nextRow(name.eq("Interval"), type.eq(Types.BIGINT), precision.eq(8), unsigned.eq(false)).assertAll();
 
+        rs.nextRow(name.eq("Date32"), type.eq(Types.DATE), precision.eq(10), unsigned.eq(false)).assertAll();
+        rs.nextRow(name.eq("Datetime64"), type.eq(Types.TIMESTAMP), precision.eq(19), unsigned.eq(false)).assertAll();
+        rs.nextRow(name.eq("Timestamp64"), type.eq(Types.TIMESTAMP), precision.eq(26), unsigned.eq(false)).assertAll();
+        rs.nextRow(name.eq("Interval64"), type.eq(Types.BIGINT), precision.eq(8), unsigned.eq(false)).assertAll();
+
         rs.nextRow(name.eq("Decimal(22, 9)"), type.eq(Types.DECIMAL), precision.eq(22),
                 unsigned.eq(false), fixedPrec.eq(true), minScale.eq(9), maxScale.eq(9)).assertAll();
 
@@ -474,10 +479,10 @@ public class YdbDatabaseMetaDataImplTest {
         TableAssert.ResultSetAssert rs = tables.check(metaData.getTables(null, null, null, null))
                 .assertMetaColumns();
         // system tables are first
-        for (String name: systemTables) {
+        for (String name : systemTables) {
             rs.nextRow(tableName.eq(name), tableType.eq(SYSTEM_TABLE_TYPE));
         }
-        for (String name: simpleTables) {
+        for (String name : simpleTables) {
             rs.nextRow(tableName.eq(name), tableType.eq(TABLE_TYPE));
         }
         // TODO: fix
@@ -486,7 +491,7 @@ public class YdbDatabaseMetaDataImplTest {
         // read only non system tables
         rs = tables.check(metaData.getTables(null, null, null, asArray(TABLE_TYPE)))
                 .assertMetaColumns();
-        for (String name: simpleTables) {
+        for (String name : simpleTables) {
             rs.nextRow(tableName.eq(name), tableType.eq(TABLE_TYPE));
         }
         // TODO: fix
@@ -496,10 +501,10 @@ public class YdbDatabaseMetaDataImplTest {
         rs = tables.check(metaData.getTables(null, null, null, asArray(TABLE_TYPE, "some string", SYSTEM_TABLE_TYPE)))
                 .assertMetaColumns();
         // system tables are first
-        for (String name: systemTables) {
+        for (String name : systemTables) {
             rs.nextRow(tableName.eq(name), tableType.eq(SYSTEM_TABLE_TYPE));
         }
-        for (String name: simpleTables) {
+        for (String name : simpleTables) {
             rs.nextRow(tableName.eq(name), tableType.eq(TABLE_TYPE));
         }
         // TODO: fix
@@ -553,7 +558,7 @@ public class YdbDatabaseMetaDataImplTest {
         columns.addTextColumn("SCOPE_CATALOG", "Text").defaultNull();
         columns.addTextColumn("SCOPE_SCHEMA", "Text").defaultNull();
         columns.addTextColumn("SCOPE_TABLE", "Text").defaultNull();
-        columns.addShortColumn("SOURCE_DATA_TYPE", "Int16").defaultValue((short)0);
+        columns.addShortColumn("SOURCE_DATA_TYPE", "Int16").defaultValue((short) 0);
         columns.addTextColumn("IS_AUTOINCREMENT", "Text").defaultValue("NO");
         columns.addTextColumn("IS_GENERATEDCOLUMN", "Text").defaultValue("NO");
 
@@ -618,18 +623,30 @@ public class YdbDatabaseMetaDataImplTest {
         rs.nextRow(columnName.eq("c_Interval"), dataType.eq(Types.BIGINT), typeName.eq("Interval"),
                 columnSize.eq(8), ordinal.eq(22)).assertAll();
 
+        rs.nextRow(columnName.eq("c_Date32"), dataType.eq(Types.DATE), typeName.eq("Date32"),
+                columnSize.eq(10), ordinal.eq(23)).assertAll();
+        rs.nextRow(columnName.eq("c_Datetime64"), dataType.eq(Types.TIMESTAMP), typeName.eq("Datetime64"),
+                columnSize.eq(19), ordinal.eq(24)).assertAll();
+        rs.nextRow(columnName.eq("c_Timestamp64"), dataType.eq(Types.TIMESTAMP), typeName.eq("Timestamp64"),
+                columnSize.eq(26), ordinal.eq(25)).assertAll();
+        rs.nextRow(columnName.eq("c_Interval64"), dataType.eq(Types.BIGINT), typeName.eq("Interval64"),
+                columnSize.eq(8), ordinal.eq(26)).assertAll();
+
         rs.nextRow(columnName.eq("c_Decimal"), dataType.eq(Types.DECIMAL), typeName.eq("Decimal(22, 9)"),
-                columnSize.eq(22), ordinal.eq(23), decimalDigits.eq(22)).assertAll();
+                columnSize.eq(22), ordinal.eq(27), decimalDigits.eq(22)).assertAll();
         rs.nextRow(columnName.eq("c_BigDecimal"), dataType.eq(Types.DECIMAL), typeName.eq("Decimal(35, 0)"),
-                columnSize.eq(35), ordinal.eq(24), decimalDigits.eq(35)).assertAll();
+                columnSize.eq(35), ordinal.eq(28), decimalDigits.eq(35)).assertAll();
         rs.nextRow(columnName.eq("c_BankDecimal"), dataType.eq(Types.DECIMAL), typeName.eq("Decimal(31, 9)"),
-                columnSize.eq(31), ordinal.eq(25), decimalDigits.eq(31)).assertAll();
+                columnSize.eq(31), ordinal.eq(29), decimalDigits.eq(31)).assertAll();
+
+        rs.nextRow(columnName.eq("c_Extra"), dataType.eq(Types.INTEGER), typeName.eq("Int32"),
+                columnSize.eq(4), ordinal.eq(30)).assertAll();
 
         rs.assertNoRows();
 
         // find only one column
         rs = columns.check(metaData.getColumns(null, null, ALL_TYPES_TABLE, "c_JsonDocument"))
-            .assertMetaColumns();
+                .assertMetaColumns();
         rs.nextRow(columnName.eq("c_JsonDocument"), dataType.eq(Types.VARCHAR), typeName.eq("JsonDocument"),
                 columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq(16)).assertAll();
         rs.assertNoRows();
@@ -730,8 +747,8 @@ public class YdbDatabaseMetaDataImplTest {
         TableAssert.TextColumn typeName = rowIdentifiers.addTextColumn("TYPE_NAME", "Text");
         rowIdentifiers.addIntColumn("COLUMN_SIZE", "Int32").defaultValue(0);
         rowIdentifiers.addIntColumn("BUFFER_LENGTH", "Int32").defaultValue(0);
-        rowIdentifiers.addShortColumn("DECIMAL_DIGITS", "Int16").defaultValue((short)0);
-        rowIdentifiers.addShortColumn("PSEUDO_COLUMN", "Int16").defaultValue((short)DatabaseMetaData.bestRowNotPseudo);
+        rowIdentifiers.addShortColumn("DECIMAL_DIGITS", "Int16").defaultValue((short) 0);
+        rowIdentifiers.addShortColumn("PSEUDO_COLUMN", "Int16").defaultValue((short) DatabaseMetaData.bestRowNotPseudo);
 
 
         rowIdentifiers.check(metaData.getBestRowIdentifier("-", null, null, DatabaseMetaData.bestRowSession, true))

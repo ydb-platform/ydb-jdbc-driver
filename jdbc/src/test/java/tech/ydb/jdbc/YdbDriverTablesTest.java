@@ -59,6 +59,8 @@ public class YdbDriverTablesTest {
 
             connection.createStatement().execute(CREATE_TABLE);
 
+            Assertions.assertTrue(connection.isValid(10));
+
             LocalDate ld = LocalDate.of(2017, 12, 3);
             String prefix = "text-value-";
             int idx = 0;
@@ -141,6 +143,8 @@ public class YdbDriverTablesTest {
 
             conn.createStatement().execute(CREATE_TABLE);
 
+            Assertions.assertTrue(conn.isValid(10));
+
             LocalDate ld = LocalDate.of(2017, 12, 3);
             String prefix = "text-value-";
             int idx = 0;
@@ -218,6 +222,8 @@ public class YdbDriverTablesTest {
             }
 
             conn.createStatement().execute(CREATE_TABLE);
+
+            Assertions.assertTrue(conn.isValid(10));
 
             LocalDate ld = LocalDate.of(2017, 12, 3);
             String prefix = "text-value-";
@@ -329,6 +335,8 @@ public class YdbDriverTablesTest {
             }
 
             conn.createStatement().execute(CREATE_TABLE);
+
+            Assertions.assertTrue(conn.isValid(10));
 
             LocalDate ld = LocalDate.of(2017, 12, 3);
             String prefix = "text-value-";
@@ -453,6 +461,8 @@ public class YdbDriverTablesTest {
             }
 
             connection.createStatement().execute(CREATE_TABLE);
+
+            Assertions.assertTrue(connection.isValid(10));
 
             LocalDate ld = LocalDate.of(2017, 12, 3);
             String prefix = "text-value-";

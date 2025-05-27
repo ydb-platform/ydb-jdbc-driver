@@ -28,6 +28,11 @@ declare $c_Datetime as Optional<Datetime>;
 declare $c_Timestamp as Optional<Timestamp>;
 declare $c_Interval as Optional<Interval>;
 
+declare $c_Date32 as Optional<Date32>;
+declare $c_Datetime64 as Optional<Datetime64>;
+declare $c_Timestamp64 as Optional<Timestamp64>;
+declare $c_Interval64 as Optional<Interval64>;
+
 declare $c_Decimal as Optional<Decimal(22, 9)>;
 declare $c_BigDecimal as Optional<Decimal(35, 0)>;
 declare $c_BankDecimal as Optional<Decimal(31, 9)>;
@@ -63,6 +68,11 @@ upsert into #tableName (
     c_Timestamp,
     c_Interval,
 
+    c_Date32,
+    c_Datetime64,
+    c_Timestamp64,
+    c_Interval64,
+
     c_Decimal,
     c_BigDecimal,
     c_BankDecimal
@@ -96,6 +106,11 @@ upsert into #tableName (
     $c_Datetime,
     $c_Timestamp,
     $c_Interval,
+
+    $c_Date32,
+    $c_Datetime64,
+    $c_Timestamp64,
+    $c_Interval64,
 
     $c_Decimal,
     $c_BigDecimal,

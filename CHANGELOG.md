@@ -1,3 +1,29 @@
+## 2.3.10 ##
+
+* Added .metadata folder to system tables
+* Added support of GRANT/REVOKE keywords
+
+## 2.3.9 ##
+
+* Added option 'forceJdbcParameters' to detect ? in whole query text
+* Added option 'tokenProvider' to use custom auth provider
+* Upgrade to Java SDK 2.3.13
+
+## 2.3.8 ##
+
+* Added option 'grpcCompression'
+* Added bulk upsert validation
+* All grpc calls isolated from parent context
+
+## 2.3.7 ##
+
+* Added slf4j-to-jul to shaded jar
+* Upgrade to use Java SDK v2.3.8
+
+## 2.3.6 ##
+
+* Added jdbc_table which can be converted to AS_TABLE($list)
+
 ## 2.3.5 ##
 
 * Disabled stream reader sets for SCAN queries

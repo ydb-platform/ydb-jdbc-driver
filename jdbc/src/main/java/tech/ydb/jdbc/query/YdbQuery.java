@@ -3,6 +3,7 @@ package tech.ydb.jdbc.query;
 import java.sql.SQLException;
 import java.util.List;
 
+import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.jdbc.settings.YdbQueryProperties;
 
 /**
@@ -39,6 +40,10 @@ public class YdbQuery {
         return type;
     }
 
+    public boolean isWriting() {
+        return writing;
+    }
+
     public YqlBatcher getYqlBatcher() {
         return batcher.isValidBatch() ? batcher : null;
     }
@@ -59,14 +64,8 @@ public class YdbQuery {
         return statements;
     }
 
-    public boolean isWriting() {
-        return writing;
-    }
-
-    public static YdbQuery parseQuery(String query, YdbQueryProperties opts) throws SQLException {
-        YdbQueryParser parser = new YdbQueryParser(
-                query, opts.isDetectQueryType(), opts.isDetectJdbcParameters(), opts.isReplaceJdbcInByYqlList()
-        );
+    public static YdbQuery parseQuery(String query, YdbQueryProperties opts, YdbTypes types) throws SQLException {
+        YdbQueryParser parser = new YdbQueryParser(types, query, opts);
         String preparedYQL = parser.parseSQL();
         boolean writing = false;
 
@@ -92,7 +91,7 @@ public class YdbQuery {
         if (type == null) {
             type = parser.detectQueryType();
         }
-        if (type == QueryType.DATA_QUERY) {
+        if (QueryType.DATA_QUERY.equals(type)) {
             writing = parser.detectWriting();
         }
 

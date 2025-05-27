@@ -14,6 +14,7 @@ import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTracer;
+import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.jdbc.impl.YdbQueryResult;
 import tech.ydb.jdbc.impl.YdbStaticResultSet;
 import tech.ydb.jdbc.query.QueryType;
@@ -41,6 +42,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
     private final AtomicReference<YdbQueryResult> currResult;
     protected final boolean traceEnabled;
     protected final String prefixPragma;
+    protected final YdbTypes types;
 
     public BaseYdbExecutor(YdbContext ctx) {
         this.retryCtx = ctx.getRetryCtx();
@@ -49,11 +51,12 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
         this.useStreamResultSet = ctx.getOperationProperties().getUseStreamResultSets();
         this.tableClient = ctx.getTableClient();
         this.prefixPragma = ctx.getPrefixPragma();
+        this.types = ctx.getTypes();
         this.currResult = new AtomicReference<>();
     }
 
     protected Session createNewTableSession(YdbValidator validator) throws SQLException {
-        return validator.call("Get session", () -> tableClient.createSession(sessionTimeout));
+        return validator.call("Get session", null, () -> tableClient.createSession(sessionTimeout));
     }
 
     protected void closeCurrentResult() throws SQLException {
@@ -155,7 +158,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
                         () -> session.executeScanQuery(yql, params, settings).start(resultSets::add)
                 );
 
-                YdbResultSet rs = new YdbStaticResultSet(statement, ProtoValueReaders.forResultSets(resultSets));
+                YdbResultSet rs = new YdbStaticResultSet(types, statement, ProtoValueReaders.forResultSets(resultSets));
                 return updateCurrentResult(new StaticQueryResult(query, Collections.singletonList(rs)));
             } finally {
                 session.close();
@@ -163,10 +166,10 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
             }
         }
 
-        StreamQueryResult lazy = validator.call(msg, () -> {
+        StreamQueryResult lazy = validator.call(msg, null, () -> {
             final CompletableFuture<Result<StreamQueryResult>> future = new CompletableFuture<>();
             final GrpcReadStream<ResultSetReader> stream = session.executeScanQuery(yql, params, settings);
-            final StreamQueryResult result = new StreamQueryResult(msg, statement, query, stream::cancel);
+            final StreamQueryResult result = new StreamQueryResult(msg, types, statement, query, stream::cancel);
 
             stream.start((rsr) -> {
                 future.complete(Result.success(result));

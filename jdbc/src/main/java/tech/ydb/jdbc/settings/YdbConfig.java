@@ -202,6 +202,8 @@ public class YdbConfig {
             YdbConnectionProperties.USE_METADATA.toInfo(properties),
             YdbConnectionProperties.IAM_ENDPOINT.toInfo(properties),
             YdbConnectionProperties.METADATA_URL.toInfo(properties),
+            YdbConnectionProperties.TOKEN_PROVIDER.toInfo(properties),
+            YdbConnectionProperties.GRPC_COMPRESSION.toInfo(properties),
 
             YdbClientProperties.KEEP_QUERY_TEXT.toInfo(properties),
             YdbClientProperties.SESSION_KEEP_ALIVE_TIME.toInfo(properties),
@@ -223,12 +225,14 @@ public class YdbConfig {
             YdbOperationProperties.SCHEME_QUERY_TX_MODE.toInfo(properties),
             YdbOperationProperties.SCAN_QUERY_TX_MODE.toInfo(properties),
             YdbOperationProperties.BULK_QUERY_TX_MODE.toInfo(properties),
+            YdbOperationProperties.FORCE_NEW_DATETYPES.toInfo(properties),
 
             YdbQueryProperties.DISABLE_PREPARE_DATAQUERY.toInfo(properties),
             YdbQueryProperties.DISABLE_AUTO_PREPARED_BATCHES.toInfo(properties),
             YdbQueryProperties.DISABLE_DETECT_SQL_OPERATIONS.toInfo(properties),
             YdbQueryProperties.DISABLE_JDBC_PARAMETERS.toInfo(properties),
             YdbQueryProperties.DISABLE_JDBC_PARAMETERS_DECLARE.toInfo(properties),
+            YdbQueryProperties.FORCE_JDBC_PARAMETERS.toInfo(properties),
             YdbQueryProperties.REPLACE_JDBC_IN_BY_YQL_LIST.toInfo(properties),
 
             YdbQueryProperties.REPLACE_INSERT_TO_UPSERT.toInfo(properties),

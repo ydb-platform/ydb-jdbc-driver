@@ -6,7 +6,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.jdbc.query.params.JdbcPrm;
+import tech.ydb.jdbc.settings.YdbQueryProperties;
 
 
 /**
@@ -16,21 +18,25 @@ import tech.ydb.jdbc.query.params.JdbcPrm;
 public class YdbQueryParser {
     private final boolean isDetectQueryType;
     private final boolean isDetectJdbcParameters;
+    private final boolean isForceJdbcParamters;
     private final boolean isConvertJdbcInToList;
 
     private final List<QueryStatement> statements = new ArrayList<>();
     private final YqlBatcher batcher = new YqlBatcher();
     private final String origin;
     private final StringBuilder parsed;
+    private final YdbTypes types;
 
     private int jdbcPrmIndex = 0;
 
-    public YdbQueryParser(String origin, boolean isDetectQueryType, boolean isDetectParameters, boolean isConvertIn) {
-        this.isDetectQueryType = isDetectQueryType;
-        this.isDetectJdbcParameters = isDetectParameters;
-        this.isConvertJdbcInToList = isConvertIn;
+    public YdbQueryParser(YdbTypes types, String origin, YdbQueryProperties props) {
+        this.isDetectQueryType = props.isDetectQueryType();
+        this.isDetectJdbcParameters = props.isDetectJdbcParameters();
+        this.isForceJdbcParamters = props.isForceJdbcParameters();
+        this.isConvertJdbcInToList = props.isReplaceJdbcInByYqlList();
         this.origin = origin;
         this.parsed = new StringBuilder(origin.length() + 10);
+        this.types = types;
     }
 
     public List<QueryStatement> getStatements() {
@@ -44,7 +50,7 @@ public class YdbQueryParser {
     public QueryType detectQueryType() throws SQLException {
         QueryType type = null;
         for (QueryStatement st: statements) {
-            if (st.getType() == QueryType.UNKNOWN) {
+            if (st.getType() == QueryType.UNKNOWN || st.getType() == QueryType.DECLARE) {
                 continue;
             }
 
@@ -127,7 +133,7 @@ public class YdbQueryParser {
                             i++; // make sure the coming ? is not treated as a bind
                         } else {
                             String name = nextJdbcPrmName();
-                            statement.addJdbcPrmFactory(JdbcPrm.simplePrm(name));
+                            statement.addJdbcPrmFactory(JdbcPrm.simplePrm(types, name));
                             parsed.append(name);
                             batcher.readParameter();
                         }
@@ -177,6 +183,19 @@ public class YdbQueryParser {
                             fragmentStart = i;
                         }
                     }
+
+                    // Process JDBC_TABLE (?, ?, ... )
+                    if (i < chars.length && detectJdbcArgs && isConvertJdbcInToList) {
+                        if (parseJdbcTableKeyword(chars, keywordStart, keywordLength)) {
+                            parsed.append(chars, fragmentStart, keywordStart - fragmentStart);
+                            fragmentStart = keywordStart;
+                            int updated = parseJdbcTableListParameters(chars, i, statement);
+                            if (updated != i) {
+                                i = updated;
+                                fragmentStart = updated;
+                            }
+                        }
+                    }
                 } else {
                     boolean skipped = false;
                     if (isDetectQueryType) {
@@ -216,6 +235,12 @@ public class YdbQueryParser {
                             batcher.readIdentifier(chars, keywordStart, keywordLength);
                         }
 
+                        // starts with DECLARE
+                        if (parseDeclareKeyword(chars, keywordStart, keywordLength)) {
+                            statement = new QueryStatement(type, QueryType.DECLARE, QueryCmd.UNKNOWN);
+                            batcher.readIdentifier(chars, keywordStart, keywordLength);
+                        }
+
                         // starts with INSERT, UPSERT
                         if (parseInsertKeyword(chars, keywordStart, keywordLength)) {
                             statement = new QueryStatement(type, QueryType.DATA_QUERY, QueryCmd.INSERT_UPSERT);
@@ -243,15 +268,22 @@ public class YdbQueryParser {
                         // Detect scheme expression - starts with ALTER, DROP, CREATE
                         if (parseAlterKeyword(chars, keywordStart, keywordLength)
                                 || parseCreateKeyword(chars, keywordStart, keywordLength)
-                                || parseDropKeyword(chars, keywordStart, keywordLength)) {
+                                || parseDropKeyword(chars, keywordStart, keywordLength)
+                                || parseGrantKeyword(chars, keywordStart, keywordLength)
+                                || parseRevokeKeyword(chars, keywordStart, keywordLength)
+                                ) {
                             statement = new QueryStatement(type, QueryType.SCHEME_QUERY, QueryCmd.CREATE_ALTER_DROP);
                             batcher.readIdentifier(chars, keywordStart, keywordLength);
                         }
 
                         statements.add(statement);
-                        detectJdbcArgs = statement.getType() != QueryType.SCHEME_QUERY
-                                && statement.getType() != QueryType.UNKNOWN
-                                && isDetectJdbcParameters;
+
+                        detectJdbcArgs = isDetectJdbcParameters;
+                        detectJdbcArgs = detectJdbcArgs && statement.getType() != QueryType.SCHEME_QUERY;
+                        detectJdbcArgs = detectJdbcArgs && statement.getType() != QueryType.DECLARE;
+                        if (!isForceJdbcParamters) {
+                            detectJdbcArgs = detectJdbcArgs && statement.getType() != QueryType.UNKNOWN;
+                        }
                     }
                 }
 
@@ -269,6 +301,9 @@ public class YdbQueryParser {
                     break;
                 case ',':
                     batcher.readComma();
+                    break;
+                case '.':
+                    batcher.readPoint();
                     break;
                 case '=':
                     batcher.readEqual();
@@ -316,7 +351,7 @@ public class YdbQueryParser {
                     String name = nextJdbcPrmName();
                     parsed.append(query, start, offset - start);
                     parsed.append(name);
-                    st.addJdbcPrmFactory(JdbcPrm.uint64Prm(name));
+                    st.addJdbcPrmFactory(JdbcPrm.uint64Prm(types, name));
                     return offset + 1;
                 case '-': // possibly -- style comment
                     offset = parseLineComment(query, offset);
@@ -372,7 +407,64 @@ public class YdbQueryParser {
                     parsed.append(query, start, listStartedAt - start);
                     parsed.append(' '); // add extra space to avoid IN$jpN
                     parsed.append(name);
-                    st.addJdbcPrmFactory(JdbcPrm.inListOrm(name, listSize));
+                    st.addJdbcPrmFactory(JdbcPrm.inListOrm(types, name, listSize));
+                    return offset + 1;
+                case '-': // possibly -- style comment
+                    offset = parseLineComment(query, offset);
+                    break;
+                case '/': // possibly /* */ style comment
+                    offset = parseBlockComment(query, offset);
+                    break;
+                default:
+                    if (!Character.isWhitespace(query[offset])) {
+                        return start;
+                    }
+                    break;
+            }
+            offset++;
+        }
+
+        return start;
+    }
+
+    private int parseJdbcTableListParameters(char[] query, int offset, QueryStatement st) {
+        int start = offset;
+        int listStartedAt = -1;
+        int listSize = 0;
+        boolean waitPrm = false;
+        while (offset < query.length) {
+            char ch = query[offset];
+            switch (ch) {
+                case '(': // start of list
+                    if (listStartedAt >= 0) {
+                        return start;
+                    }
+                    listStartedAt = offset;
+                    waitPrm = true;
+                    break;
+                case ',':
+                    if (listStartedAt < 0 || waitPrm) {
+                        return start;
+                    }
+                    waitPrm = true;
+                    break;
+                case '?' :
+                    if (!waitPrm || (offset + 1 < query.length && query[offset + 1] == '?')) {
+                        return start;
+                    }
+                    listSize++;
+                    waitPrm = false;
+                    break;
+                case ')':
+                    if (waitPrm || listSize == 0 || listStartedAt < 0) {
+                        return start;
+                    }
+
+                    String name = nextJdbcPrmName();
+                    parsed.append(" AS_TABLE(");
+                    parsed.append(name);
+                    parsed.append(")");
+                    st.addJdbcPrmFactory(JdbcPrm.jdbcTableListOrm(types, name, listSize));
                     return offset + 1;
                 case '-': // possibly -- style comment
                     offset = parseLineComment(query, offset);
@@ -504,6 +596,30 @@ public class YdbQueryParser {
                 && (query[offset + 3] | 32) == 'p';
     }
 
+    private static boolean parseGrantKeyword(char[] query, int offset, int length) {
+        if (length != 5) {
+            return false;
+        }
+
+        return (query[offset] | 32) == 'g'
+                && (query[offset + 1] | 32) == 'r'
+                && (query[offset + 2] | 32) == 'a'
+                && (query[offset + 3] | 32) == 'n'
+                && (query[offset + 4] | 32) == 't';
+    }
+
+    private static boolean parseRevokeKeyword(char[] query, int offset, int length) {
+        if (length != 6) {
+            return false;
+        }
+
+        return (query[offset] | 32) == 'r'
+                && (query[offset + 1] | 32) == 'e'
+                && (query[offset + 2] | 32) == 'v'
+                && (query[offset + 3] | 32) == 'o'
+                && (query[offset + 4] | 32) == 'k'
+                && (query[offset + 5] | 32) == 'e';
+    }
     private static boolean parseScanKeyword(char[] query, int offset, int length) {
         if (length != 4) {
             return false;
@@ -551,6 +667,20 @@ public class YdbQueryParser {
                 && (query[offset + 3] | 32) == 'e'
                 && (query[offset + 4] | 32) == 'c'
                 && (query[offset + 5] | 32) == 't';
+    }
+
+    private static boolean parseDeclareKeyword(char[] query, int offset, int length) {
+        if (length != 7) {
+            return false;
+        }
+
+        return (query[offset] | 32) == 'd'
+                && (query[offset + 1] | 32) == 'e'
+                && (query[offset + 2] | 32) == 'c'
+                && (query[offset + 3] | 32) == 'l'
+                && (query[offset + 4] | 32) == 'a'
+                && (query[offset + 5] | 32) == 'r'
+                && (query[offset + 6] | 32) == 'e';
     }
 
     private static boolean parseUpdateKeyword(char[] query, int offset, int length) {
@@ -667,5 +797,22 @@ public class YdbQueryParser {
 
         return (query[offset] | 32) == 'i'
                 && (query[offset + 1] | 32) == 'n';
+    }
+
+    private static boolean parseJdbcTableKeyword(char[] query, int offset, int length) {
+        if (length != 10) {
+            return false;
+        }
+
+        return (query[offset] | 32) == 'j'
+                && (query[offset + 1] | 32) == 'd'
+                && (query[offset + 2] | 32) == 'b'
+                && (query[offset + 3] | 32) == 'c'
+                && (query[offset + 4]) == '_'
+                && (query[offset + 5] | 32) == 't'
+                && (query[offset + 6] | 32) == 'a'
+                && (query[offset + 7] | 32) == 'b'
+                && (query[offset + 8] | 32) == 'l'
+                && (query[offset + 9] | 32) == 'e';
     }
 }

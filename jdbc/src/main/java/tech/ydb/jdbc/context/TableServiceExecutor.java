@@ -189,7 +189,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         try (Session session = createNewTableSession(validator)) {
             String msg = QueryType.EXPLAIN_QUERY + " >>\n" + yql;
             ExplainDataQueryResult res = validator.call(msg, tracer, () -> session.explainDataQuery(yql, settings));
-            return updateCurrentResult(new StaticQueryResult(statement, res.getQueryAst(), res.getQueryPlan()));
+            return updateCurrentResult(new StaticQueryResult(types, statement, res.getQueryAst(), res.getQueryPlan()));
         } finally {
             if (!tx.isInsideTransaction()) {
                 tracer.close();
@@ -224,7 +224,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
                     throw new SQLException(msg);
                 }
 
-                readers.add(new YdbStaticResultSet(statement, rs));
+                readers.add(new YdbStaticResultSet(types, statement, rs));
             }
 
             return updateCurrentResult(new StaticQueryResult(query, readers));
@@ -248,8 +248,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         try {
             KeepAliveSessionSettings settings = new KeepAliveSessionSettings().setTimeout(Duration.ofSeconds(timeout));
             Session.State keepAlive = validator.call(
-                    "Keep alive: " + tx.txID(), null,
-                    () -> session.keepAlive(settings)
+                    "Keep alive: " + tx.txID(), null, () -> session.keepAlive(settings)
             );
             return keepAlive == Session.State.READY;
         } finally {
