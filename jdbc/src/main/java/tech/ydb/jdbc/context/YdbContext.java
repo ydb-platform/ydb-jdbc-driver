@@ -18,6 +18,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
 import tech.ydb.core.Result;
+import tech.ydb.core.Status;
 import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
@@ -190,9 +191,16 @@ public class YdbContext implements AutoCloseable {
 
     public YdbExecutor createExecutor() throws SQLException {
         if (config.isUseQueryService()) {
-            return new QueryServiceExecutor(this, operationProps.getTransactionLevel(), operationProps.isAutoCommit());
+            if (operationProps.getProcessUndetermined()) {
+                return new QueryServiceExecutorExt(
+                        this, operationProps.getTransactionLevel(), operationProps.isAutoCommit());
+            } else {
+                return new QueryServiceExecutor(
+                        this, operationProps.getTransactionLevel(), operationProps.isAutoCommit());
+            }
         } else {
-            return new TableServiceExecutor(this, operationProps.getTransactionLevel(), operationProps.isAutoCommit());
+            return new TableServiceExecutor(
+                    this, operationProps.getTransactionLevel(), operationProps.isAutoCommit());
         }
     }
 
@@ -270,6 +278,7 @@ public class YdbContext implements AutoCloseable {
     }
 
     public static YdbContext createContext(YdbConfig config) throws SQLException {
+        GrpcTransport grpcTransport = null;
         try {
             LOGGER.log(Level.FINE, "Creating new YDB context to {0}", config.getConnectionString());
 
@@ -293,7 +302,7 @@ public class YdbContext implements AutoCloseable {
                 });
             });
 
-            GrpcTransport grpcTransport = builder.build();
+            grpcTransport = builder.build();
 
             PooledTableClient.Builder tableClient = PooledTableClient.newClient(
                     GrpcTableRpc.useTransport(grpcTransport)
@@ -302,9 +311,25 @@ public class YdbContext implements AutoCloseable {
 
             boolean autoResize = clientProps.applyToTableClient(tableClient, queryClient);
 
-            return new YdbContext(config, operationProps, queryProps, grpcTransport,
+            YdbContext yc = new YdbContext(config, operationProps, queryProps, grpcTransport,
                     tableClient.build(), queryClient.build(), autoResize);
+            if (operationProps.getProcessUndetermined()) {
+                if (config.isUseQueryService()) {
+                    yc.ensureTransactionTableExists();
+                } else {
+                    LOGGER.log(Level.WARNING, "UNDETERMINED processing is disabled, "
+                            + "because it is only supported for QueryService execution mode.");
+                }
+            }
+            return yc;
         } catch (RuntimeException ex) {
+            if (grpcTransport != null) {
+                try {
+                    grpcTransport.close();
+                } catch (Exception exClose) {
+                    LOGGER.log(Level.FINE, "Issue when closing gRPC transport", exClose);
+                }
+            }
             StringBuilder sb = new StringBuilder("Cannot connect to YDB: ").append(ex.getMessage());
             Throwable cause = ex.getCause();
             while (cause != null) {
@@ -313,6 +338,30 @@ public class YdbContext implements AutoCloseable {
             }
             throw new SQLException(sb.toString(), ex);
         }
+    }
+
+    public void ensureTransactionTableExists() throws SQLException {
+        String tableName = operationProps.getProcessUndeterminedTable();
+        if (tableName.isEmpty()) {
+            return;
+        }
+        LOGGER.log(Level.FINE, "Using table {} for UNDETERMINED processing", tableName);
+        String sqlCreate = "CREATE TABLE IF NOT EXISTS `" + tableName
+                + "` (trans_id Text NOT NULL, trans_tv Timestamp,"
+                + "   PRIMARY KEY (trans_id)) WITH ("
+                + "TTL=Interval('PT60M') ON trans_tv,"
+                + "AUTO_PARTITIONING_MIN_PARTITIONS_COUNT=100,"
+                + "AUTO_PARTITIONING_MAX_PARTITIONS_COUNT=150,"
+                + "AUTO_PARTITIONING_BY_LOAD=ENABLED,"
+                + "AUTO_PARTITIONING_BY_SIZE=ENABLED,"
+                + "AUTO_PARTITIONING_PARTITION_SIZE_MB=100"
+                + ");";
+        Status status = retryCtx.supplyStatus(
+                session -> session.executeSchemeQuery(sqlCreate))
+                .join();
+        new YdbValidator().validate(
+                "Create table " + tableName,
+                getTracer(), status);
     }
 
     public <T extends RequestSettings<?>> T withDefaultTimeout(T settings) {

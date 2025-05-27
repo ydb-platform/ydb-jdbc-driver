@@ -57,6 +57,14 @@ public class YdbOperationProperties {
             "Use stream implementation of ResultSet", false
     );
 
+    static final YdbProperty<Boolean> PROCESS_UNDETERMINED = YdbProperty.bool("processUndetermined",
+            "Enable automatic processing of UNDETERMINED errors", false
+    );
+
+    static final YdbProperty<String> PROCESS_UNDETERMINED_TABLE = YdbProperty.string("processUndeterminedTable",
+            "Name of working table for automatic processing of UNDETERMINED errors", "ydb_transactions"
+    );
+
     private static final int MAX_ROWS = 1000; // TODO: how to figure out the max rows of current connection?
 
     private final YdbValue<Duration> joinDuration;
@@ -73,6 +81,8 @@ public class YdbOperationProperties {
     private final YdbValue<FakeTxMode> bulkQueryTxMode;
 
     private final YdbValue<Boolean> useStreamResultSets;
+    private final YdbValue<Boolean> processUndetermined;
+    private final YdbValue<String> processUndeterminedTable;
 
     public YdbOperationProperties(YdbConfig config) throws SQLException {
         Properties props = config.getProperties();
@@ -91,6 +101,8 @@ public class YdbOperationProperties {
         this.bulkQueryTxMode = BULK_QUERY_TX_MODE.readValue(props);
 
         this.useStreamResultSets = USE_STREAM_RESULT_SETS.readValue(props);
+        this.processUndetermined = PROCESS_UNDETERMINED.readValue(props);
+        this.processUndeterminedTable = PROCESS_UNDETERMINED_TABLE.readValue(props);
     }
 
     public Duration getJoinDuration() {
@@ -139,6 +151,14 @@ public class YdbOperationProperties {
 
     public boolean getUseStreamResultSets() {
         return useStreamResultSets.getValue();
+    }
+
+    public boolean getProcessUndetermined() {
+        return processUndetermined.getValue();
+    }
+
+    public String getProcessUndeterminedTable() {
+        return processUndeterminedTable.getValue();
     }
 
     public int getMaxRows() {

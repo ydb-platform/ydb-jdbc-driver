@@ -118,6 +118,7 @@ public class YdbQueryParserTest {
         Assertions.assertEquals(QueryType.UNKNOWN, parser.getStatements().get(0).getType());
         Assertions.assertEquals(QueryType.UNKNOWN, parser.getStatements().get(1).getType());
         Assertions.assertEquals(QueryType.DATA_QUERY, parser.getStatements().get(2).getType());
+        Assertions.assertEquals(true, parser.detectWriting());
     }
 
     @Test
@@ -135,6 +136,7 @@ public class YdbQueryParserTest {
         Assertions.assertEquals(QueryType.DATA_QUERY, parser.getStatements().get(1).getType());
 
         Assertions.assertEquals(QueryType.DATA_QUERY, parser.detectQueryType());
+        Assertions.assertEquals(false, parser.detectWriting());
     }
 
     @Test
@@ -348,6 +350,7 @@ public class YdbQueryParserTest {
         Assertions.assertEquals(1, parser.getStatements().size());
         Assertions.assertEquals(QueryType.DATA_QUERY, parser.getStatements().get(0).getType());
         Assertions.assertEquals(QueryCmd.INSERT_UPSERT, parser.getStatements().get(0).getCmd());
+        Assertions.assertEquals(true, parser.detectWriting());
 
         YqlBatcher batch = parser.getYqlBatcher();
         Assertions.assertTrue(batch.isValidBatch());
@@ -374,6 +377,7 @@ public class YdbQueryParserTest {
         Assertions.assertEquals(1, parser.getStatements().size());
         Assertions.assertEquals(QueryType.DATA_QUERY, parser.getStatements().get(0).getType());
         Assertions.assertEquals(QueryCmd.INSERT_UPSERT, parser.getStatements().get(0).getCmd());
+        Assertions.assertEquals(true, parser.detectWriting());
 
         YqlBatcher batch = parser.getYqlBatcher();
         Assertions.assertTrue(batch.isValidBatch());
@@ -400,6 +404,7 @@ public class YdbQueryParserTest {
         Assertions.assertEquals(1, parser.getStatements().size());
         Assertions.assertEquals(QueryType.DATA_QUERY, parser.getStatements().get(0).getType());
         Assertions.assertEquals(QueryCmd.INSERT_UPSERT, parser.getStatements().get(0).getCmd());
+        Assertions.assertEquals(true, parser.detectWriting());
 
         YqlBatcher batch = parser.getYqlBatcher();
         Assertions.assertTrue(batch.isValidBatch());
@@ -426,6 +431,7 @@ public class YdbQueryParserTest {
         Assertions.assertEquals(1, parser.getStatements().size());
         Assertions.assertEquals(QueryType.DATA_QUERY, parser.getStatements().get(0).getType());
         Assertions.assertEquals(QueryCmd.INSERT_UPSERT, parser.getStatements().get(0).getCmd());
+        Assertions.assertEquals(true, parser.detectWriting());
 
         YqlBatcher batch = parser.getYqlBatcher();
         Assertions.assertTrue(batch.isValidBatch());
@@ -452,6 +458,7 @@ public class YdbQueryParserTest {
         Assertions.assertEquals(1, parser.getStatements().size());
         Assertions.assertEquals(QueryType.DATA_QUERY, parser.getStatements().get(0).getType());
         Assertions.assertEquals(QueryCmd.UPDATE_REPLACE_DELETE, parser.getStatements().get(0).getCmd());
+        Assertions.assertEquals(true, parser.detectWriting());
 
         YqlBatcher batch = parser.getYqlBatcher();
         Assertions.assertTrue(batch.isValidBatch());
@@ -478,6 +485,7 @@ public class YdbQueryParserTest {
         Assertions.assertEquals(1, parser.getStatements().size());
         Assertions.assertEquals(QueryType.DATA_QUERY, parser.getStatements().get(0).getType());
         Assertions.assertEquals(QueryCmd.UPDATE_REPLACE_DELETE, parser.getStatements().get(0).getCmd());
+        Assertions.assertEquals(true, parser.detectWriting());
 
         YqlBatcher batch = parser.getYqlBatcher();
         Assertions.assertTrue(batch.isValidBatch());
@@ -504,6 +512,7 @@ public class YdbQueryParserTest {
         Assertions.assertEquals(1, parser.getStatements().size());
         Assertions.assertEquals(QueryType.DATA_QUERY, parser.getStatements().get(0).getType());
         Assertions.assertEquals(QueryCmd.UPDATE_REPLACE_DELETE, parser.getStatements().get(0).getCmd());
+        Assertions.assertEquals(true, parser.detectWriting());
 
         YqlBatcher batch = parser.getYqlBatcher();
         Assertions.assertTrue(batch.isValidBatch());
@@ -530,6 +539,7 @@ public class YdbQueryParserTest {
         Assertions.assertEquals(1, parser.getStatements().size());
         Assertions.assertEquals(QueryType.DATA_QUERY, parser.getStatements().get(0).getType());
         Assertions.assertEquals(QueryCmd.UPDATE_REPLACE_DELETE, parser.getStatements().get(0).getCmd());
+        Assertions.assertEquals(true, parser.detectWriting());
 
         YqlBatcher batch = parser.getYqlBatcher();
         Assertions.assertTrue(batch.isValidBatch());
@@ -556,6 +566,7 @@ public class YdbQueryParserTest {
         Assertions.assertEquals(1, parser.getStatements().size());
         Assertions.assertEquals(QueryType.DATA_QUERY, parser.getStatements().get(0).getType());
         Assertions.assertEquals(QueryCmd.UPDATE_REPLACE_DELETE, parser.getStatements().get(0).getCmd());
+        Assertions.assertEquals(true, parser.detectWriting());
 
         YqlBatcher batch = parser.getYqlBatcher();
         Assertions.assertTrue(batch.isValidBatch());
@@ -581,6 +592,7 @@ public class YdbQueryParserTest {
         Assertions.assertEquals(1, parser.getStatements().size());
         Assertions.assertEquals(QueryType.DATA_QUERY, parser.getStatements().get(0).getType());
         Assertions.assertEquals(QueryCmd.UPDATE_REPLACE_DELETE, parser.getStatements().get(0).getCmd());
+        Assertions.assertEquals(true, parser.detectWriting());
 
         YqlBatcher batch = parser.getYqlBatcher();
         Assertions.assertTrue(batch.isValidBatch());

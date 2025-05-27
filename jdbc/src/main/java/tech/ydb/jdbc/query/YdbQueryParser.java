@@ -1,6 +1,5 @@
 package tech.ydb.jdbc.query;
 
-
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
@@ -60,6 +59,18 @@ public class YdbQueryParser {
         }
 
         return type != null ? type : QueryType.DATA_QUERY;
+    }
+
+    public boolean detectWriting() {
+        for (QueryStatement st: statements) {
+            switch (st.getCmd()) {
+                case INSERT_UPSERT:
+                case UPDATE_REPLACE_DELETE:
+                    return true;
+                default:
+            }
+        }
+        return false;
     }
 
     @SuppressWarnings("MethodLength")
