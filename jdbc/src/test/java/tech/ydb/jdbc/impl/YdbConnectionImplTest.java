@@ -165,20 +165,22 @@ public class YdbConnectionImplTest {
                 ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY, ResultSet.HOLD_CURSORS_OVER_COMMIT)) {
             TableAssert.assertSelectInt(2, statement.executeQuery());
         }
+        try (PreparedStatement statement = jdbc.connection().prepareStatement("select 1 + 1", new int[0])) {
+            TableAssert.assertSelectInt(2, statement.executeQuery());
+    }
+        try (PreparedStatement statement = jdbc.connection().prepareStatement("select 1 + 1", new String[0])) {
+            TableAssert.assertSelectInt(2, statement.executeQuery());
+        }
+        try (PreparedStatement statement = jdbc.connection().prepareStatement("select 1 + 1",
+                Statement.RETURN_GENERATED_KEYS)) {
+            TableAssert.assertSelectInt(2, statement.executeQuery());
+        }
     }
 
     @Test
     public void prepareStatementInvalid() throws SQLException {
         ExceptionAssert.sqlFeatureNotSupported("Auto-generated keys are not supported",
-                () -> jdbc.connection().prepareStatement(SELECT_2_2, new int[] {})
-        );
-
-        ExceptionAssert.sqlFeatureNotSupported("Auto-generated keys are not supported",
-                () -> jdbc.connection().prepareStatement(SELECT_2_2, new String[] {})
-        );
-
-        ExceptionAssert.sqlFeatureNotSupported("Auto-generated keys are not supported",
-                () -> jdbc.connection().prepareStatement(SELECT_2_2, Statement.RETURN_GENERATED_KEYS)
+                () -> jdbc.connection().prepareStatement(SELECT_2_2, new int[] {1, 2})
         );
 
         ExceptionAssert.sqlFeatureNotSupported(
