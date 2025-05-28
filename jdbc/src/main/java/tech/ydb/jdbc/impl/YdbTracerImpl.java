@@ -16,8 +16,26 @@ import tech.ydb.jdbc.YdbTracer;
  */
 public class YdbTracerImpl implements YdbTracer {
     private static final Logger LOGGER = Logger.getLogger(YdbTracer.class.getName());
-    private static final ThreadLocal<YdbTracerImpl> LOCAL = new ThreadLocal<>();
+    private static final ThreadLocal<YdbTracer> LOCAL = new ThreadLocal<>();
     private static final AtomicLong ANONYMOUS_COUNTER = new AtomicLong(0);
+
+    public static final Storage ENABLED = new Storage() {
+        @Override
+        public YdbTracer get() {
+            YdbTracer tracer = LOCAL.get();
+            if (tracer == null) {
+                tracer = new YdbTracerImpl();
+                LOCAL.set(tracer);
+            }
+
+            return tracer;
+        }
+
+        @Override
+        public void clear() {
+            LOCAL.remove();
+        }
+    };
 
     private final Date startDate = new Date();
     private final long startedAt = System.currentTimeMillis();
@@ -26,7 +44,6 @@ public class YdbTracerImpl implements YdbTracer {
     private String txID = null;
     private String label = null;
     private boolean isMarked = false;
-    private boolean isClosed = false;
 
     private class Record {
         private final long executedAt = System.currentTimeMillis();
@@ -37,20 +54,6 @@ public class YdbTracerImpl implements YdbTracer {
             this.message = message;
             this.isRequest = isRequest;
         }
-    }
-
-    public static void clear() {
-        LOCAL.remove();
-    }
-
-    public static YdbTracer current() {
-        YdbTracerImpl tracer = LOCAL.get();
-        if (tracer == null || tracer.isClosed) {
-            tracer = new YdbTracerImpl();
-            LOCAL.set(tracer);
-        }
-
-        return tracer;
     }
 
     @Override
@@ -82,8 +85,6 @@ public class YdbTracerImpl implements YdbTracer {
 
     @Override
     public void close() {
-        isClosed = true;
-
         LOCAL.remove();
 
         final Level level = isMarked ? Level.INFO : Level.FINE;

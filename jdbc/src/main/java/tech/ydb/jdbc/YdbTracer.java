@@ -1,6 +1,5 @@
 package tech.ydb.jdbc;
 
-
 import tech.ydb.jdbc.impl.YdbTracerImpl;
 
 
@@ -10,12 +9,20 @@ import tech.ydb.jdbc.impl.YdbTracerImpl;
  * @author Aleksandr Gorshenin
  */
 public interface YdbTracer {
-    static void clear() {
-        YdbTracerImpl.clear();
+    interface Storage {
+        YdbTracer get();
+
+        default void clear() {
+
+        }
     }
 
     static YdbTracer current() {
-        return YdbTracerImpl.current();
+        return YdbTracerImpl.ENABLED.get();
+    }
+
+    static void clear() {
+        YdbTracerImpl.ENABLED.clear();
     }
 
     void setId(String id);

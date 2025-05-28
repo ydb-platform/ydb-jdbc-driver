@@ -124,11 +124,25 @@ public class YdbDriverExampleTest {
                 psBatch.executeBatch();
             }
 
+            try (PreparedStatement bulkPs = connection.prepareStatement("" +
+                            "BULK UPSERT INTO table_sample (id, value) VALUES (?, ?)")) {
+
+                bulkPs.setInt(1, 12);
+                bulkPs.setString(2, "value-12");
+                bulkPs.addBatch();
+
+                bulkPs.setInt(1, 13);
+                bulkPs.setString(2, "value-13");
+                bulkPs.addBatch();
+
+                bulkPs.executeBatch();
+            }
+
             try (PreparedStatement select = connection
                     .prepareStatement("select count(1) as cnt from table_sample")) {
                 ResultSet rs = select.executeQuery();
                 rs.next();
-                Assertions.assertEquals(11, rs.getLong("cnt"));
+                Assertions.assertEquals(13, rs.getLong("cnt"));
             }
         }
     }
@@ -212,11 +226,25 @@ public class YdbDriverExampleTest {
                 psBatch.executeBatch();
             }
 
+            try (PreparedStatement bulkPs = connection.prepareStatement("" +
+                            "BULK UPSERT INTO table_sample (id, value) VALUES (?, ?)")) {
+
+                bulkPs.setInt(1, 9);
+                bulkPs.setString(2, "value-9");
+                bulkPs.addBatch();
+
+                bulkPs.setInt(1, 10);
+                bulkPs.setString(2, "value-10");
+                bulkPs.addBatch();
+
+                bulkPs.executeBatch();
+            }
+
             try (PreparedStatement select = connection
                     .prepareStatement("select count(1) as cnt from table_sample")) {
                 ResultSet rs = select.executeQuery();
                 rs.next();
-                Assertions.assertEquals(8, rs.getLong("cnt"));
+                Assertions.assertEquals(10, rs.getLong("cnt"));
             }
         }
     }

@@ -27,6 +27,7 @@ import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.YdbTracer;
 import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.jdbc.exception.ExceptionFactory;
+import tech.ydb.jdbc.impl.YdbTracerImpl;
 import tech.ydb.jdbc.impl.YdbTracerNone;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbPreparedQuery;
@@ -90,6 +91,8 @@ public class YdbContext implements AutoCloseable {
     private final boolean autoResizeSessionPool;
     private final AtomicInteger connectionsCount = new AtomicInteger();
 
+    private YdbTracer.Storage tracerStorage;
+
     private YdbContext(
             YdbConfig config,
             YdbOperationProperties operationProperties,
@@ -137,10 +140,16 @@ public class YdbContext implements AutoCloseable {
             prefixPath = transport.getDatabase();
             prefixPragma = "";
         }
+
+        this.tracerStorage = config.isTxTracedEnabled() ? YdbTracerImpl.ENABLED : YdbTracerNone.DISABLED;
     }
 
     public YdbTypes getTypes() {
         return types;
+    }
+
+    public void setTracerStorage(YdbTracer.Storage storage) {
+        this.tracerStorage = storage;
     }
 
     /**
@@ -150,6 +159,10 @@ public class YdbContext implements AutoCloseable {
      */
     public GrpcTransport getGrpcTransport() {
         return grpcTransport;
+    }
+
+    public YdbTracer getTracer() {
+        return tracerStorage.get();
     }
 
     private String joined(String path1, String path2) {
@@ -186,14 +199,6 @@ public class YdbContext implements AutoCloseable {
 
     public String getUsername() {
         return config.getUsername();
-    }
-
-    public YdbTracer getTracer() {
-        return config.isTxTracedEnabled() ? YdbTracer.current() : YdbTracerNone.current();
-    }
-
-    public boolean isTxTracerEnabled() {
-        return config.isTxTracedEnabled();
     }
 
     public YdbExecutor createExecutor() throws SQLException {
@@ -264,6 +269,8 @@ public class YdbContext implements AutoCloseable {
     }
 
     public void deregister() {
+        tracerStorage.clear();
+
         int actual = connectionsCount.decrementAndGet();
         int maxSize = tableClient.sessionPoolStats().getMaxSize();
         if (autoResizeSessionPool && maxSize > SESSION_POOL_RESIZE_STEP) {
@@ -409,9 +416,9 @@ public class YdbContext implements AutoCloseable {
             String tablePath = joined(getPrefixPath(), query.getYqlBatcher().getTableName());
             TableDescription description = tableDescribeCache.getIfPresent(tablePath);
             if (description == null) {
-                YdbTracer tracer = getTracer();
+                YdbTracer tracer = tracerStorage.get();
                 tracer.trace("--> describe table");
-                tracer.query(tablePath);
+                tracer.trace(tablePath);
 
                 DescribeTableSettings settings = withDefaultTimeout(new DescribeTableSettings());
                 Result<TableDescription> result = retryCtx.supplyResult(
@@ -449,9 +456,9 @@ public class YdbContext implements AutoCloseable {
         Map<String, Type> queryTypes = queryParamsCache.getIfPresent(query.getOriginQuery());
         if (queryTypes == null) {
             String yql = prefixPragma + query.getPreparedYql();
-            YdbTracer tracer = getTracer();
+            YdbTracer tracer = tracerStorage.get();
             tracer.trace("--> prepare data query");
-            tracer.query(yql);
+            tracer.trace(yql);
 
             PrepareDataQuerySettings settings = withDefaultTimeout(new PrepareDataQuerySettings());
             Result<DataQuery> result = retryCtx.supplyResult(

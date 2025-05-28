@@ -62,6 +62,11 @@ public class InMemoryQuery implements YdbPreparedQuery {
     }
 
     @Override
+    public String getBatchText(Params prms) throws SQLException {
+        return getQueryText(prms);
+    }
+
+    @Override
     public int parametersCount() {
         return parameters.size();
     }

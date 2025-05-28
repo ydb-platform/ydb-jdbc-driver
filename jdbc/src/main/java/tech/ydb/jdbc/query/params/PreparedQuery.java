@@ -79,6 +79,11 @@ public class PreparedQuery implements YdbPreparedQuery {
     }
 
     @Override
+    public String getBatchText(Params prms) {
+        return yql;
+    }
+
+    @Override
     public void setParam(int index, Object obj, int sqlType) throws SQLException {
         if (index <= 0 || index > paramNames.length) {
             throw new SQLException(YdbConst.PARAMETER_NUMBER_NOT_FOUND + index);

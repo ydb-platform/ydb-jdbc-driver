@@ -137,7 +137,7 @@ public class YdbPreparedStatementTest {
 
         try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert.apply(SqlQueries.JdbcQuery.STANDARD))) {
             ps.setInt(1, 1);
-            ExceptionAssert.sqlDataException("Missing value for parameter: $p2", ps::execute);
+            ExceptionAssert.sqlDataException("Missing value for parameter: c_Text", ps::execute);
         }
 
         try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert.apply(SqlQueries.JdbcQuery.IN_MEMORY))) {

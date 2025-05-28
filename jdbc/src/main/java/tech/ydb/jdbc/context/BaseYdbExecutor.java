@@ -40,13 +40,11 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
     private final boolean useStreamResultSet;
 
     private final AtomicReference<YdbQueryResult> currResult;
-    protected final boolean traceEnabled;
     protected final String prefixPragma;
     protected final YdbTypes types;
 
     public BaseYdbExecutor(YdbContext ctx) {
         this.retryCtx = ctx.getRetryCtx();
-        this.traceEnabled = ctx.isTxTracerEnabled();
         this.sessionTimeout = ctx.getOperationProperties().getSessionTimeout();
         this.useStreamResultSet = ctx.getOperationProperties().getUseStreamResultSets();
         this.tableClient = ctx.getTableClient();

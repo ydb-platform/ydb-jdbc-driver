@@ -96,7 +96,7 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
                 executeBulkUpsert(query, bulk.getTablePath(), bulk.getBatchedBulk());
             } else {
                 for (Params prm: prepared.getBatchParams()) {
-                    executeDataQuery(query, prepared.getQueryText(prm), prm);
+                    executeDataQuery(query, prepared.getBatchText(prm), prm);
                 }
             }
         } finally {

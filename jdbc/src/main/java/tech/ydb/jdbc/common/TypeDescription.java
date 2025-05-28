@@ -42,6 +42,10 @@ public class TypeDescription {
         this.isNull = type.getKind() == Type.Kind.NULL || type.getKind() == Type.Kind.VOID;
     }
 
+    public String toYqlLiteral() {
+        return type.toString() + (optional ? "?" : "");
+    }
+
     public boolean isNull() {
         return isNull;
     }

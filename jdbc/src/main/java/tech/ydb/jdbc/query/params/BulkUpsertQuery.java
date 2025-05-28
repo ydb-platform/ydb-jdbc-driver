@@ -8,11 +8,13 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import tech.ydb.jdbc.common.YdbTypes;
+import tech.ydb.jdbc.query.ParamDescription;
 import tech.ydb.table.description.TableColumn;
 import tech.ydb.table.description.TableDescription;
 import tech.ydb.table.values.ListType;
 import tech.ydb.table.values.ListValue;
 import tech.ydb.table.values.StructType;
+import tech.ydb.table.values.StructValue;
 import tech.ydb.table.values.Type;
 
 /**
@@ -23,11 +25,10 @@ public class BulkUpsertQuery extends BatchedQuery {
     private final String tablePath;
     private final ListType bulkType;
 
-    private BulkUpsertQuery(YdbTypes types, String path, String yql, List<String> columns, Map<String, Type> paramTypes)
-            throws SQLException {
-        super(types, yql, "$bulk", columns, paramTypes);
-        this.tablePath = path;
-        this.bulkType = ListType.of(StructType.of(paramTypes));
+    private BulkUpsertQuery(String tablePath, String yql, ListType tp, ParamDescription[] params) throws SQLException {
+        super(null, yql, "$bulk", params);
+        this.tablePath = tablePath;
+        this.bulkType = tp;
     }
 
     public String getTablePath() {
@@ -35,7 +36,7 @@ public class BulkUpsertQuery extends BatchedQuery {
     }
 
     public ListValue getCurrentBulk() throws SQLException {
-        return bulkType.newValue(Collections.singletonList(getCurrentValues()));
+        return bulkType.newValue(Collections.singletonList(StructValue.of(validateValues())));
     }
 
     public ListValue getBatchedBulk() {
@@ -56,14 +57,18 @@ public class BulkUpsertQuery extends BatchedQuery {
             columnTypes.put(column.getName(), column.getType());
         }
 
+        ParamDescription[] params = new ParamDescription[columns.size()];
         Map<String, Type> structTypes = new HashMap<>();
+        int idx = 0;
         for (String column: columns) {
             if (!columnTypes.containsKey(column)) {
                 throw new SQLException("Cannot parse BULK upsert: column " + column + " not found");
             }
-            structTypes.put(column, columnTypes.get(column));
+            Type type = columnTypes.get(column);
+            structTypes.put(column, type);
+            params[idx++] = new ParamDescription(column, types.find(type));
         }
 
-        return new BulkUpsertQuery(types, path, yql.toString(), columns, structTypes);
+        return new BulkUpsertQuery(path, yql.toString(), ListType.of(StructType.of(structTypes)), params);
     }
 }

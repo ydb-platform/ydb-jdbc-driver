@@ -14,6 +14,7 @@ import tech.ydb.table.query.Params;
  */
 public interface YdbPreparedQuery {
     String getQueryText(Params prms) throws SQLException;
+    String getBatchText(Params prms) throws SQLException;
 
     void clearParameters();
 
