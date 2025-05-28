@@ -1,5 +1,7 @@
 package tech.ydb.jdbc;
 
+import tech.ydb.jdbc.impl.YdbTracerImpl;
+
 
 
 /**
@@ -13,6 +15,14 @@ public interface YdbTracer {
         default void clear() {
 
         }
+    }
+
+    static YdbTracer current() {
+        return YdbTracerImpl.ENABLED.get();
+    }
+
+    static void clear() {
+        YdbTracerImpl.ENABLED.clear();
     }
 
     void setId(String id);
