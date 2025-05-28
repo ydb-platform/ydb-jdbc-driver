@@ -7,11 +7,8 @@ import tech.ydb.jdbc.YdbTracer;
  * @author Aleksandr Gorshenin
  */
 public class YdbTracerNone implements YdbTracer {
-    private static final YdbTracerNone INSTANCE = new YdbTracerNone();
-
-    public static YdbTracer current() {
-        return INSTANCE;
-    }
+    private static final YdbTracer NONE = new YdbTracerNone();
+    public static final YdbTracer.Storage DISABLED = () -> NONE;
 
     @Override
     public void trace(String message) { }
