@@ -22,20 +22,27 @@ public class YdbQueryParser {
     private final boolean isForceJdbcParamters;
     private final boolean isConvertJdbcInToList;
 
-    private final List<QueryStatement> statements = new ArrayList<>();
-    private final YqlBatcher batcher = new YqlBatcher();
     private final String origin;
+    private final String returning;
     private final StringBuilder parsed;
     private final YdbTypes types;
 
+    private final List<QueryStatement> statements = new ArrayList<>();
+    private final YqlBatcher batcher = new YqlBatcher();
+
     private int jdbcPrmIndex = 0;
 
-    public YdbQueryParser(YdbTypes types, String origin, YdbQueryProperties props) {
+    public YdbQueryParser(YdbTypes types, String query, YdbQueryProperties props) {
+        this(types, new QueryKey(query), props);
+    }
+
+    public YdbQueryParser(YdbTypes types, QueryKey key, YdbQueryProperties props) {
         this.isDetectQueryType = props.isDetectQueryType();
         this.isDetectJdbcParameters = props.isDetectJdbcParameters();
         this.isForceJdbcParamters = props.isForceJdbcParameters();
         this.isConvertJdbcInToList = props.isReplaceJdbcInByYqlList();
-        this.origin = origin;
+        this.origin = key.getQuery();
+        this.returning = key.getReturning();
         this.parsed = new StringBuilder(origin.length() + 10);
         this.types = types;
     }
@@ -300,6 +307,7 @@ public class YdbQueryParser {
                 case ';':
                     batcher.readSemiColon();
                     if (parenLevel == 0) {
+                        addReturning(parsed, statement);
                         statement = null;
                         type = null;
                         detectJdbcArgs = false;
@@ -315,7 +323,21 @@ public class YdbQueryParser {
             parsed.append(chars, fragmentStart, chars.length - fragmentStart);
         }
 
+        addReturning(parsed, statement);
+
         return parsed.toString();
+    }
+
+    private void addReturning(StringBuilder parsed, QueryStatement st) throws SQLException {
+        if (st == null || returning == null || st.hasResults()) {
+            return;
+        }
+        if (st.getCmd() != QueryCmd.INSERT_UPSERT && st.getCmd() != QueryCmd.UPDATE_REPLACE_DELETE) {
+            return;
+        }
+
+        st.setHasGenerated(true);
+        parsed.append("\n").append(returning);
     }
 
     private String nextJdbcPrmName() {

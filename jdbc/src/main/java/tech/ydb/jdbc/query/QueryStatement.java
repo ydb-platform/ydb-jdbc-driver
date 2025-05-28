@@ -16,6 +16,7 @@ public class QueryStatement {
     private final QueryCmd command;
     private final List<JdbcPrm.Factory> parameters = new ArrayList<>();
     private boolean hasReturinng = false;
+    private boolean hasGenerated = false;
 
     public QueryStatement(QueryType custom, QueryType baseType, QueryCmd command) {
         this.queryType = custom != null ? custom : baseType;
@@ -46,8 +47,16 @@ public class QueryStatement {
         this.hasReturinng = hasReturning;
     }
 
+    public void setHasGenerated(boolean hasGenerated) {
+        this.hasGenerated = hasGenerated;
+    }
+
     public boolean hasUpdateCount() {
         return (command == QueryCmd.INSERT_UPSERT || command == QueryCmd.UPDATE_REPLACE_DELETE) && !hasReturinng;
+    }
+
+    public boolean hasUpdateWithGenerated() {
+        return hasGenerated;
     }
 
     public boolean hasResults() {

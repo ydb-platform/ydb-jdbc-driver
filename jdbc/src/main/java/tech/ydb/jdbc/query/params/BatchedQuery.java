@@ -230,8 +230,10 @@ public class BatchedQuery implements YdbPreparedQuery {
         return new BatchedQuery(null, query.getPreparedYql(), listName, descriptions);
     }
 
-    public static BatchedQuery createAutoBatched(YdbTypes types, YqlBatcher batcher, TableDescription description)
+    public static BatchedQuery createAutoBatched(YdbTypes types, YdbQuery query, TableDescription description)
             throws SQLException {
+
+        YqlBatcher batcher = query.getYqlBatcher();
 
         // DELETE and UPDATE may be batched only if WHERE contains only primary key columns
         if (batcher.getCommand() == YqlBatcher.Cmd.DELETE || batcher.getCommand() == YqlBatcher.Cmd.UPDATE) {
@@ -267,10 +269,12 @@ public class BatchedQuery implements YdbPreparedQuery {
             idx++;
         }
 
-        return new BatchedQuery(simpleQuery(batcher, params), batchQuery(batcher, params), "$batch", params);
+        String simple = simpleQuery(batcher, params, query.getReturning());
+        String batched = batchQuery(batcher, params, query.getReturning());
+        return new BatchedQuery(simple, batched, "$batch", params);
     }
 
-    private static String batchQuery(YqlBatcher batcher, ParamDescription[] params) {
+    private static String batchQuery(YqlBatcher batcher, ParamDescription[] params, String returning) {
         StringBuilder sb = new StringBuilder();
         sb.append("DECLARE $batch AS List<Struct<");
         for (int idx = 0; idx < params.length; idx++) {
@@ -308,11 +312,14 @@ public class BatchedQuery implements YdbPreparedQuery {
             sb.append(params[idx].name()).append(" AS `").append(params[idx].displayName()).append("`");
         }
 
-        sb.append(" FROM AS_TABLE($batch);");
-        return sb.toString();
+        sb.append(" FROM AS_TABLE($batch)");
+        if (returning != null) {
+            sb.append(" ").append(returning);
+        }
+        return sb.append(";").toString();
     }
 
-    private static String simpleQuery(YqlBatcher batcher, ParamDescription[] params) {
+    private static String simpleQuery(YqlBatcher batcher, ParamDescription[] params, String returning) {
         StringBuilder sb = new StringBuilder();
         for (ParamDescription p : params) {
             sb.append("DECLARE ").append(YdbConst.VARIABLE_PARAMETER_PREFIX).append(p.name())
@@ -325,21 +332,21 @@ public class BatchedQuery implements YdbPreparedQuery {
                 appendColumns(sb, params);
                 sb.append(") VALUES (");
                 appendValues(sb, params);
-                sb.append(");");
+                sb.append(")");
                 break;
             case INSERT:
                 sb.append("INSERT INTO `").append(batcher.getTableName()).append("` (");
                 appendColumns(sb, params);
                 sb.append(") VALUES (");
                 appendValues(sb, params);
-                sb.append(");");
+                sb.append(")");
                 break;
             case REPLACE:
                 sb.append("REPLACE INTO `").append(batcher.getTableName()).append("` (");
                 appendColumns(sb, params);
                 sb.append(") VALUES (");
                 appendValues(sb, params);
-                sb.append(");");
+                sb.append(")");
                 break;
             case UPDATE:
                 sb.append("UPDATE `").append(batcher.getTableName()).append("` SET ");
@@ -361,7 +368,10 @@ public class BatchedQuery implements YdbPreparedQuery {
                 break;
         }
 
-        return sb.toString();
+        if (returning != null) {
+            sb.append(" ").append(returning);
+        }
+        return sb.append(";").toString();
     }
 
     private static void appendColumns(StringBuilder sb, ParamDescription[] params) {

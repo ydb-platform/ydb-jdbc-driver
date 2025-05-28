@@ -66,7 +66,8 @@ public final class YdbConst {
     public static final String INVALID_ROW = "Current row index is out of bounds: ";
     public static final String BULKS_UNSUPPORTED = "BULK mode is available only for prepared statement with one UPSERT";
     public static final String INVALID_BATCH_COLUMN = "Cannot prepared batch request: cannot find a column";
-    public static final String BULKS_DESCRIBE_ERROR = "Cannot parse BULK upsert: ";
+    public static final String BULK_DESCRIBE_ERROR = "Cannot parse BULK upsert: ";
+    public static final String BULK_NOT_SUPPORT_RETURNING = "BULK query doesn't support RETURNING";
     public static final String METADATA_RS_UNSUPPORTED_IN_PS = "ResultSet metadata is not supported " +
             "in prepared statements";
     public static final String CANNOT_UNWRAP_TO = "Cannot unwrap to ";

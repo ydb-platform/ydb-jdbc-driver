@@ -244,7 +244,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
 
     @Override
     public ResultSet getGeneratedKeys() throws SQLException {
-        return null; // --
+        return state.getGeneratedKeys();
     }
 
     @Override

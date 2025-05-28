@@ -13,7 +13,7 @@ import tech.ydb.jdbc.settings.YdbQueryProperties;
  * @author Aleksandr Gorshenin
  */
 public class YdbQuery {
-    private final String originQuery;
+    private final QueryKey key;
     private final String preparedYQL;
     private final List<QueryStatement> statements;
     private final YqlBatcher batcher;
@@ -21,8 +21,8 @@ public class YdbQuery {
     private final QueryType type;
     private final boolean isPlainYQL;
 
-    YdbQuery(String originQuery, String preparedYQL, List<QueryStatement> stats, YqlBatcher batcher, QueryType type) {
-        this.originQuery = originQuery;
+    YdbQuery(QueryKey key, String preparedYQL, List<QueryStatement> stats, YqlBatcher batcher, QueryType type) {
+        this.key = key;
         this.preparedYQL = preparedYQL;
         this.statements = stats;
         this.type = type;
@@ -48,7 +48,11 @@ public class YdbQuery {
     }
 
     public String getOriginQuery() {
-        return originQuery;
+        return key.getQuery();
+    }
+
+    public String getReturning() {
+        return key.getReturning();
     }
 
     public String getPreparedYql() {
@@ -59,7 +63,7 @@ public class YdbQuery {
         return statements;
     }
 
-    public static YdbQuery parseQuery(String query, YdbQueryProperties opts, YdbTypes types) throws SQLException {
+    public static YdbQuery parseQuery(QueryKey query, YdbQueryProperties opts, YdbTypes types) throws SQLException {
         YdbQueryParser parser = new YdbQueryParser(types, query, opts);
         String preparedYQL = parser.parseSQL();
 
