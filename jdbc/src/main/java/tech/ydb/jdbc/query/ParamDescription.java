@@ -1,5 +1,6 @@
 package tech.ydb.jdbc.query;
 
+import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.common.TypeDescription;
 
 /**
@@ -18,7 +19,7 @@ public class ParamDescription {
     }
 
     public ParamDescription(String name, TypeDescription type) {
-        this(name, name, type);
+        this(name, YdbConst.VARIABLE_PARAMETER_PREFIX + name, type);
     }
 
     public String name() {
