@@ -31,12 +31,12 @@ public class YdbQueryTest {
     }
 
     private static QueryType parsedQueryType(YdbQueryProperties opts, String sql) throws SQLException {
-        return YdbQuery.parseQuery(sql, opts, new YdbTypes(false)).getType();
+        return YdbQuery.parseQuery(new QueryKey(sql), opts, new YdbTypes(false)).getType();
     }
 
     private void assertMixType(YdbQueryProperties opts, String types, String sql) {
         SQLException ex = Assertions.assertThrows(SQLException.class,
-                () -> YdbQuery.parseQuery(sql, opts, new YdbTypes(false)),
+                () -> YdbQuery.parseQuery(new QueryKey(sql), opts, new YdbTypes(false)),
                 "Mix type query must throw SQLException"
         );
         Assertions.assertEquals("Query cannot contain expressions with different types: " + types, ex.getMessage());

@@ -34,15 +34,24 @@ public class StaticQueryResult implements YdbQueryResult {
     private static class ExpressionResult {
         private final int updateCount;
         private final YdbResultSet resultSet;
+        private final YdbResultSet generatedKeys;
 
         ExpressionResult(int updateCount) {
             this.updateCount = updateCount;
             this.resultSet = null;
+            this.generatedKeys = null;
         }
 
-        ExpressionResult(YdbResultSet resultSet) {
+        ExpressionResult(int updateCount, YdbResultSet keys) {
+            this.updateCount = updateCount;
+            this.resultSet = null;
+            this.generatedKeys = keys;
+        }
+
+        ExpressionResult(YdbResultSet result) {
             this.updateCount = -1;
-            this.resultSet = resultSet;
+            this.resultSet = result;
+            this.generatedKeys = null;
         }
     }
 
@@ -59,6 +68,13 @@ public class StaticQueryResult implements YdbQueryResult {
                 results.add(NO_UPDATED);
                 continue;
             }
+
+            if (exp.hasUpdateWithGenerated() && idx < list.size()) {
+                results.add(new ExpressionResult(1, list.get(idx)));
+                idx++;
+                continue;
+            }
+
             if (exp.hasUpdateCount()) {
                 results.add(HAS_UPDATED);
                 continue;
@@ -122,6 +138,14 @@ public class StaticQueryResult implements YdbQueryResult {
             return null;
         }
         return results.get(resultIndex).resultSet;
+    }
+
+    @Override
+    public YdbResultSet getGeneratedKeys()  {
+        if (results == null || resultIndex >= results.size()) {
+            return null;
+        }
+        return results.get(resultIndex).generatedKeys;
     }
 
     @Override

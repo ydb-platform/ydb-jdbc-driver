@@ -220,6 +220,12 @@ public class StreamQueryResult implements YdbQueryResult {
     }
 
     @Override
+    public YdbResultSet getGeneratedKeys() throws SQLException {
+        // TODO: Implement
+        return null;
+    }
+
+    @Override
     public boolean hasResultSets() throws SQLException {
         if (resultIndex >= resultIndexes.length) {
             return false;

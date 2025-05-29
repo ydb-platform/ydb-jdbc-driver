@@ -29,6 +29,7 @@ import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.jdbc.exception.ExceptionFactory;
 import tech.ydb.jdbc.impl.YdbTracerImpl;
 import tech.ydb.jdbc.impl.YdbTracerNone;
+import tech.ydb.jdbc.query.QueryKey;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbPreparedQuery;
 import tech.ydb.jdbc.query.YdbQuery;
@@ -83,7 +84,7 @@ public class YdbContext implements AutoCloseable {
     private final String prefixPath;
     private final String prefixPragma;
 
-    private final Cache<String, YdbQuery> queriesCache;
+    private final Cache<QueryKey, YdbQuery> queriesCache;
     private final Cache<String, QueryStat> statsCache;
     private final Cache<String, Map<String, Type>> queryParamsCache;
     private final Cache<String, TableDescription> tableDescribeCache;
@@ -348,21 +349,20 @@ public class YdbContext implements AutoCloseable {
         return builder.withRequestTimeout(operation);
     }
 
-    public YdbQuery parseYdbQuery(String sql) throws SQLException {
-        return YdbQuery.parseQuery(sql, queryOptions, types);
+    public YdbQuery parseYdbQuery(String query) throws SQLException {
+        return YdbQuery.parseQuery(new QueryKey(query), queryOptions, types);
     }
 
-    public YdbQuery findOrParseYdbQuery(String sql) throws SQLException {
+    public YdbQuery findOrParseYdbQuery(QueryKey key) throws SQLException {
         if (queriesCache == null) {
-            return parseYdbQuery(sql);
+            return YdbQuery.parseQuery(key, queryOptions, types);
         }
 
-        YdbQuery cached = queriesCache.getIfPresent(sql);
+        YdbQuery cached = queriesCache.getIfPresent(key);
         if (cached == null) {
-            cached = parseYdbQuery(sql);
-            queriesCache.put(sql, cached);
+            cached = YdbQuery.parseQuery(key, queryOptions, types);
+            queriesCache.put(key, cached);
         }
-
 
         return cached;
     }
@@ -432,16 +432,19 @@ public class YdbContext implements AutoCloseable {
                     tableDescribeCache.put(tablePath, description);
                 } else {
                     if (type == QueryType.BULK_QUERY) {
-                        throw new SQLException(YdbConst.BULKS_DESCRIBE_ERROR + result.getStatus());
+                        throw new SQLException(YdbConst.BULK_DESCRIBE_ERROR + result.getStatus());
                     }
                 }
             }
             if (type == QueryType.BULK_QUERY) {
+                if (query.getReturning() != null) {
+                    throw new SQLException(YdbConst.BULK_NOT_SUPPORT_RETURNING);
+                }
                 return BulkUpsertQuery.build(types, tablePath, query.getYqlBatcher().getColumns(), description);
             }
 
             if (description != null) {
-                BatchedQuery params = BatchedQuery.createAutoBatched(types, query.getYqlBatcher(), description);
+                BatchedQuery params = BatchedQuery.createAutoBatched(types, query, description);
                 if (params != null) {
                     return params;
                 }

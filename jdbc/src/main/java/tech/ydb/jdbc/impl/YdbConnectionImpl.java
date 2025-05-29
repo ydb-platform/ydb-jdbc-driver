@@ -29,6 +29,7 @@ import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbExecutor;
 import tech.ydb.jdbc.context.YdbValidator;
+import tech.ydb.jdbc.query.QueryKey;
 import tech.ydb.jdbc.query.YdbPreparedQuery;
 import tech.ydb.jdbc.query.YdbQuery;
 
@@ -213,15 +214,15 @@ public class YdbConnectionImpl implements YdbConnection {
     }
 
     @Override
-    public YdbPreparedStatement prepareStatement(String origSql, int resultSetType, int resultSetConcurrency,
+    public YdbPreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency,
             int resultSetHoldability) throws SQLException {
         checkStatementParams(resultSetType, resultSetConcurrency, resultSetHoldability);
-        return prepareStatement(origSql, resultSetType, null, YdbPrepareMode.AUTO);
+        return prepareStatement(new QueryKey(sql), resultSetType, YdbPrepareMode.AUTO);
     }
 
     @Override
     public YdbPreparedStatement prepareStatement(String sql, YdbPrepareMode mode) throws SQLException {
-        return prepareStatement(sql, ResultSet.TYPE_SCROLL_INSENSITIVE, null, mode);
+        return prepareStatement(new QueryKey(sql), ResultSet.TYPE_SCROLL_INSENSITIVE, mode);
     }
 
     @Override
@@ -245,18 +246,18 @@ public class YdbConnectionImpl implements YdbConnection {
         if (columnNames == null || columnNames.length == 0) {
             return prepareStatement(sql);
         }
-        return prepareStatement(sql, ResultSet.TYPE_FORWARD_ONLY, columnNames, YdbPrepareMode.AUTO);
+        return prepareStatement(new QueryKey(sql, columnNames), ResultSet.TYPE_FORWARD_ONLY, YdbPrepareMode.AUTO);
     }
 
-    private YdbPreparedStatement prepareStatement(String sql, int type, String[] columnNames, YdbPrepareMode mode)
+    private YdbPreparedStatement prepareStatement(QueryKey key, int resultSetType, YdbPrepareMode mode)
             throws SQLException {
 
         validator.clearWarnings();
         ctx.getTracer().trace("prepare statement");
-        YdbQuery query = ctx.findOrParseYdbQuery(sql);
+        YdbQuery query = ctx.findOrParseYdbQuery(key);
         YdbPreparedQuery params = ctx.findOrPrepareParams(query, mode);
         ctx.getTracer().trace("create prepared statement");
-        return new YdbPreparedStatementImpl(this, query, params, type);
+        return new YdbPreparedStatementImpl(this, query, params, resultSetType);
     }
 
     @Override

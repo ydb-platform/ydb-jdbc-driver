@@ -21,6 +21,11 @@ public interface YdbQueryResult {
         }
 
         @Override
+        public YdbResultSet getGeneratedKeys() throws SQLException {
+            return null;
+        }
+
+        @Override
         public boolean hasResultSets() throws SQLException {
             return false;
         }
@@ -36,6 +41,7 @@ public interface YdbQueryResult {
 
     int getUpdateCount() throws SQLException;
     YdbResultSet getCurrentResultSet() throws SQLException;
+    YdbResultSet getGeneratedKeys() throws SQLException;
 
     boolean hasResultSets() throws SQLException;
     boolean getMoreResults(int current) throws SQLException;
