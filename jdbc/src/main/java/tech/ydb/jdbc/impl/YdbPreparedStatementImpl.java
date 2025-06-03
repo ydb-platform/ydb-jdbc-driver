@@ -93,10 +93,12 @@ public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPre
         try {
             if (query.getType() == QueryType.BULK_QUERY && (prepared instanceof BulkUpsertQuery)) {
                 BulkUpsertQuery bulk = (BulkUpsertQuery) prepared;
-                executeBulkUpsert(query, bulk.getTablePath(), bulk.getBatchedBulk());
+                YdbQueryResult newState = executeBulkUpsert(query, bulk.getTablePath(), bulk.getBatchedBulk());
+                updateState(newState);
             } else {
                 for (Params prm: prepared.getBatchParams()) {
-                    executeDataQuery(query, prepared.getBatchText(prm), prm);
+                    YdbQueryResult newState = executeDataQuery(query, prepared.getBatchText(prm), prm);
+                    updateState(newState);
                 }
             }
         } finally {
