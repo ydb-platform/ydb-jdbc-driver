@@ -36,6 +36,7 @@ import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.SqlQueries;
+import tech.ydb.jdbc.impl.helper.TestTxTracer;
 import tech.ydb.jdbc.impl.helper.TextSelectAssert;
 import tech.ydb.table.values.DecimalType;
 import tech.ydb.table.values.PrimitiveType;
@@ -53,7 +54,8 @@ public class YdbPreparedStatementTest {
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
     @RegisterExtension
-    private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb);
+    private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb)
+            .withArg("enableTxTracer", "true");
 
     private static final SqlQueries TEST_TABLE = new SqlQueries("ydb_prepared_test");
 
@@ -261,8 +263,10 @@ public class YdbPreparedStatementTest {
     @EnumSource(SqlQueries.JdbcQuery.class)
     public void batchUpsertTest(SqlQueries.JdbcQuery query) throws SQLException {
         String upsert = TEST_TABLE.upsertOne(query, "c_Text", "Text");
-
+        boolean batched = query != SqlQueries.JdbcQuery.TYPED && query != SqlQueries.JdbcQuery.IN_MEMORY;
         try (PreparedStatement statement = jdbc.connection().prepareStatement(upsert)) {
+            TestTxTracer tracer = YdbTracerImpl.use(new TestTxTracer());
+
             // ----- base usage -----
             statement.setInt(1, 1);
             statement.setString(2, "value-1");
@@ -273,6 +277,7 @@ public class YdbPreparedStatementTest {
             statement.addBatch();
 
             statement.executeBatch();
+            tracer.assertQueriesCount(batched ? 1 : 2);
 
             // ----- executeBatch without addBatch -----
             statement.setInt(1, 3);
@@ -283,6 +288,7 @@ public class YdbPreparedStatementTest {
             statement.setString(2, "value-4");
 
             statement.executeBatch();
+            tracer.assertQueriesCount(1);
 
             // ----- execute instead of executeBatch -----
             statement.setInt(1, 5);
@@ -293,6 +299,7 @@ public class YdbPreparedStatementTest {
             statement.setString(2, "value-6");
 
             statement.execute();
+            tracer.assertQueriesCount(1);
         }
 
         String select = TEST_TABLE.selectColumn("c_Text");

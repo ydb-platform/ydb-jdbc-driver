@@ -153,8 +153,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
         return state.hasResultSets();
     }
 
-    protected YdbQueryResult executeBulkUpsert(YdbQuery query, String tablePath, ListValue rows)
-            throws SQLException {
+    protected YdbQueryResult executeBulkUpsert(YdbQuery query, String tablePath, ListValue rows) throws SQLException {
         ensureOpened();
 
         if (connection.getExecutor().isInsideTransaction()) {
