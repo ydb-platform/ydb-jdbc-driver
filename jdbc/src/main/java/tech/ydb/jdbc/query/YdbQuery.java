@@ -18,10 +18,9 @@ public class YdbQuery {
 
     private final QueryType type;
     private final boolean isPlainYQL;
-    private final boolean writing;
+    private final boolean isWriting;
 
-    YdbQuery(QueryKey key, String preparedYQL, List<QueryStatement> stats, YqlBatcher batcher, QueryType type,
-            boolean writing) {
+    YdbQuery(QueryKey key, String preparedYQL, List<QueryStatement> stats, YqlBatcher batcher, QueryType type) {
         this.key = key;
         this.preparedYQL = preparedYQL;
         this.statements = stats;
@@ -29,11 +28,13 @@ public class YdbQuery {
         this.batcher = batcher;
 
         boolean hasJdbcParameters = false;
+        boolean hasDML = false;
         for (QueryStatement st: statements) {
             hasJdbcParameters = hasJdbcParameters || st.hasJdbcParameters();
+            hasDML = hasDML || (st.getCmd() == QueryCmd.DML);
         }
         this.isPlainYQL = !hasJdbcParameters;
-        this.writing = writing;
+        this.isWriting = (type == QueryType.DATA_QUERY) && hasDML;
     }
 
     public QueryType getType() {
@@ -41,7 +42,7 @@ public class YdbQuery {
     }
 
     public boolean isWriting() {
-        return writing;
+        return isWriting;
     }
 
     public YqlBatcher getYqlBatcher() {
@@ -95,10 +96,7 @@ public class YdbQuery {
         if (type == null) {
             type = parser.detectQueryType();
         }
-        if (QueryType.DATA_QUERY.equals(type)) {
-            writing = parser.detectWriting();
-        }
 
-        return new YdbQuery(query, preparedYQL, statements, batcher, type, writing);
+        return new YdbQuery(query, preparedYQL, statements, batcher, type);
     }
 }

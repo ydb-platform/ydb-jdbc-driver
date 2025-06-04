@@ -74,18 +74,6 @@ public class YdbQueryParser {
         return type != null ? type : QueryType.DATA_QUERY;
     }
 
-    public boolean detectWriting() {
-        for (QueryStatement st: statements) {
-            switch (st.getCmd()) {
-                case INSERT_UPSERT:
-                case UPDATE_REPLACE_DELETE:
-                    return true;
-                default:
-            }
-        }
-        return false;
-    }
-
     @SuppressWarnings("MethodLength")
     public String parseSQL() throws SQLException {
         int fragmentStart = 0;
@@ -250,25 +238,25 @@ public class YdbQueryParser {
 
                         // starts with INSERT, UPSERT
                         if (parseInsertKeyword(chars, keywordStart, keywordLength)) {
-                            statement = new QueryStatement(type, QueryType.DATA_QUERY, QueryCmd.INSERT_UPSERT);
+                            statement = new QueryStatement(type, QueryType.DATA_QUERY, QueryCmd.DML);
                             batcher.readInsert();
                         }
                         if (parseUpsertKeyword(chars, keywordStart, keywordLength)) {
-                            statement = new QueryStatement(type, QueryType.DATA_QUERY, QueryCmd.INSERT_UPSERT);
+                            statement = new QueryStatement(type, QueryType.DATA_QUERY, QueryCmd.DML);
                             batcher.readUpsert();
                         }
 
                         // starts with UPDATE, REPLACE, DELETE
                         if (parseUpdateKeyword(chars, keywordStart, keywordLength)) {
-                            statement = new QueryStatement(type, QueryType.DATA_QUERY, QueryCmd.UPDATE_REPLACE_DELETE);
+                            statement = new QueryStatement(type, QueryType.DATA_QUERY, QueryCmd.DML);
                             batcher.readUpdate();
                         }
                         if (parseDeleteKeyword(chars, keywordStart, keywordLength)) {
-                            statement = new QueryStatement(type, QueryType.DATA_QUERY, QueryCmd.UPDATE_REPLACE_DELETE);
+                            statement = new QueryStatement(type, QueryType.DATA_QUERY, QueryCmd.DML);
                             batcher.readDelete();
                         }
                         if (parseReplaceKeyword(chars, keywordStart, keywordLength)) {
-                            statement = new QueryStatement(type, QueryType.DATA_QUERY, QueryCmd.UPDATE_REPLACE_DELETE);
+                            statement = new QueryStatement(type, QueryType.DATA_QUERY, QueryCmd.DML);
                             batcher.readReplace();
                         }
 
@@ -279,7 +267,7 @@ public class YdbQueryParser {
                                 || parseGrantKeyword(chars, keywordStart, keywordLength)
                                 || parseRevokeKeyword(chars, keywordStart, keywordLength)
                                 ) {
-                            statement = new QueryStatement(type, QueryType.SCHEME_QUERY, QueryCmd.CREATE_ALTER_DROP);
+                            statement = new QueryStatement(type, QueryType.SCHEME_QUERY, QueryCmd.DDL);
                             batcher.readIdentifier(chars, keywordStart, keywordLength);
                         }
 
@@ -343,7 +331,7 @@ public class YdbQueryParser {
         if (st == null || returning == null || st.hasResults()) {
             return;
         }
-        if (st.getCmd() != QueryCmd.INSERT_UPSERT && st.getCmd() != QueryCmd.UPDATE_REPLACE_DELETE) {
+        if (st.getCmd() != QueryCmd.DML) {
             return;
         }
 

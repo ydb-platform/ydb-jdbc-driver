@@ -52,7 +52,7 @@ public class QueryStatement {
     }
 
     public boolean hasUpdateCount() {
-        return (command == QueryCmd.INSERT_UPSERT || command == QueryCmd.UPDATE_REPLACE_DELETE) && !hasReturinng;
+        return command == QueryCmd.DML && !hasReturinng;
     }
 
     public boolean hasUpdateWithGenerated() {
@@ -64,6 +64,6 @@ public class QueryStatement {
     }
 
     public boolean isDDL() {
-        return command == QueryCmd.CREATE_ALTER_DROP;
+        return command == QueryCmd.DDL;
     }
 }
