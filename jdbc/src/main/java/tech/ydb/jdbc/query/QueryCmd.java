@@ -7,7 +7,8 @@ package tech.ydb.jdbc.query;
 public enum QueryCmd {
     UNKNOWN,
     SELECT,
-    CREATE_ALTER_DROP,
-    INSERT_UPSERT,
-    UPDATE_REPLACE_DELETE
+    /** CREATE, DROP, ALTER, GRANT, REVOKE */
+    DDL,
+    /** INSERT, UPSERT, UPDATE, REPLACE, DELETE */
+    DML
 }

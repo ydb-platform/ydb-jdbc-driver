@@ -15,6 +15,7 @@ import tech.ydb.jdbc.impl.YdbQueryResult;
 import tech.ydb.jdbc.impl.YdbStaticResultSet;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
+import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.table.Session;
 import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.ExplainDataQueryResult;
@@ -35,10 +36,11 @@ public class TableServiceExecutor extends BaseYdbExecutor {
     private final boolean failOnTruncatedResult;
     private volatile TxState tx;
 
-    public TableServiceExecutor(YdbContext ctx, int transactionLevel, boolean autoCommit) throws SQLException {
+    public TableServiceExecutor(YdbContext ctx) throws SQLException {
         super(ctx);
-        this.tx = createTx(transactionLevel, autoCommit);
-        this.failOnTruncatedResult = ctx.getOperationProperties().isFailOnTruncatedResult();
+        YdbOperationProperties options = ctx.getOperationProperties();
+        this.tx = createTx(options.getTransactionLevel(), options.isAutoCommit());
+        this.failOnTruncatedResult = options.isFailOnTruncatedResult();
     }
 
     @Override

@@ -1,7 +1,5 @@
 package tech.ydb.jdbc.query;
 
-
-
 import java.sql.SQLException;
 import java.util.List;
 
@@ -20,6 +18,7 @@ public class YdbQuery {
 
     private final QueryType type;
     private final boolean isPlainYQL;
+    private final boolean isWriting;
 
     YdbQuery(QueryKey key, String preparedYQL, List<QueryStatement> stats, YqlBatcher batcher, QueryType type) {
         this.key = key;
@@ -29,14 +28,21 @@ public class YdbQuery {
         this.batcher = batcher;
 
         boolean hasJdbcParameters = false;
+        boolean hasDML = false;
         for (QueryStatement st: statements) {
             hasJdbcParameters = hasJdbcParameters || st.hasJdbcParameters();
+            hasDML = hasDML || (st.getCmd() == QueryCmd.DML);
         }
         this.isPlainYQL = !hasJdbcParameters;
+        this.isWriting = (type == QueryType.DATA_QUERY) && hasDML;
     }
 
     public QueryType getType() {
         return type;
+    }
+
+    public boolean isWriting() {
+        return isWriting;
     }
 
     public YqlBatcher getYqlBatcher() {
@@ -66,6 +72,7 @@ public class YdbQuery {
     public static YdbQuery parseQuery(QueryKey query, YdbQueryProperties opts, YdbTypes types) throws SQLException {
         YdbQueryParser parser = new YdbQueryParser(types, query, opts);
         String preparedYQL = parser.parseSQL();
+        boolean writing = false;
 
         QueryType type = null;
         YqlBatcher batcher = parser.getYqlBatcher();

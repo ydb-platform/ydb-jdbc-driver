@@ -71,7 +71,7 @@ public class YdbContext implements AutoCloseable {
 
     private final YdbConfig config;
 
-    private final YdbOperationProperties operationProps;
+    private final YdbOperationProperties operationOptions;
     private final YdbQueryProperties queryOptions;
     private final YdbTypes types;
 
@@ -102,7 +102,7 @@ public class YdbContext implements AutoCloseable {
     ) {
         this.config = config;
 
-        this.operationProps = operationProperties;
+        this.operationOptions = operationProperties;
         this.queryOptions = queryProperties;
         this.autoResizeSessionPool = autoResize;
 
@@ -195,9 +195,17 @@ public class YdbContext implements AutoCloseable {
 
     public YdbExecutor createExecutor() throws SQLException {
         if (config.isUseQueryService()) {
-            return new QueryServiceExecutor(this, operationProps.getTransactionLevel(), operationProps.isAutoCommit());
+            String txValidationTable = operationOptions.getTxValidationTable();
+            if (txValidationTable != null && !txValidationTable.isEmpty()) {
+                String tablePath = joined(prefixPath, txValidationTable);
+                if (tableDescribeCache.getIfPresent(tablePath) == null) {
+                    tableDescribeCache.put(tablePath, TableTxExecutor.validate(this, tablePath));
+                }
+                return new TableTxExecutor(this, tablePath);
+            }
+            return new QueryServiceExecutor(this);
         } else {
-            return new TableServiceExecutor(this, operationProps.getTransactionLevel(), operationProps.isAutoCommit());
+            return new TableServiceExecutor(this);
         }
     }
 
@@ -206,7 +214,7 @@ public class YdbContext implements AutoCloseable {
     }
 
     public YdbOperationProperties getOperationProperties() {
-        return operationProps;
+        return operationOptions;
     }
 
     @Override
@@ -277,6 +285,7 @@ public class YdbContext implements AutoCloseable {
     }
 
     public static YdbContext createContext(YdbConfig config) throws SQLException {
+        GrpcTransport grpcTransport = null;
         try {
             LOGGER.log(Level.FINE, "Creating new YDB context to {0}", config.getConnectionString());
 
@@ -300,7 +309,7 @@ public class YdbContext implements AutoCloseable {
                 });
             });
 
-            GrpcTransport grpcTransport = builder.build();
+            grpcTransport = builder.build();
 
             PooledTableClient.Builder tableClient = PooledTableClient.newClient(
                     GrpcTableRpc.useTransport(grpcTransport)
@@ -309,9 +318,16 @@ public class YdbContext implements AutoCloseable {
 
             boolean autoResize = clientProps.applyToTableClient(tableClient, queryClient);
 
-            return new YdbContext(config, operationProps, queryProps, grpcTransport,
-                    tableClient.build(), queryClient.build(), autoResize);
+            return new YdbContext(config, operationProps, queryProps, grpcTransport, tableClient.build(),
+                    queryClient.build(), autoResize);
         } catch (RuntimeException ex) {
+            if (grpcTransport != null) {
+                try {
+                    grpcTransport.close();
+                } catch (Exception exClose) {
+                    LOGGER.log(Level.FINE, "Issue when closing gRPC transport", exClose);
+                }
+            }
             StringBuilder sb = new StringBuilder("Cannot connect to YDB: ").append(ex.getMessage());
             Throwable cause = ex.getCause();
             while (cause != null) {
@@ -323,7 +339,7 @@ public class YdbContext implements AutoCloseable {
     }
 
     public <T extends RequestSettings<?>> T withDefaultTimeout(T settings) {
-        Duration operation = operationProps.getDeadlineTimeout();
+        Duration operation = operationOptions.getDeadlineTimeout();
         if (!operation.isZero() && !operation.isNegative()) {
             settings.setOperationTimeout(operation);
             settings.setTimeout(operation.plusSeconds(1));
@@ -332,7 +348,7 @@ public class YdbContext implements AutoCloseable {
     }
 
     public <T extends BaseRequestSettings.BaseBuilder<T>> T withRequestTimeout(T builder) {
-        Duration operation = operationProps.getDeadlineTimeout();
+        Duration operation = operationOptions.getDeadlineTimeout();
         if (operation.isNegative() || operation.isZero()) {
             return builder;
         }
