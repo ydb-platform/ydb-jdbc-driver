@@ -23,6 +23,7 @@ import tech.ydb.jdbc.impl.YdbQueryResult;
 import tech.ydb.jdbc.impl.YdbStaticResultSet;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
+import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.query.QueryClient;
 import tech.ydb.query.QuerySession;
 import tech.ydb.query.QueryStream;
@@ -42,27 +43,28 @@ import tech.ydb.table.result.ResultSetReader;
  * @author Aleksandr Gorshenin
  */
 public class QueryServiceExecutor extends BaseYdbExecutor {
-    protected final Duration sessionTimeout;
-    protected final QueryClient queryClient;
+    private final Duration sessionTimeout;
+    private final QueryClient queryClient;
     private final boolean useStreamResultSet;
 
-    protected int transactionLevel;
-    protected boolean isReadOnly;
-    protected boolean isAutoCommit;
-    protected TxMode txMode;
+    private int transactionLevel;
+    private boolean isReadOnly;
+    private boolean isAutoCommit;
+    private TxMode txMode;
 
-    protected final AtomicReference<QueryTransaction> tx = new AtomicReference<>();
-    protected volatile boolean isClosed;
+    private final AtomicReference<QueryTransaction> tx = new AtomicReference<>();
+    private volatile boolean isClosed;
 
-    public QueryServiceExecutor(YdbContext ctx, int transactionLevel, boolean autoCommit) throws SQLException {
+    public QueryServiceExecutor(YdbContext ctx) throws SQLException {
         super(ctx);
-        this.sessionTimeout = ctx.getOperationProperties().getSessionTimeout();
+        YdbOperationProperties options = ctx.getOperationProperties();
+        this.sessionTimeout = options.getSessionTimeout();
         this.queryClient = ctx.getQueryClient();
-        this.useStreamResultSet = ctx.getOperationProperties().getUseStreamResultSets();
+        this.useStreamResultSet = options.getUseStreamResultSets();
 
-        this.transactionLevel = transactionLevel;
+        this.transactionLevel = options.getTransactionLevel();
+        this.isAutoCommit = options.isAutoCommit();
         this.isReadOnly = transactionLevel != Connection.TRANSACTION_SERIALIZABLE;
-        this.isAutoCommit = autoCommit;
         this.txMode = txMode(transactionLevel, isReadOnly);
         this.isClosed = false;
     }
@@ -179,20 +181,24 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             return;
         }
 
+        try {
+            commitImpl(ctx, validator, localTx);
+        } finally {
+            if (tx.compareAndSet(localTx, null)) {
+                localTx.getSession().close();
+            }
+            ctx.getTracer().close();
+        }
+    }
+
+    protected void commitImpl(YdbContext ctx, YdbValidator validator, QueryTransaction tx) throws SQLException {
         YdbTracer tracer = ctx.getTracer();
         tracer.trace("--> commit");
         tracer.query(null);
 
         CommitTransactionSettings settings = ctx.withRequestTimeout(CommitTransactionSettings.newBuilder()).build();
-        try {
-            validator.clearWarnings();
-            validator.call("Commit TxId: " + localTx.getId(), tracer, () -> localTx.commit(settings));
-        } finally {
-            if (tx.compareAndSet(localTx, null)) {
-                localTx.getSession().close();
-            }
-            tracer.close();
-        }
+        validator.clearWarnings();
+        validator.call("Commit TxId: " + tx.getId(), tracer, () -> tx.commit(settings));
     }
 
     @Override
@@ -223,9 +229,8 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    public YdbQueryResult executeDataQuery(
-            YdbStatement statement, YdbQuery query, String preparedYql, Params params, long timeout, boolean keepInCache
-    ) throws SQLException {
+    public YdbQueryResult executeDataQuery(YdbStatement statement, YdbQuery query, String preparedYql, Params params,
+            long timeout, boolean keepInCache) throws SQLException {
         ensureOpened();
 
         YdbValidator validator = statement.getValidator();

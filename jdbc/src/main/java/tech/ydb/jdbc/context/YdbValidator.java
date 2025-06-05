@@ -66,7 +66,8 @@ public class YdbValidator {
         }
     }
 
-    public void validate(String msg, YdbTracer tracer, Status status) throws SQLException {
+    public void execute(String msg, YdbTracer tracer, Supplier<CompletableFuture<Status>> fn) throws SQLException {
+        Status status = joinFuture(fn);
         addStatusIssues(status);
 
         tracer.trace("<-- " + status.toString());
@@ -76,11 +77,6 @@ public class YdbValidator {
             throw ExceptionFactory.createException("Cannot execute '" + msg + "' with " + status,
                     new UnexpectedResultException("Unexpected status", status));
         }
-    }
-
-    public void execute(String msg, YdbTracer tracer, Supplier<CompletableFuture<Status>> fn) throws SQLException {
-        Status status = joinFuture(fn);
-        validate(msg, tracer, status);
     }
 
     public <R> R call(String msg, YdbTracer tracer, Supplier<CompletableFuture<Result<R>>> fn) throws SQLException {
