@@ -89,21 +89,22 @@ public class TableTxExecutor extends QueryServiceExecutor {
             return;
         }
 
-        YdbTracer tracer = ctx.getTracer();
         String hash = Hashing.sha256().hashBytes(tx.getId().getBytes()).toString();
-        tracer.trace("--> commit-and-store-tx " + hash);
-        tracer.query(commitQuery);
-
         Params params = Params.of(
                 "$hash", PrimitiveValue.newText(hash),
                 "$tx", PrimitiveValue.newText(tx.getId())
         );
 
+        YdbTracer tracer = ctx.getTracer();
         ExecuteQuerySettings settings = ctx.withRequestTimeout(ExecuteQuerySettings.newBuilder()).build();
         try {
             QueryStream query = tx.createQuery(commitQuery, true, params, settings);
             validator.clearWarnings();
-            validator.call("CommitAndStore TxId: " + tx.getId(), tracer, query::execute);
+            validator.call("CommitAndStore TxId: " + tx.getId(), tracer, () -> {
+                tracer.trace("--> commit-and-store-tx " + hash);
+                tracer.query(commitQuery);
+                return query.execute();
+            });
         } catch (YdbConditionallyRetryableException ex) {
 
             try (Session session = createNewTableSession(validator)) {
