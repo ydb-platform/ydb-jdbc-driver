@@ -61,13 +61,8 @@ public class YdbOperationProperties {
             "Use new data types Date32/Datetime64/Timestamp64 by default", false
     );
 
-    static final YdbProperty<Boolean> PROCESS_UNDETERMINED = YdbProperty.bool("processUndetermined",
-            "Enable automatic processing of UNDETERMINED errors", false
-    );
-
-    static final YdbProperty<String> PROCESS_UNDETERMINED_TABLE = YdbProperty.string("processUndeterminedTable",
-            "Name of working table for automatic processing of UNDETERMINED errors", "ydb_transactions"
-    );
+    static final YdbProperty<String> TX_VALIDATION_TABLE = YdbProperty.string("withTxValidationTable",
+            "Name of working table to store transactions to avoid UNDETERMINED errors");
 
     private static final int MAX_ROWS = 1000; // TODO: how to figure out the max rows of current connection?
 
@@ -86,8 +81,7 @@ public class YdbOperationProperties {
 
     private final YdbValue<Boolean> useStreamResultSets;
     private final YdbValue<Boolean> forceNewDatetypes;
-    private final YdbValue<Boolean> processUndetermined;
-    private final YdbValue<String> processUndeterminedTable;
+    private final YdbValue<String> txValidationTable;
 
     public YdbOperationProperties(YdbConfig config) throws SQLException {
         Properties props = config.getProperties();
@@ -107,8 +101,7 @@ public class YdbOperationProperties {
 
         this.useStreamResultSets = USE_STREAM_RESULT_SETS.readValue(props);
         this.forceNewDatetypes = FORCE_NEW_DATETYPES.readValue(props);
-        this.processUndetermined = PROCESS_UNDETERMINED.readValue(props);
-        this.processUndeterminedTable = PROCESS_UNDETERMINED_TABLE.readValue(props);
+        this.txValidationTable = TX_VALIDATION_TABLE.readValue(props);
     }
 
     public Duration getJoinDuration() {
@@ -163,15 +156,11 @@ public class YdbOperationProperties {
         return forceNewDatetypes.getValue();
     }
 
-    public boolean getProcessUndetermined() {
-        return processUndetermined.getValue();
-    }
-
-    public String getProcessUndeterminedTable() {
-        return processUndeterminedTable.getValue();
-    }
-
     public int getMaxRows() {
         return MAX_ROWS;
+    }
+
+    public String getTxValidationTable() {
+        return txValidationTable.getValue();
     }
 }

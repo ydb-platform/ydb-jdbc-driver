@@ -211,8 +211,6 @@ public class YdbConfig {
             YdbClientProperties.SESSION_POOL_SIZE_MIN.toInfo(properties),
             YdbClientProperties.SESSION_POOL_SIZE_MAX.toInfo(properties),
 
-            YdbOperationProperties.PROCESS_UNDETERMINED_TABLE.toInfo(properties),
-            YdbOperationProperties.PROCESS_UNDETERMINED.toInfo(properties),
             YdbOperationProperties.USE_STREAM_RESULT_SETS.toInfo(properties),
             YdbOperationProperties.JOIN_DURATION.toInfo(properties),
             YdbOperationProperties.QUERY_TIMEOUT.toInfo(properties),

@@ -195,8 +195,9 @@ public class YdbContext implements AutoCloseable {
 
     public YdbExecutor createExecutor() throws SQLException {
         if (config.isUseQueryService()) {
-            if (operationOptions.getProcessUndetermined()) {
-                String tablePath = joined(prefixPath, operationOptions.getProcessUndeterminedTable());
+            String txValidationTable = operationOptions.getTxValidationTable();
+            if (txValidationTable != null && !txValidationTable.isEmpty()) {
+                String tablePath = joined(prefixPath, txValidationTable);
                 if (tableDescribeCache.getIfPresent(tablePath) == null) {
                     tableDescribeCache.put(tablePath, TableTxExecutor.validate(this, tablePath));
                 }
