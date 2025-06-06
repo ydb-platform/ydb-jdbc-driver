@@ -133,7 +133,7 @@ public class YdbDriver implements Driver {
         return cache.size();
     }
 
-    public void close() {
+    public void clear() {
         if (!cache.isEmpty()) {
             LOGGER.log(Level.FINE, "Closing {0} cached connection(s)...", cache.size());
             cache.values().forEach(YdbContext::close);
@@ -160,7 +160,7 @@ public class YdbDriver implements Driver {
             throw new IllegalStateException(YdbConst.DRIVER_IS_NOT_REGISTERED);
         }
         DriverManager.deregisterDriver(registeredDriver);
-        registeredDriver.close();
+        registeredDriver.clear();
 
         LOGGER.log(Level.INFO, "YDB JDBC Driver deregistered: {0}", registeredDriver);
         registeredDriver = null;

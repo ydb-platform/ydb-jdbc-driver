@@ -62,7 +62,7 @@ public class YdbDriverProperitesTest {
 
     @AfterEach
     public void afterEach() {
-        driver.close();
+        driver.clear();
     }
 
     @Test

@@ -69,6 +69,7 @@ public class YdbDriverIntegrationTest {
         Assertions.assertTrue(jdbcDriver instanceof YdbDriver);
 
         YdbDriver driver = (YdbDriver)jdbcDriver;
+        driver.clear();
         Assertions.assertEquals(0, driver.getConnectionCount());
 
         Connection firstConnection = DriverManager.getConnection(jdbcURL.build());
@@ -138,6 +139,7 @@ public class YdbDriverIntegrationTest {
         Driver jdbcDriver = DriverManager.getDriver(jdbcURL.build());
         Assertions.assertTrue(jdbcDriver instanceof YdbDriver);
         YdbDriver driver = (YdbDriver)jdbcDriver;
+        driver.clear();
         Assertions.assertEquals(0, driver.getConnectionCount());
 
         Properties props = new Properties();
