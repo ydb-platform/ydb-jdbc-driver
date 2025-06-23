@@ -43,9 +43,8 @@ public class JdbcDriverVersion {
             int major = -1;
             int minor = -1;
             String version = "1.0.development";
-            try {
+            try (InputStream in = Version.class.getResourceAsStream(PROPERTIES_PATH)) {
                 Properties prop = new Properties();
-                InputStream in = Version.class.getResourceAsStream(PROPERTIES_PATH);
                 prop.load(in);
                 version = prop.getProperty("version");
             } catch (IOException e) { }
