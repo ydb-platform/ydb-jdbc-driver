@@ -1,3 +1,10 @@
+## 2.3.11 ##
+
+* Added support of Date32, Datetime64, Timestamp64, Interval64
+* Added parsing of table name for simple UPDATE/DELETE
+* Use non-batched queries for single executions
+* Added support of generated keys
+
 ## 2.3.10 ##
 
 * Added .metadata folder to system tables
