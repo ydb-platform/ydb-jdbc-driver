@@ -114,7 +114,17 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     @Override
     public String getDatabaseProductVersion() {
-        return "unspecified"; // TODO: don't know how to get YDB version
+        return connection.getCtx().getDatabaseVersion();
+    }
+
+    @Override
+    public int getDatabaseMajorVersion() {
+        return 0; // unknown
+    }
+
+    @Override
+    public int getDatabaseMinorVersion() {
+        return 0; // unknown
     }
 
     @Override
@@ -1231,16 +1241,6 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     @Override
     public int getResultSetHoldability() throws SQLException {
         return connection.getHoldability();
-    }
-
-    @Override
-    public int getDatabaseMajorVersion() {
-        return 0; // unknown
-    }
-
-    @Override
-    public int getDatabaseMinorVersion() {
-        return 0; // unknown
     }
 
     @Override
