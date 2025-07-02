@@ -1,3 +1,10 @@
+## 2.3.12 ##
+
+* Added support of database version
+* Throw SQLDataException on invalid values
+* Upgrade to use Java SDK v2.3.17
+* Fixed resource leak
+
 ## 2.3.11 ##
 
 * Added support of Date32, Datetime64, Timestamp64, Interval64
