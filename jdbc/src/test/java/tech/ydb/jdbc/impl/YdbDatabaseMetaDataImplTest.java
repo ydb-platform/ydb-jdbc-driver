@@ -126,7 +126,7 @@ public class YdbDatabaseMetaDataImplTest {
         Assertions.assertFalse(metaData.nullsAreSortedAtStart());
         Assertions.assertFalse(metaData.nullsAreSortedAtEnd());
         Assertions.assertEquals("YDB", metaData.getDatabaseProductName());
-        Assertions.assertEquals("unspecified", metaData.getDatabaseProductVersion());
+        Assertions.assertFalse(metaData.getDatabaseProductVersion().isEmpty());
 
         Assertions.assertEquals(YdbDriverInfo.DRIVER_NAME, metaData.getDriverName());
         Assertions.assertEquals(YdbDriverInfo.DRIVER_VERSION, metaData.getDriverVersion());

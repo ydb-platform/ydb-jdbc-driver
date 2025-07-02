@@ -1,5 +1,6 @@
 package tech.ydb.jdbc.context;
 
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.time.Duration;
@@ -10,10 +11,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
@@ -50,12 +54,15 @@ import tech.ydb.table.TableClient;
 import tech.ydb.table.description.TableDescription;
 import tech.ydb.table.impl.PooledTableClient;
 import tech.ydb.table.query.DataQuery;
+import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.ExplainDataQueryResult;
+import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.rpc.grpc.GrpcTableRpc;
 import tech.ydb.table.settings.DescribeTableSettings;
 import tech.ydb.table.settings.ExplainDataQuerySettings;
 import tech.ydb.table.settings.PrepareDataQuerySettings;
 import tech.ydb.table.settings.RequestSettings;
+import tech.ydb.table.transaction.TxControl;
 import tech.ydb.table.values.Type;
 
 /**
@@ -87,6 +94,7 @@ public class YdbContext implements AutoCloseable {
     private final Cache<String, QueryStat> statsCache;
     private final Cache<String, Map<String, Type>> queryParamsCache;
     private final Cache<String, TableDescription> tableDescribeCache;
+    private final Supplier<String> version = Suppliers.memoizeWithExpiration(this::readVersion, 1, TimeUnit.HOURS);
 
     private final boolean autoResizeSessionPool;
     private final AtomicInteger connectionsCount = new AtomicInteger();
@@ -144,13 +152,12 @@ public class YdbContext implements AutoCloseable {
         return types;
     }
 
-    /**
-     * Grpc Transport for other API YDB server clients
-     *
-     * @return grpcTransport for YDB
-     */
     public GrpcTransport getGrpcTransport() {
         return grpcTransport;
+    }
+
+    public String getDatabaseVersion() {
+        return version.get();
     }
 
     public YdbTracer getTracer() {
@@ -337,6 +344,21 @@ public class YdbContext implements AutoCloseable {
             throw new SQLException(sb.toString(), ex);
         }
     }
+
+    private String readVersion() {
+        Result<DataQueryResult> res = retryCtx.supplyResult(
+                s -> s.executeDataQuery("SELECT version();", TxControl.snapshotRo())
+        ).join();
+
+        if (res.isSuccess()) {
+            ResultSetReader rs = res.getValue().getResultSet(0);
+            if (rs.next()) {
+                return rs.getColumn(0).getBytesAsString(StandardCharsets.UTF_8);
+            }
+        }
+        return "unknown";
+    }
+
 
     public <T extends RequestSettings<?>> T withDefaultTimeout(T settings) {
         Duration operation = operationOptions.getDeadlineTimeout();
