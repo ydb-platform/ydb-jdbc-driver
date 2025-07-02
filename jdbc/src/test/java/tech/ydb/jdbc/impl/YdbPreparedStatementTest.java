@@ -1122,6 +1122,18 @@ public class YdbPreparedStatementTest {
                 ps.setObject(2, "2011-12-03T10:15:30.456789123Z", ydbSqlType);
                 ps.execute();
             }
+
+            // Wrong values
+            ps.setInt(1, 8);
+            ExceptionAssert.sqlDataException(
+                    "Instant value is before minimum timestamp(1970-01-01 00:00:00.000000): 1969-12-31T23:59:59.999Z",
+                    () -> ps.setTimestamp(2, Timestamp.from(Instant.EPOCH.minusMillis(1)))
+            );
+
+            ExceptionAssert.sqlDataException(
+                    "Instant value is after maximum timestamp(2105-12-31 23:59:59.999999): 2106-01-01T00:00:00Z",
+                    () -> ps.setTimestamp(2, Timestamp.from(Instant.ofEpochSecond(4291747200l)))
+            );
         }
 
         try (Statement statement = jdbc.connection().createStatement()) {

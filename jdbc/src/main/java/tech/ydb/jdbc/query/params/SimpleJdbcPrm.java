@@ -67,6 +67,6 @@ class SimpleJdbcPrm implements JdbcPrm {
             return;
         }
 
-        value = types.find(type).setters().toValue(obj);
+        value = types.find(type).toYdbValue(obj);
     }
 }

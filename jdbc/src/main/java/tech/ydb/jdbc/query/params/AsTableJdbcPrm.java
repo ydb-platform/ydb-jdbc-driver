@@ -117,7 +117,7 @@ public class AsTableJdbcPrm {
                 return;
             }
 
-            value = type.setters().toValue(obj);
+            value = type.toYdbValue(obj);
         }
 
         @Override
