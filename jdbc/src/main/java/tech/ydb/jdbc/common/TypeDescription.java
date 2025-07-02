@@ -1,11 +1,14 @@
 package tech.ydb.jdbc.common;
 
+import java.sql.SQLDataException;
+import java.sql.SQLException;
 import java.util.Objects;
 
 import tech.ydb.table.values.OptionalType;
 import tech.ydb.table.values.OptionalValue;
 import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.table.values.Type;
+import tech.ydb.table.values.Value;
 
 public class TypeDescription {
     private final Type type;
@@ -74,8 +77,12 @@ public class TypeDescription {
         return getters;
     }
 
-    public MappingSetters.Setters setters() {
-        return setters;
+    public Value<?> toYdbValue(Object obj) throws SQLException {
+        try {
+            return setters.toValue(obj);
+        } catch (RuntimeException ex) {
+            throw new SQLDataException(ex.getMessage(), ex);
+        }
     }
 
     public Type ydbType() {

@@ -49,7 +49,7 @@ public class ValueFactory {
                 }
             }
         } else {
-            Value<?> targetValue = type.setters().toValue(value);
+            Value<?> targetValue = type.toYdbValue(value);
             if (type.isOptional()) {
                 return targetValue.makeOptional();
             } else {

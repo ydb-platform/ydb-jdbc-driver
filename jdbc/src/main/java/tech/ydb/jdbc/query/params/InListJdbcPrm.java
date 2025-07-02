@@ -112,7 +112,7 @@ public class InListJdbcPrm {
                 return;
             }
 
-            value = type.setters().toValue(obj);
+            value = type.toYdbValue(obj);
         }
 
         @Override

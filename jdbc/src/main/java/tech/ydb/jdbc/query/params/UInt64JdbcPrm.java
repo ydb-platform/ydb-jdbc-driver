@@ -49,6 +49,6 @@ class UInt64JdbcPrm implements JdbcPrm {
 
     @Override
     public void setValue(Object obj, int sqlType) throws SQLException {
-        value = desc.setters().toValue(obj);
+        value = desc.toYdbValue(obj);
     }
 }
