@@ -429,9 +429,10 @@ public class YdbContext implements AutoCloseable {
         }
 
         QueryType type = query.getType();
+        YqlBatcher batcher = query.getYqlBatcher();
 
         if (type == QueryType.BULK_QUERY) {
-            if (query.getYqlBatcher() == null || query.getYqlBatcher().getCommand() != YqlBatcher.Cmd.UPSERT) {
+            if (batcher == null || batcher.getCommand() != YqlBatcher.Cmd.UPSERT) {
                 throw new SQLException(YdbConst.BULKS_UNSUPPORTED);
             }
         }
@@ -441,8 +442,8 @@ public class YdbContext implements AutoCloseable {
             return new InMemoryQuery(query, queryOptions.isDeclareJdbcParameters());
         }
 
-        if (query.getYqlBatcher() != null && (mode == YdbPrepareMode.AUTO || type == QueryType.BULK_QUERY)) {
-            String tablePath = joined(getPrefixPath(), query.getYqlBatcher().getTableName());
+        if (batcher != null && (mode == YdbPrepareMode.AUTO || type == QueryType.BULK_QUERY)) {
+            String tablePath = joined(getPrefixPath(), batcher.getTableName());
             TableDescription description = tableDescribeCache.getIfPresent(tablePath);
             if (description == null) {
                 YdbTracer tracer = getTracer();
@@ -469,7 +470,7 @@ public class YdbContext implements AutoCloseable {
                 if (query.getReturning() != null) {
                     throw new SQLException(YdbConst.BULK_NOT_SUPPORT_RETURNING);
                 }
-                return BulkUpsertQuery.build(types, tablePath, query.getYqlBatcher().getColumns(), description);
+                return BulkUpsertQuery.build(types, tablePath, batcher.getColumns(), description);
             }
 
             if (description != null) {

@@ -93,7 +93,7 @@ public abstract class BaseYdbResultSet implements YdbResultSet {
 
         ValueReader value = getValue(columnIndex - 1);
         ColumnInfo type = columns[columnIndex - 1];
-        wasNull = type.isNull() || (type.isOptional() && !value.isOptionalItemPresent());
+        wasNull = type == null || type.isNull() || (type.isOptional() && !value.isOptionalItemPresent());
         return value;
     }
 
@@ -594,10 +594,10 @@ public abstract class BaseYdbResultSet implements YdbResultSet {
         if (wasNull) {
             return null;
         }
-        while (value.getType().getKind() == Type.Kind.OPTIONAL) {
+        while (value != null && value.getType().getKind() == Type.Kind.OPTIONAL) {
             value = value.getOptionalItem();
         }
-        return value.getValue();
+        return value == null ? null : value.getValue();
     }
 
     @Override

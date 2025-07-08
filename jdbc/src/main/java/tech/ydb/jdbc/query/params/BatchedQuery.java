@@ -234,6 +234,9 @@ public class BatchedQuery implements YdbPreparedQuery {
             throws SQLException {
 
         YqlBatcher batcher = query.getYqlBatcher();
+        if (batcher == null) {
+            return null;
+        }
 
         // DELETE and UPDATE may be batched only if WHERE contains only primary key columns
         if (batcher.getCommand() == YqlBatcher.Cmd.DELETE || batcher.getCommand() == YqlBatcher.Cmd.UPDATE) {
