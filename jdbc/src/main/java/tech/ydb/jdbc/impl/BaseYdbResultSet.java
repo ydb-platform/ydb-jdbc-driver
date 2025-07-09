@@ -91,10 +91,10 @@ public abstract class BaseYdbResultSet implements YdbResultSet {
             throw new SQLException(YdbConst.COLUMN_NUMBER_NOT_FOUND + columnIndex);
         }
 
-        ValueReader value = getValue(columnIndex - 1);
+        ValueReader v = getValue(columnIndex - 1);
         ColumnInfo type = columns[columnIndex - 1];
-        wasNull = type == null || type.isNull() || (type.isOptional() && !value.isOptionalItemPresent());
-        return value;
+        wasNull = type == null || v == null || type.isNull() || (type.isOptional() && !v.isOptionalItemPresent());
+        return v;
     }
 
     @Override
