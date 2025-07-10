@@ -20,7 +20,10 @@ public class SchemeExecutor {
 
     public SchemeExecutor(YdbContext ctx) {
         this.schemeClient = ctx.getSchemeClient();
-        this.retryCtx = ctx.getRetryCtx();
+        this.retryCtx = SessionRetryContext.create(ctx.getTableClient())
+                .sessionCreationTimeout(ctx.getOperationProperties().getSessionTimeout())
+                .idempotent(true)
+                .build();
     }
 
     public CompletableFuture<Result<ListDirectoryResult>> listDirectory(String path) {

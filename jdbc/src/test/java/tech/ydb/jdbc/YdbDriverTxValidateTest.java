@@ -5,6 +5,9 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import org.junit.Assert;
 import org.junit.jupiter.api.Assertions;
@@ -14,6 +17,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import tech.ydb.core.Status;
 import tech.ydb.core.StatusCode;
 import tech.ydb.core.UnexpectedResultException;
+import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.impl.YdbTracerImpl;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
@@ -91,6 +95,33 @@ public class YdbDriverTxValidateTest {
             assertTxCount("tx_store", 1);
         } finally {
             jdbc.connection().createStatement().execute("DROP TABLE tx_store");
+        }
+    }
+
+    @Test
+    public void testContextCacheConncurrent() throws SQLException {
+        String url = jdbcURL.withArg("withTxValidationTable", "tx2_store").build();
+        List<CompletableFuture<YdbConnection>> list = new ArrayList<>();
+
+        for (int idx = 0; idx < 20; idx++) {
+            list.add(CompletableFuture.supplyAsync(() -> {
+                try {
+                    Connection connection = DriverManager.getConnection(url);
+                    return connection.unwrap(YdbConnection.class);
+                } catch (SQLException ex) {
+                    throw new RuntimeException("Cannot connect", ex);
+                }
+            }));
+        }
+
+        YdbContext first = list.get(0).join().getCtx();
+
+        for (CompletableFuture<YdbConnection> future: list) {
+            Assertions.assertEquals(first, future.join().getCtx());
+        }
+
+        for (CompletableFuture<YdbConnection> future: list) {
+            future.join().close();
         }
     }
 

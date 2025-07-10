@@ -34,9 +34,10 @@ import tech.ydb.table.values.ListValue;
  * @author Aleksandr Gorshenin
  */
 public abstract class BaseYdbExecutor implements YdbExecutor {
-    private final SessionRetryContext retryCtx;
     private final Duration sessionTimeout;
     private final TableClient tableClient;
+    private final SessionRetryContext retryCtx;
+    private final SessionRetryContext idempotentRetryCtx;
     private final boolean useStreamResultSet;
 
     private final AtomicReference<YdbQueryResult> currResult;
@@ -44,10 +45,16 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
     protected final YdbTypes types;
 
     public BaseYdbExecutor(YdbContext ctx) {
-        this.retryCtx = ctx.getRetryCtx();
         this.sessionTimeout = ctx.getOperationProperties().getSessionTimeout();
         this.useStreamResultSet = ctx.getOperationProperties().getUseStreamResultSets();
         this.tableClient = ctx.getTableClient();
+        this.retryCtx = SessionRetryContext.create(tableClient)
+                .sessionCreationTimeout(ctx.getOperationProperties().getSessionTimeout())
+                .build();
+        this.idempotentRetryCtx = SessionRetryContext.create(tableClient)
+                .sessionCreationTimeout(ctx.getOperationProperties().getSessionTimeout())
+                .idempotent(true)
+                .build();
         this.prefixPragma = ctx.getPrefixPragma();
         this.types = ctx.getTypes();
         this.currResult = new AtomicReference<>();
@@ -117,7 +124,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
         tracer.query(yql);
 
         validator.execute(QueryType.BULK_QUERY + " >>\n" + yql, tracer,
-                () -> retryCtx.supplyStatus(session -> session.executeBulkUpsert(tablePath, rows))
+                () -> idempotentRetryCtx.supplyStatus(session -> session.executeBulkUpsert(tablePath, rows))
         );
 
         if (!isInsideTransaction()) {
