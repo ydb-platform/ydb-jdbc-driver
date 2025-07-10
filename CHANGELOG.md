@@ -1,3 +1,7 @@
+## 2.3.13 ##
+
+* Updated implementation of TxTableExecutor
+
 ## 2.3.12 ##
 
 * Added support of database version
