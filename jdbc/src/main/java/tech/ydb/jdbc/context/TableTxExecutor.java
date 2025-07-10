@@ -2,6 +2,8 @@ package tech.ydb.jdbc.context;
 
 import java.sql.SQLException;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import com.google.common.cache.Cache;
 import com.google.common.hash.Hashing;
@@ -31,6 +33,7 @@ import tech.ydb.table.values.PrimitiveValue;
  * @author mzinal
  */
 public class TableTxExecutor extends QueryServiceExecutor {
+    private static final Logger LOGGER = Logger.getLogger(TableTxExecutor.class.getName());
     private static final ReentrantLock VALIDATE_LOCK = new ReentrantLock();
 
     private static final String CREATE_SQL = ""
@@ -147,6 +150,7 @@ public class TableTxExecutor extends QueryServiceExecutor {
 
         VALIDATE_LOCK.lock();
         try {
+            LOGGER.log(Level.INFO, "Validate TxTableExecutor {0}", tablePath);
             if (cache.getIfPresent(tablePath) != null) {
                 return;
             }
@@ -158,6 +162,7 @@ public class TableTxExecutor extends QueryServiceExecutor {
 
             // validate table name
             Result<TableDescription> res = retryCtx.supplyResult(s -> s.describeTable(tablePath)).join();
+            LOGGER.log(Level.INFO, "Describe TxTableExecutor {0} -> {1}", new Object[] {tablePath, res.getStatus()});
             if (res.isSuccess()) {
                 cache.put(tablePath, res.getValue());
                 return;
@@ -171,12 +176,14 @@ public class TableTxExecutor extends QueryServiceExecutor {
             // Try to create a table
             String query = String.format(CREATE_SQL, tablePath);
             Status status = retryCtx.supplyStatus(session -> session.executeSchemeQuery(query)).join();
+            LOGGER.log(Level.INFO, "Create  TxTableExecutor {0} -> {1}", new Object[] {tablePath, status});
             if (!status.isSuccess()) {
                 throw ExceptionFactory.createException("Cannot initialize TableTxExecutor with tx table " + tablePath,
                         new UnexpectedResultException("Cannot create table", status));
             }
 
             Result<TableDescription> res2 = retryCtx.supplyResult(s -> s.describeTable(tablePath)).join();
+            LOGGER.log(Level.INFO, "Validate TxTableExecutor {0} -> {1}", new Object[] {tablePath, res2.getStatus()});
             if (!res2.isSuccess()) {
                 throw ExceptionFactory.createException("Cannot initialize TableTxExecutor with tx table " + tablePath,
                         new UnexpectedResultException("Cannot describe after creating", res2.getStatus()));
