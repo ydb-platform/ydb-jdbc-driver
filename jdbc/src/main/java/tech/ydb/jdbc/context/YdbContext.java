@@ -188,10 +188,6 @@ public class YdbContext implements AutoCloseable {
         return queryClient;
     }
 
-    public SessionRetryContext getRetryCtx() {
-        return retryCtx;
-    }
-
     public String getUrl() {
         return config.getUrl();
     }
@@ -205,9 +201,7 @@ public class YdbContext implements AutoCloseable {
             String txValidationTable = operationOptions.getTxValidationTable();
             if (txValidationTable != null && !txValidationTable.isEmpty()) {
                 String tablePath = joined(prefixPath, txValidationTable);
-                if (tableDescribeCache.getIfPresent(tablePath) == null) {
-                    tableDescribeCache.put(tablePath, TableTxExecutor.validate(this, tablePath));
-                }
+                TableTxExecutor.validate(this, tablePath, tableDescribeCache);
                 return new TableTxExecutor(this, tablePath);
             }
             return new QueryServiceExecutor(this);

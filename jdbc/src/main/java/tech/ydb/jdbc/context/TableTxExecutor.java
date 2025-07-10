@@ -1,7 +1,9 @@
 package tech.ydb.jdbc.context;
 
 import java.sql.SQLException;
+import java.util.concurrent.locks.ReentrantLock;
 
+import com.google.common.cache.Cache;
 import com.google.common.hash.Hashing;
 
 import tech.ydb.core.Result;
@@ -17,7 +19,7 @@ import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.query.QueryStream;
 import tech.ydb.query.QueryTransaction;
 import tech.ydb.query.settings.ExecuteQuerySettings;
-import tech.ydb.table.Session;
+import tech.ydb.table.SessionRetryContext;
 import tech.ydb.table.description.TableDescription;
 import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.Params;
@@ -29,6 +31,8 @@ import tech.ydb.table.values.PrimitiveValue;
  * @author mzinal
  */
 public class TableTxExecutor extends QueryServiceExecutor {
+    private static final ReentrantLock VALIDATE_LOCK = new ReentrantLock();
+
     private static final String CREATE_SQL = ""
             + "CREATE TABLE IF NOT EXISTS `%s` ("
             + "   hash Text NOT NULL,"
@@ -55,6 +59,7 @@ public class TableTxExecutor extends QueryServiceExecutor {
     private final String commitQuery;
     private final String validateQuery;
     private final String txTablePath;
+    private final SessionRetryContext validateRetryCtx;
     private boolean isWriteTx;
 
     public TableTxExecutor(YdbContext ctx, String tablePath) throws SQLException {
@@ -63,6 +68,11 @@ public class TableTxExecutor extends QueryServiceExecutor {
         this.commitQuery = String.format(COMMIT_SQL, tablePath);
         this.validateQuery = String.format(VALIDATE_SQL, tablePath);
         this.isWriteTx = false;
+        this.validateRetryCtx = SessionRetryContext.create(ctx.getTableClient())
+                .sessionCreationTimeout(ctx.getOperationProperties().getSessionTimeout())
+                .idempotent(true)
+                .build();
+
     }
 
     @Override
@@ -106,25 +116,21 @@ public class TableTxExecutor extends QueryServiceExecutor {
                 return query.execute();
             });
         } catch (YdbConditionallyRetryableException ex) {
-
-            try (Session session = createNewTableSession(validator)) {
-                tracer.trace("--> validate tx");
-                tracer.query(validateQuery);
-                Result<DataQueryResult> res = session.executeDataQuery(validateQuery, TxControl.snapshotRo(), params)
-                        .join();
-                if (res.isSuccess()) {
-                    DataQueryResult dqr = res.getValue();
-                    if (dqr.getResultSetCount() == 1) {
-                        if (dqr.getResultSet(0).getRowCount() == 1) {
-                            // Transaction was committed successfully
-                            return;
-                        } else {
-                            // Transaction wann't commit
-                            Status status = Status.of(StatusCode.ABORTED).withCause(ex);
-                            throw ExceptionFactory.createException("Transaction wasn't committed",
-                                    new UnexpectedResultException("Transaction not found in " + txTablePath, status)
-                            );
-                        }
+            Result<DataQueryResult> res = validateRetryCtx.supplyResult(
+                    session -> session.executeDataQuery(validateQuery, TxControl.snapshotRo(), params)
+            ).join();
+            if (res.isSuccess()) {
+                DataQueryResult dqr = res.getValue();
+                if (dqr.getResultSetCount() == 1) {
+                    if (dqr.getResultSet(0).getRowCount() == 1) {
+                        // Transaction was committed successfully
+                        return;
+                    } else {
+                        // Transaction wann't commit
+                        Status status = Status.of(StatusCode.ABORTED).withCause(ex);
+                        throw ExceptionFactory.createException("Transaction wasn't committed",
+                                new UnexpectedResultException("Transaction not found in " + txTablePath, status)
+                        );
                     }
                 }
             }
@@ -133,35 +139,52 @@ public class TableTxExecutor extends QueryServiceExecutor {
         }
     }
 
-    public static TableDescription validate(YdbContext ctx, String tablePath) throws SQLException {
-        // validate table name
-        Result<TableDescription> res = ctx.getRetryCtx().supplyResult(s -> s.describeTable(tablePath)).join();
-        if (res.isSuccess()) {
-            return res.getValue();
+    public static void validate(YdbContext ctx, String tablePath, Cache<String, TableDescription> cache)
+            throws SQLException {
+        if (cache.getIfPresent(tablePath) != null) {
+            return;
         }
 
-        if (res.getStatus().getCode() != StatusCode.SCHEME_ERROR) {
-            throw ExceptionFactory.createException(
-                    "Cannot initialize TableTxExecutor with tx table " + tablePath,
-                    new UnexpectedResultException("Cannot describe", res.getStatus()));
-        }
+        VALIDATE_LOCK.lock();
+        try {
+            if (cache.getIfPresent(tablePath) != null) {
+                return;
+            }
 
-        // Try to create a table
-        String query = String.format(CREATE_SQL, tablePath);
-        Status status = ctx.getRetryCtx().supplyStatus(session -> session.executeSchemeQuery(query)).join();
-        if (!status.isSuccess()) {
-            throw ExceptionFactory.createException(
-                    "Cannot initialize TableTxExecutor with tx table " + tablePath,
-                    new UnexpectedResultException("Cannot create table", status));
-        }
+            SessionRetryContext retryCtx = SessionRetryContext.create(ctx.getTableClient())
+                .sessionCreationTimeout(ctx.getOperationProperties().getSessionTimeout())
+                .idempotent(true)
+                .build();
 
-        Result<TableDescription> res2 = ctx.getRetryCtx().supplyResult(s -> s.describeTable(tablePath)).join();
-        if (!res2.isSuccess()) {
-            throw ExceptionFactory.createException(
-                    "Cannot initialize TableTxExecutor with tx table " + tablePath,
-                    new UnexpectedResultException("Cannot describe after creating", res2.getStatus()));
-        }
+            // validate table name
+            Result<TableDescription> res = retryCtx.supplyResult(s -> s.describeTable(tablePath)).join();
+            if (res.isSuccess()) {
+                cache.put(tablePath, res.getValue());
+                return;
+            }
 
-        return res2.getValue();
+            if (res.getStatus().getCode() != StatusCode.SCHEME_ERROR) {
+                throw ExceptionFactory.createException("Cannot initialize TableTxExecutor with tx table " + tablePath,
+                        new UnexpectedResultException("Cannot describe", res.getStatus()));
+            }
+
+            // Try to create a table
+            String query = String.format(CREATE_SQL, tablePath);
+            Status status = retryCtx.supplyStatus(session -> session.executeSchemeQuery(query)).join();
+            if (!status.isSuccess()) {
+                throw ExceptionFactory.createException("Cannot initialize TableTxExecutor with tx table " + tablePath,
+                        new UnexpectedResultException("Cannot create table", status));
+            }
+
+            Result<TableDescription> res2 = retryCtx.supplyResult(s -> s.describeTable(tablePath)).join();
+            if (!res2.isSuccess()) {
+                throw ExceptionFactory.createException("Cannot initialize TableTxExecutor with tx table " + tablePath,
+                        new UnexpectedResultException("Cannot describe after creating", res2.getStatus()));
+            }
+
+            cache.put(tablePath, res2.getValue());
+        } finally {
+            VALIDATE_LOCK.unlock();
+        }
     }
 }
