@@ -9,7 +9,6 @@ import java.util.Properties;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -22,7 +21,6 @@ import tech.ydb.test.junit5.YdbHelperExtension;
  *
  * @author Aleksandr Gorshenin
  */
-@Disabled
 public class YdbDriverStaticCredsTest {
     @RegisterExtension
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
@@ -38,7 +36,9 @@ public class YdbDriverStaticCredsTest {
             statement.execute(""
                     + "CREATE USER user1 PASSWORD NULL;\n"
                     + "CREATE USER user2 PASSWORD 'pwss';\n"
-                    + "CREATE USER user3 PASSWORD 'pw :ss;'\n;"
+                    + "CREATE USER user3 PASSWORD 'pwss';\n"
+                    + "CREATE USER user4 PASSWORD 'pw@&ss'\n;"
+                    + "CREATE USER user5 PASSWORD 'pw@&ss'\n;"
             );
         }
     }
@@ -46,7 +46,7 @@ public class YdbDriverStaticCredsTest {
     @AfterAll
     public static void dropUsers() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement()) {
-            statement.execute("DROP USER IF EXISTS user1, user2, user3;");
+            statement.execute("DROP USER IF EXISTS user1, user2, user3, user4, user5;");
         }
     }
 
@@ -91,10 +91,10 @@ public class YdbDriverStaticCredsTest {
         testConnection(connectByAuthority("user1", null), "user1");
 
         testConnection(connectByProperties("user2", "pwss"), "user2");
-        testConnection(connectByAuthority("user2", "pwss"), "user2");
+        testConnection(connectByAuthority("user3", "pwss"), "user3");
 
-        testConnection(connectByProperties("user3", "pw :ss;"), "user3");
-        testConnection(connectByAuthority("user3", "pw :ss;"), "user3");
+        testConnection(connectByProperties("user4", "pw@&ss"), "user4");
+        testConnection(connectByAuthority("user5", "pw@&ss"), "user5");
     }
 
     @Test
@@ -106,17 +106,17 @@ public class YdbDriverStaticCredsTest {
         wrongConnection(connectByProperties("user2", null));
         wrongConnection(connectByProperties("user2", "pass"));
 
-        wrongConnection(connectByAuthority("user2", ""));
-        wrongConnection(connectByAuthority("user2", null));
-        wrongConnection(connectByAuthority("user2", "pass"));
-
-        wrongConnection(connectByProperties("user3", ""));
-        wrongConnection(connectByProperties("user3", null));
-        wrongConnection(connectByProperties("user3", "pw:ss;"));
-
         wrongConnection(connectByAuthority("user3", ""));
         wrongConnection(connectByAuthority("user3", null));
-        wrongConnection(connectByAuthority("user3", "pw:ss;"));
+        wrongConnection(connectByAuthority("user3", "pass"));
+
+        wrongConnection(connectByProperties("user4", ""));
+        wrongConnection(connectByProperties("user4", null));
+        wrongConnection(connectByProperties("user4", "pw:ss;"));
+
+        wrongConnection(connectByAuthority("user5", ""));
+        wrongConnection(connectByAuthority("user5", null));
+        wrongConnection(connectByAuthority("user5", "pw:@&ss"));
     }
 
     interface ConnectionSupplier {

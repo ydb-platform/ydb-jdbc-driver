@@ -18,6 +18,9 @@ import tech.ydb.core.Status;
 import tech.ydb.core.StatusCode;
 import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.jdbc.context.YdbContext;
+import tech.ydb.jdbc.context.YdbExecutor;
+import tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
+import tech.ydb.jdbc.exception.YdbRetryableException;
 import tech.ydb.jdbc.impl.YdbTracerImpl;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
@@ -148,6 +151,52 @@ public class YdbDriverTxValidateTest {
             ExceptionAssert.sqlRecoverable("Transaction wasn't committed", conn::commit);
 
             Assert.assertNull(tracer.error);
+        } finally {
+            jdbc.connection().createStatement().execute("DROP TABLE tx1_store");
+        }
+    }
+
+    @Test
+    public void executeDataQueryTest() throws SQLException {
+        String url = jdbcURL.withArg("withTxValidationTable", "tx1_store").build();
+        try (Connection conn = DriverManager.getConnection(url)) {
+            ErrorTxTracer tracer = YdbTracerImpl.use(new ErrorTxTracer());
+            // table was created automatically
+            assertTxCount("tx1_store", 0);
+
+            conn.setAutoCommit(true);
+            try (Statement st = conn.createStatement()) {
+                st.execute("DELETE FROM tx1_store");
+
+                tracer.throwErrorOn("<-- Status", Status.of(StatusCode.UNDETERMINED));
+                YdbConditionallyRetryableException e = Assertions.assertThrows(YdbConditionallyRetryableException.class,
+                        () -> st.execute("DELETE FROM tx1_store"));
+                Assertions.assertEquals(Status.of(StatusCode.UNDETERMINED), e.getStatus());
+
+                tracer.throwErrorOn("<-- Status", Status.of(StatusCode.ABORTED));
+                YdbRetryableException e2 = Assertions.assertThrows(YdbRetryableException.class,
+                        () -> st.execute("DELETE FROM tx1_store"));
+                Assertions.assertEquals(Status.of(StatusCode.ABORTED), e2.getStatus());
+            }
+
+
+            conn.setAutoCommit(false);
+            try (Statement st = conn.createStatement()) {
+                YdbExecutor executor = st.unwrap(YdbStatement.class).getConnection().getExecutor();
+                st.execute("DELETE FROM tx1_store");
+                conn.commit();
+
+                tracer.throwErrorOn("<-- Status", Status.of(StatusCode.UNDETERMINED));
+                YdbRetryableException e = Assertions.assertThrows(YdbRetryableException.class,
+                        () -> st.execute("DELETE FROM tx1_store"));
+                Assertions.assertEquals(StatusCode.ABORTED, e.getStatus().getCode());
+                Assertions.assertNotNull(e.getStatus().getCause());
+
+                tracer.throwErrorOn("<-- Status", Status.of(StatusCode.ABORTED));
+                YdbRetryableException e2 = Assertions.assertThrows(YdbRetryableException.class,
+                        () -> st.execute("DELETE FROM tx1_store"));
+                Assertions.assertEquals(Status.of(StatusCode.ABORTED), e2.getStatus());
+            }
         } finally {
             jdbc.connection().createStatement().execute("DROP TABLE tx1_store");
         }
