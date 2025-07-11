@@ -1,3 +1,7 @@
+## 2.3.14 ##
+
+* Updated implementation of TxTableExecutor
+
 ## 2.3.13 ##
 
 * Updated implementation of TxTableExecutor
