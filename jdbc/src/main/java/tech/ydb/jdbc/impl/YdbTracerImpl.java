@@ -1,12 +1,14 @@
 package tech.ydb.jdbc.impl;
 
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Date;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import tech.ydb.jdbc.YdbTracer;
 
@@ -31,7 +33,7 @@ public class YdbTracerImpl implements YdbTracer {
     }
 
     private class Tx {
-        private final Date startDate = new Date();
+        private final Instant startDate = Instant.now();
         private final long startedAt = System.currentTimeMillis();
         private final List<Record> records = new ArrayList<>();
 
@@ -120,6 +122,18 @@ public class YdbTracerImpl implements YdbTracer {
     }
 
     @Override
+    public Instant getTxStartedAt() {
+        return tx == null ? null : tx.startDate;
+    }
+
+    @Override
+    public List<String> getTxRequests() {
+        return tx == null ? Collections.emptyList() : tx.records.stream()
+                .filter(r -> r.isRequest).map(r -> r.message)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public void setId(String id) {
         Tx local = ensureOpen();
         if (!Objects.equals(id, local.id)) {
@@ -145,4 +159,6 @@ public class YdbTracerImpl implements YdbTracer {
             tx = null;
         }
     }
+
+
 }

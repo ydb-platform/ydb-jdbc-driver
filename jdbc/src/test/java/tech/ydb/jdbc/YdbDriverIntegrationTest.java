@@ -3,7 +3,9 @@ package tech.ydb.jdbc;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -300,6 +302,57 @@ public class YdbDriverIntegrationTest {
 
             Assertions.assertEquals(1, ctx.getConnectionsCount());
             Assertions.assertEquals(poolSize, ctx.getTableClient().sessionPoolStats().getMaxSize());
+        }
+    }
+
+    @Test
+    public void txTracerTest() throws SQLException {
+        // Disabled tx tracer
+        try (Connection conn = DriverManager.getConnection(jdbcURL.withArg("enableTxTracer", "false").build())) {
+            conn.setAutoCommit(false);
+
+            Assertions.assertNull(YdbTracer.current().getTxStartedAt());
+            Assertions.assertTrue(YdbTracer.current().getTxRequests().isEmpty());
+
+            try (Statement st = conn.createStatement()) {
+                try (ResultSet rs = st.executeQuery("SELECT 1 + 2;")) {
+                    Assertions.assertTrue(rs.next());
+                }
+            }
+
+            Assertions.assertNull(YdbTracer.current().getTxStartedAt());
+            Assertions.assertTrue(YdbTracer.current().getTxRequests().isEmpty());
+
+            conn.commit();
+
+            Assertions.assertNull(YdbTracer.current().getTxStartedAt());
+            Assertions.assertTrue(YdbTracer.current().getTxRequests().isEmpty());
+        }
+
+        try (Connection conn = DriverManager.getConnection(jdbcURL.withArg("enableTxTracer", "true").build())) {
+            conn.setAutoCommit(false);
+
+            Assertions.assertNull(YdbTracer.current().getTxStartedAt());
+            Assertions.assertTrue(YdbTracer.current().getTxRequests().isEmpty());
+
+            try (Statement st = conn.createStatement()) {
+                try (ResultSet rs = st.executeQuery("SELECT 1 + 2;")) {
+                    Assertions.assertTrue(rs.next());
+                }
+            }
+
+            Assertions.assertNotNull(YdbTracer.current().getTxStartedAt());
+            Assertions.assertEquals(1, YdbTracer.current().getTxRequests().size());
+            Assertions.assertEquals("SELECT 1 + 2;", YdbTracer.current().getTxRequests().get(0));
+
+            conn.commit();
+
+            Assertions.assertNull(YdbTracer.current().getTxStartedAt());
+            Assertions.assertTrue(YdbTracer.current().getTxRequests().isEmpty());
+
+            YdbTracer.current().markToPrint("test-tx");
+            Assertions.assertNotNull(YdbTracer.current().getTxStartedAt());
+            Assertions.assertTrue(YdbTracer.current().getTxRequests().isEmpty());
         }
     }
 }

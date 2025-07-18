@@ -1,5 +1,8 @@
 package tech.ydb.jdbc;
 
+import java.time.Instant;
+import java.util.List;
+
 import tech.ydb.jdbc.impl.YdbTracerImpl;
 
 
@@ -17,6 +20,9 @@ public interface YdbTracer {
         YdbTracerImpl.clear();
     }
 
+    Instant getTxStartedAt();
+    List<String> getTxRequests();
+
     void setId(String id);
 
     void trace(String message);
@@ -27,6 +33,7 @@ public interface YdbTracer {
 
     void close();
 
+    @Deprecated
     default void markToPrint() {
         markToPrint(null);
     }
