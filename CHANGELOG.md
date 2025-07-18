@@ -1,3 +1,7 @@
+## 2.3.15 ##
+
+* Updated YdbTracer, added information about transaction
+
 ## 2.3.14 ##
 
 * Updated implementation of TxTableExecutor
