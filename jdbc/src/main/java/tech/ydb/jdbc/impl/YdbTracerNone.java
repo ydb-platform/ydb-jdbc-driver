@@ -1,5 +1,9 @@
 package tech.ydb.jdbc.impl;
 
+import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
+
 import tech.ydb.jdbc.YdbTracer;
 
 /**
@@ -22,8 +26,15 @@ public class YdbTracerNone implements YdbTracer {
     public void markToPrint(String label) { }
 
     @Override
-    public void markToPrint() { }
+    public void setId(String id) { }
 
     @Override
-    public void setId(String id) { }
+    public Instant getTxStartedAt() {
+        return Instant.MIN;
+    }
+
+    @Override
+    public List<String> getTxRequests() {
+        return Collections.emptyList();
+    }
 }

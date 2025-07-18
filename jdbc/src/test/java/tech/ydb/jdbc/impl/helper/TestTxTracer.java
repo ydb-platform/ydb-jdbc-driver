@@ -4,36 +4,20 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Assertions;
 
-import tech.ydb.jdbc.YdbTracer;
+import tech.ydb.jdbc.impl.YdbTracerNone;
 
 /**
  *
  * @author Aleksandr Gorshenin
  */
-public class TestTxTracer implements YdbTracer {
+public class TestTxTracer extends YdbTracerNone {
     private volatile String lastQuery;
     private final AtomicInteger counter = new AtomicInteger(0);
-
-    @Override
-    public void setId(String id) {
-    }
-
-    @Override
-    public void trace(String message) {
-    }
 
     @Override
     public void query(String queryText) {
         counter.incrementAndGet();
         lastQuery = queryText;
-    }
-
-    @Override
-    public void markToPrint(String label) {
-    }
-
-    @Override
-    public void close() {
     }
 
     public String getQueryText() {
