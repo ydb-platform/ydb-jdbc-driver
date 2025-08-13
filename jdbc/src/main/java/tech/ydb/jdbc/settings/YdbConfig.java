@@ -285,10 +285,9 @@ public class YdbConfig {
                 for (Map.Entry<String, List<String>> entry: params.entrySet()) {
                     String value = entry.getValue().get(entry.getValue().size() - 1);
                     properties.put(entry.getKey(), value);
-                    if ("database".equalsIgnoreCase(entry.getKey())) {
-                        if (database == null || database.isEmpty()) {
-                            database = value.startsWith("/") ? value : "/" + value;
-                        }
+                    if ("database".equalsIgnoreCase(entry.getKey()) && !value.isEmpty()) {
+                        // database as query parameter is old behaviour, but it has priority before query path
+                        database = value.startsWith("/") ? value : "/" + value;
                     }
                 }
                 StringBuilder sb = new StringBuilder();
