@@ -25,10 +25,11 @@ public class YdbDriverExampleTest {
         StringBuilder jdbc = new StringBuilder("jdbc:ydb:")
                 .append(ydb.useTls() ? "grpcs://" : "grpc://")
                 .append(ydb.endpoint())
+                .append("/?database=")
                 .append(ydb.database());
 
         if (ydb.authToken() != null) {
-            jdbc.append("?").append("token=").append(ydb.authToken());
+            jdbc.append("&").append("token=").append(ydb.authToken());
         }
 
         return jdbc.toString();
