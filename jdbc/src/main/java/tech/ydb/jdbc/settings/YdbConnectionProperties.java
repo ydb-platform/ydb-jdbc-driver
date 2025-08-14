@@ -8,6 +8,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
+import tech.ydb.auth.AuthProvider;
 import tech.ydb.auth.TokenAuthProvider;
 import tech.ydb.auth.iam.CloudAuthHelper;
 import tech.ydb.core.auth.StaticCredentials;
@@ -205,6 +206,9 @@ public class YdbConnectionProperties {
             if (provider instanceof Supplier) {
                 Supplier<?> prov = (Supplier<?>) provider;
                 builder = builder.withAuthProvider((rpc) -> () -> prov.get().toString());
+            } else if (provider instanceof AuthProvider) {
+                AuthProvider prov = (AuthProvider) provider;
+                builder = builder.withAuthProvider(prov);
             } else if (provider instanceof String) {
                 String className = (String) provider;
                 if (!FQCN.matcher(className).matches()) {
@@ -226,7 +230,7 @@ public class YdbConnectionProperties {
                         | IllegalArgumentException | InvocationTargetException ex) {
                     throw new SQLException("Cannot construct tokenProvider " + className, ex);
                 }
-            } else {
+            } else if (provider != null) {
                 throw new SQLException("Cannot parse tokenProvider " + provider.getClass().getName());
             }
         }
