@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import tech.ydb.auth.AuthIdentity;
+import tech.ydb.auth.AuthProvider;
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
@@ -20,7 +21,18 @@ public class YdbConnectionPropertiesTest {
     private static final String YDB_URL = "grpc://localhost/local";
 
     @Test
-    public void tokenProviderObject() throws SQLException {
+    public void tokenProviderTest() throws SQLException {
+        Properties props = new Properties();
+        props.put("tokenProvider", (AuthProvider) () -> () -> "AUTH_PROVIDER");
+        YdbConnectionProperties cp = new YdbConnectionProperties(null, null, props);
+        GrpcTransportBuilder builder = cp.applyToGrpcTransport(GrpcTransport.forConnectionString(YDB_URL));
+        try (AuthIdentity identity = builder.getAuthProvider().createAuthIdentity(null)) {
+            Assertions.assertEquals("AUTH_PROVIDER", identity.getToken());
+        }
+    }
+
+    @Test
+    public void tokenProviderSupplierTest() throws SQLException {
         Properties props = new Properties();
         props.put("tokenProvider", (Supplier<String>) () -> "SUPPLIER");
         YdbConnectionProperties cp = new YdbConnectionProperties(null, null, props);
