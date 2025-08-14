@@ -3,6 +3,7 @@ package tech.ydb.jdbc.settings;
 import java.lang.reflect.InvocationTargetException;
 import java.sql.SQLException;
 import java.util.Properties;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -54,6 +55,10 @@ public class YdbConnectionProperties {
     static final YdbProperty<String> METADATA_URL = YdbProperty.content("metadataURL",
             "Custom URL for the metadata service authentication");
 
+    static final YdbProperty<Object> CHANNEL_INITIALIZER = YdbProperty.object("channelInitializer",
+            "Custom GRPC channel initilizer, use object instance or class full name impementing"
+                    + " Consumer<ManagedChannelBuilder>");
+
     static final YdbProperty<Object> TOKEN_PROVIDER = YdbProperty.object("tokenProvider",
             "Custom token provider, use object instance or class full name impementing Supplier<String>");
 
@@ -75,6 +80,7 @@ public class YdbConnectionProperties {
     private final YdbValue<String> iamEndpoint;
     private final YdbValue<String> metadataUrl;
     private final YdbValue<Object> tokenProvider;
+    private final YdbValue<Object> channelInitializer;
     private final YdbValue<String> grpcCompression;
 
     public YdbConnectionProperties(String username, String password, Properties props) throws SQLException {
@@ -92,6 +98,7 @@ public class YdbConnectionProperties {
         this.iamEndpoint = IAM_ENDPOINT.readValue(props);
         this.metadataUrl = METADATA_URL.readValue(props);
         this.tokenProvider = TOKEN_PROVIDER.readValue(props);
+        this.channelInitializer = CHANNEL_INITIALIZER.readValue(props);
         this.grpcCompression = GRPC_COMPRESSION.readValue(props);
     }
 
@@ -203,36 +210,12 @@ public class YdbConnectionProperties {
             }
 
             Object provider = tokenProvider.getValue();
-            if (provider instanceof Supplier) {
-                Supplier<?> prov = (Supplier<?>) provider;
-                builder = builder.withAuthProvider((rpc) -> () -> prov.get().toString());
-            } else if (provider instanceof AuthProvider) {
-                AuthProvider prov = (AuthProvider) provider;
-                builder = builder.withAuthProvider(prov);
-            } else if (provider instanceof String) {
-                String className = (String) provider;
-                if (!FQCN.matcher(className).matches()) {
-                    throw new SQLException("tokenProvider must be full class name or instance of Supplier<String>");
-                }
+            builder = applyTokenProvider(builder, provider);
+        }
 
-                try {
-                    Class<?> clazz = Class.forName(className);
-                    if (!Supplier.class.isAssignableFrom(clazz)) {
-                        throw new SQLException("tokenProvider " + className + " is not implement Supplier<String>");
-                    }
-                    Supplier<?> prov = clazz.asSubclass(Supplier.class)
-                            .getConstructor(new Class<?>[0])
-                            .newInstance(new Object[0]);
-                    builder = builder.withAuthProvider((rpc) -> () -> prov.get().toString());
-                } catch (ClassNotFoundException ex) {
-                    throw new SQLException("tokenProvider " + className + " not found", ex);
-                } catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException
-                        | IllegalArgumentException | InvocationTargetException ex) {
-                    throw new SQLException("Cannot construct tokenProvider " + className, ex);
-                }
-            } else if (provider != null) {
-                throw new SQLException("Cannot parse tokenProvider " + provider.getClass().getName());
-            }
+        if (channelInitializer.hasValue()) {
+            Object initializer = channelInitializer.getValue();
+            builder = applyChannelInitializer(builder, initializer);
         }
 
         if (grpcCompression.hasValue()) {
@@ -246,6 +229,76 @@ public class YdbConnectionProperties {
             }
         }
 
+        return builder;
+    }
+
+    private GrpcTransportBuilder applyTokenProvider(GrpcTransportBuilder builder, Object provider) throws SQLException {
+        if (provider instanceof Supplier) {
+            Supplier<?> prov = (Supplier<?>) provider;
+            builder = builder.withAuthProvider((rpc) -> () -> prov.get().toString());
+        } else if (provider instanceof AuthProvider) {
+            AuthProvider prov = (AuthProvider) provider;
+            builder = builder.withAuthProvider(prov);
+        } else if (provider instanceof String) {
+            String className = (String) provider;
+            if (!FQCN.matcher(className).matches()) {
+                throw new SQLException("tokenProvider must be full class name or instance of Supplier<String>");
+            }
+
+            try {
+                Class<?> clazz = Class.forName(className);
+                if (!Supplier.class.isAssignableFrom(clazz)) {
+                    throw new SQLException("tokenProvider " + className + " is not implement Supplier<String>");
+                }
+                Supplier<?> prov = clazz.asSubclass(Supplier.class)
+                        .getConstructor(new Class<?>[0])
+                        .newInstance(new Object[0]);
+                builder = builder.withAuthProvider((rpc) -> () -> prov.get().toString());
+            } catch (ClassNotFoundException ex) {
+                throw new SQLException("tokenProvider " + className + " not found", ex);
+            } catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException
+                    | IllegalArgumentException | InvocationTargetException ex) {
+                throw new SQLException("Cannot construct tokenProvider " + className, ex);
+            }
+        } else if (provider != null) {
+            throw new SQLException("Cannot parse tokenProvider " + provider.getClass().getName());
+        }
+        return builder;
+    }
+
+    private GrpcTransportBuilder applyChannelInitializer(GrpcTransportBuilder builder, Object initializer)
+            throws SQLException {
+        if (initializer instanceof Consumer) {
+            @SuppressWarnings("unchecked")
+            Consumer<Object> prov = (Consumer<Object>) initializer;
+            builder = builder.addChannelInitializer(prov);
+        } else if (initializer instanceof String) {
+            String className = (String) initializer;
+            if (!FQCN.matcher(className).matches()) {
+                throw new SQLException("channelInitializer must be full class name or instance of "
+                        + "Consumer<ManagedChannelBuilder>");
+            }
+
+            try {
+                Class<?> clazz = Class.forName(className);
+                if (!Consumer.class.isAssignableFrom(clazz)) {
+                    throw new SQLException("channelInitializer " + className + " is not implement "
+                            + "Consumer<ManagedChannelBuilder>");
+                }
+                @SuppressWarnings("unchecked")
+                Consumer<Object> prov = clazz.asSubclass(Consumer.class)
+                        .getConstructor(new Class<?>[0])
+                        .newInstance(new Object[0]);
+                builder = builder.addChannelInitializer(prov);
+            } catch (ClassNotFoundException ex) {
+                throw new SQLException("channelInitializer " + className + " not found", ex);
+            } catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException
+                    | IllegalArgumentException | InvocationTargetException ex) {
+                throw new SQLException("Cannot construct channelInitializer " + className, ex);
+            }
+        } else if (initializer != null) {
+            throw new SQLException("Cannot parse channelInitializer " + initializer.getClass().getName());
+        }
         return builder;
     }
 }
