@@ -1,3 +1,10 @@
+## 2.3.16 ##
+
+* Added option channelInitializer to support grpc channels customization
+* Added support of AuthProvider instances to the tokenProvider option
+* Update to Java SDK v2.3.18
+* Fixed old-style connection string
+
 ## 2.3.15 ##
 
 * Updated YdbTracer, added information about transaction
