@@ -18,9 +18,9 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <slf4j.version>1.7.36</slf4j.version>
-        <junit.version>5.9.3</junit.version>
+        <junit.version>5.13.4</junit.version>
 
-        <ydb.sdk.version>2.3.17</ydb.sdk.version>
+        <ydb.sdk.version>2.3.18</ydb.sdk.version>
     </properties>
 
     <licenses>
@@ -223,7 +223,7 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-gpg-plugin</artifactId>
-                        <version>3.2.7</version>
+                        <version>3.2.8</version>
                         <executions>
                             <execution>
                                 <id>sign-artifacts</id>
@@ -243,7 +243,7 @@
                     <plugin>
                         <groupId>org.sonatype.central</groupId>
                         <artifactId>central-publishing-maven-plugin</artifactId>
-                        <version>0.7.0</version>
+                        <version>0.8.0</version>
                         <extensions>true</extensions>
                         <configuration>
                             <publishingServerId>ossrh-s01</publishingServerId>
