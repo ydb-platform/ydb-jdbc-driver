@@ -274,31 +274,46 @@ public class YdbConnectionProperties {
             builder = builder.addChannelInitializer(prov);
         } else if (initializer instanceof String) {
             String className = (String) initializer;
-            if (!FQCN.matcher(className).matches()) {
-                throw new SQLException("channelInitializer must be full class name or instance of "
-                        + "Consumer<ManagedChannelBuilder>");
-            }
 
-            try {
-                Class<?> clazz = Class.forName(className);
-                if (!Consumer.class.isAssignableFrom(clazz)) {
-                    throw new SQLException("channelInitializer " + className + " is not implement "
+            if (FQCN.matcher(className.trim()).matches()) {
+                builder.addChannelInitializer(newInitializerInstance(className.trim()));
+            } else {
+                String[] classNames = className.split(",");
+                if (classNames.length < 2) {
+                    throw new SQLException("channelInitializer must be full class name or instance of "
                             + "Consumer<ManagedChannelBuilder>");
                 }
-                @SuppressWarnings("unchecked")
-                Consumer<Object> prov = clazz.asSubclass(Consumer.class)
-                        .getConstructor(new Class<?>[0])
-                        .newInstance(new Object[0]);
-                builder = builder.addChannelInitializer(prov);
-            } catch (ClassNotFoundException ex) {
-                throw new SQLException("channelInitializer " + className + " not found", ex);
-            } catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException
-                    | IllegalArgumentException | InvocationTargetException ex) {
-                throw new SQLException("Cannot construct channelInitializer " + className, ex);
+
+                for (String name: classNames) {
+                    if (!FQCN.matcher(name.trim()).matches()) {
+                        throw new SQLException("channelInitializer must be full class name or instance of "
+                                + "Consumer<ManagedChannelBuilder>");
+                    }
+                    builder.addChannelInitializer(newInitializerInstance(name.trim()));
+                }
             }
         } else if (initializer != null) {
             throw new SQLException("Cannot parse channelInitializer " + initializer.getClass().getName());
         }
         return builder;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Consumer<Object> newInitializerInstance(String className) throws SQLException {
+        try {
+            Class<?> clazz = Class.forName(className);
+            if (!Consumer.class.isAssignableFrom(clazz)) {
+                throw new SQLException("channelInitializer " + className + " is not implement "
+                        + "Consumer<ManagedChannelBuilder>");
+            }
+            return clazz.asSubclass(Consumer.class)
+                    .getConstructor(new Class<?>[0])
+                    .newInstance(new Object[0]);
+        } catch (ClassNotFoundException ex) {
+            throw new SQLException("channelInitializer " + className + " not found", ex);
+        } catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException
+                | IllegalArgumentException | InvocationTargetException ex) {
+            throw new SQLException("Cannot construct channelInitializer " + className, ex);
+        }
     }
 }

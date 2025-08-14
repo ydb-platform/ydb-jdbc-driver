@@ -139,13 +139,35 @@ public class YdbConnectionPropertiesTest {
         props.put("channelInitializer", "tech.ydb.jdbc.settings.CustomChannelInitilizer");
         YdbConnectionProperties cp = new YdbConnectionProperties(null, null, props);
         GrpcTransportBuilder builder = cp.applyToGrpcTransport(GrpcTransport.forConnectionString(YDB_URL));
-        Assertions.assertFalse(builder.getChannelInitializers().isEmpty());
+        Assertions.assertEquals(1, builder.getChannelInitializers().size());
+    }
+
+    @Test
+    public void channelInitializerClassListTest() throws SQLException {
+        Properties props = new Properties();
+        props.put("channelInitializer", "tech.ydb.jdbc.settings.CustomChannelInitilizer,   "
+                + "tech.ydb.jdbc.settings.CustomChannelInitilizer");
+        YdbConnectionProperties cp = new YdbConnectionProperties(null, null, props);
+        GrpcTransportBuilder builder = cp.applyToGrpcTransport(GrpcTransport.forConnectionString(YDB_URL));
+        Assertions.assertEquals(2, builder.getChannelInitializers().size());
     }
 
     @Test
     public void channelInitializerWrongClassNameTest() throws SQLException {
         Properties props = new Properties();
         props.put("channelInitializer", "1tech.ydb.jdbc.settings.StaticTokenProvider");
+        YdbConnectionProperties cp = new YdbConnectionProperties(null, null, props);
+        ExceptionAssert.sqlException(
+                "channelInitializer must be full class name or instance of Consumer<ManagedChannelBuilder>",
+                () -> cp.applyToGrpcTransport(GrpcTransport.forConnectionString(YDB_URL))
+        );
+    }
+
+    @Test
+    public void channelInitializerWrongClassNameListTest() throws SQLException {
+        Properties props = new Properties();
+        props.put("channelInitializer", "tech.ydb.jdbc.settings.CustomChannelInitilizer,  "
+                + "1tech.ydb.jdbc.settings.StaticTokenProvider");
         YdbConnectionProperties cp = new YdbConnectionProperties(null, null, props);
         ExceptionAssert.sqlException(
                 "channelInitializer must be full class name or instance of Consumer<ManagedChannelBuilder>",
