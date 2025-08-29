@@ -158,7 +158,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
             try {
                 Collection<ResultSetReader> resultSets = new LinkedBlockingQueue<>();
 
-                ctx.traceQuery(query, yql);
+                ctx.traceQueryByFullScanDetector(query, yql);
                 validator.execute(QueryType.SCAN_QUERY + " >>\n" + yql, tracer,
                         () -> session.executeScanQuery(yql, params, settings).start(resultSets::add)
                 );

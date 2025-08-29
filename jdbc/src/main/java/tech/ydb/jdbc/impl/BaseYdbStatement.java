@@ -181,19 +181,19 @@ public abstract class BaseYdbStatement implements YdbStatement {
         ensureOpened();
 
         YdbContext ctx = connection.getCtx();
-        if (ctx.queryStatsEnabled()) {
+        if (ctx.isFullScanDetectorEnabled()) {
             if (QueryStat.isPrint(yql)) {
-                ResultSetReader rsr = QueryStat.toResultSetReader(ctx.getQueryStats());
+                ResultSetReader rsr = QueryStat.toResultSetReader(ctx.getFullScanDetectorStats());
                 YdbResultSet rs = new YdbStaticResultSet(ctx.getTypes(), this, rsr);
                 return new StaticQueryResult(query, Collections.singletonList(rs));
             }
             if (QueryStat.isReset(yql)) {
-                getConnection().getCtx().resetQueryStats();
+                ctx.resetFullScanDetector();
                 return null;
             }
         }
 
-        ctx.traceQuery(query, yql);
+        ctx.traceQueryByFullScanDetector(query, yql);
         return connection.getExecutor().executeDataQuery(this, query, yql, params, getQueryTimeout(), isPoolable());
     }
 

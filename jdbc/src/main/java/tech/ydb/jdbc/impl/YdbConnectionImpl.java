@@ -62,7 +62,7 @@ public class YdbConnectionImpl implements YdbConnection {
     @Override
     public String nativeSQL(String sql) {
         try {
-            return ctx.parseYdbQuery(sql).getPreparedYql();
+            return ctx.createYdbQuery(sql).getPreparedYql();
         } catch (SQLException ex) {
             return ex.getMessage();
         }
@@ -254,8 +254,8 @@ public class YdbConnectionImpl implements YdbConnection {
 
         validator.clearWarnings();
         ctx.getTracer().trace("prepare statement");
-        YdbQuery query = ctx.findOrParseYdbQuery(key);
-        YdbPreparedQuery params = ctx.findOrPrepareParams(query, mode);
+        YdbQuery query = ctx.parseYdbQuery(key);
+        YdbPreparedQuery params = ctx.prepareYdbQuery(query, mode);
         ctx.getTracer().trace("create prepared statement");
         return new YdbPreparedStatementImpl(this, query, params, resultSetType);
     }
