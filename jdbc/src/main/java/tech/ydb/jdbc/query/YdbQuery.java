@@ -72,7 +72,6 @@ public class YdbQuery {
     public static YdbQuery parseQuery(QueryKey query, YdbQueryProperties opts, YdbTypes types) throws SQLException {
         YdbQueryParser parser = new YdbQueryParser(types, query, opts);
         String preparedYQL = parser.parseSQL();
-        boolean writing = false;
 
         QueryType type = null;
         YqlBatcher batcher = parser.getYqlBatcher();

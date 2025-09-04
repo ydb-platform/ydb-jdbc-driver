@@ -18,7 +18,6 @@ import tech.ydb.core.Status;
 import tech.ydb.core.StatusCode;
 import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.jdbc.context.YdbContext;
-import tech.ydb.jdbc.context.YdbExecutor;
 import tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
 import tech.ydb.jdbc.exception.YdbRetryableException;
 import tech.ydb.jdbc.impl.YdbTracerImpl;
@@ -182,7 +181,6 @@ public class YdbDriverTxValidateTest {
 
             conn.setAutoCommit(false);
             try (Statement st = conn.createStatement()) {
-                YdbExecutor executor = st.unwrap(YdbStatement.class).getConnection().getExecutor();
                 st.execute("DELETE FROM tx1_store");
                 conn.commit();
 

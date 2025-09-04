@@ -64,6 +64,12 @@ public class YdbOperationProperties {
     static final YdbProperty<String> TX_VALIDATION_TABLE = YdbProperty.string("withTxValidationTable",
             "Name of working table to store transactions to avoid UNDETERMINED errors");
 
+    static final YdbProperty<String> QUERY_REWRITE_TABLE = YdbProperty.string("withQueryRewriteTable",
+            "Name of working table to hot replacemnt of queies");
+
+    static final YdbProperty<Duration> QUERY_REWRITE_TABLE_TTL = YdbProperty.duration("queryRewriteTtl",
+            "Name of working table to hot replacemnt of queies", "300s");
+
     private static final int MAX_ROWS = 1000; // TODO: how to figure out the max rows of current connection?
 
     private final YdbValue<Duration> joinDuration;
@@ -82,6 +88,8 @@ public class YdbOperationProperties {
     private final YdbValue<Boolean> useStreamResultSets;
     private final YdbValue<Boolean> forceNewDatetypes;
     private final YdbValue<String> txValidationTable;
+    private final YdbValue<String> queryRewriteTable;
+    private final YdbValue<Duration> queryRewriteTTL;
 
     public YdbOperationProperties(YdbConfig config) throws SQLException {
         Properties props = config.getProperties();
@@ -102,6 +110,8 @@ public class YdbOperationProperties {
         this.useStreamResultSets = USE_STREAM_RESULT_SETS.readValue(props);
         this.forceNewDatetypes = FORCE_NEW_DATETYPES.readValue(props);
         this.txValidationTable = TX_VALIDATION_TABLE.readValue(props);
+        this.queryRewriteTable = QUERY_REWRITE_TABLE.readValue(props);
+        this.queryRewriteTTL = QUERY_REWRITE_TABLE_TTL.readValue(props);
     }
 
     public Duration getJoinDuration() {
@@ -162,5 +172,13 @@ public class YdbOperationProperties {
 
     public String getTxValidationTable() {
         return txValidationTable.getValue();
+    }
+
+    public String getQueryRewriteTable() {
+        return queryRewriteTable.getValue();
+    }
+
+    public Duration getQueryRewriteTtl() {
+        return queryRewriteTTL.getValue();
     }
 }

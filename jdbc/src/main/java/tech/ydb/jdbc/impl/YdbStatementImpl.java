@@ -29,7 +29,7 @@ public class YdbStatementImpl extends BaseYdbStatement {
         cleanState();
         clearBatch();
 
-        YdbQuery query = getConnection().getCtx().parseYdbQuery(sql);
+        YdbQuery query = getConnection().getCtx().createYdbQuery(sql);
         executeSchemeQuery(query);
     }
 
@@ -38,7 +38,7 @@ public class YdbStatementImpl extends BaseYdbStatement {
         cleanState();
         clearBatch();
 
-        YdbQuery query = getConnection().getCtx().parseYdbQuery(sql);
+        YdbQuery query = getConnection().getCtx().createYdbQuery(sql);
         YdbQueryResult results = executeScanQuery(query, query.getPreparedYql(), Params.empty());
         if (!updateState(results)) {
             throw new SQLException(YdbConst.QUERY_EXPECT_RESULT_SET);
@@ -51,7 +51,7 @@ public class YdbStatementImpl extends BaseYdbStatement {
         cleanState();
         clearBatch();
 
-        YdbQuery query = getConnection().getCtx().parseYdbQuery(sql);
+        YdbQuery query = getConnection().getCtx().createYdbQuery(sql);
         YdbQueryResult newState = executeExplainQuery(query);
         if (!updateState(newState)) {
             throw new SQLException(YdbConst.QUERY_EXPECT_RESULT_SET);
@@ -79,7 +79,7 @@ public class YdbStatementImpl extends BaseYdbStatement {
     public boolean execute(String sql) throws SQLException {
         cleanState();
 
-        YdbQuery query = getConnection().getCtx().parseYdbQuery(sql);
+        YdbQuery query = getConnection().getCtx().createYdbQuery(sql);
         YdbQueryResult newState = null;
         switch (query.getType()) {
             case SCHEME_QUERY:
