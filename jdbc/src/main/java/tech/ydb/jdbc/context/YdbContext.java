@@ -86,8 +86,16 @@ public class YdbContext implements AutoCloseable {
         }
 
         this.types = new YdbTypes(operationProperties.getForceNewDatetypes());
-        this.cache = new YdbCache(this, queryProperties, config.getPreparedStatementsCachecSize(),
-                config.isFullScanDetectorEnabled());
+
+        String queryRewriteTable = operationOptions.getQueryRewriteTable();
+        if (queryRewriteTable != null && !queryRewriteTable.isEmpty()) {
+            String tablePath = joined(prefixPath, queryRewriteTable);
+            this.cache = new YdbQueryRewriteCache(this, tablePath, operationOptions.getQueryRewriteTtl(),
+                    queryProperties, config.getPreparedStatementsCachecSize(), config.isFullScanDetectorEnabled());
+        } else {
+            this.cache = new YdbCache(this,
+                    queryProperties, config.getPreparedStatementsCachecSize(), config.isFullScanDetectorEnabled());
+        }
     }
 
     public YdbTypes getTypes() {
@@ -139,6 +147,7 @@ public class YdbContext implements AutoCloseable {
     }
 
     public YdbExecutor createExecutor() throws SQLException {
+        cache.validate();
         if (config.isUseQueryService()) {
             String txValidationTable = operationOptions.getTxValidationTable();
             if (txValidationTable != null && !txValidationTable.isEmpty()) {

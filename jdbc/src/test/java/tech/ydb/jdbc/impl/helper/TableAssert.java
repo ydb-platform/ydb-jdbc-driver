@@ -122,6 +122,13 @@ public class TableAssert {
                 }
                 return ResultSetAssert.this;
             }
+
+            public ResultSetAssert assertValues() throws SQLException {
+                for (Column c: rowValues.keySet()) {
+                    rowValues.get(c).assertValue(rs);
+                }
+                return ResultSetAssert.this;
+            }
         }
     }
 

@@ -50,13 +50,13 @@ import tech.ydb.table.values.Type;
  */
 public class YdbCache {
     private final YdbContext ctx;
-    private final SessionRetryContext retryCtx;
+    protected final SessionRetryContext retryCtx;
     private final YdbQueryProperties queryOptions;
 
     private final Cache<QueryKey, YdbQuery> queriesCache;
     private final Cache<String, QueryStat> statsCache;
     private final Cache<String, Map<String, Type>> queryParamsCache;
-    private final Cache<String, TableDescription> tableDescribeCache;
+    protected final Cache<String, TableDescription> tableDescribeCache;
 
     private final Supplier<String> version = Suppliers.memoizeWithExpiration(this::readVersion, 1, TimeUnit.HOURS);
 
@@ -102,6 +102,10 @@ public class YdbCache {
         if (statsCache != null) {
             statsCache.invalidateAll();
         }
+    }
+
+    public void validate() throws SQLException {
+        // nothing
     }
 
     public Collection<QueryStat> getQueryStats() {
