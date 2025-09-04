@@ -1,3 +1,8 @@
+## 2.3.17 ##
+
+* Added support of query rewriting
+* Update to Java SDK v2.3.20
+
 ## 2.3.16 ##
 
 * Added option channelInitializer to support grpc channels customization
