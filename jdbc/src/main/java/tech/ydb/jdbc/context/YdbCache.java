@@ -62,7 +62,7 @@ public class YdbCache {
 
     public YdbCache(YdbContext ctx, YdbQueryProperties queryOptions, int cacheSize, boolean fullScanDetector) {
         this.ctx = ctx;
-        this.retryCtx = SessionRetryContext.create(ctx.getTableClient()).build();
+        this.retryCtx = SessionRetryContext.create(ctx.getTableClient()).idempotent(true).build();
         this.queryOptions = queryOptions;
 
         if (cacheSize > 0) {
