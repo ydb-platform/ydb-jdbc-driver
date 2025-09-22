@@ -162,14 +162,16 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         }
     }
 
-    private ExecuteDataQuerySettings dataQuerySettings(long timeout, boolean keepInCache) {
+    private ExecuteDataQuerySettings dataQuerySettings(YdbStatement statement) {
+        int timeout = statement.getQueryTimeout();
+
         ExecuteDataQuerySettings settings = new ExecuteDataQuerySettings();
         if (timeout > 0) {
             settings = settings
                     .setOperationTimeout(Duration.ofSeconds(timeout))
                     .setTimeout(Duration.ofSeconds(timeout + 1));
         }
-        if (!keepInCache) {
+        if (!statement.isPoolable()) {
             settings = settings.disableQueryCache();
         }
 
@@ -200,8 +202,8 @@ public class TableServiceExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    public YdbQueryResult executeDataQuery(YdbStatement statement, YdbQuery query, String preparedYql, Params params,
-            long timeout, boolean keepInCache) throws SQLException {
+    public YdbQueryResult executeDataQuery(YdbStatement statement, YdbQuery query, String preparedYql, Params params)
+            throws SQLException {
         ensureOpened();
 
         YdbValidator validator = statement.getValidator();
@@ -214,7 +216,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         try {
             DataQueryResult result = validator.call(
                     QueryType.DATA_QUERY + " >>\n" + yql, tracer,
-                    () -> session.executeDataQuery(yql, tx.txControl(), params, dataQuerySettings(timeout, keepInCache))
+                    () -> session.executeDataQuery(yql, tx.txControl(), params, dataQuerySettings(statement))
             );
             updateState(tx.withDataQuery(session, result.getTxId()));
 

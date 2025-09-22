@@ -242,9 +242,9 @@ public class YdbLazyResultSetImplTest {
 
     @Test
     public void fetchSize() throws SQLException {
-        Assertions.assertEquals(1000, resultSet.getFetchSize());
-        resultSet.setFetchSize(99); // do nothing
-        Assertions.assertEquals(1000, resultSet.getFetchSize());
+        Assertions.assertEquals(0, resultSet.getFetchSize());
+        resultSet.setFetchSize(99); // no effect
+        Assertions.assertEquals(0, resultSet.getFetchSize());
     }
 
     private void assertIsEmpty(ResultSet rs) throws SQLException {

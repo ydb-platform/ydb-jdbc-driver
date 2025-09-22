@@ -229,12 +229,13 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    public YdbQueryResult executeDataQuery(YdbStatement statement, YdbQuery query, String preparedYql, Params params,
-            long timeout, boolean keepInCache) throws SQLException {
+    public YdbQueryResult executeDataQuery(YdbStatement statement, YdbQuery query, String preparedYql, Params params)
+            throws SQLException {
         ensureOpened();
 
         YdbValidator validator = statement.getValidator();
 
+        int timeout = statement.getQueryTimeout();
         ExecuteQuerySettings.Builder builder = ExecuteQuerySettings.newBuilder();
         if (timeout > 0) {
             builder = builder.withRequestTimeout(timeout, TimeUnit.SECONDS);

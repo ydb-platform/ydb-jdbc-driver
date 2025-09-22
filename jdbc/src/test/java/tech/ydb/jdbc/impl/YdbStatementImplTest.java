@@ -147,9 +147,9 @@ public class YdbStatementImplTest {
 
     @Test
     public void maxRows() throws SQLException {
-        Assertions.assertEquals(1000, statement.getMaxRows());
-        statement.setMaxRows(99); // do nothing
-        Assertions.assertEquals(1000, statement.getMaxRows());
+        Assertions.assertEquals(0, statement.getMaxRows());
+        statement.setMaxRows(500);
+        Assertions.assertEquals(500, statement.getMaxRows());
     }
 
     @Test
@@ -201,9 +201,9 @@ public class YdbStatementImplTest {
 
     @Test
     public void fetchSize() throws SQLException {
-        Assertions.assertEquals(1000, statement.getFetchSize());
-        statement.setFetchSize(100); // do nothing
-        Assertions.assertEquals(1000, statement.getFetchSize());
+        Assertions.assertEquals(0, statement.getFetchSize());
+        statement.setFetchSize(100);
+        Assertions.assertEquals(100, statement.getFetchSize());
     }
 
     @Test

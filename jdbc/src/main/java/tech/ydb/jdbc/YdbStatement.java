@@ -43,4 +43,10 @@ public interface YdbStatement extends Statement {
 
     @Override
     YdbConnection getConnection() throws SQLException;
+
+    @Override
+    int getQueryTimeout();
+
+    @Override
+    boolean isPoolable();
 }

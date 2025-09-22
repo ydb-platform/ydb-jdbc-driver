@@ -70,8 +70,6 @@ public class YdbOperationProperties {
     static final YdbProperty<Duration> QUERY_REWRITE_TABLE_TTL = YdbProperty.duration("queryRewriteTtl",
             "Name of working table to hot replacemnt of queies", "300s");
 
-    private static final int MAX_ROWS = 1000; // TODO: how to figure out the max rows of current connection?
-
     private final YdbValue<Duration> joinDuration;
     private final YdbValue<Duration> queryTimeout;
     private final YdbValue<Duration> scanQueryTimeout;
@@ -164,10 +162,6 @@ public class YdbOperationProperties {
 
     public boolean getForceNewDatetypes() {
         return forceNewDatetypes.getValue();
-    }
-
-    public int getMaxRows() {
-        return MAX_ROWS;
     }
 
     public String getTxValidationTable() {

@@ -32,7 +32,6 @@ public abstract class BaseYdbStatement implements YdbStatement {
     private final YdbConnection connection;
     private final YdbValidator validator;
     private final int resultSetType;
-    private final int maxRows;
     private final FakeTxMode scanQueryTxMode;
     private final FakeTxMode schemeQueryTxMode;
     private final FakeTxMode bulkQueryTxMode;
@@ -42,6 +41,10 @@ public abstract class BaseYdbStatement implements YdbStatement {
     private boolean isPoolable;
     private boolean isClosed = false;
 
+    /** @see Statement#getMaxRows() */
+    private int maxRows = 0; // no limit
+    private int fetchSize = 0;
+
     public BaseYdbStatement(Logger logger, YdbConnection connection, int resultSetType, boolean isPoolable) {
         this.connection = Objects.requireNonNull(connection);
         this.validator = new YdbValidator();
@@ -50,7 +53,6 @@ public abstract class BaseYdbStatement implements YdbStatement {
 
         YdbOperationProperties props = connection.getCtx().getOperationProperties();
         this.queryTimeout = (int) props.getQueryTimeout().getSeconds();
-        this.maxRows = props.getMaxRows();
         this.scanQueryTxMode = props.getScanQueryTxMode();
         this.schemeQueryTxMode = props.getSchemeQueryTxMode();
         this.bulkQueryTxMode = props.getBulkQueryTxMode();
@@ -125,7 +127,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
 
     @Override
     public void setMaxRows(int max) {
-        // has not effect
+        this.maxRows = max;
     }
 
     @Override
@@ -194,7 +196,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
         }
 
         ctx.traceQueryByFullScanDetector(query, yql);
-        return connection.getExecutor().executeDataQuery(this, query, yql, params, getQueryTimeout(), isPoolable());
+        return connection.getExecutor().executeDataQuery(this, query, yql, params);
     }
 
     protected YdbQueryResult executeSchemeQuery(YdbQuery query) throws SQLException {
@@ -300,12 +302,12 @@ public abstract class BaseYdbStatement implements YdbStatement {
 
     @Override
     public void setFetchSize(int rows) {
-        // has not effect
+        this.fetchSize = rows;
     }
 
     @Override
     public int getFetchSize() {
-        return getMaxRows();
+        return fetchSize;
     }
 
     @Override

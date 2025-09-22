@@ -26,8 +26,6 @@ public interface YdbResultSet extends ResultSet {
      */
     Value<?> getNativeColumn(String columnLabel) throws SQLException;
 
-    //
-
     @Override
     YdbResultSetMetaData getMetaData() throws SQLException;
 

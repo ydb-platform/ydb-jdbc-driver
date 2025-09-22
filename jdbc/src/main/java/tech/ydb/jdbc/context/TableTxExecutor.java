@@ -85,10 +85,10 @@ public class TableTxExecutor extends QueryServiceExecutor {
     }
 
     @Override
-    public YdbQueryResult executeDataQuery(YdbStatement statement, YdbQuery query, String preparedYql, Params params,
-            long timeout, boolean keepInCache) throws SQLException {
+    public YdbQueryResult executeDataQuery(YdbStatement statement, YdbQuery query, String preparedYql, Params params)
+            throws SQLException {
         try {
-            YdbQueryResult result = super.executeDataQuery(statement, query, preparedYql, params, timeout, keepInCache);
+            YdbQueryResult result = super.executeDataQuery(statement, query, preparedYql, params);
             isWriteTx = isInsideTransaction() && (isWriteTx || query.isWriting());
             return result;
         } catch (YdbConditionallyRetryableException ex) {
