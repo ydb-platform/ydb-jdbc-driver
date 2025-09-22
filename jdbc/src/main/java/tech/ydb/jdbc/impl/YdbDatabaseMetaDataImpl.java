@@ -1393,7 +1393,8 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
                 .describeTable(databaseWithSuffix + table, settings)
                 .thenApply(result -> {
                     // ignore scheme errors like path not found
-                    if (result.getStatus().getCode() == StatusCode.SCHEME_ERROR) {
+                    StatusCode code = result.getStatus().getCode();
+                    if (code == StatusCode.SCHEME_ERROR || code == StatusCode.UNAUTHORIZED) {
                         LOGGER.log(Level.WARNING, "Cannot describe table {0} -> {1}",
                                 new Object[]{table, result.getStatus()}
                         );
