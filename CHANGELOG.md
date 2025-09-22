@@ -1,3 +1,7 @@
+## 2.3.18 ##
+
+* Added processing of UNAUTHORIZED code for listTable
+
 ## 2.3.17 ##
 
 * Added support of query rewriting
