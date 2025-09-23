@@ -1398,12 +1398,12 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     private ResultSet emptyResultSet(FixedResultSetFactory factory) {
         YdbStatementImpl statement = new YdbStatementImpl(connection, ResultSet.TYPE_SCROLL_INSENSITIVE);
-        return new YdbStaticResultSet(connection.getCtx().getTypes(), statement, factory.createResultSet().build());
+        return new YdbResultSetMemory(connection.getCtx().getTypes(), statement, factory.createResultSet().build());
     }
 
     private ResultSet resultSet(ResultSetReader rsReader) {
         YdbStatementImpl statement = new YdbStatementImpl(connection, ResultSet.TYPE_SCROLL_INSENSITIVE);
-        return new YdbStaticResultSet(connection.getCtx().getTypes(), statement, rsReader);
+        return new YdbResultSetMemory(connection.getCtx().getTypes(), statement, rsReader);
     }
 
     private boolean isMatchedCatalog(String catalog) {

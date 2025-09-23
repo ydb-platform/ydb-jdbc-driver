@@ -28,7 +28,7 @@ import tech.ydb.table.values.ListValue;
  *
  * @author Aleksandr Gorshenin
  */
-public abstract class BaseYdbStatement implements YdbStatement {
+public abstract class YdbStatementBase implements YdbStatement {
     private final YdbConnection connection;
     private final YdbValidator validator;
     private final int resultSetType;
@@ -45,7 +45,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
     private int maxRows = 0; // no limit
     private int fetchSize = 0;
 
-    public BaseYdbStatement(Logger logger, YdbConnection connection, int resultSetType, boolean isPoolable) {
+    public YdbStatementBase(Logger logger, YdbConnection connection, int resultSetType, boolean isPoolable) {
         this.connection = Objects.requireNonNull(connection);
         this.validator = new YdbValidator();
         this.resultSetType = resultSetType;
@@ -186,7 +186,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
         if (ctx.isFullScanDetectorEnabled()) {
             if (QueryStat.isPrint(yql)) {
                 ResultSetReader rsr = QueryStat.toResultSetReader(ctx.getFullScanDetectorStats());
-                YdbResultSet rs = new YdbStaticResultSet(ctx.getTypes(), this, rsr);
+                YdbResultSet rs = new YdbResultSetMemory(ctx.getTypes(), this, rsr);
                 return new StaticQueryResult(query, Collections.singletonList(rs));
             }
             if (QueryStat.isReset(yql)) {

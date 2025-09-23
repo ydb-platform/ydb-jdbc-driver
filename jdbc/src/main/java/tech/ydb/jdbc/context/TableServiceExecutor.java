@@ -12,7 +12,7 @@ import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTracer;
 import tech.ydb.jdbc.impl.YdbQueryResult;
-import tech.ydb.jdbc.impl.YdbStaticResultSet;
+import tech.ydb.jdbc.impl.YdbResultSetMemory;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
@@ -228,7 +228,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
                     throw new SQLException(msg);
                 }
 
-                readers.add(new YdbStaticResultSet(types, statement, rs));
+                readers.add(new YdbResultSetMemory(types, statement, rs));
             }
 
             return updateCurrentResult(new StaticQueryResult(query, readers));

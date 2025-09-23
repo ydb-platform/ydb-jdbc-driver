@@ -38,7 +38,7 @@ import tech.ydb.jdbc.query.params.BulkUpsertQuery;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.Type;
 
-public class YdbPreparedStatementImpl extends BaseYdbStatement implements YdbPreparedStatement {
+public class YdbPreparedStatementImpl extends YdbStatementBase implements YdbPreparedStatement {
     private static final Logger LOGGER = Logger.getLogger(YdbPreparedStatementImpl.class.getName());
     private final YdbQuery query;
     private final YdbPreparedQuery prepared;

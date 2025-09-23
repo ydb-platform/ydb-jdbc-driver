@@ -11,7 +11,7 @@ import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.result.ValueReader;
 
-public class YdbStaticResultSet extends BaseYdbResultSet {
+public class YdbResultSetMemory extends YdbResultSetBase {
     private final ResultSetReader rsReader;
     private final int rowCount;
 
@@ -19,7 +19,7 @@ public class YdbStaticResultSet extends BaseYdbResultSet {
     private int rowIndex = 0;
     private boolean isClosed = false;
 
-    public YdbStaticResultSet(YdbTypes types, YdbStatement statement, ResultSetReader result) {
+    public YdbResultSetMemory(YdbTypes types, YdbStatement statement, ResultSetReader result) {
         super(statement, ColumnInfo.fromResultSetReader(types, Objects.requireNonNull(result)));
         this.rsReader = result;
         this.rowCount = result.getRowCount();

@@ -12,7 +12,7 @@ import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.common.FixedResultSetFactory;
 import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.jdbc.impl.YdbQueryResult;
-import tech.ydb.jdbc.impl.YdbStaticResultSet;
+import tech.ydb.jdbc.impl.YdbResultSetMemory;
 import tech.ydb.jdbc.query.QueryStatement;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.result.ResultSetReader;
@@ -33,25 +33,25 @@ public class StaticQueryResult implements YdbQueryResult {
 
     private static class ExpressionResult {
         private final int updateCount;
+        private final boolean isGeneratedKeys;
         private final YdbResultSet resultSet;
-        private final YdbResultSet generatedKeys;
 
         ExpressionResult(int updateCount) {
             this.updateCount = updateCount;
             this.resultSet = null;
-            this.generatedKeys = null;
-        }
-
-        ExpressionResult(int updateCount, YdbResultSet keys) {
-            this.updateCount = updateCount;
-            this.resultSet = null;
-            this.generatedKeys = keys;
+            this.isGeneratedKeys = false;
         }
 
         ExpressionResult(YdbResultSet result) {
             this.updateCount = -1;
             this.resultSet = result;
-            this.generatedKeys = null;
+            this.isGeneratedKeys = false;
+        }
+
+        ExpressionResult(int updateCount, YdbResultSet keys) {
+            this.updateCount = updateCount;
+            this.resultSet = keys;
+            this.isGeneratedKeys = true;
         }
     }
 
@@ -100,7 +100,7 @@ public class StaticQueryResult implements YdbQueryResult {
                 .build()
                 .build();
 
-        YdbResultSet rs = new YdbStaticResultSet(types, statement, result);
+        YdbResultSet rs = new YdbResultSetMemory(types, statement, result);
         this.results = Collections.singletonList(new ExpressionResult(rs));
         this.resultIndex = 0;
     }
@@ -120,7 +120,8 @@ public class StaticQueryResult implements YdbQueryResult {
             return false;
         }
 
-        return results.get(resultIndex).resultSet != null;
+        ExpressionResult exp = results.get(resultIndex);
+        return !exp.isGeneratedKeys && exp.resultSet != null;
     }
 
     @Override
@@ -137,7 +138,9 @@ public class StaticQueryResult implements YdbQueryResult {
         if (results == null || resultIndex >= results.size()) {
             return null;
         }
-        return results.get(resultIndex).resultSet;
+
+        ExpressionResult exp = results.get(resultIndex);
+        return exp.isGeneratedKeys ? null : exp.resultSet;
     }
 
     @Override
@@ -145,7 +148,9 @@ public class StaticQueryResult implements YdbQueryResult {
         if (results == null || resultIndex >= results.size()) {
             return null;
         }
-        return results.get(resultIndex).generatedKeys;
+
+        ExpressionResult exp = results.get(resultIndex);
+        return exp.isGeneratedKeys ? exp.resultSet : null;
     }
 
     @Override

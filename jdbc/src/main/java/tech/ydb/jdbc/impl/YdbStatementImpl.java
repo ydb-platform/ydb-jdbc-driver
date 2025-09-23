@@ -15,7 +15,7 @@ import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.Params;
 
-public class YdbStatementImpl extends BaseYdbStatement {
+public class YdbStatementImpl extends YdbStatementBase {
     private static final Logger LOGGER = Logger.getLogger(YdbStatementImpl.class.getName());
 
     private final List<String> batch = new ArrayList<>();

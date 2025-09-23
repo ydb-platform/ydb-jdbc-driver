@@ -24,8 +24,8 @@ import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.common.ColumnInfo;
 import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.jdbc.exception.ExceptionFactory;
-import tech.ydb.jdbc.impl.BaseYdbResultSet;
 import tech.ydb.jdbc.impl.YdbQueryResult;
+import tech.ydb.jdbc.impl.YdbResultSetBase;
 import tech.ydb.jdbc.query.QueryStatement;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.result.ResultSetReader;
@@ -260,7 +260,7 @@ public class StreamQueryResult implements YdbQueryResult {
 
     }
 
-    private class LazyResultSet extends BaseYdbResultSet {
+    private class LazyResultSet extends YdbResultSetBase {
         private final BlockingQueue<ResultSetReader> readers = new ArrayBlockingQueue<>(5);
         private final AtomicLong rowsCount = new AtomicLong();
         private final CompletableFuture<Void> isCompleted = new CompletableFuture<>();

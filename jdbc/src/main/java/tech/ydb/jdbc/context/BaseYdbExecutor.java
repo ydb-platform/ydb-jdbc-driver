@@ -16,7 +16,7 @@ import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTracer;
 import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.jdbc.impl.YdbQueryResult;
-import tech.ydb.jdbc.impl.YdbStaticResultSet;
+import tech.ydb.jdbc.impl.YdbResultSetMemory;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.Session;
@@ -163,7 +163,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
                         () -> session.executeScanQuery(yql, params, settings).start(resultSets::add)
                 );
 
-                YdbResultSet rs = new YdbStaticResultSet(types, statement, ProtoValueReaders.forResultSets(resultSets));
+                YdbResultSet rs = new YdbResultSetMemory(types, statement, ProtoValueReaders.forResultSets(resultSets));
                 return updateCurrentResult(new StaticQueryResult(query, Collections.singletonList(rs)));
             } finally {
                 session.close();
