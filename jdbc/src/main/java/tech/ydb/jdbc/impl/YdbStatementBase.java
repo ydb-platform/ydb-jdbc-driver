@@ -5,7 +5,6 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
-import java.util.Collections;
 import java.util.Objects;
 import java.util.logging.Logger;
 
@@ -15,7 +14,6 @@ import tech.ydb.jdbc.YdbQueryResult;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.context.QueryStat;
-import tech.ydb.jdbc.context.StaticQueryResult;
 import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbValidator;
 import tech.ydb.jdbc.query.YdbQuery;
@@ -30,7 +28,7 @@ import tech.ydb.table.values.ListValue;
  * @author Aleksandr Gorshenin
  */
 public abstract class YdbStatementBase implements YdbStatement {
-    private static final YdbQueryResult EMPTY_RESULT = new YdbQueryEmptyResult();
+    private static final YdbQueryResult EMPTY_RESULT = new YdbQueryResultEmpty();
 
     private final YdbConnection connection;
     private final YdbValidator validator;
@@ -190,7 +188,7 @@ public abstract class YdbStatementBase implements YdbStatement {
             if (QueryStat.isPrint(yql)) {
                 ResultSetReader rsr = QueryStat.toResultSetReader(ctx.getFullScanDetectorStats());
                 YdbResultSet rs = new YdbResultSetMemory(ctx.getTypes(), this, rsr);
-                return new StaticQueryResult(query, Collections.singletonList(rs));
+                return new YdbQueryResultStatic(query, rs);
             }
             if (QueryStat.isReset(yql)) {
                 ctx.resetFullScanDetector();

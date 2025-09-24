@@ -4,14 +4,14 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
 
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbQueryResult;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTracer;
+import tech.ydb.jdbc.impl.YdbQueryResultExplain;
+import tech.ydb.jdbc.impl.YdbQueryResultStatic;
 import tech.ydb.jdbc.impl.YdbResultSetMemory;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
@@ -193,7 +193,9 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         try (Session session = createNewTableSession(validator)) {
             String msg = QueryType.EXPLAIN_QUERY + " >>\n" + yql;
             ExplainDataQueryResult res = validator.call(msg, tracer, () -> session.explainDataQuery(yql, settings));
-            return updateCurrentResult(new StaticQueryResult(types, statement, res.getQueryAst(), res.getQueryPlan()));
+            String ast = res.getQueryAst();
+            String plan = res.getQueryPlan();
+            return updateCurrentResult(new YdbQueryResultExplain(types, statement, ast, plan));
         } finally {
             if (!tx.isInsideTransaction()) {
                 tracer.close();
@@ -220,7 +222,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
             );
             updateState(tx.withDataQuery(session, result.getTxId()));
 
-            List<YdbResultSet> readers = new ArrayList<>();
+            YdbResultSet[] readers = new YdbResultSet[result.getResultSetCount()];
             for (int idx = 0; idx < result.getResultSetCount(); idx += 1) {
                 ResultSetReader rs = result.getResultSet(idx);
                 if (failOnTruncatedResult && rs.isTruncated()) {
@@ -228,10 +230,10 @@ public class TableServiceExecutor extends BaseYdbExecutor {
                     throw new SQLException(msg);
                 }
 
-                readers.add(new YdbResultSetMemory(types, statement, rs));
+                readers[idx] = new YdbResultSetMemory(types, statement, rs);
             }
 
-            return updateCurrentResult(new StaticQueryResult(query, readers));
+            return updateCurrentResult(new YdbQueryResultStatic(query, readers));
         } catch (SQLException | RuntimeException ex) {
             updateState(tx.withRollback(session));
             throw ex;

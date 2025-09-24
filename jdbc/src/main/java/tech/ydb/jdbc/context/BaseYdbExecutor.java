@@ -3,7 +3,6 @@ package tech.ydb.jdbc.context;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
@@ -16,6 +15,7 @@ import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTracer;
 import tech.ydb.jdbc.common.YdbTypes;
+import tech.ydb.jdbc.impl.YdbQueryResultStatic;
 import tech.ydb.jdbc.impl.YdbResultSetMemory;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
@@ -109,7 +109,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
             tracer.close();
         }
 
-        return updateCurrentResult(new StaticQueryResult(query, Collections.emptyList()));
+        return updateCurrentResult(new YdbQueryResultStatic(query));
     }
 
     @Override
@@ -131,7 +131,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
             tracer.close();
         }
 
-        return updateCurrentResult(new StaticQueryResult(query, Collections.emptyList()));
+        return updateCurrentResult(new YdbQueryResultStatic(query));
     }
 
     @Override
@@ -164,7 +164,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
                 );
 
                 YdbResultSet rs = new YdbResultSetMemory(types, statement, ProtoValueReaders.forResultSets(resultSets));
-                return updateCurrentResult(new StaticQueryResult(query, Collections.singletonList(rs)));
+                return updateCurrentResult(new YdbQueryResultStatic(query, rs));
             } finally {
                 session.close();
                 tracer.close();

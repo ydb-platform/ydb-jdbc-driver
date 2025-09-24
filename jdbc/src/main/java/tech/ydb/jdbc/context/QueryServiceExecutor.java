@@ -4,10 +4,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -20,6 +17,8 @@ import tech.ydb.jdbc.YdbQueryResult;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTracer;
+import tech.ydb.jdbc.impl.YdbQueryResultExplain;
+import tech.ydb.jdbc.impl.YdbQueryResultStatic;
 import tech.ydb.jdbc.impl.YdbResultSetMemory;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
@@ -36,7 +35,6 @@ import tech.ydb.query.settings.QueryExecMode;
 import tech.ydb.query.settings.RollbackTransactionSettings;
 import tech.ydb.query.tools.QueryReader;
 import tech.ydb.table.query.Params;
-import tech.ydb.table.result.ResultSetReader;
 
 /**
  *
@@ -317,11 +315,11 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             );
             validator.addStatusIssues(result.getIssueList());
 
-            List<YdbResultSet> readers = new ArrayList<>();
-            for (ResultSetReader rst: result) {
-                readers.add(new YdbResultSetMemory(types, statement, rst));
+            YdbResultSet[] readers = new YdbResultSet[result.getResultSetCount()];
+            for (int idx = 0; idx < readers.length; idx++) {
+                readers[idx] = new YdbResultSetMemory(types, statement, result.getResultSet(idx));
             }
-            return updateCurrentResult(new StaticQueryResult(query, readers));
+            return updateCurrentResult(new YdbQueryResultStatic(query, readers));
         } finally {
             if (!localTx.isActive()) {
                 if (tx.compareAndSet(localTx, null)) {
@@ -363,7 +361,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         }
 
 
-        return updateCurrentResult(new StaticQueryResult(query, Collections.emptyList()));
+        return updateCurrentResult(new YdbQueryResultStatic(query));
     }
 
     @Override
@@ -392,9 +390,9 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
                 throw new SQLException("No explain data");
             }
 
-            return updateCurrentResult(
-                    new StaticQueryResult(types, statement, res.getStats().getQueryAst(), res.getStats().getQueryPlan())
-            );
+            String ast = res.getStats().getQueryAst();
+            String plan = res.getStats().getQueryPlan();
+            return updateCurrentResult(new YdbQueryResultExplain(types, statement, ast, plan));
         } finally {
             if (tx.get() == null) {
                 tracer.close();
