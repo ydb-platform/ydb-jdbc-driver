@@ -11,6 +11,7 @@ import java.util.logging.Logger;
 
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.YdbQueryResult;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.context.QueryStat;
@@ -29,6 +30,8 @@ import tech.ydb.table.values.ListValue;
  * @author Aleksandr Gorshenin
  */
 public abstract class YdbStatementBase implements YdbStatement {
+    private static final YdbQueryResult EMPTY_RESULT = new YdbQueryEmptyResult();
+
     private final YdbConnection connection;
     private final YdbValidator validator;
     private final int resultSetType;
@@ -36,7 +39,7 @@ public abstract class YdbStatementBase implements YdbStatement {
     private final FakeTxMode schemeQueryTxMode;
     private final FakeTxMode bulkQueryTxMode;
 
-    private YdbQueryResult state = YdbQueryResult.EMPTY;
+    private YdbQueryResult state = EMPTY_RESULT;
     private int queryTimeout;
     private boolean isPoolable;
     private boolean isClosed = false;
@@ -75,7 +78,7 @@ public abstract class YdbStatementBase implements YdbStatement {
     @Override
     public void close() throws SQLException {
         clearBatch();
-        state = YdbQueryResult.EMPTY;
+        state = EMPTY_RESULT;
         isClosed = true;
     }
 
@@ -146,12 +149,12 @@ public abstract class YdbStatementBase implements YdbStatement {
     }
 
     protected void cleanState() throws SQLException {
-        state = YdbQueryResult.EMPTY;
+        state = EMPTY_RESULT;
         clearWarnings();
     }
 
     protected boolean updateState(YdbQueryResult result) throws SQLException {
-        state = result == null ? YdbQueryResult.EMPTY : result;
+        state = result == null ? EMPTY_RESULT : result;
         return state.hasResultSets();
     }
 
