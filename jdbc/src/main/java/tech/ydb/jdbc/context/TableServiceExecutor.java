@@ -45,7 +45,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public void close() throws SQLException {
-        closeCurrentResult();
+        clearState();
         tx = null;
     }
 
@@ -76,13 +76,11 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public boolean isClosed() throws SQLException {
-        closeCurrentResult();
         return tx == null;
     }
 
     @Override
     public String txID() throws SQLException {
-        closeCurrentResult();
         return tx != null ? tx.txID() : null;
     }
 

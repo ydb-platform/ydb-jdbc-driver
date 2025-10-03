@@ -367,7 +367,7 @@ public class YdbLazyResultSetImplTest {
 
         Assertions.assertFalse(resultSet.next());
 
-        Assertions.assertEquals(6, resultSet.getRow());
+        Assertions.assertEquals(0, resultSet.getRow()); // like Postgres
         Assertions.assertFalse(resultSet.isBeforeFirst());
         Assertions.assertFalse(resultSet.isFirst());
         Assertions.assertFalse(resultSet.isLast());

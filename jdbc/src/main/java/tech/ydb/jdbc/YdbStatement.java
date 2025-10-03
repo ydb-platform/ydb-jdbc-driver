@@ -49,4 +49,10 @@ public interface YdbStatement extends Statement {
 
     @Override
     boolean isPoolable();
+
+    @Override
+    int getFetchSize();
+
+    @Override
+    int getMaxRows();
 }

@@ -16,6 +16,7 @@ public interface YdbExecutor {
     void close() throws SQLException;
     boolean isClosed() throws SQLException;
     void ensureOpened() throws SQLException;
+    void clearState() throws SQLException;
 
     String txID() throws SQLException;
     int transactionLevel() throws SQLException;

@@ -900,8 +900,9 @@ public class YdbConnectionImplTest {
                 ps.executeBatch();
             }
 
-            // SCAN all table
+            // Read whole table
             try (PreparedStatement ps = conn.prepareStatement(selectAll)) {
+                ps.setFetchSize(1000); // lazy reading
                 int readed = 0;
                 Assertions.assertTrue(ps.execute());
                 try (ResultSet rs = ps.getResultSet()) {
@@ -914,11 +915,17 @@ public class YdbConnectionImplTest {
                 Assertions.assertEquals(10000, readed);
             }
 
-            // Canceled scan
+            // Canceled lazy reading
             try (PreparedStatement ps = conn.prepareStatement(selectAll)) {
+                ps.setFetchSize(1000); // lazy reading
+
                 Assertions.assertTrue(ps.execute());
-                ps.getResultSet().next();
-                ps.getResultSet().close();
+
+                try (ResultSet rs = ps.getResultSet()) {
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertNull(rs.getWarnings());
+                    // after ResultSet reading stream will be canceled
+                }
 
                 SQLWarning w = ps.getWarnings();
                 Assertions.assertNotNull(w);

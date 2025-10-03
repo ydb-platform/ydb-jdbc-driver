@@ -54,9 +54,20 @@ public final class YdbConst {
     public static final String QUERY_EXPECT_UPDATE = "Query must not return ResultSet";
     public static final String UNABLE_TO_SET_NULL_OBJECT = "Unable to set null object, type is required";
     public static final String DIRECTION_UNSUPPORTED = "Direction is not supported: ";
+
     public static final String RESULT_SET_MODE_UNSUPPORTED = "ResultSet mode is not supported: ";
     public static final String RESULT_SET_UNAVAILABLE = "ResultSet is not available at index: ";
+    public static final String RESULT_SET_IS_CLOSED = "ResultSet is closed";
     public static final String RESULT_IS_TRUNCATED = "Result #%s was truncated to %s rows";
+    public static final String RESULT_WAS_INTERRUPTED = "ResultSet reading was interrupted";
+    public static final String RESULT_SET_TYPE_UNSUPPORTED =
+            "resultSetType must be ResultSet.TYPE_FORWARD_ONLY or ResultSet.TYPE_SCROLL_INSENSITIVE";
+    public static final String RESULT_SET_CONCURRENCY_UNSUPPORTED =
+            "resultSetConcurrency must be ResultSet.CONCUR_READ_ONLY";
+    public static final String RESULT_SET_HOLDABILITY_UNSUPPORTED =
+            "resultSetHoldability must be ResultSet.HOLD_CURSORS_OVER_COMMIT";
+
+
     public static final String INVALID_FETCH_DIRECTION = "Fetch direction %s cannot be used when result set type is %s";
     public static final String COLUMN_NOT_FOUND = "Column not found: ";
     public static final String COLUMN_NUMBER_NOT_FOUND = "Column is out of range: ";
@@ -71,19 +82,12 @@ public final class YdbConst {
     public static final String METADATA_RS_UNSUPPORTED_IN_PS = "ResultSet metadata is not supported " +
             "in prepared statements";
     public static final String CANNOT_UNWRAP_TO = "Cannot unwrap to ";
-    public static final String RESULT_SET_TYPE_UNSUPPORTED =
-            "resultSetType must be ResultSet.TYPE_FORWARD_ONLY or ResultSet.TYPE_SCROLL_INSENSITIVE";
-    public static final String RESULT_SET_CONCURRENCY_UNSUPPORTED =
-            "resultSetConcurrency must be ResultSet.CONCUR_READ_ONLY";
-    public static final String RESULT_SET_HOLDABILITY_UNSUPPORTED =
-            "resultSetHoldability must be ResultSet.HOLD_CURSORS_OVER_COMMIT";
     public static final String READONLY_INSIDE_TRANSACTION = "Cannot change read-only attribute inside a transaction";
     public static final String CHANGE_ISOLATION_INSIDE_TX = "Cannot change transaction isolation inside a transaction";
     public static final String UNSUPPORTED_TRANSACTION_LEVEL = "Unsupported transaction level: ";
     public static final String CLOSED_CONNECTION = "Connection is closed";
     public static final String DB_QUERY_DEADLINE_EXCEEDED = "DB query deadline exceeded: ";
     public static final String DB_QUERY_CANCELLED = "DB query cancelled: ";
-    public static final String DATABASE_QUERY_INTERRUPTED = "Database query interrupted";
     public static final String DATABASE_UNAVAILABLE = "Database is unavailable: ";
     public static final String CANNOT_LOAD_DATA_FROM_IS = "Unable to load data from input stream: ";
     public static final String CANNOT_LOAD_DATA_FROM_READER = "Unable to load data from reader: ";

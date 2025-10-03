@@ -71,6 +71,7 @@ public class YdbConnectionImpl implements YdbConnection {
     @Override
     public void setAutoCommit(boolean autoCommit) throws SQLException {
         executor.ensureOpened();
+        executor.clearState();
         if (autoCommit == executor.isAutoCommit()) {
             return;
         }
@@ -167,6 +168,7 @@ public class YdbConnectionImpl implements YdbConnection {
     @Override
     public void clearWarnings() throws SQLException {
         executor.ensureOpened();
+        executor.clearState();
         validator.clearWarnings();
     }
 

@@ -59,8 +59,9 @@ public abstract class YdbStatementBase implements YdbStatement {
         this.bulkQueryTxMode = props.getBulkQueryTxMode();
     }
 
-    private void ensureOpened() throws SQLException {
+    private void prepareNewExecution() throws SQLException {
         connection.getExecutor().ensureOpened();
+        connection.getExecutor().clearState();
     }
 
     @Override
@@ -92,7 +93,7 @@ public abstract class YdbStatementBase implements YdbStatement {
 
     @Override
     public SQLWarning getWarnings() throws SQLException {
-        ensureOpened();
+        prepareNewExecution();
         return validator.toSQLWarnings();
     }
 
@@ -157,7 +158,7 @@ public abstract class YdbStatementBase implements YdbStatement {
     }
 
     protected YdbQueryResult executeBulkUpsert(YdbQuery query, String tablePath, ListValue rows) throws SQLException {
-        ensureOpened();
+        prepareNewExecution();
 
         if (connection.getExecutor().isInsideTransaction()) {
             switch (bulkQueryTxMode) {
@@ -176,12 +177,12 @@ public abstract class YdbStatementBase implements YdbStatement {
     }
 
     protected YdbQueryResult executeExplainQuery(YdbQuery query) throws SQLException {
-        ensureOpened();
+        prepareNewExecution();
         return connection.getExecutor().executeExplainQuery(this, query);
     }
 
     protected YdbQueryResult executeDataQuery(YdbQuery query, String yql, Params params) throws SQLException {
-        ensureOpened();
+        prepareNewExecution();
 
         YdbContext ctx = connection.getCtx();
         if (ctx.isFullScanDetectorEnabled()) {
@@ -201,7 +202,7 @@ public abstract class YdbStatementBase implements YdbStatement {
     }
 
     protected YdbQueryResult executeSchemeQuery(YdbQuery query) throws SQLException {
-        ensureOpened();
+        prepareNewExecution();
 
         if (connection.getExecutor().isInsideTransaction()) {
             switch (schemeQueryTxMode) {
@@ -220,7 +221,7 @@ public abstract class YdbStatementBase implements YdbStatement {
     }
 
     protected YdbQueryResult executeScanQuery(YdbQuery query, String yql, Params params) throws SQLException {
-        ensureOpened();
+        prepareNewExecution();
 
         if (connection.getExecutor().isInsideTransaction()) {
             switch (scanQueryTxMode) {
