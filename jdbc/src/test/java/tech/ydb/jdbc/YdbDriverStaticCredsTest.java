@@ -12,7 +12,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
 import tech.ydb.jdbc.impl.helper.JdbcUrlHelper;
 import tech.ydb.test.junit5.YdbHelperExtension;
@@ -73,13 +72,14 @@ public class YdbDriverStaticCredsTest {
     }
 
     private void wrongConnection(ConnectionSupplier connectionSupplier) {
-        ExceptionAssert.sqlException("Cannot connect to YDB: Discovery failed, "
-                + "Cannot get value, code: CLIENT_GRPC_ERROR, issues: ["
-                + "gRPC error: (INTERNAL) get token exception (S_ERROR), "
-                + "tech.ydb.core.UnexpectedResultException: Can't login, "
+        SQLException ex = Assertions.assertThrows(SQLException.class, () -> testConnection(connectionSupplier, null));
+        Assertions.assertTrue(ex.getMessage().startsWith(""
+                + "Cannot connect to YDB: Discovery failed, Cannot get value, code: CLIENT_GRPC_ERROR, issues: ["
+                + "gRPC error: (INTERNAL)"));
+        Assertions.assertTrue(ex.getMessage().endsWith(""
+                + "get token exception (S_ERROR), tech.ydb.core.UnexpectedResultException: Can't login, "
                 + "code: UNAUTHORIZED, issues: [#400020 Invalid password (S_FATAL)] (S_ERROR)], "
-                + "Can't login, code: UNAUTHORIZED, issues: [#400020 Invalid password (S_FATAL)]",
-                () -> testConnection(connectionSupplier, null));
+                + "Can't login, code: UNAUTHORIZED, issues: [#400020 Invalid password (S_FATAL)]"));
     }
 
     @Test
