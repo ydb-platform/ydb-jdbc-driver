@@ -45,6 +45,7 @@ public abstract class YdbStatementBase implements YdbStatement {
     /** @see Statement#getMaxRows() */
     private int maxRows = 0; // no limit
     private int fetchSize = 0;
+    private int fetchDirection = ResultSet.FETCH_UNKNOWN;
 
     public YdbStatementBase(Logger logger, YdbConnection connection, int resultSetType, boolean isPoolable) {
         this.connection = Objects.requireNonNull(connection);
@@ -60,6 +61,9 @@ public abstract class YdbStatementBase implements YdbStatement {
     }
 
     private void prepareNewExecution() throws SQLException {
+        if (fetchSize > 0 && (fetchDirection != ResultSet.FETCH_FORWARD && fetchDirection != ResultSet.FETCH_UNKNOWN)) {
+            throw new SQLException(YdbConst.RESULT_IS_NOT_SCROLLABLE);
+        }
         connection.getExecutor().ensureOpened();
         connection.getExecutor().clearState();
     }
@@ -77,6 +81,7 @@ public abstract class YdbStatementBase implements YdbStatement {
     @Override
     public void close() throws SQLException {
         clearBatch();
+        connection.getExecutor().clearState();
         state = EMPTY_RESULT;
         isClosed = true;
     }
@@ -292,14 +297,12 @@ public abstract class YdbStatementBase implements YdbStatement {
 
     @Override
     public void setFetchDirection(int direction) throws SQLException {
-        if (direction != ResultSet.FETCH_FORWARD && direction != ResultSet.FETCH_UNKNOWN) {
-            throw new SQLException(YdbConst.DIRECTION_UNSUPPORTED + direction);
-        }
+        this.fetchDirection = direction;
     }
 
     @Override
     public int getFetchDirection() {
-        return ResultSet.FETCH_FORWARD;
+        return fetchDirection;
     }
 
     @Override

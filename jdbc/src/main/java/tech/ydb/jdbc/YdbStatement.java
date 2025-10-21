@@ -54,5 +54,8 @@ public interface YdbStatement extends Statement {
     int getFetchSize();
 
     @Override
+    int getFetchDirection();
+
+    @Override
     int getMaxRows();
 }

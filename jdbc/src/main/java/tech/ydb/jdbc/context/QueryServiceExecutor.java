@@ -290,6 +290,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             tracer.trace("--> data query");
             tracer.query(yql);
             ExecuteQuerySettings requestSettings = settings.build();
+
             QueryReader result = validator.call(QueryType.DATA_QUERY + " >>\n" + yql, tracer,
                     () -> QueryReader.readFrom(localTx.createQuery(yql, isAutoCommit, params, requestSettings))
             );

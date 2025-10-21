@@ -187,16 +187,16 @@ public class YdbStatementImplTest {
 
     @Test
     public void fetchDirection() throws SQLException {
-        Assertions.assertEquals(ResultSet.FETCH_FORWARD, statement.getFetchDirection());
+        Assertions.assertEquals(ResultSet.FETCH_UNKNOWN, statement.getFetchDirection());
 
         statement.setFetchDirection(ResultSet.FETCH_FORWARD);
         Assertions.assertEquals(ResultSet.FETCH_FORWARD, statement.getFetchDirection());
 
-        statement.setFetchDirection(ResultSet.FETCH_UNKNOWN);
-        Assertions.assertEquals(ResultSet.FETCH_FORWARD, statement.getFetchDirection());
+        statement.setFetchDirection(ResultSet.FETCH_REVERSE);
+        Assertions.assertEquals(ResultSet.FETCH_REVERSE, statement.getFetchDirection());
 
-        ExceptionAssert.sqlException("Direction is not supported: " + ResultSet.FETCH_REVERSE,
-                () -> statement.setFetchDirection(ResultSet.FETCH_REVERSE));
+        statement.setFetchDirection(ResultSet.FETCH_UNKNOWN);
+        Assertions.assertEquals(ResultSet.FETCH_UNKNOWN, statement.getFetchDirection());
     }
 
     @Test

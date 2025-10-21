@@ -269,9 +269,10 @@ public class YdbQueryResultReader extends YdbQueryResultBase implements GrpcFlow
                 waitForUpdates();
             }
 
-            //if (isCompleted) {
-                // can use Static result set
-            //}
+            if (isCompleted && fetchSize <= 0) { // can use in memory result set
+                rs = new YdbResultSetMemory(types, statement, queue.toArray(new ResultSetReader[0]));
+                return rs;
+            }
 
             if (queue.isEmpty()) {
                 return null;

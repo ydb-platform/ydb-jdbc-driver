@@ -53,13 +53,14 @@ public final class YdbConst {
     public static final String QUERY_EXPECT_RESULT_SET = "Query must return ResultSet";
     public static final String QUERY_EXPECT_UPDATE = "Query must not return ResultSet";
     public static final String UNABLE_TO_SET_NULL_OBJECT = "Unable to set null object, type is required";
-    public static final String DIRECTION_UNSUPPORTED = "Direction is not supported: ";
 
     public static final String RESULT_SET_MODE_UNSUPPORTED = "ResultSet mode is not supported: ";
     public static final String RESULT_SET_UNAVAILABLE = "ResultSet is not available at index: ";
     public static final String RESULT_SET_IS_CLOSED = "ResultSet is closed";
     public static final String RESULT_IS_TRUNCATED = "Result #%s was truncated to %s rows";
     public static final String RESULT_WAS_INTERRUPTED = "ResultSet reading was interrupted";
+    public static final String RESULT_IS_NOT_SCROLLABLE =
+            "Requested scrollable ResutlSet, but this ResultSet is FORWARD_ONLY.";
     public static final String RESULT_SET_TYPE_UNSUPPORTED =
             "resultSetType must be ResultSet.TYPE_FORWARD_ONLY or ResultSet.TYPE_SCROLL_INSENSITIVE";
     public static final String RESULT_SET_CONCURRENCY_UNSUPPORTED =

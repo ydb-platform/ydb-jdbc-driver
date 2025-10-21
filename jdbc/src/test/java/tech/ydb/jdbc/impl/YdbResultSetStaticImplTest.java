@@ -58,14 +58,12 @@ import tech.ydb.table.values.PrimitiveValue;
 import tech.ydb.table.values.Value;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
-public class YdbLazyResultSetImplTest {
-
+public class YdbResultSetStaticImplTest {
     @RegisterExtension
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
     @RegisterExtension
-    private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb)
-            .withArg("useStreamResultSets", "true");
+    private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb);
 
     private static final SqlQueries TEST_TABLE = new SqlQueries("ydb_result_set_test");
 
@@ -232,18 +230,15 @@ public class YdbLazyResultSetImplTest {
 
     @Test
     public void fetchDirection() throws SQLException {
-        Assertions.assertEquals(ResultSet.FETCH_FORWARD, resultSet.getFetchDirection());
-        resultSet.setFetchDirection(ResultSet.FETCH_FORWARD);
-
-        assertForwardOnly(() -> resultSet.setFetchDirection(ResultSet.FETCH_REVERSE));
-        assertForwardOnly(() -> resultSet.setFetchDirection(ResultSet.FETCH_UNKNOWN));
-        Assertions.assertEquals(ResultSet.FETCH_FORWARD, resultSet.getFetchDirection());
+        Assertions.assertEquals(ResultSet.FETCH_UNKNOWN, resultSet.getFetchDirection());
+        resultSet.setFetchDirection(ResultSet.FETCH_REVERSE);
+        Assertions.assertEquals(ResultSet.FETCH_REVERSE, resultSet.getFetchDirection());
     }
 
     @Test
     public void fetchSize() throws SQLException {
         Assertions.assertEquals(0, resultSet.getFetchSize());
-        resultSet.setFetchSize(99); // no effect
+        resultSet.setFetchSize(99); // do nothing
         Assertions.assertEquals(0, resultSet.getFetchSize());
     }
 
@@ -257,10 +252,43 @@ public class YdbLazyResultSetImplTest {
 
     @Test
     public void moveOnEmptyResultSet() throws SQLException {
-        String select = TEST_TABLE.withTableName("scan select * from #tableName where 1 = 0");
+        String select = TEST_TABLE.withTableName("select * from #tableName where 1 = 0");
         try (ResultSet rs = statement.executeQuery(select)) {
             assertIsEmpty(rs);
+            rs.beforeFirst();
+            assertIsEmpty(rs);
+
+            rs.afterLast();
+            assertIsEmpty(rs);
+
             Assertions.assertFalse(rs.next());
+            assertIsEmpty(rs);
+
+            Assertions.assertFalse(rs.previous());
+            assertIsEmpty(rs);
+
+            Assertions.assertFalse(rs.first());
+            assertIsEmpty(rs);
+
+            Assertions.assertFalse(rs.last());
+            assertIsEmpty(rs);
+
+            Assertions.assertFalse(rs.absolute(0));
+            assertIsEmpty(rs);
+
+            Assertions.assertFalse(rs.absolute(1));
+            assertIsEmpty(rs);
+
+            Assertions.assertFalse(rs.absolute(-1));
+            assertIsEmpty(rs);
+
+            Assertions.assertFalse(rs.relative(0));
+            assertIsEmpty(rs);
+
+            Assertions.assertFalse(rs.relative(1));
+            assertIsEmpty(rs);
+
+            Assertions.assertFalse(rs.relative(-1));
             assertIsEmpty(rs);
         }
     }
@@ -290,7 +318,7 @@ public class YdbLazyResultSetImplTest {
         Assertions.assertFalse(rs2.isClosed());
 
         other.close();
-        Assertions.assertFalse(rs2.isClosed());
+        Assertions.assertTrue(rs2.isClosed());
 
         rs2.close();
     }
@@ -312,7 +340,7 @@ public class YdbLazyResultSetImplTest {
         Assertions.assertFalse(rs2.isClosed());
 
         ps.close();
-        Assertions.assertFalse(rs2.isClosed());
+        Assertions.assertTrue(rs2.isClosed());
 
         rs2.close();
     }
@@ -378,19 +406,184 @@ public class YdbLazyResultSetImplTest {
     }
 
     @Test
-    public void unsupportedMethods() throws SQLException {
+    public void first() throws SQLException {
+        Assertions.assertFalse(resultSet.isFirst());
         Assertions.assertEquals(0, resultSet.getRow());
-        assertForwardOnly(() -> { resultSet.first(); });
-        assertForwardOnly(() -> { resultSet.last(); });
-        assertForwardOnly(() -> { resultSet.previous(); });
-        assertForwardOnly(() -> { resultSet.beforeFirst(); });
-        assertForwardOnly(() -> { resultSet.afterLast(); });
-        assertForwardOnly(() -> { resultSet.absolute(0); });
-        assertForwardOnly(() -> { resultSet.relative(0); });
+
+        Assertions.assertTrue(resultSet.next());
+        Assertions.assertTrue(resultSet.isFirst());
+        Assertions.assertEquals(1, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.next());
+        Assertions.assertFalse(resultSet.isFirst());
+        Assertions.assertEquals(2, resultSet.getRow());
     }
 
-    private void assertForwardOnly(Executable exec) {
-        ExceptionAssert.sqlFeatureNotSupported("ResultSet in TYPE_FORWARD_ONLY mode", exec);
+    @Test
+    public void last() throws SQLException {
+        Assertions.assertFalse(resultSet.isLast());
+        Assertions.assertEquals(0, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.last());
+        Assertions.assertTrue(resultSet.isLast());
+        Assertions.assertEquals(5, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.previous());
+        Assertions.assertFalse(resultSet.isLast());
+        Assertions.assertEquals(4, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.next());
+        Assertions.assertTrue(resultSet.isLast());
+        Assertions.assertEquals(5, resultSet.getRow());
+
+        Assertions.assertFalse(resultSet.next());
+        Assertions.assertFalse(resultSet.isLast());
+        Assertions.assertEquals(0, resultSet.getRow());
+
+        Assertions.assertFalse(resultSet.next());
+        Assertions.assertEquals(0, resultSet.getRow());
+    }
+
+    @Test
+    public void beforeFirst() throws SQLException {
+        Assertions.assertTrue(resultSet.isBeforeFirst());
+        Assertions.assertEquals(0, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.next());
+        Assertions.assertFalse(resultSet.isBeforeFirst());
+        Assertions.assertEquals(1, resultSet.getRow());
+
+        resultSet.beforeFirst();
+        Assertions.assertTrue(resultSet.isBeforeFirst());
+        Assertions.assertEquals(0, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.next());
+        Assertions.assertFalse(resultSet.isBeforeFirst());
+        Assertions.assertEquals(1, resultSet.getRow());
+    }
+
+    @Test
+    public void afterLast() throws SQLException {
+        Assertions.assertFalse(resultSet.isAfterLast());
+        Assertions.assertEquals(0, resultSet.getRow());
+
+        resultSet.afterLast();
+        Assertions.assertTrue(resultSet.isAfterLast());
+        Assertions.assertEquals(0, resultSet.getRow());
+
+        Assertions.assertFalse(resultSet.next());
+        Assertions.assertTrue(resultSet.isAfterLast());
+        Assertions.assertEquals(0, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.previous());
+        Assertions.assertFalse(resultSet.isAfterLast());
+        Assertions.assertEquals(5, resultSet.getRow());
+
+        Assertions.assertFalse(resultSet.next());
+        Assertions.assertTrue(resultSet.isAfterLast());
+        Assertions.assertEquals(0, resultSet.getRow());
+    }
+
+    @Test
+    public void absolute() throws SQLException {
+        Assertions.assertEquals(0, resultSet.getRow());
+
+        Assertions.assertFalse(resultSet.absolute(0));
+        Assertions.assertEquals(0, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.absolute(1));
+        Assertions.assertEquals(1, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.absolute(-1));
+        Assertions.assertEquals(5, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.absolute(-2));
+        Assertions.assertEquals(4, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.absolute(4));
+        Assertions.assertEquals(4, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.absolute(5));
+        Assertions.assertEquals(5, resultSet.getRow());
+
+        Assertions.assertFalse(resultSet.absolute(6));
+        Assertions.assertEquals(0, resultSet.getRow());
+
+        Assertions.assertFalse(resultSet.absolute(7));
+        Assertions.assertEquals(0, resultSet.getRow());
+    }
+
+    @Test
+    public void relative() throws SQLException {
+        Assertions.assertEquals(0, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.relative(1));
+        Assertions.assertEquals(1, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.relative(2));
+        Assertions.assertEquals(3, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.relative(0));
+        Assertions.assertEquals(3, resultSet.getRow());
+
+        Assertions.assertFalse(resultSet.relative(3));
+        Assertions.assertEquals(0, resultSet.getRow());
+
+        Assertions.assertFalse(resultSet.relative(2));
+        Assertions.assertEquals(0, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.relative(-1));
+        Assertions.assertEquals(5, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.relative(-1));
+        Assertions.assertEquals(4, resultSet.getRow());
+
+        Assertions.assertFalse(resultSet.relative(-10));
+        Assertions.assertEquals(0, resultSet.getRow());
+
+        Assertions.assertFalse(resultSet.relative(-1));
+        Assertions.assertEquals(0, resultSet.getRow());
+    }
+
+    @Test
+    public void previous() throws SQLException {
+        Assertions.assertEquals(0, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.last());
+        Assertions.assertEquals(5, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.previous());
+        Assertions.assertEquals(4, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.next());
+        Assertions.assertEquals(5, resultSet.getRow());
+
+        Assertions.assertFalse(resultSet.next());
+        Assertions.assertEquals(0, resultSet.getRow());
+
+        Assertions.assertFalse(resultSet.next());
+        Assertions.assertEquals(0, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.previous());
+        Assertions.assertEquals(5, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.previous());
+        Assertions.assertEquals(4, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.previous());
+        Assertions.assertEquals(3, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.previous());
+        Assertions.assertEquals(2, resultSet.getRow());
+
+        Assertions.assertTrue(resultSet.previous());
+        Assertions.assertEquals(1, resultSet.getRow());
+
+        Assertions.assertFalse(resultSet.previous());
+        Assertions.assertEquals(0, resultSet.getRow());
+
+        Assertions.assertFalse(resultSet.previous());
+        Assertions.assertEquals(0, resultSet.getRow());
     }
 
     private void assertCursorUpdates(Executable exec) {
@@ -2551,28 +2744,24 @@ public class YdbLazyResultSetImplTest {
         }
 
         public ResultSetChecker<T> value(int index, String column, T expected) throws SQLException {
-            Assertions.assertEquals(index, rs.findColumn(column));
             assertValue(expected, nameFunctor.apply(rs, column), expected == null, "for column label " + column);
             assertValue(expected, indexFunctor.apply(rs, index), expected == null, "for column index " + index);
             return this;
         }
 
         public ResultSetChecker<T> nullValue(int index, String column, T expected) throws SQLException {
-            Assertions.assertEquals(index, rs.findColumn(column));
             assertValue(expected, nameFunctor.apply(rs, column), true, "for column label " + column);
             assertValue(expected, indexFunctor.apply(rs, index), true, "for column index " + index);
             return this;
         }
 
         public ResultSetChecker<T> exceptionValue(int index, String column, String message) throws SQLException {
-            Assertions.assertEquals(index, rs.findColumn(column));
             ExceptionAssert.sqlException(message, () -> nameFunctor.apply(rs, column));
             ExceptionAssert.sqlException(message, () -> indexFunctor.apply(rs, index));
             return this;
         }
 
         public ResultSetChecker<T> typedValue(int index, String column, T expected) throws SQLException {
-            Assertions.assertEquals(index, rs.findColumn(column));
             Assertions.assertNotNull(expected, "Expected typed value is null");
 
             T v1 = assertValue(expected, nameFunctor.apply(rs, column), false, "for column label " + column);
