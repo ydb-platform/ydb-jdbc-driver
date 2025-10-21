@@ -1,3 +1,9 @@
+## 2.3.19 ##
+
+* Updated implementation of stream result sets
+* Added retries for BAD_SESSION on first request
+* Update to Java SDK v2.3.22
+
 ## 2.3.18 ##
 
 * Added processing of UNAUTHORIZED code for listTable
