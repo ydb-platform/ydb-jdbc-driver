@@ -202,7 +202,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    public YdbQueryResult executeDataQuery(YdbStatement statement, YdbQuery query, String preparedYql, Params params)
+    protected YdbQueryResult executeQueryImpl(YdbStatement statement, YdbQuery query, String preparedYql, Params params)
             throws SQLException {
         ensureOpened();
 

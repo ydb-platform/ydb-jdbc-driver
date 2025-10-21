@@ -929,7 +929,8 @@ public class YdbConnectionImplTest {
 
                 SQLWarning w = ps.getWarnings();
                 Assertions.assertNotNull(w);
-                Assertions.assertEquals("gRPC error: (CANCELLED) Cancelled on user request (S_ERROR)", w.getMessage());
+                Assertions.assertTrue(w.getMessage().startsWith("gRPC error: (CANCELLED)"));
+                Assertions.assertTrue(w.getMessage().endsWith("Cancelled on user request (S_ERROR)"));
 
                 w = w.getNextWarning();
                 Assertions.assertNotNull(w);

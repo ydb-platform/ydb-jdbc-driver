@@ -716,6 +716,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         FixedResultSetFactory.ResultSetBuilder rs = MetaDataTables.TABLES.createResultSet();
         listTables(tableNamePattern).stream()
                 .map(TableRecord::new)
+                .filter(tr -> !tr.isHidden)
                 .filter(tr -> (matchTables && !tr.isSystem) || (matchSystemTables && tr.isSystem))
                 .sorted()
                 .forEach(tr -> {
@@ -730,20 +731,27 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     private class TableRecord implements Comparable<TableRecord> {
         private final boolean isSystem;
+        private final boolean isHidden;
         private final String name;
 
         TableRecord(String name) {
             this.name = name;
+            // https://github.com/ydb-platform/ydb/blob/main/ydb/core/tx/schemeshard/schemeshard_system_names.cpp#L16
             this.isSystem = name.startsWith(".sys/")
                     || name.startsWith(".sys_health/")
-                    || name.startsWith(".sys_health_dev/")
-                    || name.startsWith(".metadata/");
+                    || name.startsWith(".sys_health_dev/");
+            this.isHidden = name.startsWith(".metadata/")
+                    || name.startsWith(".tmp/")
+                    || name.startsWith(".backups/");
         }
 
         @Override
         public int compareTo(TableRecord o) {
             if (isSystem != o.isSystem) {
                 return isSystem ? 1 : -1;
+            }
+            if (isHidden != o.isHidden) {
+                return isHidden ? 1 : -1;
             }
             return name.compareTo(o.name);
         }
@@ -1385,7 +1393,8 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
                 .describeTable(databaseWithSuffix + table, settings)
                 .thenApply(result -> {
                     // ignore scheme errors like path not found
-                    if (result.getStatus().getCode() == StatusCode.SCHEME_ERROR) {
+                    StatusCode code = result.getStatus().getCode();
+                    if (code == StatusCode.SCHEME_ERROR || code == StatusCode.UNAUTHORIZED) {
                         LOGGER.log(Level.WARNING, "Cannot describe table {0} -> {1}",
                                 new Object[]{table, result.getStatus()}
                         );

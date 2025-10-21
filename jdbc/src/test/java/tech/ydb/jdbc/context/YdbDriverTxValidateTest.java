@@ -1,4 +1,4 @@
-package tech.ydb.jdbc;
+package tech.ydb.jdbc.context;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -17,7 +17,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import tech.ydb.core.Status;
 import tech.ydb.core.StatusCode;
 import tech.ydb.core.UnexpectedResultException;
-import tech.ydb.jdbc.context.YdbContext;
+import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
 import tech.ydb.jdbc.exception.YdbRetryableException;
 import tech.ydb.jdbc.impl.YdbTracerImpl;
@@ -221,7 +221,6 @@ public class YdbDriverTxValidateTest {
         @Override
         public void trace(String message) {
             super.trace(message);
-            System.out.println("TRACE " + message);
             if (traceMsg != null && error != null && message.startsWith(traceMsg)) {
                 Status status = error;
                 error = null;
