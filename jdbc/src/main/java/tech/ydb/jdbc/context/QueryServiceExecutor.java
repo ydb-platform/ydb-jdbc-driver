@@ -4,23 +4,22 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import tech.ydb.common.transaction.TxMode;
 import tech.ydb.core.Issue;
-import tech.ydb.core.Result;
+import tech.ydb.core.Status;
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.YdbQueryResult;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTracer;
-import tech.ydb.jdbc.impl.YdbQueryResult;
-import tech.ydb.jdbc.impl.YdbStaticResultSet;
+import tech.ydb.jdbc.impl.YdbQueryResultExplain;
+import tech.ydb.jdbc.impl.YdbQueryResultReader;
+import tech.ydb.jdbc.impl.YdbQueryResultStatic;
+import tech.ydb.jdbc.impl.YdbResultSetMemory;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
@@ -36,7 +35,6 @@ import tech.ydb.query.settings.QueryExecMode;
 import tech.ydb.query.settings.RollbackTransactionSettings;
 import tech.ydb.query.tools.QueryReader;
 import tech.ydb.table.query.Params;
-import tech.ydb.table.result.ResultSetReader;
 
 /**
  *
@@ -75,7 +73,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public void close() throws SQLException {
-        closeCurrentResult();
+        clearState();
         isClosed = true;
         QueryTransaction old = tx.getAndSet(null);
         if (old != null) {
@@ -136,13 +134,11 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public boolean isClosed() throws SQLException {
-        closeCurrentResult();
         return isClosed;
     }
 
     @Override
     public String txID() throws SQLException {
-        closeCurrentResult();
         QueryTransaction localTx = tx.get();
         return localTx != null ? localTx.getId() : null;
     }
@@ -229,17 +225,17 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    protected YdbQueryResult executeQueryImpl(YdbStatement statement, YdbQuery query, String preparedYql, Params params,
-            long timeout, boolean keepInCache) throws SQLException {
+    protected YdbQueryResult executeQueryImpl(YdbStatement statement, YdbQuery query, String preparedYql, Params params)
+            throws SQLException {
         ensureOpened();
 
         YdbValidator validator = statement.getValidator();
 
-        ExecuteQuerySettings.Builder builder = ExecuteQuerySettings.newBuilder();
+        int timeout = statement.getQueryTimeout();
+        ExecuteQuerySettings.Builder settings = ExecuteQuerySettings.newBuilder();
         if (timeout > 0) {
-            builder = builder.withRequestTimeout(timeout, TimeUnit.SECONDS);
+            settings = settings.withRequestTimeout(timeout, TimeUnit.SECONDS);
         }
-        final ExecuteQuerySettings settings = builder.build();
 
         QueryTransaction nextTx = tx.get();
         while (nextTx == null) {
@@ -260,67 +256,51 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             tracer.query(yql);
             String msg = "STREAM_QUERY >>\n" + yql;
 
-            StreamQueryResult lazy = validator.call(msg, tracer, () -> {
-                final CompletableFuture<Result<StreamQueryResult>> future = new CompletableFuture<>();
-                final QueryStream stream = localTx.createQuery(yql, isAutoCommit, params, settings);
-                final StreamQueryResult result = new StreamQueryResult(msg, types, statement, query, stream::cancel);
-
-                stream.execute(new QueryStream.PartsHandler() {
-                    @Override
-                    public void onIssues(Issue[] issues) {
-                        validator.addStatusIssues(Arrays.asList(issues));
-                    }
-
-                    @Override
-                    public void onNextPart(QueryResultPart part) {
-                        result.onStreamResultSet((int) part.getResultSetIndex(), part.getResultSetReader());
-                        future.complete(Result.success(result));
-                    }
-                }).whenComplete((res, th) -> {
-                    if (!localTx.isActive()) {
-                        if (tx.compareAndSet(localTx, null)) {
-                            localTx.getSession().close();
-                        }
-                    }
-
+            final YdbQueryResultReader reader = new YdbQueryResultReader(types, statement, query) {
+                @Override
+                public void onClose(Status status, Throwable th) {
                     if (th != null) {
-                        future.completeExceptionally(th);
-                        result.onStreamFinished(th);
                         tracer.trace("<-- " + th.getMessage());
                     }
-                    if (res != null) {
-                        validator.addStatusIssues(res.getStatus());
-                        future.complete(res.isSuccess() ? Result.success(result) : Result.fail(res.getStatus()));
-                        result.onStreamFinished(res.getStatus());
-                        tracer.trace("<-- " + res.getStatus().toString());
+                    if (status != null) {
+                        validator.addStatusIssues(status);
+                        tracer.trace("<-- " + status.toString());
                     }
 
                     if (localTx.isActive()) {
                         tracer.setId(localTx.getId());
                     } else {
+                        if (tx.compareAndSet(localTx, null)) {
+                            localTx.getSession().close();
+                        }
                         tracer.close();
                     }
-                });
 
-                return future;
-            });
+                    super.onClose(status, th);
+                }
+            };
 
-            return updateCurrentResult(lazy);
+            settings = settings.withGrpcFlowControl(reader);
+            QueryStream stream = localTx.createQuery(yql, isAutoCommit, params, settings.build());
+            validator.execute(msg, tracer, () -> reader.load(validator, stream));
+            return updateCurrentResult(reader);
         }
 
         try {
             tracer.trace("--> data query");
             tracer.query(yql);
+            ExecuteQuerySettings requestSettings = settings.build();
+
             QueryReader result = validator.call(QueryType.DATA_QUERY + " >>\n" + yql, tracer,
-                    () -> QueryReader.readFrom(localTx.createQuery(yql, isAutoCommit, params, settings))
+                    () -> QueryReader.readFrom(localTx.createQuery(yql, isAutoCommit, params, requestSettings))
             );
             validator.addStatusIssues(result.getIssueList());
 
-            List<YdbResultSet> readers = new ArrayList<>();
-            for (ResultSetReader rst: result) {
-                readers.add(new YdbStaticResultSet(types, statement, rst));
+            YdbResultSet[] readers = new YdbResultSet[result.getResultSetCount()];
+            for (int idx = 0; idx < readers.length; idx++) {
+                readers[idx] = new YdbResultSetMemory(types, statement, result.getResultSet(idx));
             }
-            return updateCurrentResult(new StaticQueryResult(query, readers));
+            return updateCurrentResult(new YdbQueryResultStatic(query, readers));
         } finally {
             if (!localTx.isActive()) {
                 if (tx.compareAndSet(localTx, null)) {
@@ -361,8 +341,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             }
         }
 
-
-        return updateCurrentResult(new StaticQueryResult(query, Collections.emptyList()));
+        return updateCurrentResult(new YdbQueryResultStatic(query));
     }
 
     @Override
@@ -391,9 +370,9 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
                 throw new SQLException("No explain data");
             }
 
-            return updateCurrentResult(
-                    new StaticQueryResult(types, statement, res.getStats().getQueryAst(), res.getStats().getQueryPlan())
-            );
+            String ast = res.getStats().getQueryAst();
+            String plan = res.getStats().getQueryPlan();
+            return updateCurrentResult(new YdbQueryResultExplain(types, statement, ast, plan));
         } finally {
             if (tx.get() == null) {
                 tracer.close();

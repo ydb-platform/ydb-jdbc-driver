@@ -8,9 +8,9 @@ import tech.ydb.jdbc.common.ColumnInfo;
 import tech.ydb.table.values.Type;
 
 public class YdbResultSetMetaDataImpl implements YdbResultSetMetaData {
-    private final BaseYdbResultSet rs;
+    private final YdbResultSetBase rs;
 
-    public YdbResultSetMetaDataImpl(BaseYdbResultSet rs) {
+    public YdbResultSetMetaDataImpl(YdbResultSetBase rs) {
         this.rs = rs;
     }
 

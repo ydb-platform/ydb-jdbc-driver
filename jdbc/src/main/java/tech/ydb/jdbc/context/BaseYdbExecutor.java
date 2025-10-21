@@ -3,22 +3,22 @@ package tech.ydb.jdbc.context;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 
-import tech.ydb.core.Result;
+import tech.ydb.core.Status;
 import tech.ydb.core.StatusCode;
 import tech.ydb.core.grpc.GrpcReadStream;
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.YdbQueryResult;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTracer;
 import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.jdbc.exception.YdbRetryableException;
-import tech.ydb.jdbc.impl.YdbQueryResult;
-import tech.ydb.jdbc.impl.YdbStaticResultSet;
+import tech.ydb.jdbc.impl.YdbQueryResultReader;
+import tech.ydb.jdbc.impl.YdbQueryResultStatic;
+import tech.ydb.jdbc.impl.YdbResultSetMemory;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.Session;
@@ -66,7 +66,8 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
         return validator.call("Get session", null, () -> tableClient.createSession(sessionTimeout));
     }
 
-    protected void closeCurrentResult() throws SQLException {
+    @Override
+    public void clearState() throws SQLException {
         YdbQueryResult rs = currResult.get();
         if (rs != null) {
             rs.close();
@@ -83,20 +84,18 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
 
     @Override
     public void ensureOpened() throws SQLException {
-        closeCurrentResult();
         if (isClosed()) {
             throw new SQLException(YdbConst.CLOSED_CONNECTION);
         }
     }
 
-
     @Override
-    public YdbQueryResult executeDataQuery(YdbStatement statement, YdbQuery query, String preparedYql, Params params,
-            long timeout, boolean keepInCache) throws SQLException {
+    public YdbQueryResult executeDataQuery(YdbStatement statement, YdbQuery query, String preparedYql, Params params)
+            throws SQLException {
         boolean insideTx = isInsideTransaction();
         while (true) {
             try {
-                return executeQueryImpl(statement, query, preparedYql, params, timeout, keepInCache);
+                return executeQueryImpl(statement, query, preparedYql, params);
             } catch (YdbRetryableException ex) {
                 if (insideTx || ex.getStatus().getCode() != StatusCode.BAD_SESSION) {
                     throw ex;
@@ -106,7 +105,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
     }
 
     protected abstract YdbQueryResult executeQueryImpl(YdbStatement statement, YdbQuery query, String preparedYql,
-            Params params, long timeout, boolean keepInCache) throws SQLException;
+            Params params) throws SQLException;
 
     @Override
     public YdbQueryResult executeSchemeQuery(YdbStatement statement, YdbQuery query) throws SQLException {
@@ -130,7 +129,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
             tracer.close();
         }
 
-        return updateCurrentResult(new StaticQueryResult(query, Collections.emptyList()));
+        return updateCurrentResult(new YdbQueryResultStatic(query));
     }
 
     @Override
@@ -152,7 +151,7 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
             tracer.close();
         }
 
-        return updateCurrentResult(new StaticQueryResult(query, Collections.emptyList()));
+        return updateCurrentResult(new YdbQueryResultStatic(query));
     }
 
     @Override
@@ -164,9 +163,6 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
         YdbContext ctx = statement.getConnection().getCtx();
         YdbValidator validator = statement.getValidator();
         Duration scanQueryTimeout = ctx.getOperationProperties().getScanQueryTimeout();
-        ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()
-                .withRequestTimeout(scanQueryTimeout)
-                .build();
         String msg = QueryType.SCAN_QUERY + " >>\n" + yql;
 
         YdbTracer tracer = ctx.getTracer();
@@ -177,6 +173,10 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
 
         if (!useStreamResultSet) {
             try {
+                ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()
+                        .withRequestTimeout(scanQueryTimeout)
+                        .build();
+
                 Collection<ResultSetReader> resultSets = new LinkedBlockingQueue<>();
 
                 ctx.traceQueryByFullScanDetector(query, yql);
@@ -184,43 +184,38 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
                         () -> session.executeScanQuery(yql, params, settings).start(resultSets::add)
                 );
 
-                YdbResultSet rs = new YdbStaticResultSet(types, statement, ProtoValueReaders.forResultSets(resultSets));
-                return updateCurrentResult(new StaticQueryResult(query, Collections.singletonList(rs)));
+                YdbResultSet rs = new YdbResultSetMemory(types, statement, ProtoValueReaders.forResultSets(resultSets));
+                return updateCurrentResult(new YdbQueryResultStatic(query, rs));
             } finally {
                 session.close();
                 tracer.close();
             }
         }
 
-        StreamQueryResult lazy = validator.call(msg, null, () -> {
-            final CompletableFuture<Result<StreamQueryResult>> future = new CompletableFuture<>();
-            final GrpcReadStream<ResultSetReader> stream = session.executeScanQuery(yql, params, settings);
-            final StreamQueryResult result = new StreamQueryResult(msg, types, statement, query, stream::cancel);
-
-            stream.start((rsr) -> {
-                future.complete(Result.success(result));
-                result.onStreamResultSet(0, rsr);
-            }).whenComplete((st, th) -> {
+        final YdbQueryResultReader reader = new YdbQueryResultReader(types, statement, query) {
+            @Override
+            public void onClose(Status status, Throwable th) {
                 session.close();
-
                 if (th != null) {
-                    result.onStreamFinished(th);
-                    future.completeExceptionally(th);
                     tracer.trace("<-- " + th.getMessage());
                 }
-                if (st != null) {
-                    validator.addStatusIssues(st);
-                    result.onStreamFinished(st);
-                    future.complete(st.isSuccess() ? Result.success(result) : Result.fail(st));
-                    tracer.trace("<-- " + st.toString());
+                if (status != null) {
+                    validator.addStatusIssues(status);
+                    tracer.trace("<-- " + status.toString());
                 }
                 tracer.close();
-            });
 
-            return future;
-        });
+                super.onClose(status, th);
+            }
+        };
 
-        return updateCurrentResult(lazy);
+        ExecuteScanQuerySettings settings = ExecuteScanQuerySettings.newBuilder()
+                .withRequestTimeout(scanQueryTimeout)
+                .setGrpcFlowControl(reader)
+                .build();
+
+        GrpcReadStream<ResultSetReader> stream = session.executeScanQuery(yql, params, settings);
+        validator.execute(msg, tracer, () -> reader.load(stream));
+        return updateCurrentResult(reader);
     }
-
 }

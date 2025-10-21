@@ -45,7 +45,7 @@ import tech.ydb.table.values.Value;
  *
  * @author Aleksandr Gorshenin
  */
-public abstract class BaseYdbResultSet implements YdbResultSet {
+public abstract class YdbResultSetBase implements YdbResultSet {
     protected final YdbStatement statement;
 
     private final ColumnInfo[] columns;
@@ -54,7 +54,7 @@ public abstract class BaseYdbResultSet implements YdbResultSet {
     private YdbResultSetMetaData metaData = null;
     private boolean wasNull = false;
 
-    protected BaseYdbResultSet(YdbStatement statement, ColumnInfo[] columns) {
+    protected YdbResultSetBase(YdbStatement statement, ColumnInfo[] columns) {
         this.statement = Objects.requireNonNull(statement);
         this.columns = columns;
 

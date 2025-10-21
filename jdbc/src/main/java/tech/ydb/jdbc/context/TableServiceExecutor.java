@@ -4,15 +4,15 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
 
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.YdbQueryResult;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTracer;
-import tech.ydb.jdbc.impl.YdbQueryResult;
-import tech.ydb.jdbc.impl.YdbStaticResultSet;
+import tech.ydb.jdbc.impl.YdbQueryResultExplain;
+import tech.ydb.jdbc.impl.YdbQueryResultStatic;
+import tech.ydb.jdbc.impl.YdbResultSetMemory;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
@@ -45,7 +45,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public void close() throws SQLException {
-        closeCurrentResult();
+        clearState();
         tx = null;
     }
 
@@ -76,13 +76,11 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
     @Override
     public boolean isClosed() throws SQLException {
-        closeCurrentResult();
         return tx == null;
     }
 
     @Override
     public String txID() throws SQLException {
-        closeCurrentResult();
         return tx != null ? tx.txID() : null;
     }
 
@@ -162,14 +160,16 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         }
     }
 
-    private ExecuteDataQuerySettings dataQuerySettings(long timeout, boolean keepInCache) {
+    private ExecuteDataQuerySettings dataQuerySettings(YdbStatement statement) {
+        int timeout = statement.getQueryTimeout();
+
         ExecuteDataQuerySettings settings = new ExecuteDataQuerySettings();
         if (timeout > 0) {
             settings = settings
                     .setOperationTimeout(Duration.ofSeconds(timeout))
                     .setTimeout(Duration.ofSeconds(timeout + 1));
         }
-        if (!keepInCache) {
+        if (!statement.isPoolable()) {
             settings = settings.disableQueryCache();
         }
 
@@ -191,7 +191,9 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         try (Session session = createNewTableSession(validator)) {
             String msg = QueryType.EXPLAIN_QUERY + " >>\n" + yql;
             ExplainDataQueryResult res = validator.call(msg, tracer, () -> session.explainDataQuery(yql, settings));
-            return updateCurrentResult(new StaticQueryResult(types, statement, res.getQueryAst(), res.getQueryPlan()));
+            String ast = res.getQueryAst();
+            String plan = res.getQueryPlan();
+            return updateCurrentResult(new YdbQueryResultExplain(types, statement, ast, plan));
         } finally {
             if (!tx.isInsideTransaction()) {
                 tracer.close();
@@ -200,8 +202,8 @@ public class TableServiceExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    protected YdbQueryResult executeQueryImpl(YdbStatement statement, YdbQuery query, String preparedYql, Params params,
-            long timeout, boolean keepInCache) throws SQLException {
+    protected YdbQueryResult executeQueryImpl(YdbStatement statement, YdbQuery query, String preparedYql, Params params)
+            throws SQLException {
         ensureOpened();
 
         YdbValidator validator = statement.getValidator();
@@ -214,11 +216,11 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         try {
             DataQueryResult result = validator.call(
                     QueryType.DATA_QUERY + " >>\n" + yql, tracer,
-                    () -> session.executeDataQuery(yql, tx.txControl(), params, dataQuerySettings(timeout, keepInCache))
+                    () -> session.executeDataQuery(yql, tx.txControl(), params, dataQuerySettings(statement))
             );
             updateState(tx.withDataQuery(session, result.getTxId()));
 
-            List<YdbResultSet> readers = new ArrayList<>();
+            YdbResultSet[] readers = new YdbResultSet[result.getResultSetCount()];
             for (int idx = 0; idx < result.getResultSetCount(); idx += 1) {
                 ResultSetReader rs = result.getResultSet(idx);
                 if (failOnTruncatedResult && rs.isTruncated()) {
@@ -226,10 +228,10 @@ public class TableServiceExecutor extends BaseYdbExecutor {
                     throw new SQLException(msg);
                 }
 
-                readers.add(new YdbStaticResultSet(types, statement, rs));
+                readers[idx] = new YdbResultSetMemory(types, statement, rs);
             }
 
-            return updateCurrentResult(new StaticQueryResult(query, readers));
+            return updateCurrentResult(new YdbQueryResultStatic(query, readers));
         } catch (SQLException | RuntimeException ex) {
             updateState(tx.withRollback(session));
             throw ex;

@@ -5,16 +5,15 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
-import java.util.Collections;
 import java.util.Objects;
 import java.util.logging.Logger;
 
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.YdbQueryResult;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.context.QueryStat;
-import tech.ydb.jdbc.context.StaticQueryResult;
 import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.context.YdbValidator;
 import tech.ydb.jdbc.query.YdbQuery;
@@ -28,21 +27,27 @@ import tech.ydb.table.values.ListValue;
  *
  * @author Aleksandr Gorshenin
  */
-public abstract class BaseYdbStatement implements YdbStatement {
+public abstract class YdbStatementBase implements YdbStatement {
+    private static final YdbQueryResult EMPTY_RESULT = new YdbQueryResultEmpty();
+
     private final YdbConnection connection;
     private final YdbValidator validator;
     private final int resultSetType;
-    private final int maxRows;
     private final FakeTxMode scanQueryTxMode;
     private final FakeTxMode schemeQueryTxMode;
     private final FakeTxMode bulkQueryTxMode;
 
-    private YdbQueryResult state = YdbQueryResult.EMPTY;
+    private YdbQueryResult state = EMPTY_RESULT;
     private int queryTimeout;
     private boolean isPoolable;
     private boolean isClosed = false;
 
-    public BaseYdbStatement(Logger logger, YdbConnection connection, int resultSetType, boolean isPoolable) {
+    /** @see Statement#getMaxRows() */
+    private int maxRows = 0; // no limit
+    private int fetchSize = 0;
+    private int fetchDirection = ResultSet.FETCH_UNKNOWN;
+
+    public YdbStatementBase(Logger logger, YdbConnection connection, int resultSetType, boolean isPoolable) {
         this.connection = Objects.requireNonNull(connection);
         this.validator = new YdbValidator();
         this.resultSetType = resultSetType;
@@ -50,14 +55,17 @@ public abstract class BaseYdbStatement implements YdbStatement {
 
         YdbOperationProperties props = connection.getCtx().getOperationProperties();
         this.queryTimeout = (int) props.getQueryTimeout().getSeconds();
-        this.maxRows = props.getMaxRows();
         this.scanQueryTxMode = props.getScanQueryTxMode();
         this.schemeQueryTxMode = props.getSchemeQueryTxMode();
         this.bulkQueryTxMode = props.getBulkQueryTxMode();
     }
 
-    private void ensureOpened() throws SQLException {
+    private void prepareNewExecution() throws SQLException {
+        if (fetchSize > 0 && (fetchDirection != ResultSet.FETCH_FORWARD && fetchDirection != ResultSet.FETCH_UNKNOWN)) {
+            throw new SQLException(YdbConst.RESULT_IS_NOT_SCROLLABLE);
+        }
         connection.getExecutor().ensureOpened();
+        connection.getExecutor().clearState();
     }
 
     @Override
@@ -73,7 +81,8 @@ public abstract class BaseYdbStatement implements YdbStatement {
     @Override
     public void close() throws SQLException {
         clearBatch();
-        state = YdbQueryResult.EMPTY;
+        connection.getExecutor().clearState();
+        state = EMPTY_RESULT;
         isClosed = true;
     }
 
@@ -89,7 +98,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
 
     @Override
     public SQLWarning getWarnings() throws SQLException {
-        ensureOpened();
+        prepareNewExecution();
         return validator.toSQLWarnings();
     }
 
@@ -125,7 +134,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
 
     @Override
     public void setMaxRows(int max) {
-        // has not effect
+        this.maxRows = max;
     }
 
     @Override
@@ -144,17 +153,17 @@ public abstract class BaseYdbStatement implements YdbStatement {
     }
 
     protected void cleanState() throws SQLException {
-        state = YdbQueryResult.EMPTY;
+        state = EMPTY_RESULT;
         clearWarnings();
     }
 
     protected boolean updateState(YdbQueryResult result) throws SQLException {
-        state = result == null ? YdbQueryResult.EMPTY : result;
+        state = result == null ? EMPTY_RESULT : result;
         return state.hasResultSets();
     }
 
     protected YdbQueryResult executeBulkUpsert(YdbQuery query, String tablePath, ListValue rows) throws SQLException {
-        ensureOpened();
+        prepareNewExecution();
 
         if (connection.getExecutor().isInsideTransaction()) {
             switch (bulkQueryTxMode) {
@@ -173,19 +182,19 @@ public abstract class BaseYdbStatement implements YdbStatement {
     }
 
     protected YdbQueryResult executeExplainQuery(YdbQuery query) throws SQLException {
-        ensureOpened();
+        prepareNewExecution();
         return connection.getExecutor().executeExplainQuery(this, query);
     }
 
     protected YdbQueryResult executeDataQuery(YdbQuery query, String yql, Params params) throws SQLException {
-        ensureOpened();
+        prepareNewExecution();
 
         YdbContext ctx = connection.getCtx();
         if (ctx.isFullScanDetectorEnabled()) {
             if (QueryStat.isPrint(yql)) {
                 ResultSetReader rsr = QueryStat.toResultSetReader(ctx.getFullScanDetectorStats());
-                YdbResultSet rs = new YdbStaticResultSet(ctx.getTypes(), this, rsr);
-                return new StaticQueryResult(query, Collections.singletonList(rs));
+                YdbResultSet rs = new YdbResultSetMemory(ctx.getTypes(), this, rsr);
+                return new YdbQueryResultStatic(query, rs);
             }
             if (QueryStat.isReset(yql)) {
                 ctx.resetFullScanDetector();
@@ -194,11 +203,11 @@ public abstract class BaseYdbStatement implements YdbStatement {
         }
 
         ctx.traceQueryByFullScanDetector(query, yql);
-        return connection.getExecutor().executeDataQuery(this, query, yql, params, getQueryTimeout(), isPoolable());
+        return connection.getExecutor().executeDataQuery(this, query, yql, params);
     }
 
     protected YdbQueryResult executeSchemeQuery(YdbQuery query) throws SQLException {
-        ensureOpened();
+        prepareNewExecution();
 
         if (connection.getExecutor().isInsideTransaction()) {
             switch (schemeQueryTxMode) {
@@ -217,7 +226,7 @@ public abstract class BaseYdbStatement implements YdbStatement {
     }
 
     protected YdbQueryResult executeScanQuery(YdbQuery query, String yql, Params params) throws SQLException {
-        ensureOpened();
+        prepareNewExecution();
 
         if (connection.getExecutor().isInsideTransaction()) {
             switch (scanQueryTxMode) {
@@ -288,24 +297,22 @@ public abstract class BaseYdbStatement implements YdbStatement {
 
     @Override
     public void setFetchDirection(int direction) throws SQLException {
-        if (direction != ResultSet.FETCH_FORWARD && direction != ResultSet.FETCH_UNKNOWN) {
-            throw new SQLException(YdbConst.DIRECTION_UNSUPPORTED + direction);
-        }
+        this.fetchDirection = direction;
     }
 
     @Override
     public int getFetchDirection() {
-        return ResultSet.FETCH_FORWARD;
+        return fetchDirection;
     }
 
     @Override
     public void setFetchSize(int rows) {
-        // has not effect
+        this.fetchSize = rows;
     }
 
     @Override
     public int getFetchSize() {
-        return getMaxRows();
+        return fetchSize;
     }
 
     @Override

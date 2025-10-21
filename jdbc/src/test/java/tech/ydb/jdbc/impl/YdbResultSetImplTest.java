@@ -25,7 +25,6 @@ import java.time.LocalTime;
 import java.time.Month;
 import java.time.ZoneOffset;
 import java.util.Collections;
-import java.util.Locale;
 import java.util.UUID;
 
 import javax.sql.rowset.serial.SerialBlob;
@@ -34,13 +33,13 @@ import javax.sql.rowset.serial.SerialClob;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CharStreams;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbResultSetMetaData;
@@ -59,187 +58,61 @@ import tech.ydb.table.values.Value;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
 public class YdbResultSetImplTest {
+
     @RegisterExtension
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
     @RegisterExtension
-    private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb);
+    private static final JdbcConnectionExtention jdbc = new JdbcConnectionExtention(ydb)
+            .withArg("usePrefixPath", "rs")
+            .withArg("useStreamResultSets", "true");
 
-    private static final SqlQueries TEST_TABLE = new SqlQueries("ydb_result_set_test");
-
-    static {
-        Locale.setDefault(Locale.US);
-    }
-
-    private Statement statement;
-    private ResultSet resultSet;
+    private static final SqlQueries SMALL = new SqlQueries("small_table");
+    private static final SqlQueries BIG = new SqlQueries("big_table");
 
     @BeforeAll
-    public static void initTable() throws SQLException {
+    public static void initTables() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement();) {
-            // create test table
-            statement.execute(TEST_TABLE.createTableSQL());
-            statement.execute(TEST_TABLE.initTableSQL());
+            // create test tables
+            statement.execute(SMALL.createTableSQL());
+            statement.execute(SMALL.initTableSQL());
+            statement.execute(BIG.createTableSQL());
         }
-        jdbc.connection().commit();
+
+        // BULK UPSERT
+        String bulkUpsertQuery = BIG.upsertOne(SqlQueries.JdbcQuery.BULK, "c_Text", null);
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(bulkUpsertQuery)) {
+            for (int idx = 1; idx <= 10000; idx++) {
+                ps.setInt(1, idx);
+                ps.setString(2, "value-" + idx);
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
     }
 
     @AfterAll
     public static void dropTable() throws SQLException {
         try (Statement statement = jdbc.connection().createStatement();) {
-            statement.execute(TEST_TABLE.dropTableSQL());
-        }
-        jdbc.connection().commit();
-    }
-
-    @BeforeEach
-    public void beforeEach() throws SQLException {
-        statement = jdbc.connection().createStatement();
-        resultSet = statement.executeQuery(TEST_TABLE.selectSQL());
-    }
-
-    @AfterEach
-    public void afterEach() throws SQLException {
-        resultSet.close();
-        statement.close();
-
-        jdbc.connection().commit();// TODO: conection must be cleaned
-    }
-
-    @Test
-    public void resultSetType() throws SQLException {
-        Assertions.assertEquals(ResultSet.TYPE_SCROLL_INSENSITIVE, resultSet.getType());
-        Assertions.assertEquals(ResultSet.CONCUR_READ_ONLY, resultSet.getConcurrency());
-
-        Assertions.assertNotNull(resultSet.getStatement());
-        Assertions.assertSame(statement, resultSet.getStatement());
-
-        Assertions.assertEquals(ResultSet.HOLD_CURSORS_OVER_COMMIT, resultSet.getHoldability());
-    }
-
-    @Test
-    public void close() throws SQLException {
-        Assertions.assertFalse(resultSet.isClosed());
-        resultSet.close();
-        Assertions.assertTrue(resultSet.isClosed());
-    }
-
-    @Test
-    public void unwrap() throws SQLException {
-        Assertions.assertTrue(resultSet.isWrapperFor(YdbResultSet.class));
-        Assertions.assertSame(resultSet, resultSet.unwrap(YdbResultSet.class));
-
-        Assertions.assertFalse(resultSet.isWrapperFor(YdbStatement.class));
-        ExceptionAssert.sqlException("Cannot unwrap to " + YdbStatement.class,
-                () -> resultSet.unwrap(YdbStatement.class));
-    }
-
-    @Test
-    public void invalidColumnsTest() {
-        // invalid location
-        ExceptionAssert.sqlException("Current row index is out of bounds: 0", () -> resultSet.getString(2));
-        ExceptionAssert.sqlException("Current row index is out of bounds: 0", () -> resultSet.getString("c_Text"));
-
-        // invalid case
-        ExceptionAssert.sqlException("Column not found: c_text", () -> resultSet.getString("c_text"));
-        ExceptionAssert.sqlException("Column not found: C_TEXT", () -> resultSet.getString("C_TEXT"));
-        ExceptionAssert.sqlException("Current row index is out of bounds: 0", () -> resultSet.getString("c_Text"));
-
-        // invalid name
-        ExceptionAssert.sqlException("Column not found: value0", () -> resultSet.getString("value0"));
-    }
-
-    @Test
-    public void findColumn() throws SQLException {
-        Assertions.assertEquals(1, resultSet.findColumn("key"));
-        Assertions.assertEquals(14, resultSet.findColumn("c_Text"));
-        ExceptionAssert.sqlException("Column not found: value0", () -> resultSet.findColumn("value0"));
-    }
-
-    @Test
-    public void warnings() throws SQLException {
-        Assertions.assertNull(resultSet.getWarnings());
-        resultSet.clearWarnings();
-        Assertions.assertNull(resultSet.getWarnings());
-    }
-
-    @Test
-    public void getCursorName() {
-        ExceptionAssert.sqlFeatureNotSupported("Named cursors are not supported", () -> resultSet.getCursorName());
-    }
-
-    @Test
-    public void getMetaData() throws SQLException {
-        ResultSetMetaData metadata = resultSet.getMetaData();
-        Assertions.assertSame(metadata, resultSet.getMetaData(), "Metadata is cached");
-
-        Assertions.assertTrue(metadata.isWrapperFor(YdbResultSetMetaData.class));
-        YdbResultSetMetaData ydbMetadata = metadata.unwrap(YdbResultSetMetaData.class);
-        Assertions.assertSame(metadata, ydbMetadata);
-
-        ExceptionAssert.sqlException("Column is out of range: 995", () -> metadata.getColumnName(995));
-
-        Assertions.assertEquals(29, metadata.getColumnCount());
-
-        for (int index = 0; index < metadata.getColumnCount(); index++) {
-            int column = index + 1;
-            String name = metadata.getColumnName(column);
-            Assertions.assertNotNull(name);
-            Assertions.assertEquals(name, metadata.getColumnLabel(column));
-
-            Assertions.assertFalse(metadata.isAutoIncrement(column), "All columns are not isAutoIncrement");
-            Assertions.assertTrue(metadata.isCaseSensitive(column), "All columns are isCaseSensitive");
-            Assertions.assertFalse(metadata.isSearchable(column), "All columns are not isSearchable");
-            Assertions.assertFalse(metadata.isCurrency(column), "All columns are not isCurrency");
-            Assertions.assertEquals(ResultSetMetaData.columnNullable, metadata.isNullable(column),
-                    "All columns in table are nullable, but pseudo-columns are not");
-            Assertions.assertFalse(metadata.isSigned(column), "All columns are not isSigned");
-            Assertions.assertEquals(0, metadata.getColumnDisplaySize(column), "No display size available");
-            Assertions.assertEquals("", metadata.getSchemaName(column), "No schema available");
-            Assertions.assertEquals(0, metadata.getPrecision(column), "No precision available");
-            Assertions.assertEquals(0, metadata.getScale(column), "No scale available");
-            Assertions.assertEquals("", metadata.getTableName(column), "No table name available");
-            Assertions.assertEquals("", metadata.getCatalogName(column), "No catalog name available");
-            Assertions.assertTrue(metadata.isReadOnly(column), "All columns are isReadOnly");
-            Assertions.assertFalse(metadata.isWritable(column), "All columns are not isWritable");
-            Assertions.assertFalse(metadata.isDefinitelyWritable(column), "All columns are not isDefinitelyWritable");
-
-            if (name.startsWith("c_")) {
-                String expectType = name.substring("c_".length()).toLowerCase();
-                if (expectType.equals("decimal")) {
-                    expectType = "decimal(22, 9)";
-                }
-                if (expectType.equals("bigdecimal")) {
-                    expectType = "decimal(35, 0)";
-                }
-                if (expectType.equals("bankdecimal")) {
-                    expectType = "decimal(31, 9)";
-                }
-
-                String actualType = metadata.getColumnTypeName(column);
-                Assertions.assertNotNull(actualType, "All columns have database types");
-                Assertions.assertEquals(expectType, actualType.toLowerCase(),
-                        "All column names are similar to types");
-            }
-
-            Assertions.assertTrue(metadata.getColumnType(column) != 0,
-                    "All columns have sql type, including " + name);
-            // getColumnClassName is checkering already
+            statement.execute(SMALL.dropTableSQL());
+            statement.execute(BIG.dropTableSQL());
         }
     }
 
-    @Test
-    public void fetchDirection() throws SQLException {
-        Assertions.assertEquals(ResultSet.FETCH_UNKNOWN, resultSet.getFetchDirection());
-        resultSet.setFetchDirection(ResultSet.FETCH_REVERSE);
-        Assertions.assertEquals(ResultSet.FETCH_REVERSE, resultSet.getFetchDirection());
+    private static ResultSet selectSmall() throws SQLException {
+        return jdbc.connection().createStatement().executeQuery(SMALL.selectSQL());
     }
 
-    @Test
-    public void fetchSize() throws SQLException {
-        Assertions.assertEquals(1000, resultSet.getFetchSize());
-        resultSet.setFetchSize(99); // do nothing
-        Assertions.assertEquals(1000, resultSet.getFetchSize());
+    private static void assertForwardOnly(Executable exec) {
+        ExceptionAssert.sqlFeatureNotSupported("ResultSet in TYPE_FORWARD_ONLY mode", exec);
+    }
+
+    private static void assertCursorUpdates(Executable exec) {
+        ExceptionAssert.sqlFeatureNotSupported("Cursor updates are not supported", exec);
+    }
+
+    private static void assertUpdateObject(Executable exec) {
+        ExceptionAssert.sqlFeatureNotSupported("updateObject not implemented", exec);
     }
 
     private void assertIsEmpty(ResultSet rs) throws SQLException {
@@ -251,317 +124,619 @@ public class YdbResultSetImplTest {
     }
 
     @Test
+    public void resultSetType() throws SQLException {
+        try (Statement st = jdbc.connection().createStatement()) {
+            st.setFetchSize(0);
+            try (ResultSet rs = st.executeQuery(SMALL.selectSQL())) {
+                Assertions.assertEquals(ResultSet.TYPE_SCROLL_INSENSITIVE, rs.getType());
+                Assertions.assertEquals(ResultSet.CONCUR_READ_ONLY, rs.getConcurrency());
+                Assertions.assertEquals(0, rs.getFetchSize());
+                Assertions.assertEquals(ResultSet.FETCH_UNKNOWN, rs.getFetchDirection());
+
+                Assertions.assertNotNull(rs.getStatement());
+                Assertions.assertSame(st, rs.getStatement());
+
+                Assertions.assertEquals(ResultSet.HOLD_CURSORS_OVER_COMMIT, rs.getHoldability());
+            }
+
+            st.setFetchSize(1000);
+            try (ResultSet rs = st.executeQuery(SMALL.selectSQL())) {
+                Assertions.assertEquals(ResultSet.TYPE_SCROLL_INSENSITIVE, rs.getType());
+                Assertions.assertEquals(ResultSet.CONCUR_READ_ONLY, rs.getConcurrency());
+                Assertions.assertEquals(1000, rs.getFetchSize());
+                Assertions.assertEquals(ResultSet.FETCH_FORWARD, rs.getFetchDirection());
+
+                Assertions.assertNotNull(rs.getStatement());
+                Assertions.assertSame(st, rs.getStatement());
+
+                Assertions.assertEquals(ResultSet.HOLD_CURSORS_OVER_COMMIT, rs.getHoldability());
+            }
+        }
+    }
+
+    @Test
+    public void close() throws SQLException {
+        try (Statement st = jdbc.connection().createStatement()) {
+            ResultSet rs = st.executeQuery(SMALL.selectSQL());
+
+            Assertions.assertFalse(rs.isClosed());
+            rs.close();
+            Assertions.assertTrue(rs.isClosed());
+            rs.close(); // double closing is allowed
+            Assertions.assertTrue(rs.isClosed());
+        }
+
+        Statement st = jdbc.connection().createStatement();
+        ResultSet rs = st.executeQuery(SMALL.selectSQL());
+        Assertions.assertFalse(rs.isClosed());
+        st.close(); // statement closes current result set
+        Assertions.assertTrue(rs.isClosed());
+        Assertions.assertTrue(st.isClosed());
+    }
+
+    @Test
+    public void unwrap() throws SQLException {
+        try (Statement st = jdbc.connection().createStatement()) {
+            try (ResultSet rs = st.executeQuery(SMALL.selectSQL())) {
+                Assertions.assertTrue(rs.isWrapperFor(YdbResultSet.class));
+                Assertions.assertSame(rs, rs.unwrap(YdbResultSet.class));
+
+                Assertions.assertFalse(rs.isWrapperFor(YdbStatement.class));
+                ExceptionAssert.sqlException("Cannot unwrap to " + YdbStatement.class, () -> rs.unwrap(YdbStatement.class));
+            }
+
+            st.setFetchSize(0);
+            try (ResultSet rs = st.executeQuery(SMALL.selectSQL())) {
+                Assertions.assertTrue(rs.isWrapperFor(YdbResultSetMemory.class));
+                Assertions.assertSame(rs, rs.unwrap(YdbResultSetMemory.class));
+                Assertions.assertEquals(0, rs.getFetchSize());
+                Assertions.assertEquals(ResultSet.FETCH_UNKNOWN, rs.getFetchDirection());
+            }
+
+            st.setFetchSize(1000);
+            try (ResultSet rs = st.executeQuery(SMALL.selectSQL())) {
+                Assertions.assertTrue(rs.isWrapperFor(YdbResultSetForwardOnly.class));
+                Assertions.assertSame(rs, rs.unwrap(YdbResultSetForwardOnly.class));
+                Assertions.assertEquals(1000, rs.getFetchSize());
+                Assertions.assertEquals(ResultSet.FETCH_FORWARD, rs.getFetchDirection());
+            }
+        }
+    }
+
+    @Test
+    public void invalidColumnsTest() throws SQLException {
+        try (Statement st = jdbc.connection().createStatement()) {
+            try (ResultSet rs = st.executeQuery(SMALL.selectSQL())) {
+                // invalid location
+                ExceptionAssert.sqlException("Current row index is out of bounds: 0", () -> rs.getString(2));
+                ExceptionAssert.sqlException("Current row index is out of bounds: 0", () -> rs.getString("c_Text"));
+
+                // invalid case
+                ExceptionAssert.sqlException("Column not found: c_text", () -> rs.getString("c_text"));
+                ExceptionAssert.sqlException("Column not found: C_TEXT", () -> rs.getString("C_TEXT"));
+                ExceptionAssert.sqlException("Current row index is out of bounds: 0", () -> rs.getString("c_Text"));
+
+                // invalid name
+                ExceptionAssert.sqlException("Column not found: value0", () -> rs.getString("value0"));
+            }
+        }
+    }
+
+    @Test
+    public void findColumn() throws SQLException {
+        try (Statement st = jdbc.connection().createStatement()) {
+            try (ResultSet rs = st.executeQuery(SMALL.selectSQL())) {
+                Assertions.assertEquals(1, rs.findColumn("key"));
+                Assertions.assertEquals(14, rs.findColumn("c_Text"));
+                ExceptionAssert.sqlException("Column not found: value0", () -> rs.findColumn("value0"));
+            }
+        }
+    }
+
+    @Test
+    public void warnings() throws SQLException {
+        try (Statement st = jdbc.connection().createStatement()) {
+            try (ResultSet rs = st.executeQuery("$ignored = 1; " + SMALL.selectSQL())) {
+                Assertions.assertNull(rs.getWarnings());
+                rs.clearWarnings();
+                Assertions.assertNull(rs.getWarnings());
+            }
+        }
+    }
+
+    @Test
+    public void getCursorName() {
+        ExceptionAssert.sqlFeatureNotSupported("Named cursors are not supported", () -> selectSmall().getCursorName());
+    }
+
+    @Test
+    public void getMetaData() throws SQLException {
+        try (Statement st = jdbc.connection().createStatement()) {
+            try (ResultSet rs = st.executeQuery(SMALL.selectSQL())) {
+                ResultSetMetaData metadata = rs.getMetaData();
+                Assertions.assertSame(metadata, rs.getMetaData(), "Metadata is cached");
+
+                Assertions.assertTrue(metadata.isWrapperFor(YdbResultSetMetaData.class));
+                YdbResultSetMetaData ydbMetadata = metadata.unwrap(YdbResultSetMetaData.class);
+                Assertions.assertSame(metadata, ydbMetadata);
+
+                ExceptionAssert.sqlException("Column is out of range: 995", () -> metadata.getColumnName(995));
+
+                Assertions.assertEquals(29, metadata.getColumnCount());
+
+                for (int index = 0; index < metadata.getColumnCount(); index++) {
+                    int column = index + 1;
+                    String name = metadata.getColumnName(column);
+                    Assertions.assertNotNull(name);
+                    Assertions.assertEquals(name, metadata.getColumnLabel(column));
+
+                    Assertions.assertFalse(metadata.isAutoIncrement(column), "All columns are not isAutoIncrement");
+                    Assertions.assertTrue(metadata.isCaseSensitive(column), "All columns are isCaseSensitive");
+                    Assertions.assertFalse(metadata.isSearchable(column), "All columns are not isSearchable");
+                    Assertions.assertFalse(metadata.isCurrency(column), "All columns are not isCurrency");
+                    Assertions.assertEquals(ResultSetMetaData.columnNullable, metadata.isNullable(column),
+                            "All columns in table are nullable, but pseudo-columns are not");
+                    Assertions.assertFalse(metadata.isSigned(column), "All columns are not isSigned");
+                    Assertions.assertEquals(0, metadata.getColumnDisplaySize(column), "No display size available");
+                    Assertions.assertEquals("", metadata.getSchemaName(column), "No schema available");
+                    Assertions.assertEquals(0, metadata.getPrecision(column), "No precision available");
+                    Assertions.assertEquals(0, metadata.getScale(column), "No scale available");
+                    Assertions.assertEquals("", metadata.getTableName(column), "No table name available");
+                    Assertions.assertEquals("", metadata.getCatalogName(column), "No catalog name available");
+                    Assertions.assertTrue(metadata.isReadOnly(column), "All columns are isReadOnly");
+                    Assertions.assertFalse(metadata.isWritable(column), "All columns are not isWritable");
+                    Assertions.assertFalse(metadata.isDefinitelyWritable(column),
+                            "All columns are not isDefinitelyWritable");
+
+                    if (name.startsWith("c_")) {
+                        String expectType = name.substring("c_".length()).toLowerCase();
+                        if (expectType.equals("decimal")) {
+                            expectType = "decimal(22, 9)";
+                        }
+                        if (expectType.equals("bigdecimal")) {
+                            expectType = "decimal(35, 0)";
+                        }
+                        if (expectType.equals("bankdecimal")) {
+                            expectType = "decimal(31, 9)";
+                        }
+
+                        String actualType = metadata.getColumnTypeName(column);
+                        Assertions.assertNotNull(actualType, "All columns have database types");
+                        Assertions.assertEquals(expectType, actualType.toLowerCase(),
+                                "All column names are similar to types");
+                    }
+
+                    Assertions.assertTrue(metadata.getColumnType(column) != 0,
+                            "All columns have sql type, including " + name);
+                    // getColumnClassName is checkering already
+                }
+            }
+        }
+    }
+
+    @Test
+    public void fetchDirection() throws SQLException {
+        try (Statement st = jdbc.connection().createStatement()) {
+            st.setFetchSize(0);
+            st.setFetchDirection(ResultSet.FETCH_UNKNOWN);
+            try (ResultSet rs = st.executeQuery(SMALL.selectSQL())) {
+                Assertions.assertEquals(ResultSet.FETCH_UNKNOWN, rs.getFetchDirection());
+                rs.setFetchDirection(ResultSet.FETCH_REVERSE);
+                Assertions.assertEquals(ResultSet.FETCH_REVERSE, rs.getFetchDirection());
+                rs.setFetchDirection(ResultSet.FETCH_FORWARD);
+                Assertions.assertEquals(ResultSet.FETCH_FORWARD, rs.getFetchDirection());
+            }
+
+            st.setFetchSize(0);
+            st.setFetchDirection(ResultSet.FETCH_REVERSE);
+            try (ResultSet rs = st.executeQuery(SMALL.selectSQL())) {
+                Assertions.assertEquals(ResultSet.FETCH_REVERSE, rs.getFetchDirection());
+                rs.setFetchDirection(ResultSet.FETCH_UNKNOWN);
+                Assertions.assertEquals(ResultSet.FETCH_UNKNOWN, rs.getFetchDirection());
+                rs.setFetchDirection(ResultSet.FETCH_FORWARD);
+                Assertions.assertEquals(ResultSet.FETCH_FORWARD, rs.getFetchDirection());
+            }
+
+            st.setFetchSize(1000);
+            st.setFetchDirection(ResultSet.FETCH_UNKNOWN);
+            try (ResultSet rs = st.executeQuery(SMALL.selectSQL())) {
+                Assertions.assertEquals(ResultSet.FETCH_FORWARD, rs.getFetchDirection());
+                rs.setFetchDirection(ResultSet.FETCH_FORWARD);
+                assertForwardOnly(() -> rs.setFetchDirection(ResultSet.FETCH_REVERSE));
+                assertForwardOnly(() -> rs.setFetchDirection(ResultSet.FETCH_UNKNOWN));
+                Assertions.assertEquals(ResultSet.FETCH_FORWARD, rs.getFetchDirection());
+            }
+
+            st.setFetchSize(1000);
+            st.setFetchDirection(ResultSet.FETCH_FORWARD);
+            try (ResultSet rs = st.executeQuery(SMALL.selectSQL())) {
+                Assertions.assertEquals(ResultSet.FETCH_FORWARD, rs.getFetchDirection());
+                rs.setFetchDirection(ResultSet.FETCH_FORWARD);
+                assertForwardOnly(() -> rs.setFetchDirection(ResultSet.FETCH_REVERSE));
+                assertForwardOnly(() -> rs.setFetchDirection(ResultSet.FETCH_UNKNOWN));
+                Assertions.assertEquals(ResultSet.FETCH_FORWARD, rs.getFetchDirection());
+            }
+
+            st.setFetchSize(1000);
+            st.setFetchDirection(ResultSet.FETCH_REVERSE);
+            ExceptionAssert.sqlException("Requested scrollable ResutlSet, but this ResultSet is FORWARD_ONLY.",
+                    () -> st.executeQuery(SMALL.selectSQL())
+            );
+        }
+    }
+
+    @Test
     public void moveOnEmptyResultSet() throws SQLException {
-        String select = TEST_TABLE.withTableName("select * from #tableName where 1 = 0");
-        try (ResultSet rs = statement.executeQuery(select)) {
-            assertIsEmpty(rs);
-            rs.beforeFirst();
-            assertIsEmpty(rs);
-
-            rs.afterLast();
-            assertIsEmpty(rs);
-
-            Assertions.assertFalse(rs.next());
-            assertIsEmpty(rs);
-
-            Assertions.assertFalse(rs.previous());
-            assertIsEmpty(rs);
-
-            Assertions.assertFalse(rs.first());
-            assertIsEmpty(rs);
-
-            Assertions.assertFalse(rs.last());
-            assertIsEmpty(rs);
-
-            Assertions.assertFalse(rs.absolute(0));
-            assertIsEmpty(rs);
-
-            Assertions.assertFalse(rs.absolute(1));
-            assertIsEmpty(rs);
-
-            Assertions.assertFalse(rs.absolute(-1));
-            assertIsEmpty(rs);
-
-            Assertions.assertFalse(rs.relative(0));
-            assertIsEmpty(rs);
-
-            Assertions.assertFalse(rs.relative(1));
-            assertIsEmpty(rs);
-
-            Assertions.assertFalse(rs.relative(-1));
-            assertIsEmpty(rs);
+        String select = SMALL.withTableName("scan select * from #tableName where 1 = 0");
+        try (Statement st = jdbc.connection().createStatement()) {
+            try (ResultSet rs = st.executeQuery(select)) {
+                assertIsEmpty(rs);
+                Assertions.assertFalse(rs.next());
+                assertIsEmpty(rs);
+            }
         }
     }
 
     @Test
     public void closeResultSetOnExecuteNext() throws SQLException {
-        ResultSet rs1 = statement.executeQuery(TEST_TABLE.selectSQL());
-        Assertions.assertFalse(rs1.isClosed());
-        ResultSet rs2 = statement.executeQuery(TEST_TABLE.selectSQL());
-        Assertions.assertTrue(rs1.isClosed());
-        Assertions.assertFalse(rs2.isClosed());
+        try (Statement st = jdbc.connection().createStatement()) {
+            ResultSet rs1 = st.executeQuery(SMALL.selectSQL());
+            Assertions.assertFalse(rs1.isClosed());
+            ResultSet rs2 = st.executeQuery(SMALL.selectSQL());
+            Assertions.assertTrue(rs1.isClosed());
+            Assertions.assertFalse(rs2.isClosed());
 
-        rs2.close();
+            rs2.close();
+        }
     }
 
     @Test
     public void closeResultSetOnCreateStatement() throws SQLException {
-        ResultSet rs1 = statement.executeQuery(TEST_TABLE.selectSQL());
-        Assertions.assertFalse(rs1.isClosed());
+        try (Statement st = jdbc.connection().createStatement()) {
+            ResultSet rs1 = st.executeQuery(SMALL.selectSQL());
+            Assertions.assertFalse(rs1.isClosed());
 
-        Statement other = jdbc.connection().createStatement();
+            Statement other = jdbc.connection().createStatement();
 
-        Assertions.assertFalse(rs1.isClosed()); // new statement doesn't close current result set
+            Assertions.assertFalse(rs1.isClosed()); // new statement doesn't close current result set
 
-        ResultSet rs2 = other.executeQuery(TEST_TABLE.selectSQL());
-        Assertions.assertTrue(rs1.isClosed());
-        Assertions.assertFalse(rs2.isClosed());
+            ResultSet rs2 = other.executeQuery(SMALL.selectSQL());
+            Assertions.assertTrue(rs1.isClosed());
+            Assertions.assertFalse(rs2.isClosed());
 
-        other.close();
-        Assertions.assertFalse(rs2.isClosed());
+            other.close();
+            Assertions.assertTrue(rs2.isClosed());
 
-        rs2.close();
+            rs2.close();
+        }
     }
 
     @Test
     public void closeResultSetOnPrepareStatement() throws SQLException {
-        ResultSet rs1 = statement.executeQuery(TEST_TABLE.selectSQL());
-        Assertions.assertFalse(rs1.isClosed());
+        try (Statement st = jdbc.connection().createStatement()) {
+            ResultSet rs1 = st.executeQuery(SMALL.selectSQL());
+            Assertions.assertFalse(rs1.isClosed());
 
-        PreparedStatement ps = jdbc.connection().prepareStatement(TEST_TABLE.selectAllByKey("?"));
+            PreparedStatement ps = jdbc.connection().prepareStatement(SMALL.selectAllByKey("?"));
 
-        Assertions.assertFalse(rs1.isClosed()); // prepare statement doesn't close current result set
-        ps.setInt(1, 1);
+            Assertions.assertFalse(rs1.isClosed()); // prepare statement doesn't close current result set
+            ps.setInt(1, 1);
 
-        Assertions.assertFalse(rs1.isClosed()); // prepare statement doesn't close current result set
+            Assertions.assertFalse(rs1.isClosed()); // prepare statement doesn't close current result set
 
-        ResultSet rs2 = ps.executeQuery();
-        Assertions.assertTrue(rs1.isClosed());
-        Assertions.assertFalse(rs2.isClosed());
+            ResultSet rs2 = ps.executeQuery();
+            Assertions.assertTrue(rs1.isClosed());
+            Assertions.assertFalse(rs2.isClosed());
 
-        ps.close();
-        Assertions.assertFalse(rs2.isClosed());
+            ps.close();
+            Assertions.assertTrue(rs2.isClosed());
 
-        rs2.close();
+            rs2.close();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = { -1, 0, 1000 })
+    public void next(int fetchSize) throws SQLException {
+        try (Statement st = jdbc.connection().createStatement()) {
+            st.setFetchSize(fetchSize);
+            ResultSet rs = st.executeQuery(SMALL.selectSQL());
+
+            Assertions.assertEquals(0, rs.getRow());
+            Assertions.assertTrue(rs.isBeforeFirst());
+            Assertions.assertFalse(rs.isFirst());
+            Assertions.assertFalse(rs.isLast());
+            Assertions.assertFalse(rs.isAfterLast());
+
+            Assertions.assertTrue(rs.next());
+
+            Assertions.assertEquals(1, rs.getRow());
+            Assertions.assertFalse(rs.isBeforeFirst());
+            Assertions.assertTrue(rs.isFirst());
+            Assertions.assertFalse(rs.isLast());
+            Assertions.assertFalse(rs.isAfterLast());
+
+            Assertions.assertTrue(rs.next());
+
+            Assertions.assertEquals(2, rs.getRow());
+            Assertions.assertFalse(rs.isBeforeFirst());
+            Assertions.assertFalse(rs.isFirst());
+            Assertions.assertFalse(rs.isLast());
+            Assertions.assertFalse(rs.isAfterLast());
+
+            Assertions.assertTrue(rs.next());
+
+            Assertions.assertEquals(3, rs.getRow());
+            Assertions.assertFalse(rs.isBeforeFirst());
+            Assertions.assertFalse(rs.isFirst());
+            Assertions.assertFalse(rs.isLast());
+            Assertions.assertFalse(rs.isAfterLast());
+
+            Assertions.assertTrue(rs.next());
+
+            Assertions.assertEquals(4, rs.getRow());
+            Assertions.assertFalse(rs.isBeforeFirst());
+            Assertions.assertFalse(rs.isFirst());
+            Assertions.assertFalse(rs.isLast());
+            Assertions.assertFalse(rs.isAfterLast());
+
+            Assertions.assertTrue(rs.next());
+
+            Assertions.assertEquals(5, rs.getRow());
+            Assertions.assertFalse(rs.isBeforeFirst());
+            Assertions.assertFalse(rs.isFirst());
+            Assertions.assertTrue(rs.isLast());
+            Assertions.assertFalse(rs.isAfterLast());
+
+            Assertions.assertFalse(rs.next());
+
+            Assertions.assertEquals(0, rs.getRow()); // like Postgres
+            Assertions.assertFalse(rs.isBeforeFirst());
+            Assertions.assertFalse(rs.isFirst());
+            Assertions.assertFalse(rs.isLast());
+            Assertions.assertTrue(rs.isAfterLast());
+
+            Assertions.assertFalse(rs.next());
+            Assertions.assertFalse(rs.next());
+        }
     }
 
     @Test
-    public void next() throws SQLException {
-        Assertions.assertEquals(0, resultSet.getRow());
-
-        Assertions.assertTrue(resultSet.next());
-        Assertions.assertEquals(1, resultSet.getRow());
-
-        Assertions.assertTrue(resultSet.next());
-        Assertions.assertEquals(2, resultSet.getRow());
-
-        Assertions.assertTrue(resultSet.next());
-        Assertions.assertEquals(3, resultSet.getRow());
-
-        Assertions.assertTrue(resultSet.next());
-        Assertions.assertEquals(4, resultSet.getRow());
-
-        Assertions.assertTrue(resultSet.next());
-        Assertions.assertEquals(5, resultSet.getRow());
-
-        Assertions.assertFalse(resultSet.next());
-        Assertions.assertFalse(resultSet.next());
-        Assertions.assertFalse(resultSet.next());
-
-        Assertions.assertEquals(6, resultSet.getRow());
+    public void forwarnOnlyUnsupportedMethods() throws SQLException {
+        try (Statement st = jdbc.connection().createStatement()) {
+            st.setFetchSize(100);
+            try (ResultSet rs = st.executeQuery(SMALL.selectSQL())) {
+                Assertions.assertEquals(0, rs.getRow());
+                assertForwardOnly(() -> { rs.first(); });
+                assertForwardOnly(() -> { rs.last(); });
+                assertForwardOnly(() -> { rs.previous(); });
+                assertForwardOnly(() -> { rs.beforeFirst(); });
+                assertForwardOnly(() -> { rs.afterLast(); });
+                assertForwardOnly(() -> { rs.absolute(0); });
+                assertForwardOnly(() -> { rs.relative(0); });
+            }
+        }
     }
 
     @Test
     public void first() throws SQLException {
-        Assertions.assertFalse(resultSet.isFirst());
-        Assertions.assertEquals(0, resultSet.getRow());
+        try (Statement st = jdbc.connection().createStatement()) {
+            st.setFetchSize(0);
+            try (ResultSet rs = st.executeQuery(SMALL.selectSQL())) {
+                Assertions.assertFalse(rs.isFirst());
+                Assertions.assertEquals(0, rs.getRow());
 
-        Assertions.assertTrue(resultSet.next());
-        Assertions.assertTrue(resultSet.isFirst());
-        Assertions.assertEquals(1, resultSet.getRow());
+                Assertions.assertTrue(rs.next());
+                Assertions.assertTrue(rs.isFirst());
+                Assertions.assertEquals(1, rs.getRow());
 
-        Assertions.assertTrue(resultSet.next());
-        Assertions.assertFalse(resultSet.isFirst());
-        Assertions.assertEquals(2, resultSet.getRow());
+                Assertions.assertTrue(rs.next());
+                Assertions.assertFalse(rs.isFirst());
+                Assertions.assertEquals(2, rs.getRow());
+            }
+        }
     }
 
     @Test
     public void last() throws SQLException {
-        Assertions.assertFalse(resultSet.isLast());
-        Assertions.assertEquals(0, resultSet.getRow());
+        try (Statement st = jdbc.connection().createStatement()) {
+            st.setFetchSize(0);
+            try (ResultSet rs = st.executeQuery(SMALL.selectSQL())) {
+                Assertions.assertFalse(rs.isLast());
+                Assertions.assertEquals(0, rs.getRow());
 
-        Assertions.assertTrue(resultSet.last());
-        Assertions.assertTrue(resultSet.isLast());
-        Assertions.assertEquals(5, resultSet.getRow());
+                Assertions.assertTrue(rs.last());
+                Assertions.assertTrue(rs.isLast());
+                Assertions.assertEquals(5, rs.getRow());
 
-        Assertions.assertTrue(resultSet.previous());
-        Assertions.assertFalse(resultSet.isLast());
-        Assertions.assertEquals(4, resultSet.getRow());
+                Assertions.assertTrue(rs.previous());
+                Assertions.assertFalse(rs.isLast());
+                Assertions.assertEquals(4, rs.getRow());
 
-        Assertions.assertTrue(resultSet.next());
-        Assertions.assertTrue(resultSet.isLast());
-        Assertions.assertEquals(5, resultSet.getRow());
+                Assertions.assertTrue(rs.next());
+                Assertions.assertTrue(rs.isLast());
+                Assertions.assertEquals(5, rs.getRow());
 
-        Assertions.assertFalse(resultSet.next());
-        Assertions.assertFalse(resultSet.isLast());
-        Assertions.assertEquals(6, resultSet.getRow());
+                Assertions.assertFalse(rs.next());
+                Assertions.assertFalse(rs.isLast());
+                Assertions.assertEquals(0, rs.getRow());
 
-        Assertions.assertFalse(resultSet.next());
-        Assertions.assertEquals(6, resultSet.getRow());
+                Assertions.assertFalse(rs.next());
+                Assertions.assertEquals(0, rs.getRow());
+            }
+        }
     }
 
     @Test
     public void beforeFirst() throws SQLException {
-        Assertions.assertTrue(resultSet.isBeforeFirst());
-        Assertions.assertEquals(0, resultSet.getRow());
+        try (Statement st = jdbc.connection().createStatement()) {
+            st.setFetchSize(0);
+            try (ResultSet rs = st.executeQuery(SMALL.selectSQL())) {
+                Assertions.assertTrue(rs.isBeforeFirst());
+                Assertions.assertEquals(0, rs.getRow());
 
-        Assertions.assertTrue(resultSet.next());
-        Assertions.assertFalse(resultSet.isBeforeFirst());
-        Assertions.assertEquals(1, resultSet.getRow());
+                Assertions.assertTrue(rs.next());
+                Assertions.assertFalse(rs.isBeforeFirst());
+                Assertions.assertEquals(1, rs.getRow());
 
-        resultSet.beforeFirst();
-        Assertions.assertTrue(resultSet.isBeforeFirst());
-        Assertions.assertEquals(0, resultSet.getRow());
+                rs.beforeFirst();
+                Assertions.assertTrue(rs.isBeforeFirst());
+                Assertions.assertEquals(0, rs.getRow());
 
-        Assertions.assertTrue(resultSet.next());
-        Assertions.assertFalse(resultSet.isBeforeFirst());
-        Assertions.assertEquals(1, resultSet.getRow());
+                Assertions.assertTrue(rs.next());
+                Assertions.assertFalse(rs.isBeforeFirst());
+                Assertions.assertEquals(1, rs.getRow());
+            }
+        }
     }
 
     @Test
     public void afterLast() throws SQLException {
-        Assertions.assertFalse(resultSet.isAfterLast());
-        Assertions.assertEquals(0, resultSet.getRow());
+        try (Statement st = jdbc.connection().createStatement()) {
+            st.setFetchSize(0);
+            try (ResultSet rs = st.executeQuery(SMALL.selectSQL())) {
+                Assertions.assertFalse(rs.isAfterLast());
+                Assertions.assertEquals(0, rs.getRow());
 
-        resultSet.afterLast();
-        Assertions.assertTrue(resultSet.isAfterLast());
-        Assertions.assertEquals(6, resultSet.getRow());
+                rs.afterLast();
+                Assertions.assertTrue(rs.isAfterLast());
+                Assertions.assertEquals(0, rs.getRow());
 
-        Assertions.assertFalse(resultSet.next());
-        Assertions.assertTrue(resultSet.isAfterLast());
-        Assertions.assertEquals(6, resultSet.getRow());
+                Assertions.assertFalse(rs.next());
+                Assertions.assertTrue(rs.isAfterLast());
+                Assertions.assertEquals(0, rs.getRow());
 
-        Assertions.assertTrue(resultSet.previous());
-        Assertions.assertFalse(resultSet.isAfterLast());
-        Assertions.assertEquals(5, resultSet.getRow());
+                Assertions.assertTrue(rs.previous());
+                Assertions.assertFalse(rs.isAfterLast());
+                Assertions.assertEquals(5, rs.getRow());
 
-        Assertions.assertFalse(resultSet.next());
-        Assertions.assertTrue(resultSet.isAfterLast());
-        Assertions.assertEquals(6, resultSet.getRow());
+                Assertions.assertFalse(rs.next());
+                Assertions.assertTrue(rs.isAfterLast());
+                Assertions.assertEquals(0, rs.getRow());
+            }
+        }
     }
 
     @Test
     public void absolute() throws SQLException {
-        Assertions.assertEquals(0, resultSet.getRow());
+        try (Statement st = jdbc.connection().createStatement()) {
+            st.setFetchSize(0);
+            try (ResultSet rs = st.executeQuery(SMALL.selectSQL())) {
+                Assertions.assertEquals(0, rs.getRow());
 
-        Assertions.assertFalse(resultSet.absolute(0));
-        Assertions.assertEquals(0, resultSet.getRow());
+                Assertions.assertFalse(rs.absolute(0));
+                Assertions.assertEquals(0, rs.getRow());
 
-        Assertions.assertTrue(resultSet.absolute(1));
-        Assertions.assertEquals(1, resultSet.getRow());
+                Assertions.assertTrue(rs.absolute(1));
+                Assertions.assertEquals(1, rs.getRow());
 
-        Assertions.assertTrue(resultSet.absolute(-1));
-        Assertions.assertEquals(5, resultSet.getRow());
+                Assertions.assertTrue(rs.absolute(-1));
+                Assertions.assertEquals(5, rs.getRow());
 
-        Assertions.assertTrue(resultSet.absolute(-2));
-        Assertions.assertEquals(4, resultSet.getRow());
+                Assertions.assertTrue(rs.absolute(-2));
+                Assertions.assertEquals(4, rs.getRow());
 
-        Assertions.assertTrue(resultSet.absolute(4));
-        Assertions.assertEquals(4, resultSet.getRow());
+                Assertions.assertTrue(rs.absolute(4));
+                Assertions.assertEquals(4, rs.getRow());
 
-        Assertions.assertTrue(resultSet.absolute(5));
-        Assertions.assertEquals(5, resultSet.getRow());
+                Assertions.assertTrue(rs.absolute(5));
+                Assertions.assertEquals(5, rs.getRow());
 
-        Assertions.assertFalse(resultSet.absolute(6));
-        Assertions.assertEquals(6, resultSet.getRow());
+                Assertions.assertFalse(rs.absolute(6));
+                Assertions.assertEquals(0, rs.getRow());
 
-        Assertions.assertFalse(resultSet.absolute(7));
-        Assertions.assertEquals(6, resultSet.getRow());
+                Assertions.assertFalse(rs.absolute(7));
+                Assertions.assertEquals(0, rs.getRow());
+            }
+        }
     }
 
     @Test
     public void relative() throws SQLException {
-        Assertions.assertEquals(0, resultSet.getRow());
+        try (Statement st = jdbc.connection().createStatement()) {
+            st.setFetchSize(0);
+            try (ResultSet rs = st.executeQuery(SMALL.selectSQL())) {
+                Assertions.assertEquals(0, rs.getRow());
 
-        Assertions.assertTrue(resultSet.relative(1));
-        Assertions.assertEquals(1, resultSet.getRow());
+                Assertions.assertTrue(rs.relative(1));
+                Assertions.assertEquals(1, rs.getRow());
 
-        Assertions.assertTrue(resultSet.relative(2));
-        Assertions.assertEquals(3, resultSet.getRow());
+                Assertions.assertTrue(rs.relative(2));
+                Assertions.assertEquals(3, rs.getRow());
 
-        Assertions.assertTrue(resultSet.relative(0));
-        Assertions.assertEquals(3, resultSet.getRow());
+                Assertions.assertTrue(rs.relative(0));
+                Assertions.assertEquals(3, rs.getRow());
 
-        Assertions.assertFalse(resultSet.relative(3));
-        Assertions.assertEquals(6, resultSet.getRow());
+                Assertions.assertFalse(rs.relative(3));
+                Assertions.assertEquals(0, rs.getRow());
 
-        Assertions.assertFalse(resultSet.relative(2));
-        Assertions.assertEquals(6, resultSet.getRow());
+                Assertions.assertFalse(rs.relative(2));
+                Assertions.assertEquals(0, rs.getRow());
 
-        Assertions.assertTrue(resultSet.relative(-1));
-        Assertions.assertEquals(5, resultSet.getRow());
+                Assertions.assertTrue(rs.relative(-1));
+                Assertions.assertEquals(5, rs.getRow());
 
-        Assertions.assertTrue(resultSet.relative(-1));
-        Assertions.assertEquals(4, resultSet.getRow());
+                Assertions.assertTrue(rs.relative(-1));
+                Assertions.assertEquals(4, rs.getRow());
 
-        Assertions.assertFalse(resultSet.relative(-10));
-        Assertions.assertEquals(0, resultSet.getRow());
+                Assertions.assertFalse(rs.relative(-10));
+                Assertions.assertEquals(0, rs.getRow());
 
-        Assertions.assertFalse(resultSet.relative(-1));
-        Assertions.assertEquals(0, resultSet.getRow());
+                Assertions.assertFalse(rs.relative(-1));
+                Assertions.assertEquals(0, rs.getRow());
+            }
+        }
     }
 
     @Test
     public void previous() throws SQLException {
-        Assertions.assertEquals(0, resultSet.getRow());
+        try (Statement st = jdbc.connection().createStatement()) {
+            st.setFetchSize(0);
+            try (ResultSet rs = st.executeQuery(SMALL.selectSQL())) {
+                Assertions.assertEquals(0, rs.getRow());
 
-        Assertions.assertTrue(resultSet.last());
-        Assertions.assertEquals(5, resultSet.getRow());
+                Assertions.assertTrue(rs.last());
+                Assertions.assertEquals(5, rs.getRow());
 
-        Assertions.assertTrue(resultSet.previous());
-        Assertions.assertEquals(4, resultSet.getRow());
+                Assertions.assertTrue(rs.previous());
+                Assertions.assertEquals(4, rs.getRow());
 
-        Assertions.assertTrue(resultSet.next());
-        Assertions.assertEquals(5, resultSet.getRow());
+                Assertions.assertTrue(rs.next());
+                Assertions.assertEquals(5, rs.getRow());
 
-        Assertions.assertFalse(resultSet.next());
-        Assertions.assertEquals(6, resultSet.getRow());
+                Assertions.assertFalse(rs.next());
+                Assertions.assertEquals(0, rs.getRow());
 
-        Assertions.assertFalse(resultSet.next());
-        Assertions.assertEquals(6, resultSet.getRow());
+                Assertions.assertFalse(rs.next());
+                Assertions.assertEquals(0, rs.getRow());
 
-        Assertions.assertTrue(resultSet.previous());
-        Assertions.assertEquals(5, resultSet.getRow());
+                Assertions.assertTrue(rs.previous());
+                Assertions.assertEquals(5, rs.getRow());
 
-        Assertions.assertTrue(resultSet.previous());
-        Assertions.assertEquals(4, resultSet.getRow());
+                Assertions.assertTrue(rs.previous());
+                Assertions.assertEquals(4, rs.getRow());
 
-        Assertions.assertTrue(resultSet.previous());
-        Assertions.assertEquals(3, resultSet.getRow());
+                Assertions.assertTrue(rs.previous());
+                Assertions.assertEquals(3, rs.getRow());
 
-        Assertions.assertTrue(resultSet.previous());
-        Assertions.assertEquals(2, resultSet.getRow());
+                Assertions.assertTrue(rs.previous());
+                Assertions.assertEquals(2, rs.getRow());
 
-        Assertions.assertTrue(resultSet.previous());
-        Assertions.assertEquals(1, resultSet.getRow());
+                Assertions.assertTrue(rs.previous());
+                Assertions.assertEquals(1, rs.getRow());
 
-        Assertions.assertFalse(resultSet.previous());
-        Assertions.assertEquals(0, resultSet.getRow());
+                Assertions.assertFalse(rs.previous());
+                Assertions.assertEquals(0, rs.getRow());
 
-        Assertions.assertFalse(resultSet.previous());
-        Assertions.assertEquals(0, resultSet.getRow());
-    }
-
-    private void assertCursorUpdates(Executable exec) {
-        ExceptionAssert.sqlFeatureNotSupported("Cursor updates are not supported", exec);
-    }
-
-    private void assertUpdateObject(Executable exec) {
-        ExceptionAssert.sqlFeatureNotSupported("updateObject not implemented", exec);
+                Assertions.assertFalse(rs.previous());
+                Assertions.assertEquals(0, rs.getRow());
+            }
+        }
     }
 
     @Test
-    public void cursorUpdatesIsNotSupportedTest() {
+    public void cursorUpdatesIsNotSupportedTest() throws SQLException {
+        ResultSet resultSet = selectSmall();
         // row actions
         assertCursorUpdates(() -> resultSet.rowUpdated());
         assertCursorUpdates(() -> resultSet.rowInserted());
@@ -719,7 +894,7 @@ public class YdbResultSetImplTest {
 
     @Test
     public void getString() throws SQLException {
-        ResultSetChecker<String> checker = check(resultSet, ResultSet::getString, ResultSet::getString);
+        ResultSetChecker<String> checker = check(selectSmall(), ResultSet::getString, ResultSet::getString);
 
         checker.nextRow()
                 .value(1, "key", "1")
@@ -861,7 +1036,7 @@ public class YdbResultSetImplTest {
 
     @Test
     public void getBoolean() throws SQLException {
-        ResultSetChecker<Boolean> checker = check(resultSet, ResultSet::getBoolean, ResultSet::getBoolean);
+        ResultSetChecker<Boolean> checker = check(selectSmall(), ResultSet::getBoolean, ResultSet::getBoolean);
 
         checker.nextRow()
                 .value(1, "key", true)
@@ -927,7 +1102,7 @@ public class YdbResultSetImplTest {
 
     @Test
     public void getByte() throws SQLException {
-        ResultSetChecker<Byte> checker = check(resultSet, ResultSet::getByte, ResultSet::getByte);
+        ResultSetChecker<Byte> checker = check(selectSmall(), ResultSet::getByte, ResultSet::getByte);
 
         checker.nextRow()
                 .value(1, "key", (byte) 1)
@@ -1057,7 +1232,7 @@ public class YdbResultSetImplTest {
 
     @Test
     public void getShort() throws SQLException {
-        ResultSetChecker<Short> checker = check(resultSet, ResultSet::getShort, ResultSet::getShort);
+        ResultSetChecker<Short> checker = check(selectSmall(), ResultSet::getShort, ResultSet::getShort);
 
         checker.nextRow()
                 .value(1, "key", (short) 1)
@@ -1152,7 +1327,7 @@ public class YdbResultSetImplTest {
 
     @Test
     public void getInt() throws SQLException {
-        ResultSetChecker<Integer> checker = check(resultSet, ResultSet::getInt, ResultSet::getInt);
+        ResultSetChecker<Integer> checker = check(selectSmall(), ResultSet::getInt, ResultSet::getInt);
 
         checker.nextRow()
                 .value(1, "key", 1)
@@ -1315,7 +1490,7 @@ public class YdbResultSetImplTest {
 
     @Test
     public void getLong() throws SQLException {
-        ResultSetChecker<Long> checker = check(resultSet, ResultSet::getLong, ResultSet::getLong);
+        ResultSetChecker<Long> checker = check(selectSmall(), ResultSet::getLong, ResultSet::getLong);
 
         checker.nextRow()
                 .value(1, "key", 1L)
@@ -1477,7 +1652,7 @@ public class YdbResultSetImplTest {
 
     @Test
     public void getFloat() throws SQLException {
-        ResultSetChecker<Float> checker = check(resultSet, ResultSet::getFloat, ResultSet::getFloat);
+        ResultSetChecker<Float> checker = check(selectSmall(), ResultSet::getFloat, ResultSet::getFloat);
 
         checker.nextRow()
                 .value(1, "key", 1f)
@@ -1569,7 +1744,7 @@ public class YdbResultSetImplTest {
 
     @Test
     public void getDouble() throws SQLException {
-        ResultSetChecker<Double> checker = check(resultSet, ResultSet::getDouble, ResultSet::getDouble);
+        ResultSetChecker<Double> checker = check(selectSmall(), ResultSet::getDouble, ResultSet::getDouble);
 
         checker.nextRow()
                 .value(1, "key", 1d)
@@ -1661,7 +1836,7 @@ public class YdbResultSetImplTest {
 
     @Test
     public void getBigDecimal() throws SQLException {
-        ResultSetChecker<BigDecimal> checker = check(resultSet, ResultSet::getBigDecimal, ResultSet::getBigDecimal);
+        ResultSetChecker<BigDecimal> checker = check(selectSmall(), ResultSet::getBigDecimal, ResultSet::getBigDecimal);
 
         checker.nextRow()
                 .value(1, "key", BigDecimal.valueOf(1))
@@ -1757,7 +1932,7 @@ public class YdbResultSetImplTest {
 
     @Test
     public void getBytes() throws SQLException {
-        ResultSetChecker<byte[]> checker = check(resultSet, ResultSet::getBytes, ResultSet::getBytes);
+        ResultSetChecker<byte[]> checker = check(selectSmall(), ResultSet::getBytes, ResultSet::getBytes);
 
         checker.nextRow()
                 .value(13, "c_Bytes", bytes("bytes array"))
@@ -1799,7 +1974,7 @@ public class YdbResultSetImplTest {
 
     @Test
     public void getDate() throws SQLException {
-        ResultSetChecker<Date> checker = check(resultSet, ResultSet::getDate, ResultSet::getDate);
+        ResultSetChecker<Date> checker = check(selectSmall(), ResultSet::getDate, ResultSet::getDate);
 
         checker.nextRow()
                 .value(3, "c_Int8", Date.valueOf(LocalDate.ofEpochDay(101)))
@@ -1898,7 +2073,7 @@ public class YdbResultSetImplTest {
 
     @Test
     public void getTime() throws SQLException {
-        ResultSetChecker<Time> checker = check(resultSet, ResultSet::getTime, ResultSet::getTime);
+        ResultSetChecker<Time> checker = check(selectSmall(), ResultSet::getTime, ResultSet::getTime);
 
         checker.nextRow()
                 .value(3, "c_Int8", Time.valueOf(LocalTime.ofSecondOfDay(101)))
@@ -2004,7 +2179,7 @@ public class YdbResultSetImplTest {
 
     @Test
     public void getTimestamp() throws SQLException {
-        ResultSetChecker<Timestamp> checker = check(resultSet, ResultSet::getTimestamp, ResultSet::getTimestamp);
+        ResultSetChecker<Timestamp> checker = check(selectSmall(), ResultSet::getTimestamp, ResultSet::getTimestamp);
 
         checker.nextRow()
                 .value(3, "c_Int8", new Timestamp(101))
@@ -2081,7 +2256,7 @@ public class YdbResultSetImplTest {
     @Test
     public void getUnicodeStream() throws SQLException {
         @SuppressWarnings("deprecation")
-        ResultSetChecker<InputStream> checker = check(resultSet,
+        ResultSetChecker<InputStream> checker = check(selectSmall(),
                 ResultSet::getUnicodeStream, ResultSet::getUnicodeStream);
 
         checker.nextRow()
@@ -2124,7 +2299,7 @@ public class YdbResultSetImplTest {
 
     @Test
     public void getBinaryStream() throws SQLException {
-        ResultSetChecker<InputStream> checker = check(resultSet,
+        ResultSetChecker<InputStream> checker = check(selectSmall(),
                 ResultSet::getBinaryStream, ResultSet::getBinaryStream);
 
         checker.nextRow()
@@ -2167,7 +2342,7 @@ public class YdbResultSetImplTest {
 
     @Test
     public void getObject() throws SQLException {
-        ResultSetChecker<Object> checker = check(resultSet, ResultSet::getObject, ResultSet::getObject);
+        ResultSetChecker<Object> checker = check(selectSmall(), ResultSet::getObject, ResultSet::getObject);
 
         checker.nextRow()
                 .typedValue(1, "key", 1)
@@ -2333,7 +2508,7 @@ public class YdbResultSetImplTest {
 
     @Test
     public void getCharacterStream() throws SQLException {
-        ResultSetChecker<Reader> checker = check(resultSet, ResultSet::getCharacterStream, ResultSet::getCharacterStream);
+        ResultSetChecker<Reader> checker = check(selectSmall(), ResultSet::getCharacterStream, ResultSet::getCharacterStream);
 
         checker.nextRow()
                 .value(13, "c_Bytes", reader("bytes array"))
@@ -2375,7 +2550,7 @@ public class YdbResultSetImplTest {
 
     @Test
     public void getURL() throws MalformedURLException, SQLException {
-        ResultSetChecker<URL> checker = check(resultSet, ResultSet::getURL, ResultSet::getURL);
+        ResultSetChecker<URL> checker = check(selectSmall(), ResultSet::getURL, ResultSet::getURL);
 
         checker.nextRow();
         checker.nextRow();
@@ -2392,7 +2567,7 @@ public class YdbResultSetImplTest {
 
     @Test
     public void getNString() throws SQLException {
-        ResultSetChecker<String> checker = check(resultSet, ResultSet::getNString, ResultSet::getNString);
+        ResultSetChecker<String> checker = check(selectSmall(), ResultSet::getNString, ResultSet::getNString);
 
         checker.nextRow()
                 .value(13, "c_Bytes", "bytes array")
@@ -2434,7 +2609,7 @@ public class YdbResultSetImplTest {
 
     @Test
     public void getNCharacterStream() throws SQLException {
-        ResultSetChecker<Reader> checker = check(resultSet, ResultSet::getNCharacterStream, ResultSet::getNCharacterStream);
+        ResultSetChecker<Reader> checker = check(selectSmall(), ResultSet::getNCharacterStream, ResultSet::getNCharacterStream);
 
         checker.nextRow()
                 .value(13, "c_Bytes", reader("bytes array"))
@@ -2475,7 +2650,8 @@ public class YdbResultSetImplTest {
     }
 
     @Test
-    public void unsupportedGetters() {
+    public void unsupportedGetters() throws SQLException {
+        ResultSet resultSet = selectSmall();
         // getObject with type
 //        ExceptionAssert.sqlFeatureNotSupported("Object with type conversion is not supported yet",
 //                () -> resultSet.getObject(1, Integer.class));
@@ -2520,7 +2696,7 @@ public class YdbResultSetImplTest {
 
     @Test
     public void getNativeColumn() throws SQLException {
-        ResultSetChecker<Value<?>> checker = check(resultSet,
+        ResultSetChecker<Value<?>> checker = check(selectSmall(),
                 (rs, index) -> rs.unwrap(YdbResultSet.class).getNativeColumn(index),
                 (rs, label) -> rs.unwrap(YdbResultSet.class).getNativeColumn(label)
         );
@@ -2710,24 +2886,28 @@ public class YdbResultSetImplTest {
         }
 
         public ResultSetChecker<T> value(int index, String column, T expected) throws SQLException {
+            Assertions.assertEquals(index, rs.findColumn(column));
             assertValue(expected, nameFunctor.apply(rs, column), expected == null, "for column label " + column);
             assertValue(expected, indexFunctor.apply(rs, index), expected == null, "for column index " + index);
             return this;
         }
 
         public ResultSetChecker<T> nullValue(int index, String column, T expected) throws SQLException {
+            Assertions.assertEquals(index, rs.findColumn(column));
             assertValue(expected, nameFunctor.apply(rs, column), true, "for column label " + column);
             assertValue(expected, indexFunctor.apply(rs, index), true, "for column index " + index);
             return this;
         }
 
         public ResultSetChecker<T> exceptionValue(int index, String column, String message) throws SQLException {
+            Assertions.assertEquals(index, rs.findColumn(column));
             ExceptionAssert.sqlException(message, () -> nameFunctor.apply(rs, column));
             ExceptionAssert.sqlException(message, () -> indexFunctor.apply(rs, index));
             return this;
         }
 
         public ResultSetChecker<T> typedValue(int index, String column, T expected) throws SQLException {
+            Assertions.assertEquals(index, rs.findColumn(column));
             Assertions.assertNotNull(expected, "Expected typed value is null");
 
             T v1 = assertValue(expected, nameFunctor.apply(rs, column), false, "for column label " + column);

@@ -11,33 +11,57 @@ import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.result.ValueReader;
 
-public class YdbStaticResultSet extends BaseYdbResultSet {
-    private final ResultSetReader rsReader;
-    private final int rowCount;
+public class YdbResultSetMemory extends YdbResultSetBase {
+    private final ResultSetReader[] rs;
+    private final int totalCount;
 
-    private int fetchDirection = ResultSet.FETCH_UNKNOWN;
+    private int fetchDirection;
+    private int globalRowIndex = 0; // before start
+
+    private int rsIndex = 0;
     private int rowIndex = 0;
+
     private boolean isClosed = false;
 
-    public YdbStaticResultSet(YdbTypes types, YdbStatement statement, ResultSetReader result) {
-        super(statement, ColumnInfo.fromResultSetReader(types, Objects.requireNonNull(result)));
-        this.rsReader = result;
-        this.rowCount = result.getRowCount();
+    public YdbResultSetMemory(YdbTypes types, YdbStatement statement, ResultSetReader... rs) {
+        super(statement, ColumnInfo.fromResultSetReader(types, Objects.requireNonNull(rs[0])));
+        this.fetchDirection = statement.getFetchDirection();
+        this.rs = rs;
+        int total = 0;
+        for (int idx = 0; idx < rs.length; idx += 1) {
+            total += rs[idx].getRowCount();
+        }
+        this.totalCount = total;
     }
 
     @Override
     protected ValueReader getValue(int columnIndex) throws SQLException {
-        try {
-            return rsReader.getColumn(columnIndex);
-        } catch (IllegalStateException ex) {
-            throw new SQLException(YdbConst.INVALID_ROW + rowIndex);
+        if (!isRowIndexValid()) {
+            throw new SQLException(YdbConst.INVALID_ROW + globalRowIndex);
         }
+        return rs[rsIndex].getColumn(columnIndex);
     }
 
     @Override
     public boolean next() {
-        setRowIndex(rowIndex + 1);
-        return isRowIndexValid();
+        while (true) {
+            if (rsIndex >= rs.length) {
+                rsIndex = totalCount;
+                globalRowIndex = totalCount + 1;
+                rowIndex = 0;
+                return false;
+            }
+
+            if (rowIndex < rs[rsIndex].getRowCount()) {
+                rs[rsIndex].setRowIndex(rowIndex);
+                globalRowIndex++;
+                rowIndex++;
+                return true;
+            }
+
+            rsIndex++;
+            rowIndex = 0;
+        }
     }
 
     @Override
@@ -47,22 +71,22 @@ public class YdbStaticResultSet extends BaseYdbResultSet {
 
     @Override
     public boolean isBeforeFirst() {
-        return rowCount != 0 && rowIndex <= 0;
+        return totalCount > 0 && globalRowIndex == 0;
     }
 
     @Override
     public boolean isAfterLast() {
-        return rowCount != 0 && rowIndex > rowCount;
+        return totalCount > 0 && globalRowIndex > totalCount;
     }
 
     @Override
     public boolean isFirst() {
-        return rowCount != 0 && rowIndex == 1;
+        return totalCount > 0 && globalRowIndex == 1;
     }
 
     @Override
     public boolean isLast() {
-        return rowCount != 0 && rowIndex == rowCount;
+        return totalCount > 0 && globalRowIndex == totalCount;
     }
 
     @Override
@@ -74,7 +98,7 @@ public class YdbStaticResultSet extends BaseYdbResultSet {
     @Override
     public void afterLast() throws SQLException {
         checkScroll();
-        setRowIndex(rowCount + 1);
+        setRowIndex(totalCount + 1);
     }
 
     @Override
@@ -87,13 +111,13 @@ public class YdbStaticResultSet extends BaseYdbResultSet {
     @Override
     public boolean last() throws SQLException {
         checkScroll();
-        setRowIndex(rowCount);
+        setRowIndex(totalCount);
         return isRowIndexValid();
     }
 
     @Override
     public int getRow() {
-        return rowIndex;
+        return isRowIndexValid() ? globalRowIndex : 0;
     }
 
     @Override
@@ -102,7 +126,7 @@ public class YdbStaticResultSet extends BaseYdbResultSet {
         if (row >= 0) {
             setRowIndex(row);
         } else {
-            setRowIndex(rowCount + 1 + row);
+            setRowIndex(totalCount + 1 + row);
         }
         return isRowIndexValid();
     }
@@ -111,7 +135,7 @@ public class YdbStaticResultSet extends BaseYdbResultSet {
     public boolean relative(int rows) throws SQLException {
         checkScroll();
         if (rows != 0) {
-            setRowIndex(rowIndex + rows);
+            setRowIndex(globalRowIndex + rows);
         }
         return isRowIndexValid();
     }
@@ -119,7 +143,7 @@ public class YdbStaticResultSet extends BaseYdbResultSet {
     @Override
     public boolean previous() throws SQLException {
         checkScroll();
-        setRowIndex(rowIndex - 1);
+        setRowIndex(globalRowIndex - 1);
         return isRowIndexValid();
     }
 
@@ -159,15 +183,35 @@ public class YdbStaticResultSet extends BaseYdbResultSet {
         }
     }
 
-    private void setRowIndex(int rowIndex) {
-        if (rowCount > 0) {
-            int actualIndex = Math.max(Math.min(rowIndex, rowCount + 1), 0);
-            this.rowIndex = actualIndex;
-            rsReader.setRowIndex(actualIndex - 1);
+    private void setRowIndex(int index) {
+        if (index <= 0) { // before first
+            globalRowIndex = 0;
+            rsIndex = 0;
+            rowIndex = 0;
+            return;
         }
+
+        if (index > totalCount) { // after last
+            globalRowIndex = totalCount + 1;
+            rsIndex = rs.length;
+            rowIndex = 0;
+            return;
+        }
+
+        globalRowIndex = index;
+        rsIndex = 0;
+        rowIndex = index;
+        int currentSize = rs[rsIndex].getRowCount();
+        while (rowIndex > currentSize) {
+            rsIndex++;
+            rowIndex -= currentSize;
+            currentSize = rs[rsIndex].getRowCount();
+        }
+
+        rs[rsIndex].setRowIndex(rowIndex - 1);
     }
 
     private boolean isRowIndexValid() {
-        return rowIndex > 0 && rowIndex <= rowCount;
+        return rsIndex >= 0 && rsIndex < rs.length && globalRowIndex > 0 && globalRowIndex <= totalCount;
     }
 }

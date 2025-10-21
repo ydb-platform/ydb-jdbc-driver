@@ -12,11 +12,11 @@ import tech.ydb.core.Result;
 import tech.ydb.core.Status;
 import tech.ydb.core.StatusCode;
 import tech.ydb.core.UnexpectedResultException;
+import tech.ydb.jdbc.YdbQueryResult;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTracer;
 import tech.ydb.jdbc.exception.ExceptionFactory;
 import tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
-import tech.ydb.jdbc.impl.YdbQueryResult;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.query.QueryStream;
 import tech.ydb.query.QueryTransaction;
@@ -85,10 +85,10 @@ public class TableTxExecutor extends QueryServiceExecutor {
     }
 
     @Override
-    public YdbQueryResult executeDataQuery(YdbStatement statement, YdbQuery query, String preparedYql, Params params,
-            long timeout, boolean keepInCache) throws SQLException {
+    public YdbQueryResult executeDataQuery(YdbStatement statement, YdbQuery query, String preparedYql, Params params)
+            throws SQLException {
         try {
-            YdbQueryResult result = super.executeDataQuery(statement, query, preparedYql, params, timeout, keepInCache);
+            YdbQueryResult result = super.executeDataQuery(statement, query, preparedYql, params);
             isWriteTx = isInsideTransaction() && (isWriteTx || query.isWriting());
             return result;
         } catch (YdbConditionallyRetryableException ex) {

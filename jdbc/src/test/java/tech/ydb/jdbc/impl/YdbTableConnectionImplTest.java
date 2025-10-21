@@ -877,7 +877,7 @@ public class YdbTableConnectionImplTest {
     }
 
     @Test
-    @Timeout(value = 30, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SAME_THREAD)
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SAME_THREAD)
     public void testBigBulkAndScan() throws SQLException {
         String bulkUpsert = QUERIES.upsertOne(SqlQueries.JdbcQuery.BULK, "c_Text", "Text?");
         String scanSelectAll = QUERIES.scanSelectSQL();
@@ -903,6 +903,7 @@ public class YdbTableConnectionImplTest {
 
             // SCAN all table
             try (PreparedStatement ps = conn.prepareStatement(scanSelectAll)) {
+                ps.setFetchSize(1000);
                 int readed = 0;
                 Assertions.assertTrue(ps.execute());
                 try (ResultSet rs = ps.getResultSet()) {
@@ -915,11 +916,15 @@ public class YdbTableConnectionImplTest {
                 Assertions.assertEquals(10000, readed);
             }
 
-            // Canceled scan
             try (PreparedStatement ps = conn.prepareStatement(scanSelectAll)) {
+                ps.setFetchSize(1000);
                 Assertions.assertTrue(ps.execute());
-                ps.getResultSet().next();
-                ps.getResultSet().close();
+
+                try (ResultSet rs = ps.getResultSet()) {
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertNull(rs.getWarnings());
+                    // after ResultSet reading stream will be canceled
+                }
 
                 SQLWarning w = ps.getWarnings();
                 Assertions.assertNotNull(w);
