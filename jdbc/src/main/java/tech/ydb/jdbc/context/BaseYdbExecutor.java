@@ -9,12 +9,14 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 
 import tech.ydb.core.Result;
+import tech.ydb.core.StatusCode;
 import tech.ydb.core.grpc.GrpcReadStream;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTracer;
 import tech.ydb.jdbc.common.YdbTypes;
+import tech.ydb.jdbc.exception.YdbRetryableException;
 import tech.ydb.jdbc.impl.YdbQueryResult;
 import tech.ydb.jdbc.impl.YdbStaticResultSet;
 import tech.ydb.jdbc.query.QueryType;
@@ -86,6 +88,25 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
             throw new SQLException(YdbConst.CLOSED_CONNECTION);
         }
     }
+
+
+    @Override
+    public YdbQueryResult executeDataQuery(YdbStatement statement, YdbQuery query, String preparedYql, Params params,
+            long timeout, boolean keepInCache) throws SQLException {
+        boolean insideTx = isInsideTransaction();
+        while (true) {
+            try {
+                return executeQueryImpl(statement, query, preparedYql, params, timeout, keepInCache);
+            } catch (YdbRetryableException ex) {
+                if (insideTx || ex.getStatus().getCode() != StatusCode.BAD_SESSION) {
+                    throw ex;
+                }
+            }
+        }
+    }
+
+    protected abstract YdbQueryResult executeQueryImpl(YdbStatement statement, YdbQuery query, String preparedYql,
+            Params params, long timeout, boolean keepInCache) throws SQLException;
 
     @Override
     public YdbQueryResult executeSchemeQuery(YdbStatement statement, YdbQuery query) throws SQLException {
