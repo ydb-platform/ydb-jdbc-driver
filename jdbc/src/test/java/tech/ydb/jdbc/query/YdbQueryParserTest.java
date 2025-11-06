@@ -287,36 +287,12 @@ public class YdbQueryParserTest {
             + "@'select * from test_table where id in  $jp1'",
         "'select * from test_table where id In(?--comment\n,?,?/**other /** inner */ comment*/)'"
             + "@'select * from test_table where id In $jp1'",
+        "'select * from test_table where (id, value) in ((?, ?), (?, ?))'"
+            + "@'select * from test_table where (id, value) in  $jp1'",
+        "'select * from test_table where tuple in ((?,\n?),(?, ?))'"
+            + "@'select * from test_table where tuple in  $jp1'",
     }, delimiter = '@')
     public void inListParameterTest(String query, String parsed) throws SQLException {
-        YdbQueryParser parser = new YdbQueryParser(types, query, props);
-        Assertions.assertEquals(parsed, parser.parseSQL());
-
-        Assertions.assertEquals(1, parser.getStatements().size());
-
-        QueryStatement statement = parser.getStatements().get(0);
-        Assertions.assertEquals(QueryType.DATA_QUERY, statement.getType());
-
-        Assertions.assertTrue(statement.hasJdbcParameters());
-        int idx = 0;
-        for (JdbcPrm.Factory factory : statement.getJdbcPrmFactories()) {
-            for (JdbcPrm prm: factory.create()) {
-                Assertions.assertEquals("$jp1[" + idx + "]", prm.getName());
-                idx++;
-            }
-        }
-    }
-
-    @ParameterizedTest(name = "[{index}] {0} has as_table list parameter")
-    @CsvSource(value = {
-        "'select * from jdbc_table(?) as t join test_table on id=t.x'"
-            + "@'select * from  AS_TABLE($jp1) as t join test_table on id=t.x'",
-        "'select * from jdbc_table(?,\n?, ?, \t?)'"
-            + "@'select * from  AS_TABLE($jp1)'",
-        "'select * from JDbc_Table  (?--comment\n,?,?/**other /** inner */ comment*/)'"
-            + "@'select * from  AS_TABLE($jp1)'",
-    }, delimiter = '@')
-    public void jdbcTableinListParameterTest(String query, String parsed) throws SQLException {
         YdbQueryParser parser = new YdbQueryParser(types, query, props);
         Assertions.assertEquals(parsed, parser.parseSQL());
 
@@ -339,12 +315,14 @@ public class YdbQueryParserTest {
     @CsvSource(value = {
         "'select * from test_table where id in (?)'"
             + "@'select * from test_table where id in ($jp1)'",
+        "'select * from test_table where (id, value) in ((?, ?), (?, ?))'"
+            + "@'select * from test_table where (id, value) in (($jp1, $jp2), ($jp3, $jp4))'",
         "'select * from test_table where id in (?,\n?, ?, \t?)'"
             + "@'select * from test_table where id in ($jp1,\n$jp2, $jp3, \t$jp4)'",
         "'select * from test_table where id In(?--comment\n,?,?/**other /** inner */ comment*/)'"
             + "@'select * from test_table where id In($jp1--comment\n,$jp2,$jp3/**other /** inner */ comment*/)'",
     }, delimiter = '@')
-    public void disabledInListParameterTest(String query, String parsed) throws SQLException {
+    public void inListParameterDisabledTest(String query, String parsed) throws SQLException {
         Properties config = new Properties();
         config.put("replaceJdbcInByYqlList", "false");
         YdbQueryParser parser = new YdbQueryParser(types, query, new YdbQueryProperties(config));
@@ -365,7 +343,7 @@ public class YdbQueryParserTest {
         }
     }
 
-    @ParameterizedTest(name = "[{index}] {0} has in list parameter")
+    @ParameterizedTest(name = "[{index}] {0} doesn't have in list parameter")
     @CsvSource(value = {
         "'select * from test_table where id in (?, 1, ?)'"
             + "@'select * from test_table where id in ($jp1, 1, $jp2)'",
@@ -379,12 +357,18 @@ public class YdbQueryParserTest {
             + "@'select * from test_table where id in($jp1, $jp2, $jp3'",
         "'select * from test_table where id in ?, ?, ?'"
             + "@'select * from test_table where id in $jp1, $jp2, $jp3'",
-        "'select * from test_table where id in ((?))'"
-            + "@'select * from test_table where id in (($jp1))'",
+        "'select * from test_table where id in (((?)))'"
+            + "@'select * from test_table where id in ((($jp1)))'",
         "'select * from test_table where id in ,?)'"
             + "@'select * from test_table where id in ,$jp1)'",
+        "'select * from test_table where id in (())'"
+            + "@'select * from test_table where id in (())'",
+        "'select * from test_table where id in ((?, ?), ?)'"
+            + "@'select * from test_table where id in (($jp1, $jp2), $jp3)'",
+        "'select * from test_table where id in ((?,?),(?,?,?))'"
+            + "@'select * from test_table where id in (($jp1,$jp2),($jp3,$jp4,$jp5))'",
     }, delimiter = '@')
-    public void wrongInListParameterTest(String query, String parsed) throws SQLException {
+    public void inListParametersUnparsableTest(String query, String parsed) throws SQLException {
         YdbQueryParser parser = new YdbQueryParser(types, query, props);
         Assertions.assertEquals(parsed, parser.parseSQL());
 
@@ -401,6 +385,71 @@ public class YdbQueryParserTest {
             }
         }
     }
+
+    @ParameterizedTest(name = "[{index}] {0} has as_table list parameter")
+    @CsvSource(value = {
+        "'select * from jdbc_table(?) as t join test_table on id=t.x'"
+            + "@'select * from  AS_TABLE($jp1) as t join test_table on id=t.x'",
+        "'select * from jdbc_table(?,\n?, ?, \t?)'"
+            + "@'select * from  AS_TABLE($jp1)'",
+        "'select * from JDbc_Table  (?--comment\n,?,?/**other /** inner */ comment*/)'"
+            + "@'select * from  AS_TABLE($jp1)'",
+    }, delimiter = '@')
+    public void jdbcTableParameterTest(String query, String parsed) throws SQLException {
+        YdbQueryParser parser = new YdbQueryParser(types, query, props);
+        Assertions.assertEquals(parsed, parser.parseSQL());
+
+        Assertions.assertEquals(1, parser.getStatements().size());
+
+        QueryStatement statement = parser.getStatements().get(0);
+        Assertions.assertEquals(QueryType.DATA_QUERY, statement.getType());
+
+        Assertions.assertTrue(statement.hasJdbcParameters());
+        int idx = 0;
+        for (JdbcPrm.Factory factory : statement.getJdbcPrmFactories()) {
+            for (JdbcPrm prm: factory.create()) {
+                Assertions.assertEquals("$jp1[" + idx + "]", prm.getName());
+                idx++;
+            }
+        }
+    }
+
+    @ParameterizedTest(name = "[{index}] {0} doesn't have as_table list parameter")
+    @CsvSource(value = {
+        "'select * from jdbc_table((?)) as t join test_table on id=t.x'"
+            + "@'select * from jdbc_table(($jp1)) as t join test_table on id=t.x'",
+        "'select * from jdbc_table(?,) as t join test_table on id=t.x'"
+            + "@'select * from jdbc_table($jp1,) as t join test_table on id=t.x'",
+        "'select * from jdbc_table where id = ?'"
+            + "@'select * from jdbc_table where id = $jp1'",
+        "'select * from jdbc_table,other_table where id = ?'"
+            + "@'select * from jdbc_table,other_table where id = $jp1'",
+        "'select * from jdbc_table(?,,?) as t join test_table on id=t.x'"
+            + "@'select * from jdbc_table($jp1,,$jp2) as t join test_table on id=t.x'",
+        "'select * from jdbc_table(?,'"
+            + "@'select * from jdbc_table($jp1,'",
+        "'select * from jdbc_table(??) where id=?'"
+            + "@'select * from jdbc_table(?) where id=$jp1'",
+    }, delimiter = '@')
+    public void jdbcTableParameterUnparsableTest(String query, String parsed) throws SQLException {
+        YdbQueryParser parser = new YdbQueryParser(types, query, props);
+        Assertions.assertEquals(parsed, parser.parseSQL());
+
+        Assertions.assertEquals(1, parser.getStatements().size());
+
+        QueryStatement statement = parser.getStatements().get(0);
+        Assertions.assertEquals(QueryType.DATA_QUERY, statement.getType());
+
+        Assertions.assertTrue(statement.hasJdbcParameters());
+        int idx = 0;
+        for (JdbcPrm.Factory factory : statement.getJdbcPrmFactories()) {
+            for (JdbcPrm prm: factory.create()) {
+                idx++;
+                Assertions.assertEquals("$jp" + idx, prm.getName());
+            }
+        }
+    }
+
 
     @ParameterizedTest(name = "[{index}] {0} is batched insert query")
     @ValueSource(strings = {

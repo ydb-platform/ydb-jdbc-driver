@@ -34,8 +34,8 @@ public interface JdbcPrm {
         return () -> Collections.singletonList(new UInt64JdbcPrm(types, name));
     }
 
-    static Factory inListOrm(YdbTypes types, String name, int count) {
-        return () -> new InListJdbcPrm(types, name, count).toJdbcPrmList();
+    static Factory inListOrm(YdbTypes types, String name, int listSize, int tupleSize) {
+        return () -> new InListJdbcPrm(types, name, listSize, tupleSize).toJdbcPrmList();
     }
 
     static Factory jdbcTableListOrm(YdbTypes types, String name, int count) {
