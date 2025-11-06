@@ -42,7 +42,7 @@ public class AsTableJdbcPrm {
 
     private Value<?> buildList() throws SQLException {
         if (type == null) {
-            throw new SQLException(YdbConst.PARAMETER_TYPE_UNKNOWN);
+            throw new SQLException(YdbConst.MISSING_VALUE_FOR_PARAMETER + items.get(0).name);
         }
 
         boolean hasNull = false;

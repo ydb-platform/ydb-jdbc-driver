@@ -383,42 +383,46 @@ public class YdbQueryParser {
     private int parseInListParameters(char[] query, int offset, QueryStatement st) {
         int start = offset;
         int listStartedAt = -1;
-        int listSize = 0;
-        boolean waitPrm = false;
+        YqlListParser parser = new YqlListParser();
+
         while (offset < query.length) {
             char ch = query[offset];
             switch (ch) {
-                case '(': // start of list
-                    if (listStartedAt >= 0) {
+                case '(':
+                    if (parser.isNotStarted()) {
+                        listStartedAt = offset;
+                    }
+                    if (!parser.readOpenParen()) {
                         return start;
                     }
-                    listStartedAt = offset;
-                    waitPrm = true;
                     break;
                 case ',':
-                    if (listStartedAt < 0 || waitPrm) {
+                    if (!parser.readComma()) {
                         return start;
                     }
-                    waitPrm = true;
                     break;
                 case '?' :
-                    if (!waitPrm || (offset + 1 < query.length && query[offset + 1] == '?')) {
-                        return start;
-                    }
-                    listSize++;
-                    waitPrm = false;
-                    break;
-                case ')':
-                    if (waitPrm || listSize == 0 || listStartedAt < 0) {
+                    if (offset + 1 < query.length && query[offset + 1] == '?') {
                         return start;
                     }
 
-                    String name = nextJdbcPrmName();
-                    parsed.append(query, start, listStartedAt - start);
-                    parsed.append(' '); // add extra space to avoid IN$jpN
-                    parsed.append(name);
-                    st.addJdbcPrmFactory(JdbcPrm.inListOrm(types, name, listSize));
-                    return offset + 1;
+                    if (!parser.readParameter()) {
+                        return start;
+                    }
+                    break;
+                case ')':
+                    if (!parser.readCloseParen()) {
+                        return start;
+                    }
+                    if (parser.isCompleted()) {
+                        String name = nextJdbcPrmName();
+                        parsed.append(query, start, listStartedAt - start);
+                        parsed.append(' '); // add extra space to avoid IN$jpN
+                        parsed.append(name);
+                        st.addJdbcPrmFactory(JdbcPrm.inListOrm(types, name, parser.listSize(), parser.tupleSize()));
+                        return offset + 1;
+                    }
+                    break;
                 case '-': // possibly -- style comment
                     offset = parseLineComment(query, offset);
                     break;
