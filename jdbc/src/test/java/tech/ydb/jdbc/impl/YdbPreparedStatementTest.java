@@ -665,11 +665,14 @@ public class YdbPreparedStatementTest {
     @ValueSource(strings = {"true", "false"})
     public void inListTest(boolean convertInToList) throws SQLException {
         String option = String.valueOf(convertInToList);
+        String arg1Name = convertInToList ? "$jp1[0]" : "$jp1";
         String arg2Name = convertInToList ? "$jp1[1]" : "$jp2";
         try (Connection conn = jdbc.createCustomConnection("replaceJdbcInByYqlList", option)) {
             String upsert = TEST_TABLE.upsertOne(SqlQueries.JdbcQuery.STANDARD, "c_Text", "Text");
-            String selectByIds = TEST_TABLE.withTableName("select count(*) from #tableName where key in (?, ?)");
-            String selectByValue = TEST_TABLE.withTableName("select count(*) from #tableName where c_Text in (?, ?)");
+            String selectPrefix = TEST_TABLE.withTableName("select count(*) from #tableName ");
+            String selectByIds = selectPrefix + "where key in (?, ?)";
+            String selectByValue = selectPrefix + "where c_Text in (?, ?)";
+            String selectByTuple = selectPrefix + "where (key, c_Text) in ((?, ?), (?, ?))";
 
             try (PreparedStatement ps = conn.prepareStatement(upsert)) {
                 ps.setInt(1, 1);
@@ -717,6 +720,8 @@ public class YdbPreparedStatementTest {
             }
 
             try (PreparedStatement ps = conn.prepareStatement(selectByValue)) {
+                ExceptionAssert.sqlException("Missing value for parameter: " + arg1Name, ps::executeQuery);
+
                 ps.setString(1, null);
                 ExceptionAssert.sqlException("Missing value for parameter: " + arg2Name, ps::executeQuery);
 
@@ -744,12 +749,35 @@ public class YdbPreparedStatementTest {
                 ps.setString(2, "3");
                 assertResultSetCount(ps.executeQuery(), 2);
             }
+
+            try (PreparedStatement ps = conn.prepareStatement(selectByTuple)) {
+                ExceptionAssert.sqlException("Missing value for parameter: " + arg1Name, ps::executeQuery);
+
+                ps.setInt(1, 1);
+                ExceptionAssert.sqlException("Missing value for parameter: " + arg2Name, ps::executeQuery);
+
+                ps.setInt(1, 1);
+                ps.setInt(3, 2);
+                ps.setString(4, "3");
+                ExceptionAssert.sqlException("Missing value for parameter: " + arg2Name, ps::executeQuery);
+
+                ps.setInt(1, 1);
+                ps.setString(2, null);
+                ps.setInt(3, 2);
+                ps.setString(4, "3");
+                assertResultSetCount(ps.executeQuery(), 0);
+
+                ps.setInt(1, 1);
+                ps.setString(2, "1");
+                ps.setInt(3, 3);
+                ps.setString(4, "3");
+                assertResultSetCount(ps.executeQuery(), 2);
+            }
         }
     }
 
     @Test
     public void jdbcTableListTest() throws SQLException {
-        String arg2Name = "$jp1[1]";
         String upsert = TEST_TABLE.upsertOne(SqlQueries.JdbcQuery.STANDARD, "c_Text", "Text");
         String selectByIds = TEST_TABLE.withTableName(
                 "select count(*) from jdbc_table(?,?) as j join #tableName t on t.key=j.x"
@@ -779,8 +807,10 @@ public class YdbPreparedStatementTest {
         }
 
         try (PreparedStatement ps = jdbc.connection().prepareStatement(selectByIds)) {
+            ExceptionAssert.sqlException("Missing value for parameter: $jp1[0]", ps::executeQuery);
+
             ps.setInt(1, 1);
-            ExceptionAssert.sqlException("Missing value for parameter: " + arg2Name, ps::executeQuery);
+            ExceptionAssert.sqlException("Missing value for parameter: $jp1[1]", ps::executeQuery);
 
             ps.setInt(1, 1);
             ps.setInt(2, 2);
@@ -798,7 +828,7 @@ public class YdbPreparedStatementTest {
 
         try (PreparedStatement ps = jdbc.connection().prepareStatement(selectByValue)) {
             ps.setString(1, null);
-            ExceptionAssert.sqlException("Missing value for parameter: " + arg2Name, ps::executeQuery);
+            ExceptionAssert.sqlException("Missing value for parameter: $jp1[1]", ps::executeQuery);
 
             ps.setString(1, null);
             ps.setString(2, null);
