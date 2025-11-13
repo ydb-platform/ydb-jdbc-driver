@@ -32,6 +32,7 @@ import tech.ydb.query.result.QueryResultPart;
 import tech.ydb.query.settings.CommitTransactionSettings;
 import tech.ydb.query.settings.ExecuteQuerySettings;
 import tech.ydb.query.settings.QueryExecMode;
+import tech.ydb.query.settings.QueryStatsMode;
 import tech.ydb.query.settings.RollbackTransactionSettings;
 import tech.ydb.query.tools.QueryReader;
 import tech.ydb.table.query.Params;
@@ -233,6 +234,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
         int timeout = statement.getQueryTimeout();
         ExecuteQuerySettings.Builder settings = ExecuteQuerySettings.newBuilder();
+        settings = settings.withStatsMode(QueryStatsMode.valueOf(statement.getStatsCollectionMode().name()));
         if (timeout > 0) {
             settings = settings.withRequestTimeout(timeout, TimeUnit.SECONDS);
         }
@@ -300,7 +302,10 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             for (int idx = 0; idx < readers.length; idx++) {
                 readers[idx] = new YdbResultSetMemory(types, statement, result.getResultSet(idx));
             }
-            return updateCurrentResult(new YdbQueryResultStatic(query, readers));
+
+            YdbQueryResultStatic queryResult = new YdbQueryResultStatic(query, readers);
+            queryResult.setQueryStats(result.getQueryInfo().getStats());
+            return updateCurrentResult(queryResult);
         } finally {
             if (!localTx.isActive()) {
                 if (tx.compareAndSet(localTx, null)) {

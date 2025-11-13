@@ -66,7 +66,7 @@ public class QueryStat {
         return preparedYQL;
     }
 
-    public String getAat() {
+    public String getAst() {
         return ast;
     }
 

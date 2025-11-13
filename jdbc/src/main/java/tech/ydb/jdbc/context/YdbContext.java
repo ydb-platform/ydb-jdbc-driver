@@ -3,6 +3,8 @@ package tech.ydb.jdbc.context;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.Iterator;
+import java.util.ServiceLoader;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -23,6 +25,7 @@ import tech.ydb.jdbc.settings.YdbConfig;
 import tech.ydb.jdbc.settings.YdbConnectionProperties;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.jdbc.settings.YdbQueryProperties;
+import tech.ydb.jdbc.spi.YDBQueryExtensionService;
 import tech.ydb.query.QueryClient;
 import tech.ydb.query.impl.QueryClientImpl;
 import tech.ydb.scheme.SchemeClient;
@@ -57,6 +60,8 @@ public class YdbContext implements AutoCloseable {
 
     private final boolean autoResizeSessionPool;
     private final AtomicInteger connectionsCount = new AtomicInteger();
+
+    private YDBQueryExtensionService queryExtensionService = null;
 
     private YdbContext(
             YdbConfig config,
@@ -95,6 +100,13 @@ public class YdbContext implements AutoCloseable {
         } else {
             this.cache = new YdbCache(this,
                     queryProperties, config.getPreparedStatementsCachecSize(), config.isFullScanDetectorEnabled());
+        }
+
+        Iterator<YDBQueryExtensionService> extLoaderIterator = ServiceLoader
+                .load(YDBQueryExtensionService.class)
+                .iterator();
+        if (extLoaderIterator.hasNext()) {
+            queryExtensionService = extLoaderIterator.next();
         }
     }
 
@@ -311,5 +323,9 @@ public class YdbContext implements AutoCloseable {
 
     public YdbPreparedQuery prepareYdbQuery(YdbQuery query, YdbPrepareMode mode) throws SQLException {
         return cache.prepareYdbQuery(query, mode);
+    }
+
+    public YDBQueryExtensionService getQueryExtensionService() {
+        return queryExtensionService;
     }
 }
