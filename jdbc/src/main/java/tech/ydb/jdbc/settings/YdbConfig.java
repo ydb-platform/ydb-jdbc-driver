@@ -15,9 +15,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import tech.ydb.core.utils.URITools;
 import tech.ydb.jdbc.YdbConst;
 
-
-
-
 /**
  *
  * @author Aleksandr Gorshenin
