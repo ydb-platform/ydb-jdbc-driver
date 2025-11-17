@@ -255,10 +255,8 @@ public class YdbConnectionImpl implements YdbConnection {
             throws SQLException {
 
         validator.clearWarnings();
-        ctx.getTracer().trace("prepare statement");
         YdbQuery query = ctx.parseYdbQuery(key);
         YdbPreparedQuery params = ctx.prepareYdbQuery(query, mode);
-        ctx.getTracer().trace("create prepared statement");
         return new YdbPreparedStatementImpl(this, query, params, resultSetType);
     }
 
