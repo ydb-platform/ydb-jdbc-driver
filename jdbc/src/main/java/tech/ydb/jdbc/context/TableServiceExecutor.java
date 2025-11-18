@@ -173,6 +173,8 @@ public class TableServiceExecutor extends BaseYdbExecutor {
             settings = settings.disableQueryCache();
         }
 
+        settings = settings.setCollectStats(statement.getStatsCollectionMode());
+
         return settings;
     }
 
@@ -231,7 +233,9 @@ public class TableServiceExecutor extends BaseYdbExecutor {
                 readers[idx] = new YdbResultSetMemory(types, statement, rs);
             }
 
-            return updateCurrentResult(new YdbQueryResultStatic(query, readers));
+            YdbQueryResultStatic queryResult = new YdbQueryResultStatic(query, readers);
+            queryResult.setQueryStats(result.getQueryStats());
+            return updateCurrentResult(queryResult);
         } catch (SQLException | RuntimeException ex) {
             updateState(tx.withRollback(session));
             throw ex;
