@@ -5,17 +5,26 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.logging.Logger;
 
+import tech.ydb.core.Issue;
+import tech.ydb.core.StatusCode;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbQueryResult;
 import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
+import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.jdbc.context.QueryStat;
 import tech.ydb.jdbc.context.YdbContext;
+import tech.ydb.jdbc.context.YdbExecutor;
 import tech.ydb.jdbc.context.YdbValidator;
+import tech.ydb.jdbc.exception.YdbRetryableException;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.settings.FakeTxMode;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
@@ -190,6 +199,8 @@ public abstract class YdbStatementBase implements YdbStatement {
         prepareNewExecution();
 
         YdbContext ctx = connection.getCtx();
+        YdbExecutor executor = connection.getExecutor();
+
         if (ctx.isFullScanDetectorEnabled()) {
             if (QueryStat.isPrint(yql)) {
                 ResultSetReader rsr = QueryStat.toResultSetReader(ctx.getFullScanDetectorStats());
@@ -201,9 +212,21 @@ public abstract class YdbStatementBase implements YdbStatement {
                 return null;
             }
         }
-
         ctx.traceQueryByFullScanDetector(query, yql);
-        return connection.getExecutor().executeDataQuery(this, query, yql, params);
+
+        boolean isInsideTx = executor.isInsideTransaction();
+        while (true) {
+            try {
+                return executor.executeDataQuery(this, query, yql, params);
+            } catch (YdbRetryableException ex) {
+                if (isInsideTx || ex.getStatus().getCode() != StatusCode.BAD_SESSION) {
+                    throw ex;
+                }
+                // TODO: Move this logic to YdbValidator
+                Issue warning = Issue.of("Operation retried because of of BAD_SESSION", Issue.Severity.INFO);
+                validator.addStatusIssues(Arrays.asList(warning));
+            }
+        }
     }
 
     protected YdbQueryResult executeSchemeQuery(YdbQuery query) throws SQLException {
