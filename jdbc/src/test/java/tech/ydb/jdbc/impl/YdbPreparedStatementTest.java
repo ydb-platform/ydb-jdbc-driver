@@ -277,7 +277,7 @@ public class YdbPreparedStatementTest {
             statement.addBatch();
 
             statement.executeBatch();
-            tracer.assertQueriesCount(batched ? 1 : 2);
+            tracer.assertQueriesCount(batched ? 1 : 2, !batched);
 
             // ----- executeBatch without addBatch -----
             statement.setInt(1, 3);
@@ -288,7 +288,7 @@ public class YdbPreparedStatementTest {
             statement.setString(2, "value-4");
 
             statement.executeBatch();
-            tracer.assertQueriesCount(1);
+            tracer.assertQueriesCount(1, false);
 
             // ----- execute instead of executeBatch -----
             statement.setInt(1, 5);
@@ -299,7 +299,7 @@ public class YdbPreparedStatementTest {
             statement.setString(2, "value-6");
 
             statement.execute();
-            tracer.assertQueriesCount(1);
+            tracer.assertQueriesCount(1, false);
         }
 
         String select = TEST_TABLE.selectColumn("c_Text");
@@ -309,6 +309,153 @@ public class YdbPreparedStatementTest {
                     .nextRow(2, "value-2")
                     .nextRow(3, "value-3")
                     .nextRow(6, "value-6")
+                    .noNextRows();
+        }
+    }
+
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(SqlQueries.JdbcQuery.class)
+    public void batchInsertTest(SqlQueries.JdbcQuery query) throws SQLException {
+        String insert = TEST_TABLE.insertOne(query, "c_Text", "Text");
+        boolean batched = query != SqlQueries.JdbcQuery.TYPED && query != SqlQueries.JdbcQuery.IN_MEMORY;
+        try (PreparedStatement statement = jdbc.connection().prepareStatement(insert)) {
+            TestTxTracer tracer = YdbTracerImpl.use(new TestTxTracer());
+
+            // ----- base usage -----
+            statement.setInt(1, 1);
+            statement.setString(2, "value-1");
+            statement.addBatch();
+
+            statement.setInt(1, 2);
+            statement.setString(2, "value-2");
+            statement.addBatch();
+
+            statement.executeBatch();
+            tracer.assertQueriesCount(batched ? 1 : 2, !batched);
+
+            // ----- confict error-----
+            statement.setInt(1, 3);
+            statement.setString(2, "value-3"); // ok, but must be rollbacked
+            statement.addBatch();
+
+            statement.setInt(1, 2); // conflict with existing key
+            statement.setString(2, "value-4");
+            statement.addBatch();
+
+            ExceptionAssert.ydbException("Conflict with existing key.", statement::executeBatch);
+            tracer.assertQueriesCount(batched ? 1 : 2, false);
+
+            // repeat with correct keys
+            statement.setInt(1, 5);
+            statement.setString(2, "value-5");
+            statement.addBatch();
+
+            statement.setInt(1, 6);
+            statement.setString(2, "value-6");
+            statement.addBatch();
+
+            statement.executeBatch();
+            tracer.assertQueriesCount(batched ? 1 : 2, !batched);
+        }
+
+        String select = TEST_TABLE.selectColumn("c_Text");
+        try (Statement statement = jdbc.connection().createStatement()) {
+            TextSelectAssert.of(statement.executeQuery(select), "c_Text", "Text")
+                    .nextRow(1, "value-1")
+                    .nextRow(2, "value-2")
+                    .nextRow(5, "value-5")
+                    .nextRow(6, "value-6")
+                    .noNextRows();
+        }
+    }
+
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(SqlQueries.JdbcQuery.class)
+    public void batchTransactionTest(SqlQueries.JdbcQuery query) throws SQLException {
+        String insert = TEST_TABLE.insertOne(query, "c_Text", "Text");
+        String select = TEST_TABLE.selectColumn("c_Text");
+
+        boolean batched = query != SqlQueries.JdbcQuery.TYPED && query != SqlQueries.JdbcQuery.IN_MEMORY;
+        jdbc.connection().setAutoCommit(false);
+
+        try (PreparedStatement statement = jdbc.connection().prepareStatement(insert)) {
+            TestTxTracer tracer = YdbTracerImpl.use(new TestTxTracer());
+
+            // ----- base usage -----
+            statement.setInt(1, 1);
+            statement.setString(2, "value-1");
+            statement.addBatch();
+
+            statement.setInt(1, 2);
+            statement.setString(2, "value-2");
+            statement.addBatch();
+
+            statement.executeBatch();
+            tracer.assertQueriesCount(batched ? 1 : 2, false);
+
+            // ----- confict error-----
+            statement.setInt(1, 3);
+            statement.setString(2, "value-3"); // ok, but must be rollbacked
+            statement.addBatch();
+
+            statement.setInt(1, 2); // conflict with existing key
+            statement.setString(2, "value-4");
+            statement.addBatch();
+
+            statement.setInt(1, 5); // ignored
+            statement.setString(2, "value-5");
+            statement.addBatch();
+
+            ExceptionAssert.ydbException("Conflict with existing key.", statement::executeBatch);
+            tracer.assertQueriesCount(batched ? 1 : 2, false);
+
+            jdbc.connection().commit(); // ignored
+        }
+
+        try (Statement statement = jdbc.connection().createStatement()) {
+            TextSelectAssert.of(statement.executeQuery(select), "c_Text", "Text").noNextRows();
+        }
+
+        try (PreparedStatement statement = jdbc.connection().prepareStatement(insert)) {
+            TestTxTracer tracer = YdbTracerImpl.use(new TestTxTracer());
+
+            // ----- base usage -----
+            statement.setInt(1, 1);
+            statement.setString(2, "value-1");
+            statement.addBatch();
+
+            statement.setInt(1, 2);
+            statement.setString(2, "value-2");
+            statement.addBatch();
+
+            statement.executeBatch();
+            tracer.assertQueriesCount(batched ? 1 : 2, false);
+
+            statement.setInt(1, 3);
+            statement.setString(2, "value-3"); // ok, but must be rollbacked
+            statement.addBatch();
+
+            statement.setInt(1, 4);
+            statement.setString(2, "value-4");
+            statement.addBatch();
+
+            statement.setInt(1, 5); // ignored
+            statement.setString(2, "value-5");
+            statement.addBatch();
+
+            statement.executeBatch();
+            tracer.assertQueriesCount(batched ? 1 : 3, false);
+
+            jdbc.connection().commit();
+        }
+
+        try (Statement statement = jdbc.connection().createStatement()) {
+            TextSelectAssert.of(statement.executeQuery(select), "c_Text", "Text")
+                    .nextRow(1, "value-1")
+                    .nextRow(2, "value-2")
+                    .nextRow(3, "value-3")
+                    .nextRow(4, "value-4")
+                    .nextRow(5, "value-5")
                     .noNextRows();
         }
     }

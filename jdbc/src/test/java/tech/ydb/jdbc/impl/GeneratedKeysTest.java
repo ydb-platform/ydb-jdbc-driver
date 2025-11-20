@@ -11,7 +11,6 @@ import java.sql.Statement;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -64,7 +63,7 @@ public class GeneratedKeysTest {
                 ps.setString(1, "first value");
 
                 Assertions.assertEquals(1, ps.executeUpdate());
-                tracer.assertQueriesCount(1);
+                tracer.assertQueriesCount(1, false);
                 tracer.assertLastQueryContains("RETURNING *");
 
                 try (ResultSet rs = ps.getGeneratedKeys()) {
@@ -82,7 +81,7 @@ public class GeneratedKeysTest {
                 ps.setString(1, "first value");
 
                 Assertions.assertEquals(1, ps.executeUpdate());
-                tracer.assertQueriesCount(1);
+                tracer.assertQueriesCount(1, false);
                 tracer.assertLastQueryContains("RETURNING `id`");
 
                 try (ResultSet rs = ps.getGeneratedKeys()) {
@@ -101,7 +100,7 @@ public class GeneratedKeysTest {
                 ps.setString(2, "first value");
 
                 Assertions.assertEquals(1, ps.executeUpdate());
-                tracer.assertQueriesCount(1);
+                tracer.assertQueriesCount(1, false);
                 tracer.assertLastQueryContains("RETURNING `id`, `value`");
 
                 try (ResultSet rs = ps.getGeneratedKeys()) {
@@ -123,7 +122,7 @@ public class GeneratedKeysTest {
                     "$i=select 1; DELETE FROM serial_test", Statement.RETURN_GENERATED_KEYS)) {
 
                 Assertions.assertEquals(1, ps.executeUpdate());
-                tracer.assertQueriesCount(1);
+                tracer.assertQueriesCount(1, false);
                 tracer.assertLastQueryContains("RETURNING *");
 
                 try (ResultSet rs = ps.getGeneratedKeys()) {
@@ -144,7 +143,6 @@ public class GeneratedKeysTest {
     }
 
     @Test
-    @Disabled
     public void inMemoryBatchQueriesTest() throws SQLException {
         try (Connection connection = DriverManager.getConnection(jdbcURL.build())) {
             TestTxTracer tracer = YdbTracerImpl.use(new TestTxTracer());
@@ -159,7 +157,7 @@ public class GeneratedKeysTest {
 
                 Assertions.assertEquals(2, ps.executeBatch().length);
 
-                tracer.assertQueriesCount(2);
+                tracer.assertQueriesCount(2, true);
                 tracer.assertLastQueryContains("RETURNING *");
 
                 try (ResultSet rs = ps.getGeneratedKeys()) {
@@ -193,7 +191,7 @@ public class GeneratedKeysTest {
                 ps.addBatch();
 
                 Assertions.assertEquals(3, ps.executeBatch().length);
-                tracer.assertQueriesCount(1);
+                tracer.assertQueriesCount(1, false);
                 tracer.assertLastQueryContains("FROM AS_TABLE($batch)");
                 tracer.assertLastQueryContains("RETURNING *");
 
@@ -219,7 +217,7 @@ public class GeneratedKeysTest {
                 ps.setString(2, "first value");
 
                 Assertions.assertEquals(1, ps.executeUpdate());
-                tracer.assertQueriesCount(1);
+                tracer.assertQueriesCount(1, false);
                 tracer.assertLastQueryContains("RETURNING `id`, `value`");
 
                 try (ResultSet rs = ps.getGeneratedKeys()) {
@@ -238,7 +236,7 @@ public class GeneratedKeysTest {
                 ps.setString(1, "second value");
 
                 Assertions.assertEquals(1, ps.executeUpdate());
-                tracer.assertQueriesCount(1);
+                tracer.assertQueriesCount(1, false);
                 tracer.assertLastQueryContains("RETURNING *");
 
                 try (ResultSet rs = ps.getGeneratedKeys()) {

@@ -34,6 +34,10 @@ public class YdbResultSetMemory extends YdbResultSetBase {
         this.totalCount = total;
     }
 
+    public ResultSetReader[] getResultSets() {
+        return rs;
+    }
+
     @Override
     protected ValueReader getValue(int columnIndex) throws SQLException {
         if (!isRowIndexValid()) {

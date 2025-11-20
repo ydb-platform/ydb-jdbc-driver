@@ -229,6 +229,50 @@ public abstract class YdbStatementBase implements YdbStatement {
         }
     }
 
+    protected YdbQueryResult executeBatchQuery(YdbQuery query, Function<Params, String> queryFunc, List<Params> params)
+            throws SQLException {
+        prepareNewExecution();
+
+        if (params.isEmpty()) {
+            return new YdbQueryResultEmpty();
+        }
+
+        YdbExecutor executor = connection.getExecutor();
+        YdbTypes types = connection.getCtx().getTypes();
+        List<YdbResultSetMemory[]> batchResults = new ArrayList<>();
+        int count = 0;
+
+        boolean autoCommit = executor.isAutoCommit();
+        try {
+            if (autoCommit) {
+                executor.setAutoCommit(false);
+            }
+            for (Params prm: params) {
+                YdbResultSetMemory[] res = executor.executeInMemoryQuery(this, queryFunc.apply(prm), prm);
+                count = Math.max(count, res.length);
+                batchResults.add(res);
+            }
+            if (autoCommit) {
+                executor.commit(connection.getCtx(), validator);
+            }
+        } finally {
+            executor.setAutoCommit(autoCommit);
+        }
+
+        YdbResultSetMemory[] merged = new YdbResultSetMemory[count];
+        for (int idx = 0; idx < count; idx += 1) {
+            List<ResultSetReader> expressionResults = new ArrayList<>();
+            for (YdbResultSetMemory[] res: batchResults) {
+                if (idx < res.length) {
+                    expressionResults.addAll(Arrays.asList(res[idx].getResultSets()));
+                }
+            }
+            merged[idx] = new YdbResultSetMemory(types, this, expressionResults.toArray(new ResultSetReader[0]));
+        }
+
+        return new YdbQueryResultStatic(query, merged);
+    }
+
     protected YdbQueryResult executeSchemeQuery(YdbQuery query) throws SQLException {
         prepareNewExecution();
 

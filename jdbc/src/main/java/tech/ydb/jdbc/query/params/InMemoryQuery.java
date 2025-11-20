@@ -43,7 +43,7 @@ public class InMemoryQuery implements YdbPreparedQuery {
     }
 
     @Override
-    public String getQueryText(Params prms) throws SQLException {
+    public String getQueryText(Params prms) {
         if (!isAutoDeclare) {
             return yql;
         }
@@ -62,7 +62,7 @@ public class InMemoryQuery implements YdbPreparedQuery {
     }
 
     @Override
-    public String getBatchText(Params prms) throws SQLException {
+    public String getBatchText(Params prms) {
         return getQueryText(prms);
     }
 
