@@ -17,6 +17,7 @@ import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTracer;
 import tech.ydb.jdbc.exception.ExceptionFactory;
 import tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
+import tech.ydb.jdbc.exception.YdbUnavailbaleException;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.query.QueryStream;
 import tech.ydb.query.QueryTransaction;
@@ -128,7 +129,7 @@ public class TableTxExecutor extends QueryServiceExecutor {
                 tracer.query(commitQuery);
                 return query.execute();
             });
-        } catch (YdbConditionallyRetryableException ex) {
+        } catch (YdbConditionallyRetryableException | YdbUnavailbaleException ex) {
             Result<DataQueryResult> res = validateRetryCtx.supplyResult(
                     session -> session.executeDataQuery(validateQuery, TxControl.snapshotRo(), params)
             ).join();
