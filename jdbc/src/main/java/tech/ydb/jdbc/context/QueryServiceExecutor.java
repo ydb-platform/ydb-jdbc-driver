@@ -13,7 +13,6 @@ import tech.ydb.core.Issue;
 import tech.ydb.core.Status;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbQueryResult;
-import tech.ydb.jdbc.YdbResultSet;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTracer;
 import tech.ydb.jdbc.impl.YdbQueryResultExplain;
@@ -225,12 +224,11 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    protected YdbQueryResult executeQueryImpl(YdbStatement statement, YdbQuery query, String preparedYql, Params params)
+    public YdbResultSetMemory[] executeInMemoryQuery(YdbStatement statement, String preparedYql, Params params)
             throws SQLException {
         ensureOpened();
 
         YdbValidator validator = statement.getValidator();
-
         int timeout = statement.getQueryTimeout();
         ExecuteQuerySettings.Builder settings = ExecuteQuerySettings.newBuilder();
         if (timeout > 0) {
@@ -251,41 +249,6 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
         String yql = prefixPragma + preparedYql;
 
-        if (useStreamResultSet) {
-            tracer.trace("--> stream query");
-            tracer.query(yql);
-            String msg = "STREAM_QUERY >>\n" + yql;
-
-            final YdbQueryResultReader reader = new YdbQueryResultReader(types, statement, query) {
-                @Override
-                public void onClose(Status status, Throwable th) {
-                    if (th != null) {
-                        tracer.trace("<-- " + th.getMessage());
-                    }
-                    if (status != null) {
-                        validator.addStatusIssues(status);
-                        tracer.trace("<-- " + status.toString());
-                    }
-
-                    if (localTx.isActive()) {
-                        tracer.setId(localTx.getId());
-                    } else {
-                        if (tx.compareAndSet(localTx, null)) {
-                            localTx.getSession().close();
-                        }
-                        tracer.close();
-                    }
-
-                    super.onClose(status, th);
-                }
-            };
-
-            settings = settings.withGrpcFlowControl(reader);
-            QueryStream stream = localTx.createQuery(yql, isAutoCommit, params, settings.build());
-            validator.execute(msg, tracer, () -> reader.load(validator, stream));
-            return updateCurrentResult(reader);
-        }
-
         try {
             tracer.trace("--> data query");
             tracer.query(yql);
@@ -296,11 +259,12 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             );
             validator.addStatusIssues(result.getIssueList());
 
-            YdbResultSet[] readers = new YdbResultSet[result.getResultSetCount()];
+            YdbResultSetMemory[] readers = new YdbResultSetMemory[result.getResultSetCount()];
             for (int idx = 0; idx < readers.length; idx++) {
                 readers[idx] = new YdbResultSetMemory(types, statement, result.getResultSet(idx));
             }
-            return updateCurrentResult(new YdbQueryResultStatic(query, readers));
+
+            return readers;
         } finally {
             if (!localTx.isActive()) {
                 if (tx.compareAndSet(localTx, null)) {
@@ -314,6 +278,71 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
                 tracer.close();
             }
         }
+    }
+
+    @Override
+    public YdbQueryResult executeDataQuery(YdbStatement statement, YdbQuery query, String preparedYql, Params params)
+            throws SQLException {
+        ensureOpened();
+
+        if (!useStreamResultSet) {
+            YdbResultSetMemory[] readers = executeInMemoryQuery(statement, preparedYql, params);
+            return updateCurrentResult(new YdbQueryResultStatic(query, readers));
+        }
+
+        YdbValidator validator = statement.getValidator();
+        int timeout = statement.getQueryTimeout();
+        ExecuteQuerySettings.Builder settings = ExecuteQuerySettings.newBuilder();
+        if (timeout > 0) {
+            settings = settings.withRequestTimeout(timeout, TimeUnit.SECONDS);
+        }
+
+        QueryTransaction nextTx = tx.get();
+        while (nextTx == null) {
+            nextTx = createNewQuerySession(validator).createNewTransaction(txMode);
+            if (!tx.compareAndSet(null, nextTx)) {
+                nextTx.getSession().close();
+                nextTx = tx.get();
+            }
+        }
+
+        final QueryTransaction localTx = nextTx;
+        YdbTracer tracer = statement.getConnection().getCtx().getTracer();
+
+        String yql = prefixPragma + preparedYql;
+
+        tracer.trace("--> stream query");
+        tracer.query(yql);
+        String msg = "STREAM_QUERY >>\n" + yql;
+
+        YdbQueryResultReader reader = new YdbQueryResultReader(types, statement, query) {
+            @Override
+            public void onClose(Status status, Throwable th) {
+                if (th != null) {
+                    tracer.trace("<-- " + th.getMessage());
+                }
+                if (status != null) {
+                    validator.addStatusIssues(status);
+                    tracer.trace("<-- " + status.toString());
+                }
+
+                if (localTx.isActive()) {
+                    tracer.setId(localTx.getId());
+                } else {
+                    if (tx.compareAndSet(localTx, null)) {
+                        localTx.getSession().close();
+                    }
+                    tracer.close();
+                }
+
+                super.onClose(status, th);
+            }
+        };
+
+        settings = settings.withGrpcFlowControl(reader);
+        QueryStream stream = localTx.createQuery(yql, isAutoCommit, params, settings.build());
+        validator.execute(msg, tracer, () -> reader.load(validator, stream));
+        return updateCurrentResult(reader);
     }
 
     @Override

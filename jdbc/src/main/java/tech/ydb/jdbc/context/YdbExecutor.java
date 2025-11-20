@@ -4,6 +4,7 @@ import java.sql.SQLException;
 
 import tech.ydb.jdbc.YdbQueryResult;
 import tech.ydb.jdbc.YdbStatement;
+import tech.ydb.jdbc.impl.YdbResultSetMemory;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.values.ListValue;
@@ -34,6 +35,7 @@ public interface YdbExecutor {
     YdbQueryResult executeExplainQuery(YdbStatement st, YdbQuery query) throws SQLException;
     YdbQueryResult executeScanQuery(YdbStatement st, YdbQuery query, String yql, Params prms) throws SQLException;
     YdbQueryResult executeDataQuery(YdbStatement st, YdbQuery query, String yql, Params prms) throws SQLException;
+    YdbResultSetMemory[] executeInMemoryQuery(YdbStatement st, String yql, Params prms) throws SQLException;
 
     void commit(YdbContext ctx, YdbValidator validator) throws SQLException;
     void rollback(YdbContext ctx, YdbValidator validator) throws SQLException;

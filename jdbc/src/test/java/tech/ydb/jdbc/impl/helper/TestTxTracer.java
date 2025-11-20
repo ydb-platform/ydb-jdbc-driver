@@ -12,21 +12,28 @@ import tech.ydb.jdbc.impl.YdbTracerNone;
  */
 public class TestTxTracer extends YdbTracerNone {
     private volatile String lastQuery;
+    private volatile boolean wasCommit = false;
     private final AtomicInteger counter = new AtomicInteger(0);
 
     @Override
     public void query(String queryText) {
-        counter.incrementAndGet();
-        lastQuery = queryText;
+        if (queryText != null) {
+            counter.incrementAndGet();
+            lastQuery = queryText;
+        } else {
+            wasCommit = true;
+        }
     }
 
     public String getQueryText() {
         return lastQuery;
     }
 
-    public void assertQueriesCount(int count) {
+    public void assertQueriesCount(int count, boolean withCommit) {
         Assertions.assertEquals(count, counter.get(), "Incorrect count of queries");
+        Assertions.assertEquals(withCommit, wasCommit, "Incorrect transaction status");
         counter.set(0);
+        wasCommit = false;
     }
 
     public void assertLastQueryContains(String query) {
