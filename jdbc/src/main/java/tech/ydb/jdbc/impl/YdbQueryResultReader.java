@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -28,6 +29,7 @@ import tech.ydb.jdbc.context.YdbValidator;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.query.QueryStream;
 import tech.ydb.query.result.QueryResultPart;
+import tech.ydb.query.result.QueryStats;
 import tech.ydb.table.result.ResultSetReader;
 
 /**
@@ -180,7 +182,7 @@ public class YdbQueryResultReader extends YdbQueryResultBase implements GrpcFlow
     }
 
 
-    public CompletableFuture<Status> load(YdbValidator validator, QueryStream stream) {
+    public CompletableFuture<Status> load(YdbValidator validator, QueryStream stream, Consumer<QueryStats> stats) {
         CompletableFuture<Status> resultIsReady = new CompletableFuture<>();
         canceller = stream::cancel;
 
@@ -197,7 +199,13 @@ public class YdbQueryResultReader extends YdbQueryResultBase implements GrpcFlow
                 }
             }
         }).whenComplete((result, th) -> {
-            Status status = result != null ? result.getStatus() : null;
+            Status status = null;
+            if (result != null) {
+                status = result.getStatus();
+                if (result.isSuccess() && result.getValue().hasStats()) {
+                    stats.accept(result.getValue().getStats());
+                }
+            }
             onClose(status, th);
 
             if (status != null) {

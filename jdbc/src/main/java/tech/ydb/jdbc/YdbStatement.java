@@ -4,7 +4,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 import tech.ydb.jdbc.context.YdbValidator;
-import tech.ydb.table.query.stats.QueryStatsCollectionMode;
 
 public interface YdbStatement extends Statement {
     /**
@@ -59,8 +58,4 @@ public interface YdbStatement extends Statement {
 
     @Override
     int getMaxRows();
-
-    void setStatsCollectionMode(QueryStatsCollectionMode mode);
-
-    QueryStatsCollectionMode getStatsCollectionMode();
 }

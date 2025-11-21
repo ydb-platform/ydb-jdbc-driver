@@ -4,7 +4,6 @@ package tech.ydb.jdbc.impl;
 import java.sql.SQLException;
 
 import tech.ydb.jdbc.YdbResultSet;
-import tech.ydb.jdbc.query.UnifiedQueryStats;
 import tech.ydb.jdbc.query.YdbQuery;
 
 /**
@@ -13,7 +12,6 @@ import tech.ydb.jdbc.query.YdbQuery;
  */
 public class YdbQueryResultStatic extends YdbQueryResultBase {
     private final YdbResultSet[] rs;
-    private UnifiedQueryStats queryStats;
 
     public YdbQueryResultStatic(YdbQuery query, YdbResultSet... rs) {
         super(query, rs != null ? rs.length : 0);
@@ -34,21 +32,5 @@ public class YdbQueryResultStatic extends YdbQueryResultBase {
             return;
         }
         rs[index].close();
-    }
-
-    public UnifiedQueryStats getQueryStats() {
-        return queryStats;
-    }
-
-    public void setQueryStats(tech.ydb.table.query.stats.QueryStats src) {
-        if (src != null) {
-            queryStats = new UnifiedQueryStats(src);
-        }
-    }
-
-    public void setQueryStats(tech.ydb.query.result.QueryStats src) {
-        if (src != null) {
-            queryStats = new UnifiedQueryStats(src);
-        }
     }
 }

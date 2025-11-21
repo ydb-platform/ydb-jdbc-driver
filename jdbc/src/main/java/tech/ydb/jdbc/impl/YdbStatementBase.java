@@ -29,7 +29,6 @@ import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.settings.FakeTxMode;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.table.query.Params;
-import tech.ydb.table.query.stats.QueryStatsCollectionMode;
 import tech.ydb.table.result.ResultSetReader;
 import tech.ydb.table.values.ListValue;
 
@@ -51,7 +50,6 @@ public abstract class YdbStatementBase implements YdbStatement {
     private int queryTimeout;
     private boolean isPoolable;
     private boolean isClosed = false;
-    private QueryStatsCollectionMode statsMode = QueryStatsCollectionMode.NONE;
 
     /** @see Statement#getMaxRows() */
     private int maxRows = 0; // no limit
@@ -216,21 +214,6 @@ public abstract class YdbStatementBase implements YdbStatement {
         }
         ctx.traceQueryByFullScanDetector(query, yql);
 
-//<<<<<<< HEAD
-//        YDBQueryExtensionService ext = ctx.getQueryExtensionService();
-//        if (ext != null) {
-//            ext.dataQueryPreExecute(ctx, this, query, yql, params);
-//        }
-//
-//        YdbQueryResult result;
-//        result = connection.getExecutor().executeDataQuery(this, query, yql, params);
-//
-//        if (ext != null) {
-//            ext.dataQueryPostExecute(ctx, this, query, yql, params, result);
-//        }
-//
-//        return result;
-//=======
         boolean isInsideTx = executor.isInsideTransaction();
         while (true) {
             try {
@@ -265,7 +248,7 @@ public abstract class YdbStatementBase implements YdbStatement {
                 executor.setAutoCommit(false);
             }
             for (Params prm: params) {
-                YdbResultSetMemory[] res = executor.executeInMemoryQuery(this, queryFunc.apply(prm), prm);
+                YdbResultSetMemory[] res = executor.executeInMemoryQuery(this, query, queryFunc.apply(prm), prm);
                 count = Math.max(count, res.length);
                 batchResults.add(res);
             }
@@ -402,15 +385,5 @@ public abstract class YdbStatementBase implements YdbStatement {
     @Override
     public int getResultSetConcurrency() {
         return ResultSet.CONCUR_READ_ONLY;
-    }
-
-    @Override
-    public QueryStatsCollectionMode getStatsCollectionMode() {
-        return statsMode;
-    }
-
-    @Override
-    public void setStatsCollectionMode(QueryStatsCollectionMode mode) {
-        this.statsMode = mode == null ? QueryStatsCollectionMode.NONE : mode;
     }
 }

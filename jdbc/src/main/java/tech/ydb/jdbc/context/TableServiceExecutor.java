@@ -5,16 +5,20 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.time.Duration;
 
+import tech.ydb.core.Status;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbQueryResult;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTracer;
+import tech.ydb.jdbc.exception.YdbStatusable;
 import tech.ydb.jdbc.impl.YdbQueryResultExplain;
 import tech.ydb.jdbc.impl.YdbQueryResultStatic;
 import tech.ydb.jdbc.impl.YdbResultSetMemory;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
+import tech.ydb.jdbc.spi.YdbQueryExtentionService;
+import tech.ydb.query.result.QueryStats;
 import tech.ydb.table.Session;
 import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.ExplainDataQueryResult;
@@ -33,6 +37,7 @@ import tech.ydb.table.transaction.TxControl;
  */
 public class TableServiceExecutor extends BaseYdbExecutor {
     private final boolean failOnTruncatedResult;
+    private final YdbQueryExtentionService querySpi;
     private volatile TxState tx;
 
     public TableServiceExecutor(YdbContext ctx) throws SQLException {
@@ -40,6 +45,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         YdbOperationProperties options = ctx.getOperationProperties();
         this.tx = createTx(options.getTransactionLevel(), options.isAutoCommit());
         this.failOnTruncatedResult = options.isFailOnTruncatedResult();
+        this.querySpi = ctx.getQuerySpi();
     }
 
     @Override
@@ -172,8 +178,6 @@ public class TableServiceExecutor extends BaseYdbExecutor {
             settings = settings.disableQueryCache();
         }
 
-        settings = settings.setCollectStats(statement.getStatsCollectionMode());
-
         return settings;
     }
 
@@ -202,8 +206,18 @@ public class TableServiceExecutor extends BaseYdbExecutor {
         }
     }
 
-    private DataQueryResult executeTableQuery(YdbValidator validator, YdbTracer tracer, String yql,
-            ExecuteDataQuerySettings settings, Params prms) throws SQLException {
+    @Override
+    public YdbResultSetMemory[] executeInMemoryQuery(YdbStatement statement, YdbQuery query, String preparedYql,
+            Params params) throws SQLException {
+        ensureOpened();
+
+        YdbValidator validator = statement.getValidator();
+        String yql = prefixPragma + preparedYql;
+        YdbQueryExtentionService.QueryCall spi = querySpi.newDataQuery(statement, query, yql);
+
+        YdbTracer tracer = statement.getConnection().getCtx().getTracer();
+        ExecuteDataQuerySettings settings = spi.prepareDataQuerySettings(dataQuerySettings(statement));
+
         Session session = tx.getSession(validator);
         try {
             tracer.trace("--> data query");
@@ -212,9 +226,13 @@ public class TableServiceExecutor extends BaseYdbExecutor {
             DataQueryResult result = validator.call(
                     QueryType.DATA_QUERY + " >>\n" + yql,
                     tracer,
-                    () -> session.executeDataQuery(yql, tx.txControl(), prms, settings)
+                    () -> session.executeDataQuery(yql, tx.txControl(), params, settings)
             );
             updateState(tx.withDataQuery(session, result.getTxId()));
+
+            if (result.hasQueryStats()) {
+                spi.onQueryStats(new QueryStats(result.getRawQueryStats()));
+            }
 
             if (failOnTruncatedResult) {
                 for (int idx = 0; idx < result.getResultSetCount(); idx += 1) {
@@ -226,30 +244,22 @@ public class TableServiceExecutor extends BaseYdbExecutor {
                 }
             }
 
-            return result;
-        } catch (SQLException | RuntimeException ex) {
-            updateState(tx.withRollback(session));
-            throw ex;
-        }
-    }
-
-    @Override
-    public YdbResultSetMemory[] executeInMemoryQuery(YdbStatement statement, String preparedYql, Params params)
-            throws SQLException {
-        ensureOpened();
-
-        YdbValidator validator = statement.getValidator();
-        String yql = prefixPragma + preparedYql;
-        YdbTracer tracer = statement.getConnection().getCtx().getTracer();
-
-        try {
-            DataQueryResult result = executeTableQuery(validator, tracer, yql, dataQuerySettings(statement), params);
             YdbResultSetMemory[] readers = new YdbResultSetMemory[result.getResultSetCount()];
             for (int idx = 0; idx < result.getResultSetCount(); idx += 1) {
                 readers[idx] = new YdbResultSetMemory(types, statement, result.getResultSet(idx));
             }
-//            queryResult.setQueryStats(result.getQueryStats());
+
+            spi.onQueryResult(Status.SUCCESS, null);
             return readers;
+        } catch (SQLException | RuntimeException ex) {
+            if (ex instanceof YdbStatusable) {
+                spi.onQueryResult(((YdbStatusable) ex).getStatus(), null);
+            } else {
+                spi.onQueryResult(null, ex);
+            }
+
+            updateState(tx.withRollback(session));
+            throw ex;
         } finally {
             if (tx.isInsideTransaction()) {
                 tracer.setId(tx.txID());
@@ -262,7 +272,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
     @Override
     public YdbQueryResult executeDataQuery(YdbStatement statement, YdbQuery query, String preparedYql, Params params)
             throws SQLException {
-        YdbResultSetMemory[] readers = executeInMemoryQuery(statement, preparedYql, params);
+        YdbResultSetMemory[] readers = executeInMemoryQuery(statement, query, preparedYql, params);
         return updateCurrentResult(new YdbQueryResultStatic(query, readers));
     }
 
