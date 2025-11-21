@@ -15,9 +15,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import tech.ydb.core.utils.URITools;
 import tech.ydb.jdbc.YdbConst;
 
-
-
-
 /**
  *
  * @author Aleksandr Gorshenin
@@ -45,6 +42,9 @@ public class YdbConfig {
     static final YdbProperty<String> USE_PREFIX_PATH = YdbProperty.string("usePrefixPath",
             "Add prefix path to all operations performed by driver");
 
+    static final YdbProperty<Boolean> USE_DISCOVERY = YdbProperty.bool("useDiscovery",
+            "Use discovery (client balancing) for YDB cluster connection", true);
+
     static final YdbProperty<Boolean> FULLSCAN_DETECTOR_ENABLED = YdbProperty.bool(
             "jdbcFullScanDetector", "Enable analizator for collecting query stats", false
     );
@@ -67,6 +67,7 @@ public class YdbConfig {
     private final int preparedStatementsCacheSize;
 
     private final boolean useQueryService;
+    private final boolean useDiscovery;
     private final YdbValue<String> usePrefixPath;
 
     private final boolean fullScanDetectorEnabled;
@@ -86,6 +87,7 @@ public class YdbConfig {
         this.preparedStatementsCacheSize = Math.max(0, PREPARED_STATEMENT_CACHE_SIZE.readValue(props).getValue());
 
         this.useQueryService = USE_QUERY_SERVICE.readValue(props).getValue();
+        this.useDiscovery = USE_DISCOVERY.readValue(props).getValue();
         this.usePrefixPath = USE_PREFIX_PATH.readValue(props);
 
         this.fullScanDetectorEnabled = FULLSCAN_DETECTOR_ENABLED.readValue(props).getValue();
@@ -125,6 +127,10 @@ public class YdbConfig {
 
     public boolean isUseQueryService() {
         return this.useQueryService;
+    }
+
+    public boolean isUseDiscovery() {
+        return this.useDiscovery;
     }
 
     public boolean hasPrefixPath() {
@@ -191,6 +197,7 @@ public class YdbConfig {
             YdbConfig.CACHE_CONNECTIONS_IN_DRIVER.toInfo(properties),
             YdbConfig.PREPARED_STATEMENT_CACHE_SIZE.toInfo(properties),
             YdbConfig.USE_QUERY_SERVICE.toInfo(properties),
+            YdbConfig.USE_DISCOVERY.toInfo(properties),
             YdbConfig.USE_PREFIX_PATH.toInfo(properties),
 
             YdbConnectionProperties.LOCAL_DATACENTER.toInfo(properties),

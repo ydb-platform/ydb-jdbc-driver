@@ -12,6 +12,7 @@ import java.util.logging.Logger;
 
 import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
+import tech.ydb.core.impl.SingleChannelTransport;
 import tech.ydb.core.settings.BaseRequestSettings;
 import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.YdbTracer;
@@ -250,7 +251,7 @@ public class YdbContext implements AutoCloseable {
                 });
             });
 
-            grpcTransport = builder.build();
+            grpcTransport = config.isUseDiscovery() ? builder.build() : new SingleChannelTransport(builder);
 
             PooledTableClient.Builder tableClient = PooledTableClient.newClient(
                     GrpcTableRpc.useTransport(grpcTransport)

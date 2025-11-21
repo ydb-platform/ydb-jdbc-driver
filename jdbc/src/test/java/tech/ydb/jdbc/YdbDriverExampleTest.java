@@ -8,8 +8,9 @@ import java.sql.SQLException;
 import java.sql.Types;
 
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import tech.ydb.test.junit5.YdbHelperExtension;
 
@@ -21,23 +22,10 @@ public class YdbDriverExampleTest {
     @RegisterExtension
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
-    private static String jdbcURL() {
-        StringBuilder jdbc = new StringBuilder("jdbc:ydb:")
-                .append(ydb.useTls() ? "grpcs://" : "grpc://")
-                .append(ydb.endpoint())
-                .append("/?database=")
-                .append(ydb.database());
-
-        if (ydb.authToken() != null) {
-            jdbc.append("&").append("token=").append(ydb.authToken());
-        }
-
-        return jdbc.toString();
-    }
-
-    @Test
-    public void testYdb() throws SQLException {
-        try (Connection connection = DriverManager.getConnection(jdbcURL())) {
+    @ParameterizedTest
+    @EnumSource(Mode.class)
+    public void testYdb(Mode mode) throws SQLException {
+        try (Connection connection = DriverManager.getConnection(mode.getJdbcURL())) {
             try {
                 connection.createStatement()
                         .execute("drop table table_sample");
@@ -148,9 +136,10 @@ public class YdbDriverExampleTest {
         }
     }
 
-    @Test
-    public void testYdbNotNull() throws SQLException {
-        try (Connection connection = DriverManager.getConnection(jdbcURL())) {
+    @ParameterizedTest
+    @EnumSource(Mode.class)
+    public void testYdbNotNull(Mode mode) throws SQLException {
+        try (Connection connection = DriverManager.getConnection(mode.getJdbcURL())) {
             try {
                 connection.createStatement().execute("drop table table_sample");
             } catch (SQLException e) {
@@ -248,5 +237,58 @@ public class YdbDriverExampleTest {
                 Assertions.assertEquals(10, rs.getLong("cnt"));
             }
         }
+    }
+
+    private enum Mode {
+        BASE {
+            @Override
+            String getJdbcURL() {
+                StringBuilder jdbc = new StringBuilder("jdbc:ydb:")
+                        .append(ydb.useTls() ? "grpcs://" : "grpc://")
+                        .append(ydb.endpoint())
+                        .append("/")
+                        .append(ydb.database());
+
+                if (ydb.authToken() != null) {
+                    jdbc.append("?").append("token=").append(ydb.authToken());
+                }
+
+                return jdbc.toString();
+            }
+        },
+        OLD_STYLE {
+            @Override
+            String getJdbcURL() {
+                StringBuilder jdbc = new StringBuilder("jdbc:ydb:")
+                        .append(ydb.useTls() ? "grpcs://" : "grpc://")
+                        .append(ydb.endpoint())
+                        .append("/?database=")
+                        .append(ydb.database());
+
+                if (ydb.authToken() != null) {
+                    jdbc.append("&").append("token=").append(ydb.authToken());
+                }
+
+                return jdbc.toString();
+            }
+        },
+        NO_DISCOVERY {
+            @Override
+            String getJdbcURL() {
+                StringBuilder jdbc = new StringBuilder("jdbc:ydb:")
+                        .append(ydb.useTls() ? "grpcs://" : "grpc://")
+                        .append(ydb.endpoint())
+                        .append(ydb.database())
+                        .append("?useDiscovery=false");
+
+                if (ydb.authToken() != null) {
+                    jdbc.append("&").append("token=").append(ydb.authToken());
+                }
+
+                return jdbc.toString();
+            }
+        };
+
+        abstract String getJdbcURL();
     }
 }

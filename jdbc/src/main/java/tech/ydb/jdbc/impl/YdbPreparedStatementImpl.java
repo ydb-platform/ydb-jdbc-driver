@@ -22,6 +22,7 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.List;
 import java.util.Objects;
 import java.util.logging.Logger;
 
@@ -97,8 +98,13 @@ public class YdbPreparedStatementImpl extends YdbStatementBase implements YdbPre
                 YdbQueryResult newState = executeBulkUpsert(query, bulk.getTablePath(), bulk.getBatchedBulk());
                 updateState(newState);
             } else {
-                for (Params prm: prepared.getBatchParams()) {
+                List<Params> prms = prepared.getBatchParams();
+                if (prms.size() == 1) {
+                    Params prm = prms.get(0);
                     YdbQueryResult newState = executeDataQuery(query, prepared.getBatchText(prm), prm);
+                    updateState(newState);
+                } else {
+                    YdbQueryResult newState = executeBatchQuery(query, prepared::getBatchText, prms);
                     updateState(newState);
                 }
             }

@@ -55,7 +55,7 @@ public class SqlQueries {
 
             JdbcQuery.IN_MEMORY, "" +
                     "$ignored = select 1;\n" +
-                    "upsert into #tableName (key, #column) values (?, ?); select 1;",
+                    "upsert into #tableName (key, #column) values (?, ?);",
 
             JdbcQuery.TYPED, "" +
                     "declare $p1 as Int32;\n" +
@@ -66,6 +66,28 @@ public class SqlQueries {
                     "declare $values as List<Struct<p1:Int32,p2:#type>>;\n" +
                     "$mapper = ($row) -> (AsStruct($row.p1 as key, $row.p2 as #column));\n" +
                     "upsert into #tableName select * from as_table(ListMap($values, $mapper));"
+    );
+
+    private static final Map<JdbcQuery, String> JDBC_INSERT_ONE = ImmutableMap.of(
+            JdbcQuery.STANDARD, "" +
+                    "insert into #tableName (key, #column) values (?, ?)",
+
+            JdbcQuery.BULK, "" + // Bulk insert is not supported
+                    "insert into #tableName (key, #column) values (?, ?)",
+
+            JdbcQuery.IN_MEMORY, "" +
+                    "$ignored = select 1;\n" +
+                    "insert into #tableName (key, #column) values (?, ?);",
+
+            JdbcQuery.TYPED, "" +
+                    "declare $p1 as Int32;\n" +
+                    "declare $p2 as #type;\n" +
+                    "insert into #tableName (key, #column) values ($p1, $p2)",
+
+            JdbcQuery.BATCHED, "" +
+                    "declare $values as List<Struct<p1:Int32,p2:#type>>;\n" +
+                    "$mapper = ($row) -> (AsStruct($row.p1 as key, $row.p2 as #column));\n" +
+                    "insert into #tableName select * from as_table(ListMap($values, $mapper));"
     );
 
     private static final Map<YqlQuery, String> YQL_UPSERT_ONE = ImmutableMap.of(
@@ -181,6 +203,13 @@ public class SqlQueries {
 
     public String upsertOne(JdbcQuery query, String column, String type) {
         return JDBC_UPSERT_ONE.get(query)
+                .replaceAll("#column", column)
+                .replaceAll("#type", type)
+                .replaceAll("#tableName", tableName);
+    }
+
+    public String insertOne(JdbcQuery query, String column, String type) {
+        return JDBC_INSERT_ONE.get(query)
                 .replaceAll("#column", column)
                 .replaceAll("#type", type)
                 .replaceAll("#tableName", tableName);

@@ -32,19 +32,17 @@ public class ExceptionFactory {
         }
 
         // transport problems are translated to SQLTransientConnectionException
-        if (code == StatusCode.TRANSPORT_UNAVAILABLE || code == StatusCode.UNAVAILABLE) {
+        if (code == StatusCode.TRANSPORT_UNAVAILABLE) {
             return new YdbUnavailbaleException(message, sqlState, vendorCode, cause);
         }
 
         // timeouts are translated to SQLTimeoutException
-        if (code == StatusCode.TIMEOUT ||
-                code == StatusCode.CLIENT_DEADLINE_EXPIRED ||
-                code == StatusCode.CLIENT_DEADLINE_EXCEEDED) {
+        if (code == StatusCode.CLIENT_DEADLINE_EXPIRED || code == StatusCode.CLIENT_DEADLINE_EXCEEDED) {
             return new YdbTimeoutException(message, sqlState, vendorCode, cause);
         }
 
         // all others transient problems are translated to base SQLTransientException
-        if (code.isRetryable(true)) {
+        if (code.isRetryable(true) || code == StatusCode.TIMEOUT) {
             return new YdbConditionallyRetryableException(message, sqlState, vendorCode, cause);
         }
 

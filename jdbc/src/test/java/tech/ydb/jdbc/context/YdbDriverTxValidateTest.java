@@ -20,6 +20,7 @@ import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
 import tech.ydb.jdbc.exception.YdbRetryableException;
+import tech.ydb.jdbc.exception.YdbTimeoutException;
 import tech.ydb.jdbc.impl.YdbTracerImpl;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcConnectionExtention;
@@ -156,6 +157,34 @@ public class YdbDriverTxValidateTest {
     }
 
     @Test
+    public void unavailableTxTest() throws SQLException {
+        String url = jdbcURL.withArg("withTxValidationTable", "tx1_store").build();
+        try (Connection conn = DriverManager.getConnection(url)) {
+            ErrorTxTracer tracer = YdbTracerImpl.use(new ErrorTxTracer());
+            // table was created automatically
+            assertTxCount("tx1_store", 0);
+
+            conn.setAutoCommit(false);
+
+            conn.createStatement().execute("DELETE FROM tx1_store");
+            // throw condintionally retryable exception AFTER commit
+            tracer.throwErrorOn("<-- Status", Status.of(StatusCode.TRANSPORT_UNAVAILABLE));
+            conn.commit(); // no error, tx is validated successfully
+
+            assertTxCount("tx1_store", 1);
+
+            conn.createStatement().execute("DELETE FROM tx1_store");
+            // throw condintionally retryable exception BEFORE commit
+            tracer.throwErrorOn("--> commit-and-store-tx", Status.of(StatusCode.TRANSPORT_UNAVAILABLE));
+            ExceptionAssert.sqlRecoverable("Transaction wasn't committed", conn::commit);
+
+            Assert.assertNull(tracer.error);
+        } finally {
+            jdbc.connection().createStatement().execute("DROP TABLE tx1_store");
+        }
+    }
+
+    @Test
     public void executeDataQueryTest() throws SQLException {
         String url = jdbcURL.withArg("withTxValidationTable", "tx1_store").build();
         try (Connection conn = DriverManager.getConnection(url)) {
@@ -176,6 +205,11 @@ public class YdbDriverTxValidateTest {
                 YdbRetryableException e2 = Assertions.assertThrows(YdbRetryableException.class,
                         () -> st.execute("DELETE FROM tx1_store"));
                 Assertions.assertEquals(Status.of(StatusCode.ABORTED), e2.getStatus());
+
+                tracer.throwErrorOn("<-- Status", Status.of(StatusCode.CLIENT_DEADLINE_EXCEEDED));
+                YdbTimeoutException e3 = Assertions.assertThrows(YdbTimeoutException.class,
+                        () -> st.execute("DELETE FROM tx1_store"));
+                Assertions.assertEquals(Status.of(StatusCode.CLIENT_DEADLINE_EXCEEDED), e3.getStatus());
             }
 
 
