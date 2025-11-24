@@ -1,9 +1,9 @@
 package tech.ydb.jdbc.context;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ServiceLoader;
-import java.util.stream.Collectors;
 
 import tech.ydb.core.Status;
 import tech.ydb.jdbc.YdbStatement;
@@ -46,9 +46,18 @@ public class YdbServiceLoader {
         }
 
         @Override
-        public QueryCall newDataQuery(YdbStatement statement, YdbQuery query, String yql) {
-            List<QueryCall> proxed = spis.stream().map(spi -> newDataQuery(statement, query, yql))
-                    .collect(Collectors.toList());
+        public QueryCall newDataQuery(YdbStatement statement, YdbQuery query, String yql) throws SQLException {
+            List<QueryCall> proxed = new ArrayList<>();
+            try {
+                for (YdbQueryExtentionService spi: spis) {
+                    proxed.add(spi.newDataQuery(statement, query, yql));
+                }
+            } catch (SQLException | RuntimeException th) {
+                for (QueryCall call: proxed) {
+                    call.onQueryResult(null, th);
+                }
+                throw th;
+            }
 
             return new QueryCall() {
                 @Override

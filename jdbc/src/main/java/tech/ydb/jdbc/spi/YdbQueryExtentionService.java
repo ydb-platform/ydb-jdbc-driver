@@ -1,5 +1,7 @@
 package tech.ydb.jdbc.spi;
 
+import java.sql.SQLException;
+
 import tech.ydb.core.Status;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.query.YdbQuery;
@@ -66,6 +68,7 @@ public interface YdbQueryExtentionService {
      * @param query     Internal query information
      * @param yql       Prepared YQL query, might be different for different parameters
      * @return current query handler
+     * @throws java.sql.SQLException if SPI rejected query execution
      */
-    QueryCall newDataQuery(YdbStatement statement, YdbQuery query, String yql);
+    QueryCall newDataQuery(YdbStatement statement, YdbQuery query, String yql) throws SQLException;
 }
