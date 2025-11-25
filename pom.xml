@@ -6,7 +6,7 @@
     <groupId>tech.ydb.jdbc</groupId>
 
     <artifactId>ydb-jdbc-driver-parent</artifactId>
-    <version>2.3.20-SNAPSHOT</version>
+    <version>2.3.20</version>
 
     <name>YDB JDBC Module</name>
     <description>JDBC Driver over YDB Java SDK</description>

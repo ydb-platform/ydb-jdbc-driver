@@ -1,3 +1,11 @@
+## 2.3.20 ##
+
+* Added option `useDiscovery` enabled by default
+* Update to Java SDK v2.3.25
+* Added TRANSPORT_UNAVAIBLE processing to TableTxExecutor
+* Fixed inmemory queries batching
+* Removed unuseful trace events
+
 ## 2.3.19 ##
 
 * Updated implementation of stream result sets
