@@ -22,7 +22,7 @@ public class ExceptionAssert {
                 "Invalid statement must throw YdbSQLException"
         );
         Assertions.assertTrue(ex.getMessage().contains(message),
-                "YdbNonRetryableException '" + ex.getMessage() + "' doesn't contain message '" + message + "'");
+                "YdbSQLException '" + ex.getMessage() + "' doesn't contain message '" + message + "'");
     }
 
     public static void sqlDataException(String message, Executable exec) {

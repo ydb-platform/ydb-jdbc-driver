@@ -15,6 +15,7 @@ import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbQueryResult;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.YdbTracer;
+import tech.ydb.jdbc.exception.YdbStatusable;
 import tech.ydb.jdbc.impl.YdbQueryResultExplain;
 import tech.ydb.jdbc.impl.YdbQueryResultReader;
 import tech.ydb.jdbc.impl.YdbQueryResultStatic;
@@ -22,6 +23,7 @@ import tech.ydb.jdbc.impl.YdbResultSetMemory;
 import tech.ydb.jdbc.query.QueryType;
 import tech.ydb.jdbc.query.YdbQuery;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
+import tech.ydb.jdbc.spi.YdbQueryExtentionService;
 import tech.ydb.query.QueryClient;
 import tech.ydb.query.QuerySession;
 import tech.ydb.query.QueryStream;
@@ -43,6 +45,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     private final Duration sessionTimeout;
     private final QueryClient queryClient;
     private final boolean useStreamResultSet;
+    private final YdbQueryExtentionService querySpi;
 
     private int transactionLevel;
     private boolean isReadOnly;
@@ -58,6 +61,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         this.sessionTimeout = options.getSessionTimeout();
         this.queryClient = ctx.getQueryClient();
         this.useStreamResultSet = options.getUseStreamResultSets();
+        this.querySpi = ctx.getQuerySpi();
 
         this.transactionLevel = options.getTransactionLevel();
         this.isAutoCommit = options.isAutoCommit();
@@ -224,16 +228,21 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    public YdbResultSetMemory[] executeInMemoryQuery(YdbStatement statement, String preparedYql, Params params)
-            throws SQLException {
+    public YdbResultSetMemory[] executeInMemoryQuery(YdbStatement statement, YdbQuery query, String preparedYql,
+            Params params) throws SQLException {
         ensureOpened();
 
         YdbValidator validator = statement.getValidator();
+
+        String yql = prefixPragma + preparedYql;
+        YdbQueryExtentionService.QueryCall spi = querySpi.newDataQuery(statement, query, yql);
+
         int timeout = statement.getQueryTimeout();
         ExecuteQuerySettings.Builder settings = ExecuteQuerySettings.newBuilder();
         if (timeout > 0) {
             settings = settings.withRequestTimeout(timeout, TimeUnit.SECONDS);
         }
+        settings = spi.prepareQuerySettings(settings);
 
         QueryTransaction nextTx = tx.get();
         while (nextTx == null) {
@@ -244,10 +253,8 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             }
         }
 
-        final QueryTransaction localTx = nextTx;
+        QueryTransaction localTx = nextTx;
         YdbTracer tracer = statement.getConnection().getCtx().getTracer();
-
-        String yql = prefixPragma + preparedYql;
 
         try {
             tracer.trace("--> data query");
@@ -264,7 +271,19 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
                 readers[idx] = new YdbResultSetMemory(types, statement, result.getResultSet(idx));
             }
 
+            if (result.getQueryInfo().hasStats()) {
+                spi.onQueryStats(result.getQueryInfo().getStats());
+            }
+
+            spi.onQueryResult(Status.SUCCESS, null);
             return readers;
+        } catch (SQLException | RuntimeException ex) {
+            if (ex instanceof YdbStatusable) {
+                spi.onQueryResult(((YdbStatusable) ex).getStatus(), null);
+            } else {
+                spi.onQueryResult(null, ex);
+            }
+            throw ex;
         } finally {
             if (!localTx.isActive()) {
                 if (tx.compareAndSet(localTx, null)) {
@@ -286,16 +305,20 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         ensureOpened();
 
         if (!useStreamResultSet) {
-            YdbResultSetMemory[] readers = executeInMemoryQuery(statement, preparedYql, params);
+            YdbResultSetMemory[] readers = executeInMemoryQuery(statement, query, preparedYql, params);
             return updateCurrentResult(new YdbQueryResultStatic(query, readers));
         }
 
         YdbValidator validator = statement.getValidator();
+        String yql = prefixPragma + preparedYql;
+        YdbQueryExtentionService.QueryCall spi = querySpi.newDataQuery(statement, query, yql);
+
         int timeout = statement.getQueryTimeout();
         ExecuteQuerySettings.Builder settings = ExecuteQuerySettings.newBuilder();
         if (timeout > 0) {
             settings = settings.withRequestTimeout(timeout, TimeUnit.SECONDS);
         }
+        settings = spi.prepareQuerySettings(settings);
 
         QueryTransaction nextTx = tx.get();
         while (nextTx == null) {
@@ -306,11 +329,8 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             }
         }
 
-        final QueryTransaction localTx = nextTx;
+        QueryTransaction localTx = nextTx;
         YdbTracer tracer = statement.getConnection().getCtx().getTracer();
-
-        String yql = prefixPragma + preparedYql;
-
         tracer.trace("--> stream query");
         tracer.query(yql);
         String msg = "STREAM_QUERY >>\n" + yql;
@@ -318,6 +338,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         YdbQueryResultReader reader = new YdbQueryResultReader(types, statement, query) {
             @Override
             public void onClose(Status status, Throwable th) {
+                spi.onQueryResult(status, th);
                 if (th != null) {
                     tracer.trace("<-- " + th.getMessage());
                 }
@@ -341,7 +362,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
         settings = settings.withGrpcFlowControl(reader);
         QueryStream stream = localTx.createQuery(yql, isAutoCommit, params, settings.build());
-        validator.execute(msg, tracer, () -> reader.load(validator, stream));
+        validator.execute(msg, tracer, () -> reader.load(validator, stream, spi::onQueryStats));
         return updateCurrentResult(reader);
     }
 

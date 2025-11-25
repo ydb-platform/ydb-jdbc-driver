@@ -24,6 +24,7 @@ import tech.ydb.jdbc.settings.YdbConfig;
 import tech.ydb.jdbc.settings.YdbConnectionProperties;
 import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.jdbc.settings.YdbQueryProperties;
+import tech.ydb.jdbc.spi.YdbQueryExtentionService;
 import tech.ydb.query.QueryClient;
 import tech.ydb.query.impl.QueryClientImpl;
 import tech.ydb.scheme.SchemeClient;
@@ -58,6 +59,8 @@ public class YdbContext implements AutoCloseable {
 
     private final boolean autoResizeSessionPool;
     private final AtomicInteger connectionsCount = new AtomicInteger();
+
+    private final YdbQueryExtentionService querySpi;
 
     private YdbContext(
             YdbConfig config,
@@ -97,6 +100,8 @@ public class YdbContext implements AutoCloseable {
             this.cache = new YdbCache(this,
                     queryProperties, config.getPreparedStatementsCachecSize(), config.isFullScanDetectorEnabled());
         }
+
+        this.querySpi = YdbServiceLoader.loadQuerySpi();
     }
 
     public YdbTypes getTypes() {
@@ -113,6 +118,10 @@ public class YdbContext implements AutoCloseable {
 
     public YdbTracer getTracer() {
         return config.isTxTracedEnabled() ? YdbTracer.current() : YdbTracerNone.DISABLED;
+    }
+
+    public YdbQueryExtentionService getQuerySpi() {
+        return querySpi;
     }
 
     static String joined(String path1, String path2) {

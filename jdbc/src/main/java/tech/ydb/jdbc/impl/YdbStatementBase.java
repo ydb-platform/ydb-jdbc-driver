@@ -248,7 +248,7 @@ public abstract class YdbStatementBase implements YdbStatement {
                 executor.setAutoCommit(false);
             }
             for (Params prm: params) {
-                YdbResultSetMemory[] res = executor.executeInMemoryQuery(this, queryFunc.apply(prm), prm);
+                YdbResultSetMemory[] res = executor.executeInMemoryQuery(this, query, queryFunc.apply(prm), prm);
                 count = Math.max(count, res.length);
                 batchResults.add(res);
             }
