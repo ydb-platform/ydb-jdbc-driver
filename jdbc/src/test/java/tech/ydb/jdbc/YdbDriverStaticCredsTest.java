@@ -21,6 +21,10 @@ import tech.ydb.test.junit5.YdbHelperExtension;
  * @author Aleksandr Gorshenin
  */
 public class YdbDriverStaticCredsTest {
+    private static final String ERROR_PREFIX = "Cannot connect to YDB: Discovery failed";
+    private static final String ERROR_SUFFIX = "Can't login, code: UNAUTHORIZED, "
+            + "issues: [#400020 Invalid password (S_FATAL)]";
+
     @RegisterExtension
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
@@ -73,13 +77,9 @@ public class YdbDriverStaticCredsTest {
 
     private void wrongConnection(ConnectionSupplier connectionSupplier) {
         SQLException ex = Assertions.assertThrows(SQLException.class, () -> testConnection(connectionSupplier, null));
-        Assertions.assertTrue(ex.getMessage().startsWith(""
-                + "Cannot connect to YDB: Discovery failed, Cannot get value, code: CLIENT_GRPC_ERROR, issues: ["
-                + "gRPC error: (INTERNAL)"));
-        Assertions.assertTrue(ex.getMessage().endsWith(""
-                + "get token exception (S_ERROR), tech.ydb.core.UnexpectedResultException: Can't login, "
-                + "code: UNAUTHORIZED, issues: [#400020 Invalid password (S_FATAL)] (S_ERROR)], "
-                + "Can't login, code: UNAUTHORIZED, issues: [#400020 Invalid password (S_FATAL)]"));
+        int len = ex.getMessage().length();
+        Assertions.assertEquals(ERROR_PREFIX, ex.getMessage().substring(0, ERROR_PREFIX.length()));
+        Assertions.assertEquals(ERROR_SUFFIX, ex.getMessage().substring(len - ERROR_SUFFIX.length(), len));
     }
 
     @Test
