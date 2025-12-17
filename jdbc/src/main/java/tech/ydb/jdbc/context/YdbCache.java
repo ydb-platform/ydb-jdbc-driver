@@ -230,15 +230,17 @@ public class YdbCache {
             queryParamsCache.put(query.getOriginQuery(), queryTypes);
         }
 
-        boolean requireBatch = mode == YdbPrepareMode.DATA_QUERY_BATCH;
-        if (requireBatch || (mode == YdbPrepareMode.AUTO && queryOptions.isDetectBatchQueries())) {
-            BatchedQuery params = BatchedQuery.tryCreateBatched(ctx.getTypes(), query, queryTypes);
-            if (params != null) {
-                return params;
-            }
+        if (query.isWriting()) { // try to create auto-batched query
+            boolean requireBatch = mode == YdbPrepareMode.DATA_QUERY_BATCH;
+            if (requireBatch || (mode == YdbPrepareMode.AUTO && queryOptions.isDetectBatchQueries())) {
+                BatchedQuery params = BatchedQuery.tryCreateBatched(ctx.getTypes(), query, queryTypes);
+                if (params != null) {
+                    return params;
+                }
 
-            if (requireBatch) {
-                throw new SQLDataException(YdbConst.STATEMENT_IS_NOT_A_BATCH + query.getOriginQuery());
+                if (requireBatch) {
+                    throw new SQLDataException(YdbConst.STATEMENT_IS_NOT_A_BATCH + query.getOriginQuery());
+                }
             }
         }
         return new PreparedQuery(ctx.getTypes(), query, queryTypes);
