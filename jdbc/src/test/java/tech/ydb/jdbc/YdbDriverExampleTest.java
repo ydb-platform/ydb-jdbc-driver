@@ -12,6 +12,10 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
+import tech.ydb.table.values.ListValue;
+import tech.ydb.table.values.PrimitiveType;
+import tech.ydb.table.values.PrimitiveValue;
+import tech.ydb.table.values.StructType;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
 /**
@@ -111,6 +115,25 @@ public class YdbDriverExampleTest {
                 psBatch.addBatch();
 
                 psBatch.executeBatch();
+            }
+
+            try (PreparedStatement ps = connection
+                    .prepareStatement("" +
+                            "declare $values as List<Struct<id:Int32>>;\n" +
+                            "select sum(id) from as_table($values)")) {
+
+                StructType s = StructType.of("id", PrimitiveType.Int32);
+                ps.setObject(1, ListValue.of(
+                        s.newValue("id", PrimitiveValue.newInt32(1)),
+                        s.newValue("id", PrimitiveValue.newInt32(2)),
+                        s.newValue("id", PrimitiveValue.newInt32(3))
+                ));
+
+                try (ResultSet rs = ps.executeQuery()) {
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(6l, rs.getLong(1));
+                    Assertions.assertFalse(rs.next());
+                }
             }
 
             try (PreparedStatement bulkPs = connection.prepareStatement("" +
@@ -239,7 +262,7 @@ public class YdbDriverExampleTest {
         }
     }
 
-    private enum Mode {
+    public enum Mode {
         BASE {
             @Override
             String getJdbcURL() {
