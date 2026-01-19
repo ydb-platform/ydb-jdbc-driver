@@ -1,3 +1,8 @@
+## 2.3.21 ##
+
+* Added skipping of unaccessable directories
+* Disabled auto batching for select queries
+
 ## 2.3.20 ##
 
 * Added option `useDiscovery` enabled by default
