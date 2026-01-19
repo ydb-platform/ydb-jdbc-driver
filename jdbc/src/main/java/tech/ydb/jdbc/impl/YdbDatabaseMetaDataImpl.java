@@ -1354,14 +1354,29 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
         return tables(databaseWithSuffix, databaseWithSuffix, filter);
     }
 
+    @SuppressWarnings("null")
     private List<String> tables(String databasePrefix, String path, Predicate<String> filter) throws SQLException {
         ListDirectoryResult result = validator.call(
-                "List tables from " + path, null, () -> executor.listDirectory(path)
+                "List tables from " + path, null, () -> executor.listDirectory(path).thenApply(res -> {
+                    // ignore scheme errors like path not found
+                    StatusCode code = res.getStatus().getCode();
+                    if (code == StatusCode.SCHEME_ERROR || code == StatusCode.UNAUTHORIZED) {
+                        LOGGER.log(Level.WARNING, "Cannot list tables from {0} -> {1}",
+                                new Object[]{path, res.getStatus()}
+                        );
+                        return Result.success(null);
+                    }
+                    return res;
+                })
+
         );
 
         List<String> tables = new ArrayList<>();
-        String pathPrefix = withSuffix(path);
+        if (result == null) {
+            return tables;
+        }
 
+        String pathPrefix = withSuffix(path);
         for (Entry entry : result.getEntryChildren()) {
             String tableName = entry.getName();
             String fullPath = pathPrefix + tableName;
