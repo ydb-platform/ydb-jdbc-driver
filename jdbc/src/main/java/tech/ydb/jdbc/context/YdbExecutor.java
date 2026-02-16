@@ -30,7 +30,7 @@ public interface YdbExecutor {
     void setReadOnly(boolean readOnly) throws SQLException;
     void setAutoCommit(boolean autoCommit) throws SQLException;
 
-    YdbQueryResult executeSchemeQuery(YdbStatement st, YdbQuery query) throws SQLException;
+    YdbQueryResult executeSchemeQuery(YdbStatement st, YdbQuery query, String yql, Params prms) throws SQLException;
     YdbQueryResult executeBulkUpsert(YdbStatement st, YdbQuery query, String path, ListValue rows) throws SQLException;
     YdbQueryResult executeExplainQuery(YdbStatement st, YdbQuery query) throws SQLException;
     YdbQueryResult executeScanQuery(YdbStatement st, YdbQuery query, String yql, Params prms) throws SQLException;

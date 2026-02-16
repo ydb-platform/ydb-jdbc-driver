@@ -86,6 +86,24 @@ public class YdbQueryParserTest {
         Assertions.assertEquals(QueryCmd.DDL, statement.getCmd());
     }
 
+    @ParameterizedTest(name = "[{index}] {0} is batch query")
+    @ValueSource(strings = {
+        "  Batch delete from table;",
+        "BATCH--comment\nUPDATE table;",
+        "baTCH SELECT table 'test'",
+    })
+    public void batchQueryTest(String query) throws SQLException {
+        YdbQueryParser parser = new YdbQueryParser(types, query, props);
+        String parsed = parser.parseSQL();
+
+        Assertions.assertEquals(query, parsed);
+
+        Assertions.assertEquals(1, parser.getStatements().size());
+        QueryStatement statement = parser.getStatements().get(0);
+        Assertions.assertEquals(QueryType.SCHEME_QUERY, statement.getType());
+        Assertions.assertEquals(QueryCmd.BATCH, statement.getCmd());
+    }
+
     @ParameterizedTest(name = "[{index}] {0} is data query")
     @ValueSource(strings = {
         "ALTERED;",

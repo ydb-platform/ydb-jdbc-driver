@@ -273,7 +273,7 @@ public abstract class YdbStatementBase implements YdbStatement {
         return new YdbQueryResultStatic(query, merged);
     }
 
-    protected YdbQueryResult executeSchemeQuery(YdbQuery query) throws SQLException {
+    protected YdbQueryResult executeSchemeQuery(YdbQuery query, String yql, Params params) throws SQLException {
         prepareNewExecution();
 
         if (connection.getExecutor().isInsideTransaction()) {
@@ -289,7 +289,7 @@ public abstract class YdbStatementBase implements YdbStatement {
             }
         }
 
-        return connection.getExecutor().executeSchemeQuery(this, query);
+        return connection.getExecutor().executeSchemeQuery(this, query, yql, params);
     }
 
     protected YdbQueryResult executeScanQuery(YdbQuery query, String yql, Params params) throws SQLException {

@@ -10,5 +10,7 @@ public enum QueryCmd {
     /** CREATE, DROP, ALTER, GRANT, REVOKE */
     DDL,
     /** INSERT, UPSERT, UPDATE, REPLACE, DELETE */
-    DML
+    DML,
+    /** BATCH UPDATE/BATCH DELETE */
+    BATCH,
 }

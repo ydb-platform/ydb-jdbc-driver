@@ -1,6 +1,7 @@
 package tech.ydb.jdbc.context;
 
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -87,10 +88,15 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
     }
 
     @Override
-    public YdbQueryResult executeSchemeQuery(YdbStatement statement, YdbQuery query) throws SQLException {
+    public YdbQueryResult executeSchemeQuery(YdbStatement statement, YdbQuery query, String preparedYql, Params params)
+            throws SQLException {
         ensureOpened();
 
-        String yql = prefixPragma + query.getPreparedYql();
+        if (!params.isEmpty()) {
+            throw new SQLFeatureNotSupportedException(YdbConst.PARAMETERIZED_SCHEME_QUERIES_UNSUPPORTED);
+        }
+
+        String yql = prefixPragma + preparedYql;
         YdbContext ctx = statement.getConnection().getCtx();
         YdbValidator validator = statement.getValidator();
 
