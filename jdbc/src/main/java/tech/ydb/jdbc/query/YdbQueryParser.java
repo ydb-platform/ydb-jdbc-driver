@@ -221,8 +221,12 @@ public class YdbQueryParser {
                     }
 
                     if (!skipped) {
+                        // reset flag of JDBC parameter detecting
+                        detectJdbcArgs = isDetectJdbcParameters;
+
                         // Detecting type of statement by the first keyword
                         statement = new QueryStatement(type, QueryType.UNKNOWN, QueryCmd.UNKNOWN);
+
                         // Detect data query expression - starts with SELECT, , UPSERT, DELETE, REPLACE
                         // starts with SELECT
                         if (parseSelectKeyword(chars, keywordStart, keywordLength)) {
@@ -234,6 +238,7 @@ public class YdbQueryParser {
                         if (parseDeclareKeyword(chars, keywordStart, keywordLength)) {
                             statement = new QueryStatement(type, QueryType.DECLARE, QueryCmd.UNKNOWN);
                             batcher.readIdentifier(chars, keywordStart, keywordLength);
+                            detectJdbcArgs = false; // no parse JDBC in DECLARE expression
                         }
 
                         // starts with INSERT, UPSERT
@@ -269,13 +274,16 @@ public class YdbQueryParser {
                                 ) {
                             statement = new QueryStatement(type, QueryType.SCHEME_QUERY, QueryCmd.DDL);
                             batcher.readIdentifier(chars, keywordStart, keywordLength);
+                            detectJdbcArgs = false; // no parse JDBC in DECLARE expression
+                        }
+
+                        // Batch expression - starts with BATCH. It likes scheme expression, but can contains parameters
+                        if (parseBatchKeyword(chars, keywordStart, keywordLength)) {
+                            statement = new QueryStatement(type, QueryType.SCHEME_QUERY, QueryCmd.BATCH);
+                            batcher.readIdentifier(chars, keywordStart, keywordLength);
                         }
 
                         statements.add(statement);
-
-                        detectJdbcArgs = isDetectJdbcParameters;
-                        detectJdbcArgs = detectJdbcArgs && statement.getType() != QueryType.SCHEME_QUERY;
-                        detectJdbcArgs = detectJdbcArgs && statement.getType() != QueryType.DECLARE;
                         if (!isForceJdbcParamters) {
                             detectJdbcArgs = detectJdbcArgs && statement.getType() != QueryType.UNKNOWN;
                         }
@@ -828,5 +836,17 @@ public class YdbQueryParser {
                 && (query[offset + 7] | 32) == 'b'
                 && (query[offset + 8] | 32) == 'l'
                 && (query[offset + 9] | 32) == 'e';
+    }
+
+    private static boolean parseBatchKeyword(char[] query, int offset, int length) {
+        if (length != 5) {
+            return false;
+        }
+
+        return (query[offset] | 32) == 'b'
+                && (query[offset + 1] | 32) == 'a'
+                && (query[offset + 2] | 32) == 't'
+                && (query[offset + 3] | 32) == 'c'
+                && (query[offset + 4] | 32) == 'h';
     }
 }

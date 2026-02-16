@@ -304,6 +304,15 @@ public class YdbTablePreparedStatementImplTest {
         }
     }
 
+    @Test
+    public void executeBatchedQuery() throws SQLException {
+        String query = TEST_TABLE.withTableName("BATCH DELETE FROM #tableName WHERE c_Text = ?");
+        try (PreparedStatement statement = jdbc.connection().prepareStatement(query)) {
+            statement.setString(1, "test");
+            ExceptionAssert.sqlException(YdbConst.PARAMETERIZED_SCHEME_QUERIES_UNSUPPORTED, statement::execute);
+        }
+    }
+
     @ParameterizedTest(name = "with {0}")
     @EnumSource(SqlQueries.YqlQuery.class)
     public void executeDataQuery(SqlQueries.YqlQuery mode) throws SQLException {

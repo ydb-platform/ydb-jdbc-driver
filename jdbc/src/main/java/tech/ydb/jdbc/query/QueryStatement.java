@@ -52,7 +52,7 @@ public class QueryStatement {
     }
 
     public boolean hasUpdateCount() {
-        return command == QueryCmd.DML && !hasReturinng;
+        return (command == QueryCmd.DML || command == QueryCmd.BATCH) && !hasReturinng;
     }
 
     public boolean hasUpdateWithGenerated() {

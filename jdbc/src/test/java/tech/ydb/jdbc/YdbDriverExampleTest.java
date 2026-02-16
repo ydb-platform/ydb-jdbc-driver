@@ -150,11 +150,25 @@ public class YdbDriverExampleTest {
                 bulkPs.executeBatch();
             }
 
+            try (PreparedStatement batchUpdate = connection.prepareStatement("" +
+                            "BATCH UPDATE table_sample SET value = 'to-delete' WHERE id > ?")) {
+
+                batchUpdate.setInt(1, 10);
+                Assertions.assertFalse(batchUpdate.execute());
+            }
+
+            try (PreparedStatement batchDelete = connection.prepareStatement("" +
+                            "BATCH DELETE FROM table_sample WHERE id > ?")) {
+
+                batchDelete.setInt(1, 10);
+                Assertions.assertFalse(batchDelete.execute());
+            }
+
             try (PreparedStatement select = connection
-                    .prepareStatement("select count(1) as cnt from table_sample")) {
+                    .prepareStatement("SELECT count(1) AS cnt FROM table_sample")) {
                 ResultSet rs = select.executeQuery();
                 rs.next();
-                Assertions.assertEquals(13, rs.getLong("cnt"));
+                Assertions.assertEquals(10, rs.getLong("cnt"));
             }
         }
     }
