@@ -2,8 +2,8 @@ package tech.ydb.jdbc.context;
 
 import java.sql.SQLException;
 import java.time.Duration;
-import java.util.Collection;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import tech.ydb.core.Status;
@@ -24,7 +24,6 @@ import tech.ydb.table.SessionRetryContext;
 import tech.ydb.table.TableClient;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
-import tech.ydb.table.result.impl.ProtoValueReaders;
 import tech.ydb.table.settings.ExecuteScanQuerySettings;
 import tech.ydb.table.settings.ExecuteSchemeQuerySettings;
 import tech.ydb.table.values.ListValue;
@@ -157,14 +156,14 @@ public abstract class BaseYdbExecutor implements YdbExecutor {
                         .withRequestTimeout(scanQueryTimeout)
                         .build();
 
-                Collection<ResultSetReader> resultSets = new LinkedBlockingQueue<>();
+                List<ResultSetReader> parts = new ArrayList<>();
 
                 ctx.traceQueryByFullScanDetector(query, yql);
                 validator.execute(QueryType.SCAN_QUERY + " >>\n" + yql, tracer,
-                        () -> session.executeScanQuery(yql, params, settings).start(resultSets::add)
+                        () -> session.executeScanQuery(yql, params, settings).start(parts::add)
                 );
 
-                YdbResultSet rs = new YdbResultSetMemory(types, statement, ProtoValueReaders.forResultSets(resultSets));
+                YdbResultSet rs = new YdbResultSetMemory(types, statement, parts.toArray(new ResultSetReader[0]));
                 return updateCurrentResult(new YdbQueryResultStatic(query, rs));
             } finally {
                 session.close();
