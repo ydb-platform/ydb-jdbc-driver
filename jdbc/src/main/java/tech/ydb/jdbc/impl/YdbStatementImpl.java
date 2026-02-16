@@ -31,7 +31,7 @@ public class YdbStatementImpl extends YdbStatementBase {
         clearBatch();
 
         YdbQuery query = getConnection().getCtx().createYdbQuery(sql);
-        executeSchemeQuery(query);
+        executeSchemeQuery(query, query.getPreparedYql(), Params.empty());
     }
 
     @Override
@@ -84,7 +84,7 @@ public class YdbStatementImpl extends YdbStatementBase {
         YdbQueryResult newState = null;
         switch (query.getType()) {
             case SCHEME_QUERY:
-                newState = executeSchemeQuery(query);
+                newState = executeSchemeQuery(query, query.getPreparedYql(), Params.empty());
                 break;
             case DATA_QUERY:
                 newState = executeDataQuery(query, query.getPreparedYql(), Params.empty());

@@ -367,10 +367,11 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     }
 
     @Override
-    public YdbQueryResult executeSchemeQuery(YdbStatement statement, YdbQuery query) throws SQLException {
+    public YdbQueryResult executeSchemeQuery(YdbStatement statement, YdbQuery query, String preparedYql, Params params)
+            throws SQLException {
         ensureOpened();
 
-        String yql = prefixPragma + query.getPreparedYql();
+        String yql = prefixPragma + preparedYql;
         YdbContext ctx = statement.getConnection().getCtx();
         YdbValidator validator = statement.getValidator();
 
@@ -382,7 +383,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         ExecuteQuerySettings settings = ctx.withRequestTimeout(ExecuteQuerySettings.newBuilder()).build();
         try (QuerySession session = createNewQuerySession(validator)) {
             validator.call(QueryType.SCHEME_QUERY + " >>\n" + yql, tracer, () -> session
-                    .createQuery(yql, TxMode.NONE, Params.empty(), settings)
+                    .createQuery(yql, TxMode.NONE, params, settings)
                     .execute(new IssueHandler(validator))
             );
         } finally {

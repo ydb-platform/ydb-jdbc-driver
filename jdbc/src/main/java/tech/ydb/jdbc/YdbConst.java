@@ -44,6 +44,8 @@ public final class YdbConst {
     public static final String NAMED_CURSORS_UNSUPPORTED = "Named cursors are not supported";
     public static final String REF_UNSUPPORTED = "Refs are not supported";
     public static final String ASCII_STREAM_UNSUPPORTED = "AsciiStreams are not supported";
+    public static final String PARAMETERIZED_SCHEME_QUERIES_UNSUPPORTED = "TableService doesn't support parameterized"
+            + " scheme queries.";
 
     public static final String FORWARD_ONLY_MODE = "ResultSet in TYPE_FORWARD_ONLY mode";
     public static final String CUSTOM_SQL_UNSUPPORTED = "PreparedStatement cannot execute custom SQL";

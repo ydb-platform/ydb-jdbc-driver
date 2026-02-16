@@ -147,7 +147,7 @@ public class YdbPreparedStatementImpl extends YdbStatementBase implements YdbPre
                 newState = executeScanQuery(query, prepared.getQueryText(prms), prms);
                 break;
             case SCHEME_QUERY:
-                newState = executeSchemeQuery(query);
+                newState = executeSchemeQuery(query, prepared.getQueryText(prms), prms);
                 break;
             case EXPLAIN_QUERY:
                 newState = executeExplainQuery(query);
