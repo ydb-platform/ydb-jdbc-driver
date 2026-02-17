@@ -1,3 +1,10 @@
+## 2.3.22 ##
+
+* Added JDBC driver version as application name
+* Added a new SPI to customize trace ids
+* Added support of BATCH updates/deletes
+* Update to the latest Java SDK and minor fixes
+
 ## 2.3.21 ##
 
 * Added skipping of unaccessable directories
