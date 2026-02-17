@@ -134,7 +134,7 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
 
     @Override
     public String getDriverVersion() {
-        return YdbDriverInfo.DRIVER_VERSION;
+        return YdbDriverInfo.DRIVER_FULL_VERSION;
     }
 
     @Override

@@ -27,6 +27,27 @@ public class JdbcDriverVersion {
         return minor;
     }
 
+    public boolean isSdkVersion(int... vv) {
+        try {
+            String[] parts = sdk.split("\\.");
+            for (int idx = 0; idx < vv.length; idx++) {
+                if (idx >= parts.length) {
+                    return false;
+                }
+                if (Integer.parseInt(parts[idx]) < vv[idx]) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (NumberFormatException ex) {
+            return false;
+        }
+    }
+
+    public String getDriverVersion() {
+        return version;
+    }
+
     public String getFullVersion() {
         return version + "(based on SDK " + sdk + ")";
     }

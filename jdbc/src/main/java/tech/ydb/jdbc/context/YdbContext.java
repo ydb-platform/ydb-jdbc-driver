@@ -12,8 +12,10 @@ import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
 import tech.ydb.core.impl.SingleChannelTransport;
 import tech.ydb.core.settings.BaseRequestSettings;
+import tech.ydb.jdbc.YdbDriverInfo;
 import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.YdbTracer;
+import tech.ydb.jdbc.common.JdbcDriverVersion;
 import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.jdbc.impl.YdbTracerNone;
 import tech.ydb.jdbc.query.QueryKey;
@@ -234,6 +236,10 @@ public class YdbContext implements AutoCloseable {
             YdbQueryProperties queryProps = new YdbQueryProperties(config);
 
             GrpcTransportBuilder builder = GrpcTransport.forConnectionString(config.getConnectionString());
+            if (JdbcDriverVersion.getInstance().isSdkVersion(2, 3, 30)) {
+                // this method is available only on SDK 2.3.30+
+                builder.withApplicationName(YdbDriverInfo.DRIVER_VERSION);
+            }
             connProps.applyToGrpcTransport(builder);
 
             // Use custom single thread scheduler

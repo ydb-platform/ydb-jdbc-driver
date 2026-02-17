@@ -7,8 +7,9 @@ public final class YdbDriverInfo {
     public static final String DRIVER_NAME = "YDB JDBC Driver";
     public static final int DRIVER_MAJOR_VERSION = JdbcDriverVersion.getInstance().getMajor();
     public static final int DRIVER_MINOR_VERSION = JdbcDriverVersion.getInstance().getMinor();
-    public static final String DRIVER_VERSION = JdbcDriverVersion.getInstance().getFullVersion();
-    public static final String DRIVER_FULL_NAME = DRIVER_NAME + " " + DRIVER_VERSION;
+    public static final String DRIVER_VERSION = JdbcDriverVersion.getInstance().getDriverVersion();
+    public static final String DRIVER_FULL_VERSION = JdbcDriverVersion.getInstance().getFullVersion();
+    public static final String DRIVER_FULL_NAME = DRIVER_NAME + " " + DRIVER_FULL_VERSION;
     public static final int JDBC_MAJOR_VERSION = 4;
     public static final int JDBC_MINOR_VERSION = 2;
 
