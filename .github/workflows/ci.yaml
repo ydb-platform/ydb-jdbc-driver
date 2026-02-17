@@ -31,7 +31,7 @@ jobs:
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          java-version: 17
+          java-version: 21
           distribution: 'temurin'
           cache: 'maven'
           cache-dependency-path: |
@@ -55,7 +55,7 @@ jobs:
 
     strategy:
       matrix:
-        java: [ '8', '11', '17']
+        java: [ '8', '11', '17', '21']
 
     env:
         MAVEN_ARGS: --batch-mode -Dstyle.color=always -DYDB_DOCKER_ISOLATION=true
