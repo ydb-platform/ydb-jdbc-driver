@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.context;
+package tech.ydb.jdbc.spi;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -21,7 +21,6 @@ import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcUrlHelper;
 import tech.ydb.jdbc.query.YdbQuery;
-import tech.ydb.jdbc.spi.YdbQueryExtentionService;
 import tech.ydb.query.result.QueryStats;
 import tech.ydb.query.settings.ExecuteQuerySettings;
 import tech.ydb.query.settings.QueryStatsMode;
@@ -34,7 +33,6 @@ import tech.ydb.test.junit5.YdbHelperExtension;
  * @author Aleksandr Gorshenin
  */
 public class YdbDriverQuerySpiTest {
-
     @RegisterExtension
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
@@ -44,6 +42,7 @@ public class YdbDriverQuerySpiTest {
     @BeforeEach
     public void clean() {
         EmptiSpi.COUNT.set(0);
+        EmptiSpi.TX.set(0);
         FullStatsSpi.QUEUE.clear();
     }
 
@@ -55,6 +54,7 @@ public class YdbDriverQuerySpiTest {
 
         try (Connection conn = DriverManager.getConnection(jdbcURL.withArg("useQueryService", useQS).build())) {
             Assertions.assertEquals(0, EmptiSpi.COUNT.get());
+            Assertions.assertEquals(0, EmptiSpi.TX.get());
 
             try (ResultSet rs = conn.createStatement().executeQuery("SELECT 1 + 2")) {
                 Assertions.assertTrue(rs.next());
@@ -62,6 +62,7 @@ public class YdbDriverQuerySpiTest {
             }
 
             Assertions.assertEquals(1, EmptiSpi.COUNT.get());
+            Assertions.assertEquals(1, EmptiSpi.TX.get());
 
             try (PreparedStatement ps = conn.prepareStatement("SELECT ? + ?")) {
                 ps.setInt(1, 1);
@@ -79,11 +80,13 @@ public class YdbDriverQuerySpiTest {
 
                 Assertions.assertEquals(2, ps.executeBatch().length);
                 Assertions.assertEquals(4, EmptiSpi.COUNT.get());
+                Assertions.assertEquals(3, EmptiSpi.TX.get()); // batched queries are always in one tx
             }
 
             try (Statement st = conn.createStatement()) {
                 ExceptionAssert.ydbException("code = GENERIC_ERROR", () -> st.executeQuery("SELECT 1 + 'test'u"));
                 Assertions.assertEquals(5, EmptiSpi.COUNT.get());
+                Assertions.assertEquals(4, EmptiSpi.TX.get());
             }
         } finally {
             Thread.currentThread().setContextClassLoader(prev);
@@ -196,7 +199,13 @@ public class YdbDriverQuerySpiTest {
     }
 
     public static class EmptiSpi implements YdbQueryExtentionService {
+        private static final AtomicLong TX = new AtomicLong(0);
         private static final AtomicLong COUNT = new AtomicLong(0);
+
+        @Override
+        public void onNewTransaction() {
+            TX.incrementAndGet();
+        }
 
         @Override
         public QueryCall newDataQuery(YdbStatement statement, YdbQuery query, String yql) {

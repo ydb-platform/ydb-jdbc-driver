@@ -213,6 +213,9 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
         YdbValidator validator = statement.getValidator();
         String yql = prefixPragma + preparedYql;
+        if (!tx.isInsideTransaction()) {
+            querySpi.onNewTransaction();
+        }
         YdbQueryExtentionService.QueryCall spi = querySpi.newDataQuery(statement, query, yql);
 
         YdbTracer tracer = statement.getConnection().getCtx().getTracer();

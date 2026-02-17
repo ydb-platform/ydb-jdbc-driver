@@ -74,6 +74,20 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         return validator.call("Get query session", null, () -> queryClient.createSession(sessionTimeout));
     }
 
+    private QueryTransaction getOrCreateTransaction(YdbValidator validator) throws SQLException {
+        QueryTransaction nextTx = tx.get();
+        while (nextTx == null) {
+            querySpi.onNewTransaction();
+            nextTx = createNewQuerySession(validator).createNewTransaction(txMode);
+            if (tx.compareAndSet(null, nextTx)) {
+                return nextTx;
+            }
+            nextTx.getSession().close();
+            nextTx = tx.get();
+        }
+        return nextTx;
+    }
+
     @Override
     public void close() throws SQLException {
         clearState();
@@ -234,27 +248,17 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
         YdbValidator validator = statement.getValidator();
 
+        YdbTracer tracer = statement.getConnection().getCtx().getTracer();
         String yql = prefixPragma + preparedYql;
-        YdbQueryExtentionService.QueryCall spi = querySpi.newDataQuery(statement, query, yql);
-
         int timeout = statement.getQueryTimeout();
         ExecuteQuerySettings.Builder settings = ExecuteQuerySettings.newBuilder();
         if (timeout > 0) {
             settings = settings.withRequestTimeout(timeout, TimeUnit.SECONDS);
         }
+
+        QueryTransaction localTx = getOrCreateTransaction(validator);
+        YdbQueryExtentionService.QueryCall spi = querySpi.newDataQuery(statement, query, yql);
         settings = spi.prepareQuerySettings(settings);
-
-        QueryTransaction nextTx = tx.get();
-        while (nextTx == null) {
-            nextTx = createNewQuerySession(validator).createNewTransaction(txMode);
-            if (!tx.compareAndSet(null, nextTx)) {
-                nextTx.getSession().close();
-                nextTx = tx.get();
-            }
-        }
-
-        QueryTransaction localTx = nextTx;
-        YdbTracer tracer = statement.getConnection().getCtx().getTracer();
 
         try {
             tracer.trace("--> data query");
@@ -311,25 +315,17 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
         YdbValidator validator = statement.getValidator();
         String yql = prefixPragma + preparedYql;
-        YdbQueryExtentionService.QueryCall spi = querySpi.newDataQuery(statement, query, yql);
 
         int timeout = statement.getQueryTimeout();
         ExecuteQuerySettings.Builder settings = ExecuteQuerySettings.newBuilder();
         if (timeout > 0) {
             settings = settings.withRequestTimeout(timeout, TimeUnit.SECONDS);
         }
+
+        QueryTransaction localTx = getOrCreateTransaction(validator);
+        YdbQueryExtentionService.QueryCall spi = querySpi.newDataQuery(statement, query, yql);
         settings = spi.prepareQuerySettings(settings);
 
-        QueryTransaction nextTx = tx.get();
-        while (nextTx == null) {
-            nextTx = createNewQuerySession(validator).createNewTransaction(txMode);
-            if (!tx.compareAndSet(null, nextTx)) {
-                nextTx.getSession().close();
-                nextTx = tx.get();
-            }
-        }
-
-        QueryTransaction localTx = nextTx;
         YdbTracer tracer = statement.getConnection().getCtx().getTracer();
         tracer.trace("--> stream query");
         tracer.query(yql);
@@ -339,6 +335,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             @Override
             public void onClose(Status status, Throwable th) {
                 spi.onQueryResult(status, th);
+
                 if (th != null) {
                     tracer.trace("<-- " + th.getMessage());
                 }

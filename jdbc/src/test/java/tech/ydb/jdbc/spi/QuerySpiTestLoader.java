@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.context;
+package tech.ydb.jdbc.spi;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -20,7 +20,7 @@ import tech.ydb.jdbc.spi.YdbQueryExtentionService;
  */
 public class QuerySpiTestLoader extends URLClassLoader {
     private final static Class<?> SPI = YdbQueryExtentionService.class;
-    private Class<?>[] classes;
+    private final Class<?>[] classes;
 
     public QuerySpiTestLoader(ClassLoader prev, Class<?>... implementingClasses) {
         super(new URL[0], prev);
