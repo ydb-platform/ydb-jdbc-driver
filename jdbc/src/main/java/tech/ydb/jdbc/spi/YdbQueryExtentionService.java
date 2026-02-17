@@ -73,6 +73,6 @@ public interface YdbQueryExtentionService {
     QueryCall newDataQuery(YdbStatement statement, YdbQuery query, String yql) throws SQLException;
 
     default void onNewTransaction() {
-        
+
     }
 }

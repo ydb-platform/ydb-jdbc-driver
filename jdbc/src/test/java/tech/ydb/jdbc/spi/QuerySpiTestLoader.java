@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.context;
+package tech.ydb.jdbc.spi;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;

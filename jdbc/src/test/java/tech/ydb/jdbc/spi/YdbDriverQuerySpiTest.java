@@ -1,4 +1,4 @@
-package tech.ydb.jdbc.context;
+package tech.ydb.jdbc.spi;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -21,7 +21,6 @@ import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcUrlHelper;
 import tech.ydb.jdbc.query.YdbQuery;
-import tech.ydb.jdbc.spi.YdbQueryExtentionService;
 import tech.ydb.query.result.QueryStats;
 import tech.ydb.query.settings.ExecuteQuerySettings;
 import tech.ydb.query.settings.QueryStatsMode;
@@ -34,7 +33,6 @@ import tech.ydb.test.junit5.YdbHelperExtension;
  * @author Aleksandr Gorshenin
  */
 public class YdbDriverQuerySpiTest {
-
     @RegisterExtension
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
