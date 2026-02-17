@@ -71,4 +71,8 @@ public interface YdbQueryExtentionService {
      * @throws java.sql.SQLException if SPI rejected query execution
      */
     QueryCall newDataQuery(YdbStatement statement, YdbQuery query, String yql) throws SQLException;
+
+    default void onNewTransaction() {
+        
+    }
 }
