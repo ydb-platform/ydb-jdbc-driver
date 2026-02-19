@@ -6,7 +6,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -27,7 +27,7 @@ public class UsePrefixPathTest {
     public void baseQueryTest() throws SQLException {
         try (Connection conn = DriverManager.getConnection(jdbcURL.withArg("usePrefixPath", "p1").build())) {
             try (ResultSet rs = conn.createStatement().executeQuery("SELECT 1 + 2")) {
-                Assert.assertTrue(rs.next());
+                Assertions.assertTrue(rs.next());
             }
         }
     }
@@ -37,7 +37,7 @@ public class UsePrefixPathTest {
         try (Connection conn = DriverManager.getConnection(jdbcURL.withArg("usePrefixPath", "p2").build())) {
             DatabaseMetaData md = conn.getMetaData();
             try (ResultSet rs = md.getTables(null, null, null, null)) {
-                Assert.assertFalse(rs.next());
+                Assertions.assertFalse(rs.next());
             }
         }
     }
@@ -47,13 +47,13 @@ public class UsePrefixPathTest {
         try (Connection conn = DriverManager.getConnection(jdbcURL.withArg("usePrefixPath", "p3").build())) {
             conn.createStatement().execute("CREATE TABLE test (id Int32, PRIMARY KEY(id))");
             try (ResultSet rs = conn.createStatement().executeQuery("SELECT count(*) FROM test;")) {
-                Assert.assertTrue(rs.next());
+                Assertions.assertTrue(rs.next());
             }
         }
 
         try (Connection conn = DriverManager.getConnection(jdbcURL.build())) {
             try (ResultSet rs = conn.createStatement().executeQuery("SELECT count(*) FROM `p3/test`;")) {
-                Assert.assertTrue(rs.next());
+                Assertions.assertTrue(rs.next());
             }
         }
     }

@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Stack;
 
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
@@ -54,7 +54,7 @@ public class JdbcConnectionExtention implements ExecutionCondition,
     }
 
     private void register(ExtensionContext ctx) throws SQLException {
-        Assert.assertFalse("Dublicate of context registration", map.containsKey(ctx));
+        Assertions.assertFalse(map.containsKey(ctx), "Dublicate of context registration");
 
         Connection connection = DriverManager.getConnection(jdbcURL());
         map.put(ctx, connection);
@@ -62,8 +62,8 @@ public class JdbcConnectionExtention implements ExecutionCondition,
     }
 
     private void unregister(ExtensionContext ctx) throws SQLException {
-        Assert.assertFalse("Extra unregister call", stack.isEmpty());
-        Assert.assertEquals("Top connection must be unregistered first", stack.peek(), map.get(ctx));
+        Assertions.assertFalse(stack.isEmpty(), "Extra unregister call");
+        Assertions.assertEquals(stack.peek(), map.get(ctx), "Top connection must be unregistered first");
 
         stack.pop().close();
         map.remove(ctx);
@@ -78,7 +78,7 @@ public class JdbcConnectionExtention implements ExecutionCondition,
     }
 
     public Connection connection() {
-        Assert.assertFalse("Retrive connection before initialization", stack.isEmpty());
+        Assertions.assertFalse(stack.isEmpty(), "Retrive connection before initialization");
         return stack.peek();
     }
 
