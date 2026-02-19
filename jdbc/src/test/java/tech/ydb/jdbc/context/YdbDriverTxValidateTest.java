@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import org.junit.Assert;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -150,7 +149,7 @@ public class YdbDriverTxValidateTest {
             tracer.throwErrorOn("--> commit-and-store-tx", Status.of(StatusCode.UNDETERMINED));
             ExceptionAssert.sqlRecoverable("Transaction wasn't committed", conn::commit);
 
-            Assert.assertNull(tracer.error);
+            Assertions.assertNull(tracer.error);
         } finally {
             jdbc.connection().createStatement().execute("DROP TABLE tx1_store");
         }
@@ -178,7 +177,7 @@ public class YdbDriverTxValidateTest {
             tracer.throwErrorOn("--> commit-and-store-tx", Status.of(StatusCode.TRANSPORT_UNAVAILABLE));
             ExceptionAssert.sqlRecoverable("Transaction wasn't committed", conn::commit);
 
-            Assert.assertNull(tracer.error);
+            Assertions.assertNull(tracer.error);
         } finally {
             jdbc.connection().createStatement().execute("DROP TABLE tx1_store");
         }
