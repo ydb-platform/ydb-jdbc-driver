@@ -348,8 +348,12 @@ public class MappingSetters {
     private static float castAsFloat(PrimitiveType type, Object x) throws SQLException {
         if (x instanceof Float) {
             return (Float) x;
+        } if (x instanceof Double) {
+            return ((Double) x).floatValue();
         } else if (x instanceof BigDecimal) {
             return ((BigDecimal) x).floatValue();
+        } else if (x instanceof Long) {
+            return ((Long) x).floatValue();
         } else if (x instanceof Integer) {
             return (Integer) x;
         } else if (x instanceof Short) {

@@ -209,6 +209,8 @@ public class MappingGetters {
                 return value -> value.getInt64() != 0;
             case Uint64:
                 return value -> value.getUint64() != 0;
+            case Float:
+                return value -> value.getFloat() != 0;
             case Bytes:
                 return value -> {
                     byte[] stringValue = value.getBytes();
@@ -291,6 +293,8 @@ public class MappingGetters {
         switch (id) {
             case Bool:
                 return value -> checkByteValue(id, value.getBool() ? 1 : 0);
+            case Float:
+                return value -> Float.valueOf(value.getFloat()).byteValue();
             case Int8:
                 return PrimitiveReader::getInt8;
             case Int16:
@@ -332,6 +336,8 @@ public class MappingGetters {
         switch (id) {
             case Bool:
                 return value -> checkShortValue(id, value.getBool() ? 1 : 0);
+            case Float:
+                return value -> Float.valueOf(value.getFloat()).shortValue();
             case Int8:
                 return PrimitiveReader::getInt8;
             case Int16:
@@ -365,6 +371,8 @@ public class MappingGetters {
         switch (id) {
             case Bool:
                 return value -> value.getBool() ? 1 : 0;
+            case Float:
+                return value -> Float.valueOf(value.getFloat()).intValue();
             case Int8:
                 return PrimitiveReader::getInt8;
             case Int16:
@@ -394,6 +402,8 @@ public class MappingGetters {
         switch (id) {
             case Bool:
                 return value -> value.getBool() ? 1 : 0;
+            case Float:
+                return value -> Float.valueOf(value.getFloat()).longValue();
             case Int8:
                 return PrimitiveReader::getInt8;
             case Uint8:

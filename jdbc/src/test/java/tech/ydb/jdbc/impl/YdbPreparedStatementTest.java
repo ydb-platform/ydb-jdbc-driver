@@ -1,6 +1,7 @@
 package tech.ydb.jdbc.impl;
 
 import java.math.BigDecimal;
+import java.net.URL;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
@@ -2018,5 +2019,125 @@ public class YdbPreparedStatementTest {
 
         BigDecimal decimal = rs.getBigDecimal("c_BankDecimal");
         Assertions.assertEquals(bg, decimal);
+    }
+
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(SqlQueries.JdbcQuery.class)
+    public void floatTest(SqlQueries.JdbcQuery query) throws SQLException {
+        String upsert = TEST_TABLE.upsertOne(query, "c_Float", "Float");
+        boolean castingSupported = query != SqlQueries.JdbcQuery.IN_MEMORY;
+        int ydbSqlType = YdbConst.SQL_KIND_PRIMITIVE + PrimitiveType.Float.ordinal();
+
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert)) {
+            ps.setInt(1, 1);
+            ps.setFloat(2, 0.12345f);
+            ps.execute();
+
+            ps.setInt(1, 2);
+            ps.setByte(2, (byte) -12);
+            ps.execute();
+
+            ps.setInt(1, 3);
+            ps.setShort(2, (short) 12456);
+            ps.execute();
+
+            ps.setInt(1, 4);
+            ps.setInt(2, -1245678);
+            ps.execute();
+
+            ps.setInt(1, 5);
+            ps.setLong(2, 1245678789129L);
+            ps.execute();
+
+            if (castingSupported) {
+                ps.setInt(1, 6);
+                ps.setDouble(2, -0.12345d);
+                ps.execute();
+
+                ps.setInt(1, 7);
+                ps.setBigDecimal(2, new BigDecimal("1.23456"));
+                ps.execute();
+
+                ps.setInt(1, 8);
+                ps.setString(2, "-12345.6789");
+                ps.execute();
+
+                ps.setInt(1, 9);
+                ps.setBoolean(2, true);
+                ps.execute();
+
+                ExceptionAssert.sqlException("Cannot cast [class java.net.URL: file://test] to [Float]",
+                        () -> ps.setURL(2, new URL("file://test"))
+                );
+            } else {
+                ps.setInt(1, 6);
+                ps.setDouble(2, -0.12345d);
+                ExceptionAssert.ydbException("Failed to convert 'c_Float': Double to Optional<Float>", ps::execute);
+                ps.setObject(2, -0.12345d, ydbSqlType);
+                ps.execute();
+
+                ps.setInt(1, 7);
+                ps.setBigDecimal(2, new BigDecimal("1.23456"));
+                ExceptionAssert.ydbException("Failed to convert 'c_Float': Decimal(22,9) to Optional<Float>",
+                        ps::execute);
+                ps.setObject(2, new BigDecimal("1.23456"), ydbSqlType);
+                ps.execute();
+
+                ps.setInt(1, 8);
+                ps.setString(2, "-12345.6789");
+                ExceptionAssert.ydbException("Failed to convert 'c_Float': Utf8 to Optional<Float>", ps::execute);
+                ps.setObject(2, "-12345.6789", ydbSqlType);
+                ps.execute();
+
+                ps.setInt(1, 9);
+                ps.setBoolean(2, true);
+                ExceptionAssert.ydbException("Failed to convert 'c_Float': Bool to Optional<Float>", ps::execute);
+                ps.setObject(2, true, ydbSqlType);
+                ps.execute();
+            }
+        }
+
+        ResultSetAssert<Float> rsAssert = (ResultSet rs, int key, Float value) -> {
+            Assertions.assertTrue(rs.next());
+            Assertions.assertEquals(key, rs.getInt("key"));
+
+            Object obj = rs.getObject("c_Float");
+            Assertions.assertTrue(obj instanceof Float);
+            Assertions.assertEquals(value, obj);
+
+            Assertions.assertEquals(value.floatValue(), rs.getFloat("c_Float"));
+            Assertions.assertEquals(value.doubleValue(), rs.getDouble("c_Float"));
+            Assertions.assertEquals(BigDecimal.valueOf(value.doubleValue()), rs.getBigDecimal("c_Float"));
+            Assertions.assertEquals(value.toString(), rs.getString("c_Float"));
+
+            Assertions.assertEquals(value != 0, rs.getBoolean("c_Float"));
+            Assertions.assertEquals(value.byteValue(), rs.getByte("c_Float"));
+            Assertions.assertEquals(value.shortValue(), rs.getShort("c_Float"));
+            Assertions.assertEquals(value.intValue(), rs.getInt("c_Float"));
+            Assertions.assertEquals(value.longValue(), rs.getLong("c_Float"));
+
+        };
+
+        try (Statement statement = jdbc.connection().createStatement()) {
+            try (ResultSet rs = statement.executeQuery(TEST_TABLE.selectColumn("c_Float"))) {
+                rsAssert.readNext(rs, 1, 0.12345f);
+                rsAssert.readNext(rs, 2, -12f);
+                rsAssert.readNext(rs, 3, 12456f);
+                rsAssert.readNext(rs, 4, -1245678f);
+                rsAssert.readNext(rs, 5, 1245678789129f);
+
+                rsAssert.readNext(rs, 6, -0.12345f);
+                rsAssert.readNext(rs, 7, 1.23456f);
+                rsAssert.readNext(rs, 8, -12345.6789f);
+                rsAssert.readNext(rs, 9, 1f);
+
+                Assertions.assertFalse(rs.next());
+            }
+        }
+    }
+
+    @FunctionalInterface
+    private interface ResultSetAssert<T> {
+        void readNext(ResultSet rs, int key, T value) throws SQLException;
     }
 }
