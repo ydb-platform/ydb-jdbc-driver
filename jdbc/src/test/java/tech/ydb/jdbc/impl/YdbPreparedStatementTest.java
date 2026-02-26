@@ -2136,6 +2136,116 @@ public class YdbPreparedStatementTest {
         }
     }
 
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(SqlQueries.JdbcQuery.class)
+    public void doubleTest(SqlQueries.JdbcQuery query) throws SQLException {
+        String upsert = TEST_TABLE.upsertOne(query, "c_Double", "Double");
+        boolean castingSupported = query != SqlQueries.JdbcQuery.IN_MEMORY;
+        int ydbSqlType = YdbConst.SQL_KIND_PRIMITIVE + PrimitiveType.Double.ordinal();
+
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert)) {
+            ps.setInt(1, 1);
+            ps.setDouble(2, 987654321.12345789d);
+            ps.execute();
+
+            ps.setInt(1, 2);
+            ps.setFloat(2, -0.12345f);
+            ps.execute();
+
+            ps.setInt(1, 3);
+            ps.setByte(2, (byte) -12);
+            ps.execute();
+
+            ps.setInt(1, 4);
+            ps.setShort(2, (short) 12456);
+            ps.execute();
+
+            ps.setInt(1, 5);
+            ps.setInt(2, -1245678);
+            ps.execute();
+
+            ps.setInt(1, 6);
+            ps.setLong(2, 1245678789129L);
+            ps.execute();
+
+            if (castingSupported) {
+                ps.setInt(1, 7);
+                ps.setBigDecimal(2, new BigDecimal("1.23456"));
+                ps.execute();
+
+                ps.setInt(1, 8);
+                ps.setString(2, "-12345.6789");
+                ps.execute();
+
+                ps.setInt(1, 9);
+                ps.setBoolean(2, true);
+                ps.execute();
+
+                ExceptionAssert.sqlException("Cannot cast [class java.net.URL: file://test] to [Double]",
+                        () -> ps.setURL(2, new URL("file://test"))
+                );
+            } else {
+                ps.setInt(1, 7);
+                ps.setBigDecimal(2, new BigDecimal("1.23456"));
+                ExceptionAssert.ydbException("Failed to convert 'c_Double': Decimal(22,9) to Optional<Double>",
+                        ps::execute);
+                ps.setObject(2, new BigDecimal("1.23456"), ydbSqlType);
+                ps.execute();
+
+                ps.setInt(1, 8);
+                ps.setString(2, "-12345.6789");
+                ExceptionAssert.ydbException("Failed to convert 'c_Double': Utf8 to Optional<Double>", ps::execute);
+                ps.setObject(2, "-12345.6789", ydbSqlType);
+                ps.execute();
+
+                ps.setInt(1, 9);
+                ps.setBoolean(2, true);
+                ExceptionAssert.ydbException("Failed to convert 'c_Double': Bool to Optional<Double>", ps::execute);
+                ps.setObject(2, true, ydbSqlType);
+                ps.execute();
+            }
+        }
+
+        ResultSetAssert<Double> rsAssert = (ResultSet rs, int key, Double value) -> {
+            Assertions.assertTrue(rs.next());
+            Assertions.assertEquals(key, rs.getInt("key"));
+
+            Object obj = rs.getObject("c_Double");
+            Assertions.assertTrue(obj instanceof Double);
+            Assertions.assertEquals(value, obj);
+
+            Assertions.assertEquals(value.floatValue(), rs.getFloat("c_Double"));
+            Assertions.assertEquals(value.doubleValue(), rs.getDouble("c_Double"));
+            Assertions.assertEquals(BigDecimal.valueOf(value), rs.getBigDecimal("c_Double"));
+            Assertions.assertEquals(value.toString(), rs.getString("c_Double"));
+
+            Assertions.assertEquals(value != 0, rs.getBoolean("c_Double"));
+            Assertions.assertEquals(value.byteValue(), rs.getByte("c_Double"));
+            Assertions.assertEquals(value.shortValue(), rs.getShort("c_Double"));
+            Assertions.assertEquals(value.intValue(), rs.getInt("c_Double"));
+            Assertions.assertEquals(value.longValue(), rs.getLong("c_Double"));
+
+        };
+
+        try (Statement statement = jdbc.connection().createStatement()) {
+            try (ResultSet rs = statement.executeQuery(TEST_TABLE.selectColumn("c_Double"))) {
+                rsAssert.readNext(rs, 1, 987654321.12345789d);
+                rsAssert.readNext(rs, 2, -0.12345000356435776d); // 0.12345f
+
+                rsAssert.readNext(rs, 3, -12d);
+                rsAssert.readNext(rs, 4, 12456d);
+                rsAssert.readNext(rs, 5, -1245678d);
+                rsAssert.readNext(rs, 6, 1245678789129d);
+
+                rsAssert.readNext(rs, 7, 1.23456d);
+                rsAssert.readNext(rs, 8, -12345.6789d);
+                rsAssert.readNext(rs, 9, 1d);
+
+                Assertions.assertFalse(rs.next());
+            }
+        }
+    }
+
     @FunctionalInterface
     private interface ResultSetAssert<T> {
         void readNext(ResultSet rs, int key, T value) throws SQLException;

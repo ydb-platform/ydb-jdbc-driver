@@ -210,7 +210,9 @@ public class MappingGetters {
             case Uint64:
                 return value -> value.getUint64() != 0;
             case Float:
-                return value -> value.getFloat() != 0;
+                return value -> value.getFloat() != 0f;
+            case Double:
+                return value -> value.getDouble() != 0d;
             case Bytes:
                 return value -> {
                     byte[] stringValue = value.getBytes();
@@ -295,6 +297,8 @@ public class MappingGetters {
                 return value -> checkByteValue(id, value.getBool() ? 1 : 0);
             case Float:
                 return value -> Float.valueOf(value.getFloat()).byteValue();
+            case Double:
+                return value -> Double.valueOf(value.getDouble()).byteValue();
             case Int8:
                 return PrimitiveReader::getInt8;
             case Int16:
@@ -338,6 +342,8 @@ public class MappingGetters {
                 return value -> checkShortValue(id, value.getBool() ? 1 : 0);
             case Float:
                 return value -> Float.valueOf(value.getFloat()).shortValue();
+            case Double:
+                return value -> Double.valueOf(value.getDouble()).shortValue();
             case Int8:
                 return PrimitiveReader::getInt8;
             case Int16:
@@ -373,6 +379,8 @@ public class MappingGetters {
                 return value -> value.getBool() ? 1 : 0;
             case Float:
                 return value -> Float.valueOf(value.getFloat()).intValue();
+            case Double:
+                return value -> Double.valueOf(value.getDouble()).intValue();
             case Int8:
                 return PrimitiveReader::getInt8;
             case Int16:
@@ -404,6 +412,8 @@ public class MappingGetters {
                 return value -> value.getBool() ? 1 : 0;
             case Float:
                 return value -> Float.valueOf(value.getFloat()).longValue();
+            case Double:
+                return value -> Double.valueOf(value.getDouble()).longValue();
             case Int8:
                 return PrimitiveReader::getInt8;
             case Uint8:
