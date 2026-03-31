@@ -56,6 +56,20 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- OpenTelemetry API (optional in ydb-sdk-core); tests use in-memory span exporter -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+            <version>1.59.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk-testing</artifactId>
+            <version>1.59.0</version>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <build>
