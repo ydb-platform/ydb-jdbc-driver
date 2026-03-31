@@ -26,13 +26,13 @@ import tech.ydb.core.tracing.NoopTracer;
 import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.impl.helper.JdbcUrlHelper;
 import tech.ydb.jdbc.settings.YdbConfig;
-import tech.ydb.opentelemetry.OpenTelemetryTracer;
+import tech.ydb.core.tracing.OpenTelemetryTracer;
 import tech.ydb.test.junit5.YdbHelperExtension;
 
 /**
  * OpenTelemetry on the JDBC gRPC transport: {@code enableOpenTelemetryTracer} selects {@link OpenTelemetryTracer}
  * vs {@link NoopTracer}, and with a test {@link OpenTelemetrySdk} registered globally, spans are exported to an
- * in-memory exporter (same idea as {@code OpenTelemetryQueryTracingIntegrationTest} in ydb-java-sdk opentelemetry).
+ * in-memory exporter (same idea as {@code OpenTelemetryQueryTracingIntegrationTest} in ydb-sdk-core).
  */
 public class OpenTelemetryTransportTracerTest {
 

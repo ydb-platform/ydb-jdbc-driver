@@ -52,10 +52,7 @@ public class YdbConfig {
             "enableTxTracer", "Enable collecting of transaction execution traces", false
     );
     static final YdbProperty<Boolean> ENABLE_OPENTELEMETRY_TRACER = YdbProperty.bool(
-            "enableOpenTelemetryTracer",
-            "Use OpenTelemetry-backed SDK tracer on gRPC transport; add tech.ydb:ydb-sdk-opentelemetry "
-                    + "to the classpath (not bundled with the driver)",
-            false
+            "enableOpenTelemetryTracer", "Enable OpenTelemetry-based tracing for YDB client operations", false
     );
     static final YdbProperty<Integer> CACHED_TRANSPORT_COUNT = YdbProperty.integer(
             "cachedTransportsCount", "Use specified count of YDB transports in context cache", 1
