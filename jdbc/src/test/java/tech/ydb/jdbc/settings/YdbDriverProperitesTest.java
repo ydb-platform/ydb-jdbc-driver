@@ -308,6 +308,7 @@ public class YdbDriverProperitesTest {
             new DriverPropertyInfo("useQueryService", "true"),
             new DriverPropertyInfo("useDiscovery", "true"),
             new DriverPropertyInfo("usePrefixPath", ""),
+            new DriverPropertyInfo("enableOpenTelemetryTracer", "false"),
             new DriverPropertyInfo("localDatacenter", localDatacenter),
             new DriverPropertyInfo("secureConnection", ""),
             new DriverPropertyInfo("secureConnectionCertificate", ""),
@@ -357,6 +358,7 @@ public class YdbDriverProperitesTest {
             new DriverPropertyInfo("useQueryService", "false"),
             new DriverPropertyInfo("useDiscovery", "false"),
             new DriverPropertyInfo("usePrefixPath", "/demo/oltp"),
+            new DriverPropertyInfo("enableOpenTelemetryTracer", "true"),
             new DriverPropertyInfo("localDatacenter", "sas"),
             new DriverPropertyInfo("secureConnection", "true"),
             new DriverPropertyInfo("secureConnectionCertificate", "classpath:data/certificate.txt"),
@@ -412,6 +414,7 @@ public class YdbDriverProperitesTest {
         Assertions.assertTrue(ops.isAutoCommit());
         Assertions.assertEquals(YdbConst.ONLINE_CONSISTENT_READ_ONLY, ops.getTransactionLevel());
         Assertions.assertFalse(config.isCacheConnectionsInDriver());
+        Assertions.assertTrue(config.isOpenTelemetryTracerEnabled());
     }
 
     @SuppressWarnings("UnstableApiUsage")

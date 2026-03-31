@@ -17,10 +17,10 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <slf4j.version>1.7.36</slf4j.version>
+        <slf4j.version>2.0.17</slf4j.version>
         <junit.version>5.13.4</junit.version>
 
-        <ydb.sdk.version>2.3.31</ydb.sdk.version>
+        <ydb.sdk.version>2.4.1-SNAPSHOT</ydb.sdk.version>
     </properties>
 
     <licenses>

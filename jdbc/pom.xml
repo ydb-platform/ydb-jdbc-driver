@@ -31,6 +31,13 @@
             <artifactId>yc-auth-provider</artifactId>
         </dependency>
 
+        <!-- Optional at runtime: loaded by reflection when enableOpenTelemetryTracer=true -->
+        <dependency>
+            <groupId>tech.ydb</groupId>
+            <artifactId>ydb-sdk-opentelemetry</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Testcontainers requires Jackson 2.15+ -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -53,6 +60,14 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-params</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Align with io.opentelemetry:opentelemetry-api pulled by ydb-sdk-opentelemetry -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk-testing</artifactId>
+            <version>1.59.0</version>
             <scope>test</scope>
         </dependency>
 
