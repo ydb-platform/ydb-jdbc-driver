@@ -51,6 +51,9 @@ public class YdbConfig {
     static final YdbProperty<Boolean> TRANSACTION_TRACER = YdbProperty.bool(
             "enableTxTracer", "Enable collecting of transaction execution traces", false
     );
+    static final YdbProperty<Boolean> ENABLE_OPENTELEMETRY_TRACER = YdbProperty.bool(
+            "enableOpenTelemetryTracer", "Enable OpenTelemetry-based tracing for YDB client operations", false
+    );
     static final YdbProperty<Integer> CACHED_TRANSPORT_COUNT = YdbProperty.integer(
             "cachedTransportsCount", "Use specified count of YDB transports in context cache", 1
     );
@@ -72,6 +75,7 @@ public class YdbConfig {
 
     private final boolean fullScanDetectorEnabled;
     private final boolean txTracerEnabled;
+    private final boolean openTelemetryTracerEnabled;
     private final int transportIndex;
 
     private YdbConfig(
@@ -92,6 +96,7 @@ public class YdbConfig {
 
         this.fullScanDetectorEnabled = FULLSCAN_DETECTOR_ENABLED.readValue(props).getValue();
         this.txTracerEnabled = TRANSACTION_TRACER.readValue(props).getValue();
+        this.openTelemetryTracerEnabled = ENABLE_OPENTELEMETRY_TRACER.readValue(props).getValue();
 
         int transportsCount = CACHED_TRANSPORT_COUNT.readValue(props).getValue();
         if (transportsCount > 1) {
@@ -149,6 +154,10 @@ public class YdbConfig {
         return txTracerEnabled;
     }
 
+    public boolean isOpenTelemetryTracerEnabled() {
+        return openTelemetryTracerEnabled;
+    }
+
     static boolean isSensetive(String key) {
         return TOKEN_KEY.equalsIgnoreCase(key)  || PASSWORD_KEY.equalsIgnoreCase(key);
     }
@@ -199,6 +208,7 @@ public class YdbConfig {
             YdbConfig.USE_QUERY_SERVICE.toInfo(properties),
             YdbConfig.USE_DISCOVERY.toInfo(properties),
             YdbConfig.USE_PREFIX_PATH.toInfo(properties),
+            YdbConfig.ENABLE_OPENTELEMETRY_TRACER.toInfo(properties),
 
             YdbConnectionProperties.LOCAL_DATACENTER.toInfo(properties),
             YdbConnectionProperties.USE_SECURE_CONNECTION.toInfo(properties),
