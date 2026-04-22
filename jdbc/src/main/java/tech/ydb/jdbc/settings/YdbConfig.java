@@ -227,6 +227,7 @@ public class YdbConfig {
             YdbOperationProperties.DEADLINE_TIMEOUT.toInfo(properties),
             YdbOperationProperties.AUTOCOMMIT.toInfo(properties),
             YdbOperationProperties.TRANSACTION_LEVEL.toInfo(properties),
+            YdbOperationProperties.REPEATABLE_READ_ENABLED.toInfo(properties),
             YdbOperationProperties.SCHEME_QUERY_TX_MODE.toInfo(properties),
             YdbOperationProperties.SCAN_QUERY_TX_MODE.toInfo(properties),
             YdbOperationProperties.BULK_QUERY_TX_MODE.toInfo(properties),
