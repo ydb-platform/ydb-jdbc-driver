@@ -111,7 +111,8 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             throw new SQLFeatureNotSupportedException(YdbConst.CHANGE_ISOLATION_INSIDE_TX);
         }
 
-        isReadOnly = isReadOnly || level != Connection.TRANSACTION_SERIALIZABLE;
+        isReadOnly = isReadOnly || (level != Connection.TRANSACTION_SERIALIZABLE
+                && level != Connection.TRANSACTION_REPEATABLE_READ);
         transactionLevel = level;
         txMode = txMode(transactionLevel, isReadOnly);
     }
@@ -454,12 +455,14 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
     private static TxMode txMode(int level, boolean isReadOnly) throws SQLException {
         if (!isReadOnly) {
-            // YDB support only one RW mode
-            if (level != Connection.TRANSACTION_SERIALIZABLE) {
-                throw new SQLException(YdbConst.UNSUPPORTED_TRANSACTION_LEVEL + level);
+            switch (level) {
+                case Connection.TRANSACTION_SERIALIZABLE:
+                    return TxMode.SERIALIZABLE_RW;
+                case Connection.TRANSACTION_REPEATABLE_READ:
+                    return TxMode.SNAPSHOT_RW;
+                default:
+                    throw new SQLException(YdbConst.UNSUPPORTED_TRANSACTION_LEVEL + level);
             }
-
-            return TxMode.SERIALIZABLE_RW;
         }
 
         switch (level) {
