@@ -55,10 +55,13 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
     private final YdbValidator validator;
     private final SchemeExecutor executor;
 
+    private final boolean isRepeatableReadEnabled;
+
     public YdbDatabaseMetaDataImpl(YdbConnection connection) {
         this.connection = Objects.requireNonNull(connection);
         this.executor = new SchemeExecutor(connection.getCtx());
         this.validator = new YdbValidator();
+        this.isRepeatableReadEnabled = connection.getCtx().getOperationProperties().isRepeatableReadEnabled();
     }
 
     @Override
@@ -645,6 +648,8 @@ public class YdbDatabaseMetaDataImpl implements YdbDatabaseMetaData {
             case YdbConst.ONLINE_INCONSISTENT_READ_ONLY:
             case YdbConst.STALE_CONSISTENT_READ_ONLY:
                 return true;
+            case Connection.TRANSACTION_REPEATABLE_READ:
+                return isRepeatableReadEnabled;
             default:
                 return false;
         }

@@ -17,6 +17,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -256,15 +258,6 @@ public class YdbDatabaseMetaDataImplTest {
         Assertions.assertEquals(0, metaData.getMaxStatements());
         Assertions.assertEquals(YdbConst.MAX_ELEMENT_NAME_LENGTH, metaData.getMaxTableNameLength());
         Assertions.assertEquals(Connection.TRANSACTION_SERIALIZABLE, metaData.getDefaultTransactionIsolation());
-
-        Assertions.assertTrue(metaData.supportsTransactions());
-        Assertions.assertTrue(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_SERIALIZABLE));
-        Assertions.assertTrue(metaData.supportsTransactionIsolationLevel(YdbConst.ONLINE_CONSISTENT_READ_ONLY));
-        Assertions.assertTrue(metaData.supportsTransactionIsolationLevel(YdbConst.ONLINE_INCONSISTENT_READ_ONLY));
-        Assertions.assertTrue(metaData.supportsTransactionIsolationLevel(YdbConst.STALE_CONSISTENT_READ_ONLY));
-
-        Assertions.assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_UNCOMMITTED));
-        Assertions.assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_NONE));
 
         Assertions.assertTrue(metaData.supportsDataDefinitionAndDataManipulationTransactions());
         Assertions.assertTrue(metaData.supportsDataManipulationTransactionsOnly());
@@ -650,6 +643,30 @@ public class YdbDatabaseMetaDataImplTest {
         rs.nextRow(columnName.eq("c_JsonDocument"), dataType.eq(Types.VARCHAR), typeName.eq("JsonDocument"),
                 columnSize.eq(YdbConst.MAX_COLUMN_SIZE), ordinal.eq(16)).assertAll();
         rs.assertNoRows();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = { false, true} )
+    public void transactionSupportTest(boolean repeatableRead) throws SQLException {
+        try (Connection conn = jdbc.createCustomConnection("repeatableReadEnabled", String.valueOf(repeatableRead))) {
+            DatabaseMetaData md = conn.getMetaData();
+
+            Assertions.assertTrue(md.supportsTransactions());
+
+            // always supported
+            Assertions.assertTrue(md.supportsTransactionIsolationLevel(Connection.TRANSACTION_SERIALIZABLE));
+            Assertions.assertTrue(md.supportsTransactionIsolationLevel(YdbConst.ONLINE_CONSISTENT_READ_ONLY));
+            Assertions.assertTrue(md.supportsTransactionIsolationLevel(YdbConst.ONLINE_INCONSISTENT_READ_ONLY));
+            Assertions.assertTrue(md.supportsTransactionIsolationLevel(YdbConst.STALE_CONSISTENT_READ_ONLY));
+
+            // always not supported
+            Assertions.assertFalse(md.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_UNCOMMITTED));
+            Assertions.assertFalse(md.supportsTransactionIsolationLevel(Connection.TRANSACTION_NONE));
+
+            // optional support
+            boolean hasRepeatableRead = md.supportsTransactionIsolationLevel(Connection.TRANSACTION_REPEATABLE_READ);
+            Assertions.assertEquals(repeatableRead, hasRepeatableRead);
+        }
     }
 
     @Test
