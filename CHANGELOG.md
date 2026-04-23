@@ -1,3 +1,8 @@
+## 2.3.23 ##
+
+* Fix BigDecimal casting to Float and Double types
+* Added support of RepeatableRead (SnapshotRW)
+
 ## 2.3.22 ##
 
 * Added JDBC driver version as application name
