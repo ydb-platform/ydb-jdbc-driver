@@ -30,7 +30,7 @@ public class YdbDriverOlapTablesTest {
             .withArg("usePrefixPath", "jdbc_olap");
 
     private final static String ERROR_DATA_MANIPULATION =
-            "Data manipulation queries do not support column shard tables. (S_ERROR)";
+            "Data manipulation queries with column-oriented tables are supported only by API QueryService. (S_ERROR)";
 
     private final static String ERROR_BULK_UNSUPPORTED =
             "BULK mode is available only for prepared statement with one UPSERT";
@@ -116,6 +116,8 @@ public class YdbDriverOlapTablesTest {
                 }
                 Assertions.assertEquals(2002, readed);
             }
+
+            connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
 
             // single update
             try (PreparedStatement ps = connection.prepareStatement(UPDATE_ROW)) {
@@ -342,7 +344,7 @@ public class YdbDriverOlapTablesTest {
                 conn.createStatement().execute(DROP_TABLE);
             } catch (SQLException e) {
                 // ignore
-}
+            }
 
             conn.createStatement().execute(CREATE_TABLE);
 

@@ -117,6 +117,8 @@ public class YdbDriverTablesTest {
                 Assertions.assertEquals(2002, readed);
             }
 
+            connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
+
             // single update
             try (PreparedStatement ps = connection.prepareStatement(UPDATE_ROW)) {
                 ps.setString(1, "updated-value");
@@ -519,6 +521,8 @@ public class YdbDriverTablesTest {
                 }
                 Assertions.assertEquals(1000, readed);
             }
+
+            connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
 
             // single update
             try (PreparedStatement ps = connection.prepareStatement(UPDATE_ROW)) {

@@ -378,7 +378,8 @@ public class TableServiceExecutor extends BaseYdbExecutor {
                 throw new SQLFeatureNotSupportedException(YdbConst.CHANGE_ISOLATION_INSIDE_TX);
             }
 
-            boolean newReadOnly = isReadOnly || newTransactionLevel != Connection.TRANSACTION_SERIALIZABLE;
+            boolean newReadOnly = isReadOnly || (newTransactionLevel != Connection.TRANSACTION_SERIALIZABLE
+                && newTransactionLevel != Connection.TRANSACTION_REPEATABLE_READ);
             return emptyTx(newTransactionLevel, newReadOnly, isAutoCommit);
         }
 
@@ -494,12 +495,14 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
     private static TxControl<?> txControl(int level, boolean isReadOnly, boolean isAutoCommit) throws SQLException {
         if (!isReadOnly) {
-            // YDB support only one RW mode
-            if (level != Connection.TRANSACTION_SERIALIZABLE) {
-                throw new SQLException(YdbConst.UNSUPPORTED_TRANSACTION_LEVEL + level);
+            switch (level) {
+                case Connection.TRANSACTION_SERIALIZABLE:
+                    return TxControl.serializableRw().setCommitTx(isAutoCommit);
+                case Connection.TRANSACTION_REPEATABLE_READ:
+                    return TxControl.snapshotRw().setCommitTx(isAutoCommit);
+                default:
+                    throw new SQLException(YdbConst.UNSUPPORTED_TRANSACTION_LEVEL + level);
             }
-
-            return TxControl.serializableRw().setCommitTx(isAutoCommit);
         }
 
         switch (level) {

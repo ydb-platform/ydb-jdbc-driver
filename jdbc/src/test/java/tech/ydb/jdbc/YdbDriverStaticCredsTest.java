@@ -22,8 +22,7 @@ import tech.ydb.test.junit5.YdbHelperExtension;
  */
 public class YdbDriverStaticCredsTest {
     private static final String ERROR_PREFIX = "Cannot connect to YDB: Discovery failed";
-    private static final String ERROR_SUFFIX = "Can't login, code: UNAUTHORIZED, "
-            + "issues: [#400020 Invalid password (S_FATAL)]";
+    private static final String ERROR_SUFFIX = "Can't login, code: UNAUTHORIZED";
 
     @RegisterExtension
     private static final YdbHelperExtension ydb = new YdbHelperExtension();

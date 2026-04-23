@@ -31,6 +31,9 @@ public class YdbOperationProperties {
     static final YdbProperty<Integer> TRANSACTION_LEVEL = YdbProperty
             .integer("transactionLevel", "Default transaction isolation level", Connection.TRANSACTION_SERIALIZABLE);
 
+    static final YdbProperty<Boolean> REPEATABLE_READ_ENABLED = YdbProperty
+            .bool("repeatableReadEnabled", "Enables support for RepeatableRead (SnapshotRW) transaction level", false);
+
     static final YdbProperty<FakeTxMode> SCAN_QUERY_TX_MODE = YdbProperty.enums(
             "scanQueryTxMode",
             FakeTxMode.class,
@@ -78,6 +81,7 @@ public class YdbOperationProperties {
     private final YdbValue<Duration> deadlineTimeout;
     private final YdbValue<Boolean> autoCommit;
     private final YdbValue<Integer> transactionLevel;
+    private final YdbValue<Boolean> repeatableReadEnabled;
 
     private final YdbValue<FakeTxMode> scanQueryTxMode;
     private final YdbValue<FakeTxMode> schemeQueryTxMode;
@@ -100,6 +104,7 @@ public class YdbOperationProperties {
         this.deadlineTimeout = DEADLINE_TIMEOUT.readValue(props);
         this.autoCommit = AUTOCOMMIT.readValue(props);
         this.transactionLevel = TRANSACTION_LEVEL.readValue(props);
+        this.repeatableReadEnabled = REPEATABLE_READ_ENABLED.readValue(props);
 
         this.scanQueryTxMode = SCAN_QUERY_TX_MODE.readValue(props);
         this.schemeQueryTxMode = SCHEME_QUERY_TX_MODE.readValue(props);
@@ -154,6 +159,10 @@ public class YdbOperationProperties {
 
     public int getTransactionLevel() {
         return transactionLevel.getValue();
+    }
+
+    public boolean isRepeatableReadEnabled() {
+        return repeatableReadEnabled.getValue();
     }
 
     public boolean getUseStreamResultSets() {
