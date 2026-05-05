@@ -1,3 +1,8 @@
+## 2.3.24 ##
+
+* Fixed RepeatableRead readOnly mode
+* Fixed bug in YdbQueryResultReader
+
 ## 2.3.23 ##
 
 * Fix BigDecimal casting to Float and Double types
