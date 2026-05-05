@@ -47,6 +47,8 @@ public class YdbDriverOlapTablesTest {
     private final static String UPSERT_ROW = "UPSERT INTO table (id, value, date) VALUES (?, ?, ?)";
     private final static String INSERT_ROW = "INSERT INTO table (id, value, date) VALUES (?, ?, ?)";
     private final static String SELECT_ALL = "SELECT * FROM table ORDER BY id";
+    private final static String SELECT_FIRST_100 = "SELECT * FROM table ORDER BY id LIMIT 100";
+    private final static String SELECT_LAST_100 = "SELECT * FROM table ORDER BY id DESC LIMIT 100";
     private final static String UPDATE_ROW = "UPDATE table SET value = ? WHERE id = ?";
     private final static String DELETE_ROW = "DELETE FROM table WHERE id = ?";
 
@@ -336,10 +338,7 @@ public class YdbDriverOlapTablesTest {
 
     @Test
     public void streamResultsTest() throws SQLException {
-        try (Connection conn = DriverManager.getConnection(jdbcURL
-                .withArg("useStreamResultSets", "true")
-                .build()
-        )) {
+        try (Connection conn = DriverManager.getConnection(jdbcURL.withArg("useStreamResultSets", "true").build())) {
             try {
                 conn.createStatement().execute(DROP_TABLE);
             } catch (SQLException e) {
@@ -434,6 +433,7 @@ public class YdbDriverOlapTablesTest {
 
             // read all
             try (Statement st = conn.createStatement()) {
+                st.setFetchSize(1000);
                 int readed = 0;
                 try (ResultSet rs = st.executeQuery(SELECT_ALL)) {
                     while (rs.next()) {
@@ -444,6 +444,34 @@ public class YdbDriverOlapTablesTest {
                     }
                 }
                 Assertions.assertEquals(8004, readed);
+            }
+
+            // read multipli result sets
+            try (Statement st = conn.createStatement()) {
+                st.setFetchSize(100);
+                Assertions.assertTrue(st.execute(SELECT_FIRST_100 + ";" + SELECT_LAST_100));
+                try (ResultSet rs = st.getResultSet()) {
+                    int readed = 0;
+                    while (rs.next()) {
+                        readed++;
+                        Assertions.assertEquals(readed, rs.getInt("id"));
+                        Assertions.assertEquals(prefix + readed, rs.getString("value"));
+                        Assertions.assertEquals(Date.valueOf(ld.plusDays(readed)), rs.getDate("date"));
+                    }
+                    Assertions.assertEquals(100, readed);
+                }
+                Assertions.assertTrue(st.getMoreResults());
+                try (ResultSet rs = st.getResultSet()) {
+                    int readed = 0;
+                    while (rs.next()) {
+                        int id = 8004 - readed;
+                        readed++;
+                        Assertions.assertEquals(id, rs.getInt("id"));
+                        Assertions.assertEquals(prefix + id, rs.getString("value"));
+                        Assertions.assertEquals(Date.valueOf(ld.plusDays(id)), rs.getDate("date"));
+                    }
+                    Assertions.assertEquals(100, readed);
+                }
             }
 
             // single update
