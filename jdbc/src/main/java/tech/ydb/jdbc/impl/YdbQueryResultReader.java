@@ -119,7 +119,7 @@ public class YdbQueryResultReader extends YdbQueryResultBase implements GrpcFlow
         rs[index].queue.offer(rsr);
         releaseWaiters();
 
-        return fetchSize > 0 && callFlow.loaded.get() > fetchSize;
+        return fetchSize > 0 && callFlow.loaded.get() >= fetchSize;
     }
 
     public void onClose(Status status, Throwable th) {
