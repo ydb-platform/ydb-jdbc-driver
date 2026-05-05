@@ -507,6 +507,7 @@ public class TableServiceExecutor extends BaseYdbExecutor {
 
         switch (level) {
             case Connection.TRANSACTION_SERIALIZABLE:
+            case Connection.TRANSACTION_REPEATABLE_READ:
                 return TxControl.snapshotRo().setCommitTx(isAutoCommit);
             case YdbConst.ONLINE_CONSISTENT_READ_ONLY:
                 return TxControl.onlineRo().setAllowInconsistentReads(false).setCommitTx(isAutoCommit);

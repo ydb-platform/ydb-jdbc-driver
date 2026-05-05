@@ -111,10 +111,12 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             throw new SQLFeatureNotSupportedException(YdbConst.CHANGE_ISOLATION_INSIDE_TX);
         }
 
-        isReadOnly = isReadOnly || (level != Connection.TRANSACTION_SERIALIZABLE
-                && level != Connection.TRANSACTION_REPEATABLE_READ);
+        boolean readOnly = isReadOnly
+                || (level != Connection.TRANSACTION_SERIALIZABLE && level != Connection.TRANSACTION_REPEATABLE_READ);
+
+        txMode = txMode(level, readOnly);
+        isReadOnly = readOnly;
         transactionLevel = level;
-        txMode = txMode(transactionLevel, isReadOnly);
     }
 
     @Override
@@ -467,6 +469,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
 
         switch (level) {
             case Connection.TRANSACTION_SERIALIZABLE:
+            case Connection.TRANSACTION_REPEATABLE_READ:
                 return TxMode.SNAPSHOT_RO;
             case YdbConst.ONLINE_CONSISTENT_READ_ONLY:
                 return TxMode.ONLINE_RO;

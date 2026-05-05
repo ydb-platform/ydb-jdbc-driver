@@ -68,6 +68,9 @@ public class YdbTableConnectionImplTest {
     @BeforeEach
     public void checkTransactionState() throws SQLException {
         Assertions.assertNull(getTxId(jdbc.connection()), "Transaction must be empty before test");
+        jdbc.connection().setReadOnly(false);
+        jdbc.connection().setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
+        jdbc.connection().setAutoCommit(true);
     }
 
     @AfterEach
@@ -575,11 +578,25 @@ public class YdbTableConnectionImplTest {
         try (Statement statement = jdbc.connection().createStatement()) {
             TableAssert.assertSelectInt(4, statement.executeQuery(SELECT_2_2));
         }
+
+        // read only check
+        jdbc.connection().setReadOnly(true);
+        Assertions.assertEquals(true, jdbc.connection().isReadOnly());
+        Assertions.assertEquals(level, jdbc.connection().getTransactionIsolation());
+
+        try (Statement statement = jdbc.connection().createStatement()) {
+            TableAssert.assertSelectInt(4, statement.executeQuery(SELECT_2_2));
+        }
     }
 
     @ParameterizedTest(name = "Check supported isolation level {0}")
     @ValueSource(ints = { 0, 1, 2, 3, /*4,*/ 5, 6, 7, /*8,*/ 9, 10 })
     public void unsupportedTransactionIsolations(int level) throws SQLException {
+        jdbc.connection().setReadOnly(false);
+        ExceptionAssert.sqlException("Unsupported transaction level: " + level,
+                () -> jdbc.connection().setTransactionIsolation(level)
+        );
+        jdbc.connection().setReadOnly(true);
         ExceptionAssert.sqlException("Unsupported transaction level: " + level,
                 () -> jdbc.connection().setTransactionIsolation(level)
         );
