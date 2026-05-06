@@ -1,6 +1,7 @@
 package tech.ydb.jdbc.impl;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.net.URL;
 import java.sql.Connection;
 import java.sql.Date;
@@ -2243,6 +2244,623 @@ public class YdbPreparedStatementTest {
 
                 Assertions.assertFalse(rs.next());
             }
+        }
+    }
+
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(SqlQueries.JdbcQuery.class)
+    public void uint8Test(SqlQueries.JdbcQuery query) throws SQLException {
+        String upsert = TEST_TABLE.upsertOne(query, "c_Uint8", "Uint8");
+        int ydbSqlType = YdbConst.SQL_KIND_PRIMITIVE + PrimitiveType.Uint8.ordinal();
+        boolean castingSupported = query != SqlQueries.JdbcQuery.IN_MEMORY;
+
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert)) {
+            ps.setInt(1, 1);
+            if (castingSupported) {
+                ps.setByte(2, (byte) 0);
+            } else {
+                ps.setObject(2, (byte) 0, ydbSqlType);
+            }
+            ps.execute();
+
+            ps.setInt(1, 2);
+            if (castingSupported) {
+                ps.setByte(2, Byte.MAX_VALUE); // 127
+            } else {
+                ps.setObject(2, Byte.MAX_VALUE, ydbSqlType);
+            }
+            ps.execute();
+
+            // BigInteger above signed byte max — pre-fix: castAsByte had no BigInteger branch.
+            ps.setInt(1, 3);
+            ps.setObject(2, BigInteger.valueOf(128), ydbSqlType);
+            ps.execute();
+
+            ps.setInt(1, 4);
+            ps.setObject(2, BigInteger.valueOf(200), ydbSqlType);
+            ps.execute();
+
+            // String above signed byte max — pre-fix: Byte.parseByte threw NumberFormatException.
+            ps.setInt(1, 5);
+            ps.setObject(2, "200", ydbSqlType);
+            ps.execute();
+
+            ps.setInt(1, 6);
+            ps.setObject(2, BigInteger.valueOf(255), ydbSqlType);
+            ps.execute();
+
+            ps.setInt(1, 7);
+            ps.setObject(2, "255", ydbSqlType);
+            ps.execute();
+
+            // Boolean & Utf8 -> Uint8 — server-side cast in castingSupported mode,
+            // driver-side cast (via castAsByte) in IN_MEMORY mode.
+            ps.setInt(1, 8);
+            if (castingSupported) {
+                ps.setBoolean(2, true);
+            } else {
+                ps.setObject(2, true, ydbSqlType);
+            }
+            ps.execute();
+
+            ps.setInt(1, 9);
+            if (castingSupported) {
+                ps.setString(2, "42");
+            } else {
+                ps.setObject(2, "42", ydbSqlType);
+            }
+            ps.execute();
+
+            // BigDecimal/Float/Double — supported via setObject(value, ydbSqlType).
+            ps.setInt(1, 10);
+            ps.setObject(2, new BigDecimal("100"), ydbSqlType);
+            ps.execute();
+
+            ps.setInt(1, 11);
+            ps.setObject(2, 12.0f, ydbSqlType);
+            ps.execute();
+
+            ps.setInt(1, 12);
+            ps.setObject(2, 13.0d, ydbSqlType);
+            ps.execute();
+
+            ExceptionAssert.sqlException("Cannot cast [class java.math.BigInteger: 256] to [Uint8]",
+                    () -> ps.setObject(2, BigInteger.valueOf(256), ydbSqlType)
+            );
+            ExceptionAssert.sqlException("Cannot cast [class java.math.BigInteger: -1] to [Uint8]",
+                    () -> ps.setObject(2, BigInteger.valueOf(-1), ydbSqlType)
+            );
+            ExceptionAssert.sqlException("Cannot cast [class java.lang.String: 256] to [Uint8]",
+                    () -> ps.setObject(2, "256", ydbSqlType)
+            );
+
+            // BigDecimal with fractional part / floating-point with fraction — rejected.
+            ExceptionAssert.sqlException("Cannot cast [class java.math.BigDecimal: 1.5] to [Uint8]",
+                    () -> ps.setObject(2, new BigDecimal("1.5"), ydbSqlType)
+            );
+            ExceptionAssert.sqlException("Cannot cast [class java.lang.Float: 1.5] to [Uint8]",
+                    () -> ps.setObject(2, 1.5f, ydbSqlType)
+            );
+            ExceptionAssert.sqlException("Cannot cast [class java.lang.Double: NaN] to [Uint8]",
+                    () -> ps.setObject(2, Double.NaN, ydbSqlType)
+            );
+            // Time/Date/Timestamp are not meaningful for Uint8 (their numeric forms
+            // never fit 0..255). Driver rejects with castNotSupported.
+            ExceptionAssert.sqlException("Cannot cast [class java.sql.Time: 10:30:00] to [Uint8]",
+                    () -> ps.setObject(2, Time.valueOf(LocalTime.of(10, 30, 0)), ydbSqlType)
+            );
+        }
+
+        try (Statement statement = jdbc.connection().createStatement()) {
+            try (ResultSet rs = statement.executeQuery(TEST_TABLE.selectColumn("c_Uint8"))) {
+                assertNextUint8(rs, 1, 0);
+                assertNextUint8(rs, 2, 127);
+                assertNextUint8(rs, 3, 128);
+                assertNextUint8(rs, 4, 200);
+                assertNextUint8(rs, 5, 200);
+                assertNextUint8(rs, 6, 255);
+                assertNextUint8(rs, 7, 255);
+                assertNextUint8(rs, 8, 1);
+                assertNextUint8(rs, 9, 42);
+                assertNextUint8(rs, 10, 100);
+                assertNextUint8(rs, 11, 12);
+                assertNextUint8(rs, 12, 13);
+
+                Assertions.assertFalse(rs.next());
+            }
+        }
+    }
+
+    private void assertNextUint8(ResultSet rs, int key, int value) throws SQLException {
+        Assertions.assertTrue(rs.next());
+        Assertions.assertEquals(key, rs.getInt("key"));
+
+        Object obj = rs.getObject("c_Uint8");
+        Assertions.assertTrue(obj instanceof Integer);
+        Assertions.assertEquals(value, obj);
+
+        if (value <= Byte.MAX_VALUE) {
+            Assertions.assertEquals((byte) value, rs.getByte("c_Uint8"));
+        } else {
+            String msg = String.format("Cannot cast [Uint8] with value [%s] to [byte]", value);
+            ExceptionAssert.sqlException(msg, () -> rs.getByte("c_Uint8"));
+        }
+
+        Assertions.assertEquals((short) value, rs.getShort("c_Uint8"));
+        Assertions.assertEquals(value, rs.getInt("c_Uint8"));
+        Assertions.assertEquals((long) value, rs.getLong("c_Uint8"));
+        Assertions.assertEquals(String.valueOf(value), rs.getString("c_Uint8"));
+        Assertions.assertEquals(BigDecimal.valueOf(value), rs.getBigDecimal("c_Uint8"));
+        Assertions.assertEquals(value != 0, rs.getBoolean("c_Uint8"));
+    }
+
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(SqlQueries.JdbcQuery.class)
+    public void uint16Test(SqlQueries.JdbcQuery query) throws SQLException {
+        String upsert = TEST_TABLE.upsertOne(query, "c_Uint16", "Uint16");
+        int ydbSqlType = YdbConst.SQL_KIND_PRIMITIVE + PrimitiveType.Uint16.ordinal();
+        boolean castingSupported = query != SqlQueries.JdbcQuery.IN_MEMORY;
+
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert)) {
+            ps.setInt(1, 1);
+            if (castingSupported) {
+                ps.setShort(2, (short) 0);
+            } else {
+                ps.setObject(2, (short) 0, ydbSqlType);
+            }
+            ps.execute();
+
+            ps.setInt(1, 2);
+            if (castingSupported) {
+                ps.setShort(2, Short.MAX_VALUE); // 32767
+            } else {
+                ps.setObject(2, Short.MAX_VALUE, ydbSqlType);
+            }
+            ps.execute();
+
+            ps.setInt(1, 3);
+            ps.setObject(2, BigInteger.valueOf(Short.MAX_VALUE + 1), ydbSqlType); // 32768
+            ps.execute();
+
+            ps.setInt(1, 4);
+            ps.setObject(2, BigInteger.valueOf(50000), ydbSqlType);
+            ps.execute();
+
+            ps.setInt(1, 5);
+            ps.setObject(2, "50000", ydbSqlType);
+            ps.execute();
+
+            ps.setInt(1, 6);
+            ps.setObject(2, BigInteger.valueOf(0xFFFF), ydbSqlType); // 65535
+            ps.execute();
+
+            ps.setInt(1, 7);
+            ps.setObject(2, "65535", ydbSqlType);
+            ps.execute();
+
+            ps.setInt(1, 8);
+            if (castingSupported) {
+                ps.setBoolean(2, true);
+            } else {
+                ps.setObject(2, true, ydbSqlType);
+            }
+            ps.execute();
+
+            ps.setInt(1, 9);
+            if (castingSupported) {
+                ps.setString(2, "42");
+            } else {
+                ps.setObject(2, "42", ydbSqlType);
+            }
+            ps.execute();
+
+            ps.setInt(1, 10);
+            ps.setObject(2, new BigDecimal("40000"), ydbSqlType);
+            ps.execute();
+
+            ps.setInt(1, 11);
+            ps.setObject(2, 1234.0f, ydbSqlType);
+            ps.execute();
+
+            ps.setInt(1, 12);
+            ps.setObject(2, 5678.0d, ydbSqlType);
+            ps.execute();
+
+            ExceptionAssert.sqlException("Cannot cast [class java.math.BigInteger: 65536] to [Uint16]",
+                    () -> ps.setObject(2, BigInteger.valueOf(65536), ydbSqlType)
+            );
+            ExceptionAssert.sqlException("Cannot cast [class java.math.BigInteger: -1] to [Uint16]",
+                    () -> ps.setObject(2, BigInteger.valueOf(-1), ydbSqlType)
+            );
+            ExceptionAssert.sqlException("Cannot cast [class java.lang.String: 65536] to [Uint16]",
+                    () -> ps.setObject(2, "65536", ydbSqlType)
+            );
+            ExceptionAssert.sqlException("Cannot cast [class java.math.BigDecimal: 100.5] to [Uint16]",
+                    () -> ps.setObject(2, new BigDecimal("100.5"), ydbSqlType)
+            );
+            ExceptionAssert.sqlException("Cannot cast [class java.lang.Double: Infinity] to [Uint16]",
+                    () -> ps.setObject(2, Double.POSITIVE_INFINITY, ydbSqlType)
+            );
+            ExceptionAssert.sqlException("Cannot cast [class java.sql.Time: 10:30:00] to [Uint16]",
+                    () -> ps.setObject(2, Time.valueOf(LocalTime.of(10, 30, 0)), ydbSqlType)
+            );
+        }
+
+        try (Statement statement = jdbc.connection().createStatement()) {
+            try (ResultSet rs = statement.executeQuery(TEST_TABLE.selectColumn("c_Uint16"))) {
+                assertNextUint16(rs, 1, 0);
+                assertNextUint16(rs, 2, Short.MAX_VALUE);
+                assertNextUint16(rs, 3, Short.MAX_VALUE + 1);
+                assertNextUint16(rs, 4, 50000);
+                assertNextUint16(rs, 5, 50000);
+                assertNextUint16(rs, 6, 0xFFFF);
+                assertNextUint16(rs, 7, 0xFFFF);
+                assertNextUint16(rs, 8, 1);
+                assertNextUint16(rs, 9, 42);
+                assertNextUint16(rs, 10, 40000);
+                assertNextUint16(rs, 11, 1234);
+                assertNextUint16(rs, 12, 5678);
+
+                Assertions.assertFalse(rs.next());
+            }
+        }
+    }
+
+    private void assertNextUint16(ResultSet rs, int key, int value) throws SQLException {
+        Assertions.assertTrue(rs.next());
+        Assertions.assertEquals(key, rs.getInt("key"));
+
+        Object obj = rs.getObject("c_Uint16");
+        Assertions.assertTrue(obj instanceof Integer);
+        Assertions.assertEquals(value, obj);
+
+        if (value <= Short.MAX_VALUE) {
+            Assertions.assertEquals((short) value, rs.getShort("c_Uint16"));
+        } else {
+            String msg = String.format("Cannot cast [Uint16] with value [%s] to [short]", value);
+            ExceptionAssert.sqlException(msg, () -> rs.getShort("c_Uint16"));
+        }
+
+        Assertions.assertEquals(value, rs.getInt("c_Uint16"));
+        Assertions.assertEquals((long) value, rs.getLong("c_Uint16"));
+        Assertions.assertEquals(String.valueOf(value), rs.getString("c_Uint16"));
+        Assertions.assertEquals(BigDecimal.valueOf(value), rs.getBigDecimal("c_Uint16"));
+        Assertions.assertEquals(value != 0, rs.getBoolean("c_Uint16"));
+    }
+
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(SqlQueries.JdbcQuery.class)
+    public void uint32Test(SqlQueries.JdbcQuery query) throws SQLException {
+        String upsert = TEST_TABLE.upsertOne(query, "c_Uint32", "Uint32");
+        int ydbSqlType = YdbConst.SQL_KIND_PRIMITIVE + PrimitiveType.Uint32.ordinal();
+        boolean castingSupported = query != SqlQueries.JdbcQuery.IN_MEMORY;
+
+        long uint32Max = 0xFFFFFFFFL; // 4294967295
+
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert)) {
+            ps.setInt(1, 1);
+            if (castingSupported) {
+                ps.setInt(2, 0);
+            } else {
+                ps.setObject(2, 0, ydbSqlType);
+            }
+            ps.execute();
+
+            ps.setInt(1, 2);
+            if (castingSupported) {
+                ps.setInt(2, Integer.MAX_VALUE); // 2147483647
+            } else {
+                ps.setObject(2, Integer.MAX_VALUE, ydbSqlType);
+            }
+            ps.execute();
+
+            ps.setInt(1, 3);
+            ps.setObject(2, BigInteger.valueOf((long) Integer.MAX_VALUE + 1), ydbSqlType); // 2147483648
+            ps.execute();
+
+            ps.setInt(1, 4);
+            ps.setObject(2, BigInteger.valueOf(4000000000L), ydbSqlType);
+            ps.execute();
+
+            ps.setInt(1, 5);
+            ps.setObject(2, "4000000000", ydbSqlType);
+            ps.execute();
+
+            ps.setInt(1, 6);
+            ps.setObject(2, BigInteger.valueOf(uint32Max), ydbSqlType);
+            ps.execute();
+
+            ps.setInt(1, 7);
+            ps.setObject(2, String.valueOf(uint32Max), ydbSqlType);
+            ps.execute();
+
+            ps.setInt(1, 8);
+            if (castingSupported) {
+                ps.setBoolean(2, true);
+            } else {
+                ps.setObject(2, true, ydbSqlType);
+            }
+            ps.execute();
+
+            ps.setInt(1, 9);
+            if (castingSupported) {
+                ps.setString(2, "42");
+            } else {
+                ps.setObject(2, "42", ydbSqlType);
+            }
+            ps.execute();
+
+            ps.setInt(1, 10);
+            ps.setObject(2, new BigDecimal("3000000000"), ydbSqlType); // > Integer.MAX_VALUE
+            ps.execute();
+
+            ps.setInt(1, 11);
+            ps.setObject(2, 1234.0f, ydbSqlType);
+            ps.execute();
+
+            ps.setInt(1, 12);
+            ps.setObject(2, 5_000_000.0d, ydbSqlType);
+            ps.execute();
+
+            // Time/Date — driver routes through castAsInt's existing branches.
+            ps.setInt(1, 13);
+            if (castingSupported) {
+                ps.setTime(2, Time.valueOf(LocalTime.of(10, 30, 0))); // 37800 sec-of-day
+            } else {
+                ps.setObject(2, Time.valueOf(LocalTime.of(10, 30, 0)), ydbSqlType);
+            }
+            ps.execute();
+
+            ps.setInt(1, 14);
+            if (castingSupported) {
+                ps.setDate(2, Date.valueOf(LocalDate.of(2025, Month.JANUARY, 1))); // 20089 epoch days
+            } else {
+                ps.setObject(2, Date.valueOf(LocalDate.of(2025, Month.JANUARY, 1)), ydbSqlType);
+            }
+            ps.execute();
+
+            ExceptionAssert.sqlException("Cannot cast [class java.math.BigInteger: 4294967296] to [Uint32]",
+                    () -> ps.setObject(2, BigInteger.valueOf(uint32Max + 1), ydbSqlType)
+            );
+            ExceptionAssert.sqlException("Cannot cast [class java.math.BigInteger: -1] to [Uint32]",
+                    () -> ps.setObject(2, BigInteger.valueOf(-1), ydbSqlType)
+            );
+            ExceptionAssert.sqlException("Cannot cast [class java.lang.String: 4294967296] to [Uint32]",
+                    () -> ps.setObject(2, "4294967296", ydbSqlType)
+            );
+            ExceptionAssert.sqlException("Cannot cast [class java.math.BigDecimal: 0.5] to [Uint32]",
+                    () -> ps.setObject(2, new BigDecimal("0.5"), ydbSqlType)
+            );
+            ExceptionAssert.sqlException("Cannot cast [class java.lang.Double: NaN] to [Uint32]",
+                    () -> ps.setObject(2, Double.NaN, ydbSqlType)
+            );
+        }
+
+        try (Statement statement = jdbc.connection().createStatement()) {
+            try (ResultSet rs = statement.executeQuery(TEST_TABLE.selectColumn("c_Uint32"))) {
+                assertNextUint32(rs, 1, 0L);
+                assertNextUint32(rs, 2, (long) Integer.MAX_VALUE);
+                assertNextUint32(rs, 3, (long) Integer.MAX_VALUE + 1);
+                assertNextUint32(rs, 4, 4000000000L);
+                assertNextUint32(rs, 5, 4000000000L);
+                assertNextUint32(rs, 6, uint32Max);
+                assertNextUint32(rs, 7, uint32Max);
+                assertNextUint32(rs, 8, 1L);
+                assertNextUint32(rs, 9, 42L);
+                assertNextUint32(rs, 10, 3000000000L);
+                assertNextUint32(rs, 11, 1234L);
+                assertNextUint32(rs, 12, 5_000_000L);
+                assertNextUint32(rs, 13, 10 * 3600L + 30 * 60); // 37800
+                assertNextUint32(rs, 14, LocalDate.of(2025, Month.JANUARY, 1).toEpochDay());
+
+                Assertions.assertFalse(rs.next());
+            }
+        }
+    }
+
+    private void assertNextUint32(ResultSet rs, int key, long value) throws SQLException {
+        Assertions.assertTrue(rs.next());
+        Assertions.assertEquals(key, rs.getInt("key"));
+
+        Object obj = rs.getObject("c_Uint32");
+        Assertions.assertTrue(obj instanceof Long);
+        Assertions.assertEquals(value, obj);
+
+        if (value <= Integer.MAX_VALUE) {
+            Assertions.assertEquals((int) value, rs.getInt("c_Uint32"));
+        } else {
+            String msg = String.format("Cannot cast [Uint32] with value [%s] to [int]", value);
+            ExceptionAssert.sqlException(msg, () -> rs.getInt("c_Uint32"));
+        }
+
+        Assertions.assertEquals(value, rs.getLong("c_Uint32"));
+        Assertions.assertEquals(String.valueOf(value), rs.getString("c_Uint32"));
+        Assertions.assertEquals(BigDecimal.valueOf(value), rs.getBigDecimal("c_Uint32"));
+        Assertions.assertEquals(value != 0, rs.getBoolean("c_Uint32"));
+    }
+
+    @ParameterizedTest(name = "with {0}")
+    @EnumSource(SqlQueries.JdbcQuery.class)
+    public void uint64Test(SqlQueries.JdbcQuery query) throws SQLException {
+        String upsert = TEST_TABLE.upsertOne(query, "c_Uint64", "Uint64");
+        int ydbSqlType = YdbConst.SQL_KIND_PRIMITIVE + PrimitiveType.Uint64.ordinal();
+        boolean castingSupported = query != SqlQueries.JdbcQuery.IN_MEMORY;
+
+        BigInteger uint64Max = BigInteger.ONE.shiftLeft(64).subtract(BigInteger.ONE); // 18446744073709551615
+        BigInteger aboveSignedLong = BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE); // 9223372036854775808
+
+        try (PreparedStatement ps = jdbc.connection().prepareStatement(upsert)) {
+            ps.setInt(1, 1);
+            if (castingSupported) {
+                ps.setLong(2, 0L);
+            } else {
+                ps.setObject(2, 0L, ydbSqlType);
+            }
+            ps.execute();
+
+            ps.setInt(1, 2);
+            if (castingSupported) {
+                ps.setLong(2, Long.MAX_VALUE);
+            } else {
+                ps.setObject(2, Long.MAX_VALUE, ydbSqlType);
+            }
+            ps.execute();
+
+            ps.setInt(1, 3);
+            ps.setObject(2, aboveSignedLong, ydbSqlType);
+            ps.execute();
+
+            ps.setInt(1, 4);
+            ps.setObject(2, aboveSignedLong.toString(), ydbSqlType);
+            ps.execute();
+
+            ps.setInt(1, 5);
+            ps.setObject(2, uint64Max, ydbSqlType);
+            ps.execute();
+
+            ps.setInt(1, 6);
+            ps.setObject(2, uint64Max.toString(), ydbSqlType);
+            ps.execute();
+
+            ps.setInt(1, 7);
+            if (castingSupported) {
+                ps.setBoolean(2, true);
+            } else {
+                ps.setObject(2, true, ydbSqlType);
+            }
+            ps.execute();
+
+            ps.setInt(1, 8);
+            if (castingSupported) {
+                ps.setString(2, "42");
+            } else {
+                ps.setObject(2, "42", ydbSqlType);
+            }
+            ps.execute();
+
+            ps.setInt(1, 9);
+            ps.setObject(2, new BigDecimal(uint64Max), ydbSqlType); // 2^64-1 via BigDecimal
+            ps.execute();
+
+            ps.setInt(1, 10);
+            ps.setObject(2, 12.0f, ydbSqlType);
+            ps.execute();
+
+            ps.setInt(1, 11);
+            ps.setObject(2, 13.0d, ydbSqlType);
+            ps.execute();
+
+            ps.setInt(1, 12);
+            if (castingSupported) {
+                ps.setTime(2, Time.valueOf(LocalTime.of(10, 30, 0))); // 37800 sec-of-day
+            } else {
+                ps.setObject(2, Time.valueOf(LocalTime.of(10, 30, 0)), ydbSqlType);
+            }
+            ps.execute();
+
+            ps.setInt(1, 13);
+            if (castingSupported) {
+                ps.setDate(2, Date.valueOf(LocalDate.of(2025, Month.JANUARY, 1)));
+            } else {
+                ps.setObject(2, Date.valueOf(LocalDate.of(2025, Month.JANUARY, 1)), ydbSqlType);
+            }
+            ps.execute();
+
+            ps.setInt(1, 14);
+            if (castingSupported) {
+                ps.setTimestamp(2, new Timestamp(TEST_TS.toEpochMilli()));
+            } else {
+                ps.setObject(2, new Timestamp(TEST_TS.toEpochMilli()), ydbSqlType);
+            }
+            ps.execute();
+
+            BigInteger overflow = uint64Max.add(BigInteger.ONE);
+            ExceptionAssert.sqlException(
+                    "Cannot cast [class java.math.BigInteger: " + overflow + "] to [Uint64]",
+                    () -> ps.setObject(2, overflow, ydbSqlType)
+            );
+            ExceptionAssert.sqlException("Cannot cast [class java.math.BigInteger: -1] to [Uint64]",
+                    () -> ps.setObject(2, BigInteger.valueOf(-1), ydbSqlType)
+            );
+            ExceptionAssert.sqlException(
+                    "Cannot cast [class java.lang.String: " + overflow + "] to [Uint64]",
+                    () -> ps.setObject(2, overflow.toString(), ydbSqlType)
+            );
+            ExceptionAssert.sqlException("Cannot cast [class java.math.BigDecimal: 1.5] to [Uint64]",
+                    () -> ps.setObject(2, new BigDecimal("1.5"), ydbSqlType)
+            );
+            ExceptionAssert.sqlException("Cannot cast [class java.lang.Float: NaN] to [Uint64]",
+                    () -> ps.setObject(2, Float.NaN, ydbSqlType)
+            );
+        }
+
+        try (Statement statement = jdbc.connection().createStatement()) {
+            try (ResultSet rs = statement.executeQuery(TEST_TABLE.selectColumn("c_Uint64"))) {
+                assertNextUint64(rs, 1, BigInteger.ZERO);
+                assertNextUint64(rs, 2, BigInteger.valueOf(Long.MAX_VALUE));
+                assertNextUint64(rs, 3, aboveSignedLong);
+                assertNextUint64(rs, 4, aboveSignedLong);
+                assertNextUint64(rs, 5, uint64Max);
+                assertNextUint64(rs, 6, uint64Max);
+                assertNextUint64(rs, 7, BigInteger.ONE);
+                assertNextUint64(rs, 8, BigInteger.valueOf(42));
+                assertNextUint64(rs, 9, uint64Max);
+                assertNextUint64(rs, 10, BigInteger.valueOf(12));
+                assertNextUint64(rs, 11, BigInteger.valueOf(13));
+                assertNextUint64(rs, 12, BigInteger.valueOf(10 * 3600L + 30 * 60)); // 37800
+                assertNextUint64(rs, 13, BigInteger.valueOf(LocalDate.of(2025, Month.JANUARY, 1).toEpochDay()));
+                assertNextUint64(rs, 14, BigInteger.valueOf(TEST_TS.toEpochMilli()));
+
+                Assertions.assertFalse(rs.next());
+            }
+        }
+    }
+
+    private void assertNextUint64(ResultSet rs, int key, BigInteger value) throws SQLException {
+        Assertions.assertTrue(rs.next());
+        Assertions.assertEquals(key, rs.getInt("key"));
+
+        // getLong/getObject preserve the raw 64-bit pattern (Uint64 -> Long is a
+        // signed reinterpretation, e.g. 2^64-1 -> -1L). getString/getBigDecimal,
+        // however, must reflect the true unsigned numeric value.
+        long rawBits = value.longValue();
+
+        Object obj = rs.getObject("c_Uint64");
+        Assertions.assertTrue(obj instanceof Long);
+        Assertions.assertEquals(rawBits, obj);
+
+        Assertions.assertEquals(rawBits, rs.getLong("c_Uint64"));
+        Assertions.assertEquals(rawBits != 0L, rs.getBoolean("c_Uint64"));
+
+        Assertions.assertEquals(value.toString(), rs.getString("c_Uint64"));
+        Assertions.assertEquals(new BigDecimal(value), rs.getBigDecimal("c_Uint64"));
+
+        // Narrow integer accessors: only succeed when the unsigned value fits
+        // the (signed) target's positive range; reject for values above it,
+        // including those that look "small" as raw bits (e.g. -1L for 2^64-1).
+        if (value.bitLength() <= 7) {
+            Assertions.assertEquals(value.byteValueExact(), rs.getByte("c_Uint64"));
+        } else {
+            ExceptionAssert.sqlException(
+                    String.format("Cannot cast [Uint64] with value [%s] to [byte]", value),
+                    () -> rs.getByte("c_Uint64")
+            );
+        }
+        if (value.bitLength() <= 15) {
+            Assertions.assertEquals(value.shortValueExact(), rs.getShort("c_Uint64"));
+        } else {
+            ExceptionAssert.sqlException(
+                    String.format("Cannot cast [Uint64] with value [%s] to [short]", value),
+                    () -> rs.getShort("c_Uint64")
+            );
+        }
+        if (value.bitLength() <= 31) {
+            Assertions.assertEquals(value.intValueExact(), rs.getInt("c_Uint64"));
+        } else {
+            ExceptionAssert.sqlException(
+                    String.format("Cannot cast [Uint64] with value [%s] to [int]", value),
+                    () -> rs.getInt("c_Uint64")
+            );
         }
     }
 

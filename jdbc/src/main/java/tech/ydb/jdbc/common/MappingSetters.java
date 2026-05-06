@@ -66,19 +66,19 @@ public class MappingSetters {
                 case Int8:
                     return x -> PrimitiveValue.newInt8(castAsByte(id, x));
                 case Uint8:
-                    return x -> PrimitiveValue.newUint8(castAsByte(id, x));
+                    return x -> PrimitiveValue.newUint8(castAsUint8(id, x));
                 case Int16:
                     return x -> PrimitiveValue.newInt16(castAsShort(id, x));
                 case Uint16:
-                    return x -> PrimitiveValue.newUint16(castAsShort(id, x));
+                    return x -> PrimitiveValue.newUint16(castAsUint16(id, x));
                 case Int32:
                     return x -> PrimitiveValue.newInt32(castAsInt(id, x));
                 case Uint32:
-                    return x -> PrimitiveValue.newUint32(castAsInt(id, x));
+                    return x -> PrimitiveValue.newUint32(castAsUint32(id, x));
                 case Int64:
                     return x -> PrimitiveValue.newInt64(castAsLong(id, x));
                 case Uint64:
-                    return x -> PrimitiveValue.newUint64(castAsLong(id, x));
+                    return x -> PrimitiveValue.newUint64(castAsUint64(id, x));
                 case Float:
                     return x -> PrimitiveValue.newFloat(castAsFloat(id, x));
                 case Double:
@@ -343,6 +343,118 @@ public class MappingSetters {
             }
         }
         throw castNotSupported(type, x);
+    }
+
+    private static byte castAsUint8(PrimitiveType type, Object x) throws SQLException {
+        BigInteger bi = toUnsignedBigInteger(type, x);
+        if (bi != null) {
+            if (bi.signum() < 0 || bi.bitLength() > 8) {
+                throw castNotSupported(type, x);
+            }
+            return bi.byteValue();
+        }
+        if (x instanceof String) {
+            try {
+                int parsed = Integer.parseUnsignedInt((String) x);
+                if ((parsed & ~0xFF) != 0) {
+                    throw castNotSupported(type, x);
+                }
+                return (byte) parsed;
+            } catch (NumberFormatException e) {
+                throw castNotSupported(type, x, e);
+            }
+        }
+        return castAsByte(type, x);
+    }
+
+    private static short castAsUint16(PrimitiveType type, Object x) throws SQLException {
+        BigInteger bi = toUnsignedBigInteger(type, x);
+        if (bi != null) {
+            if (bi.signum() < 0 || bi.bitLength() > 16) {
+                throw castNotSupported(type, x);
+            }
+            return bi.shortValue();
+        }
+        if (x instanceof String) {
+            try {
+                int parsed = Integer.parseUnsignedInt((String) x);
+                if ((parsed & ~0xFFFF) != 0) {
+                    throw castNotSupported(type, x);
+                }
+                return (short) parsed;
+            } catch (NumberFormatException e) {
+                throw castNotSupported(type, x, e);
+            }
+        }
+        return castAsShort(type, x);
+    }
+
+    private static int castAsUint32(PrimitiveType type, Object x) throws SQLException {
+        BigInteger bi = toUnsignedBigInteger(type, x);
+        if (bi != null) {
+            if (bi.signum() < 0 || bi.bitLength() > 32) {
+                throw castNotSupported(type, x);
+            }
+            return bi.intValue();
+        }
+        if (x instanceof String) {
+            try {
+                return Integer.parseUnsignedInt((String) x);
+            } catch (NumberFormatException e) {
+                throw castNotSupported(type, x, e);
+            }
+        }
+        return castAsInt(type, x);
+    }
+
+    private static long castAsUint64(PrimitiveType type, Object x) throws SQLException {
+        BigInteger bi = toUnsignedBigInteger(type, x);
+        if (bi != null) {
+            if (bi.signum() < 0 || bi.bitLength() > 64) {
+                throw castNotSupported(type, x);
+            }
+            return bi.longValue();
+        }
+        if (x instanceof String) {
+            try {
+                return Long.parseUnsignedLong((String) x);
+            } catch (NumberFormatException e) {
+                throw castNotSupported(type, x, e);
+            }
+        }
+        return castAsLong(type, x);
+    }
+
+    /**
+     * Converts BigInteger / BigDecimal / Float / Double inputs to a non-null BigInteger
+     * for unsigned-range validation by the caller. Returns null for other types so the
+     * caller can route them through the signed cast helpers (castAsByte/Short/Int/Long).
+     * Errors are reported against the original Object x so messages identify the
+     * user-visible input (e.g. 1.5f stays a Float in the error, not a BigDecimal).
+     */
+    private static BigInteger toUnsignedBigInteger(PrimitiveType type, Object x) throws SQLException {
+        if (x instanceof BigInteger) {
+            return (BigInteger) x;
+        }
+        if (x instanceof BigDecimal) {
+            try {
+                return ((BigDecimal) x).toBigIntegerExact();
+            } catch (ArithmeticException e) {
+                throw castNotSupported(type, x, e);
+            }
+        }
+        if (x instanceof Float || x instanceof Double) {
+            double d = ((Number) x).doubleValue();
+            if (Double.isNaN(d) || Double.isInfinite(d)) {
+                throw castNotSupported(type, x);
+            }
+            try {
+                return BigDecimal.valueOf(d).toBigIntegerExact();
+            } catch (ArithmeticException e) {
+                throw castNotSupported(type, x, e);
+            }
+        }
+        return null;
     }
 
     private static float castAsFloat(PrimitiveType type, Object x) throws SQLException {
