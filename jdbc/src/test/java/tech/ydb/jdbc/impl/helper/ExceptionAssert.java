@@ -55,4 +55,12 @@ public class ExceptionAssert {
         );
         Assertions.assertEquals(message, ex.getMessage());
     }
+
+    public static void sqlExceptionStartsWith(String prefix, Executable exec) {
+        SQLException ex = Assertions.assertThrows(SQLException.class, exec,
+                "Invalid statement must throw SQLException"
+        );
+        Assertions.assertTrue(ex.getMessage() != null && ex.getMessage().startsWith(prefix),
+                "SQLException message '" + ex.getMessage() + "' should start with '" + prefix + "'");
+    }
 }
