@@ -292,31 +292,6 @@ public class MappingGetters {
         return (byte) value;
     }
 
-    private static BigInteger uint64ToBigInteger(long unsignedValue) {
-        return new BigInteger(Long.toUnsignedString(unsignedValue));
-    }
-
-    private static byte checkUnsignedByteValue(PrimitiveType id, long unsignedValue) throws SQLException {
-        if (unsignedValue < 0 || unsignedValue > Byte.MAX_VALUE) {
-            throw cannotConvert(id, byte.class, Long.toUnsignedString(unsignedValue));
-        }
-        return (byte) unsignedValue;
-    }
-
-    private static short checkUnsignedShortValue(PrimitiveType id, long unsignedValue) throws SQLException {
-        if (unsignedValue < 0 || unsignedValue > Short.MAX_VALUE) {
-            throw cannotConvert(id, short.class, Long.toUnsignedString(unsignedValue));
-        }
-        return (short) unsignedValue;
-    }
-
-    private static int checkUnsignedIntValue(PrimitiveType id, long unsignedValue) throws SQLException {
-        if (unsignedValue < 0 || unsignedValue > Integer.MAX_VALUE) {
-            throw cannotConvert(id, int.class, Long.toUnsignedString(unsignedValue));
-        }
-        return (int) unsignedValue;
-    }
-
     private static ValueToByte valueToByte(PrimitiveType id) {
         switch (id) {
             case Bool:
@@ -334,13 +309,7 @@ public class MappingGetters {
             case Int64:
                 return value -> checkByteValue(id, value.getInt64());
             case Uint8:
-                return value -> checkByteValue(id, value.getUint8());
-            case Uint16:
-                return value -> checkByteValue(id, value.getUint16());
-            case Uint32:
-                return value -> checkByteValue(id, value.getUint32());
-            case Uint64:
-                return value -> checkUnsignedByteValue(id, value.getUint64());
+                return value -> (byte) value.getUint8();
             default:
                 return castToByteNotSupported(id.name());
         }
@@ -381,11 +350,7 @@ public class MappingGetters {
             case Uint8:
                 return value -> checkShortValue(id, value.getUint8());
             case Uint16:
-                return value -> checkShortValue(id, value.getUint16());
-            case Uint32:
-                return value -> checkShortValue(id, value.getUint32());
-            case Uint64:
-                return value -> checkUnsignedShortValue(id, value.getUint64());
+                return value -> (short) value.getUint16();
             default:
                 return castToShortNotSupported(id.name());
         }
@@ -393,7 +358,7 @@ public class MappingGetters {
 
     private static int checkIntValue(PrimitiveType id, long value) throws SQLException {
         long ch = value >= 0 ? value : ~value;
-        if ((ch & 0x7FFFFFFFL) != ch) {
+        if ((ch & 0xFFFFFFFFL) != ch) {
             throw cannotConvert(id, int.class, value);
         }
         return (int) value;
@@ -422,7 +387,7 @@ public class MappingGetters {
             case Uint32:
                 return value -> checkIntValue(id, value.getUint32());
             case Uint64:
-                return value -> checkUnsignedIntValue(id, value.getUint64());
+                return value -> checkIntValue(id, value.getUint64());
             case Date:
                 return value -> checkIntValue(id, value.getDate().toEpochDay());
             case Date32:
@@ -494,14 +459,6 @@ public class MappingGetters {
                 return PrimitiveReader::getInt32;
             case Int64:
                 return PrimitiveReader::getInt64;
-            case Uint8:
-                return PrimitiveReader::getUint8;
-            case Uint16:
-                return PrimitiveReader::getUint16;
-            case Uint32:
-                return PrimitiveReader::getUint32;
-            case Uint64:
-                return value -> uint64ToBigInteger(value.getUint64()).floatValue();
             case Float:
                 return PrimitiveReader::getFloat;
             case Double:
@@ -517,20 +474,12 @@ public class MappingGetters {
                 return value -> value.getBool() ? 1 : 0;
             case Int8:
                 return PrimitiveReader::getInt8;
-            case Uint8:
-                return PrimitiveReader::getUint8;
             case Int16:
                 return PrimitiveReader::getInt16;
-            case Uint16:
-                return PrimitiveReader::getUint16;
             case Int32:
                 return PrimitiveReader::getInt32;
-            case Uint32:
-                return PrimitiveReader::getUint32;
             case Int64:
                 return PrimitiveReader::getInt64;
-            case Uint64:
-                return value -> uint64ToBigInteger(value.getUint64()).doubleValue();
             case Float:
                 return PrimitiveReader::getFloat;
             case Double:
@@ -619,6 +568,20 @@ public class MappingGetters {
         }
     }
 
+    private static BigDecimal toUnsignedBigDecimal(long i) {
+        if (i >= 0L)
+            return BigDecimal.valueOf(i);
+        else {
+            int upper = (int) (i >>> 32);
+            int lower = (int) i;
+
+            // return (upper << 32) + lower
+            return new BigDecimal(BigInteger.valueOf(Integer.toUnsignedLong(upper)).shiftLeft(32)
+                    .add(BigInteger.valueOf(Integer.toUnsignedLong(lower))));
+        }
+    }
+
+
     private static ValueToBigDecimal valueToBigDecimal(PrimitiveType id) {
         switch (id) {
             case Bool:
@@ -638,7 +601,7 @@ public class MappingGetters {
             case Int64:
                 return value -> BigDecimal.valueOf(value.getInt64());
             case Uint64:
-                return value -> new BigDecimal(uint64ToBigInteger(value.getUint64()));
+                return value -> toUnsignedBigDecimal(value.getUint64());
             case Float:
                 return value -> BigDecimal.valueOf(value.getFloat());
             case Double:
