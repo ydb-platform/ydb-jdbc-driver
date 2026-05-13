@@ -2401,9 +2401,8 @@ public class YdbPreparedStatementTest {
             Assertions.assertEquals(String.valueOf(value), rs.getString("c_Uint8"));
             Assertions.assertEquals(BigDecimal.valueOf(value), rs.getBigDecimal("c_Uint8"));
             Assertions.assertEquals(value != 0, rs.getBoolean("c_Uint8"));
-
-            ExceptionAssert.sqlException("Cannot cast [Uint8] to [float]", () -> rs.getFloat("c_Uint8"));
-            ExceptionAssert.sqlException("Cannot cast [Uint8] to [double]", () -> rs.getDouble("c_Uint8"));
+            Assertions.assertEquals((float) value, rs.getFloat("c_Uint8"));
+            Assertions.assertEquals((double) value, rs.getDouble("c_Uint8"));
         };
 
         try (Statement statement = jdbc.connection().createStatement()) {
@@ -2564,10 +2563,10 @@ public class YdbPreparedStatementTest {
             Assertions.assertEquals(String.valueOf(value), rs.getString("c_Uint16"));
             Assertions.assertEquals(BigDecimal.valueOf(value), rs.getBigDecimal("c_Uint16"));
             Assertions.assertEquals(value != 0, rs.getBoolean("c_Uint16"));
+            Assertions.assertEquals((float) value, rs.getFloat("c_Uint16"));
+            Assertions.assertEquals((double) value, rs.getDouble("c_Uint16"));
 
             ExceptionAssert.sqlException("Cannot cast [Uint16] to [byte]", () -> rs.getByte("c_Uint16"));
-            ExceptionAssert.sqlException("Cannot cast [Uint16] to [float]", () -> rs.getFloat("c_Uint16"));
-            ExceptionAssert.sqlException("Cannot cast [Uint16] to [double]", () -> rs.getDouble("c_Uint16"));
         };
 
         try (Statement statement = jdbc.connection().createStatement()) {
@@ -2714,11 +2713,11 @@ public class YdbPreparedStatementTest {
             Assertions.assertEquals(String.valueOf(value), rs.getString("c_Uint32"));
             Assertions.assertEquals(BigDecimal.valueOf(value), rs.getBigDecimal("c_Uint32"));
             Assertions.assertEquals(value != 0, rs.getBoolean("c_Uint32"));
+            Assertions.assertEquals((float) value, rs.getFloat("c_Uint32"));
+            Assertions.assertEquals((double) value, rs.getDouble("c_Uint32"));
 
             ExceptionAssert.sqlException("Cannot cast [Uint32] to [byte]", () -> rs.getByte("c_Uint32"));
             ExceptionAssert.sqlException("Cannot cast [Uint32] to [short]", () -> rs.getShort("c_Uint32"));
-            ExceptionAssert.sqlException("Cannot cast [Uint32] to [float]", () -> rs.getFloat("c_Uint32"));
-            ExceptionAssert.sqlException("Cannot cast [Uint32] to [double]", () -> rs.getDouble("c_Uint32"));
         };
 
         try (Statement statement = jdbc.connection().createStatement()) {
@@ -2870,11 +2869,11 @@ public class YdbPreparedStatementTest {
             Assertions.assertEquals(unsigned, rs.getString("c_Uint64"));
             Assertions.assertEquals(new BigDecimal(new BigInteger(unsigned)), rs.getBigDecimal("c_Uint64"));
             Assertions.assertEquals(value != 0, rs.getBoolean("c_Uint64"));
+            Assertions.assertEquals(new BigInteger(unsigned).floatValue(), rs.getFloat("c_Uint64"));
+            Assertions.assertEquals(new BigInteger(unsigned).doubleValue(), rs.getDouble("c_Uint64"));
 
             ExceptionAssert.sqlException("Cannot cast [Uint64] to [byte]", () -> rs.getByte("c_Uint64"));
             ExceptionAssert.sqlException("Cannot cast [Uint64] to [short]", () -> rs.getShort("c_Uint64"));
-            ExceptionAssert.sqlException("Cannot cast [Uint64] to [float]", () -> rs.getFloat("c_Uint64"));
-            ExceptionAssert.sqlException("Cannot cast [Uint64] to [double]", () -> rs.getDouble("c_Uint64"));
         };
 
         try (Statement statement = jdbc.connection().createStatement()) {

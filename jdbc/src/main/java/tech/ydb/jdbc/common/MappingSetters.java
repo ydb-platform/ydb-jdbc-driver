@@ -291,32 +291,32 @@ public class MappingSetters {
     }
 
     private static int castAsInt(PrimitiveType type, Object x) throws SQLException {
-        if (x instanceof Integer) {
-            return (Integer) x;
-        } else if (x instanceof Long) {
-            return ((Long) x).intValue();
-        } else if (x instanceof Short) {
-            return (Short) x;
-        } else if (x instanceof Byte) {
-            return (Byte) x;
-        } else if (x instanceof Boolean) {
-            return ((Boolean) x) ? 1 : 0;
-        } else if (x instanceof Time) {
-            return ((Time) x).toLocalTime().toSecondOfDay();
-        } else if (x instanceof Date) {
-            return (int) ((Date) x).toLocalDate().toEpochDay();
-        } else if (x instanceof Timestamp) {
-            return (int) ((Timestamp) x).getTime();
-        } else if (x instanceof BigDecimal) {
-            return ((BigDecimal) x).intValueExact();
-        } else if (x instanceof BigInteger) {
-            return ((BigInteger) x).intValueExact();
-        } else if (x instanceof String) {
-            try {
+        try {
+            if (x instanceof Integer) {
+                return (Integer) x;
+            } else if (x instanceof Long) {
+                return ((Long) x).intValue();
+            } else if (x instanceof Short) {
+                return (Short) x;
+            } else if (x instanceof Byte) {
+                return (Byte) x;
+            } else if (x instanceof Boolean) {
+                return ((Boolean) x) ? 1 : 0;
+            } else if (x instanceof Time) {
+                return ((Time) x).toLocalTime().toSecondOfDay();
+            } else if (x instanceof Date) {
+                return (int) ((Date) x).toLocalDate().toEpochDay();
+            } else if (x instanceof Timestamp) {
+                return (int) ((Timestamp) x).getTime();
+            } else if (x instanceof BigDecimal) {
+                return ((BigDecimal) x).intValueExact();
+            } else if (x instanceof BigInteger) {
+                return ((BigInteger) x).intValueExact();
+            } else if (x instanceof String) {
                 return Integer.parseInt((String) x);
-            } catch (NumberFormatException e) {
-                throw castNotSupported(type, x, e);
             }
+        } catch (NumberFormatException | ArithmeticException e) {
+            throw castNotSupported(type, x, e);
         }
         throw castNotSupported(type, x);
     }
@@ -368,52 +368,52 @@ public class MappingSetters {
     }
 
     private static PrimitiveValue castToUint64(PrimitiveType type, Object x) throws SQLException {
-        if (x instanceof Long) {
-            return PrimitiveValue.newUint64((Long) x);
-        } else if (x instanceof Integer) {
-            Integer v = (Integer) x;
-            if (v < 0) {
-                throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, toString(x), type));
-            }
-            return PrimitiveValue.newUint64(v);
-        } else if (x instanceof BigInteger) {
-            BigInteger v = (BigInteger) x;
-            if (v.signum() < 0 || UINT64_MAX.compareTo(v) <= 0) {
-                throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, toString(x), type));
-            }
-            return PrimitiveValue.newUint64(v.longValue());
-        } else if (x instanceof BigDecimal) {
-            BigDecimal v = (BigDecimal) x;
-            if (v.signum() < 0 || UINT64_MAX.compareTo(v.toBigInteger()) <= 0) {
-                throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, toString(x), type));
-            }
-            return PrimitiveValue.newUint64(v.longValue());
-        } else if (x instanceof Boolean) {
-            return PrimitiveValue.newUint64((Boolean) x ? 1 : 0);
-        } else if (x instanceof Time) {
-            long v = ((Time) x).toLocalTime().toSecondOfDay();
-            if (v < 0) {
-                throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, toString(x), type));
-            }
-            return PrimitiveValue.newUint64(v);
-        } else if (x instanceof Date) {
-            long v = ((Date) x).toLocalDate().toEpochDay();
-            if (v < 0) {
-                throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, toString(x), type));
-            }
-            return PrimitiveValue.newUint64(v);
-        } else if (x instanceof Timestamp) {
-            long v = ((Timestamp) x).getTime();
-            if (v < 0) {
-                throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, toString(x), type));
-            }
-            return PrimitiveValue.newUint64(v);
-        } else if (x instanceof String) {
-            try {
+        try {
+            if (x instanceof Long) {
+                return PrimitiveValue.newUint64((Long) x);
+            } else if (x instanceof Integer) {
+                Integer v = (Integer) x;
+                if (v < 0) {
+                    throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, toString(x), type));
+                }
+                return PrimitiveValue.newUint64(v);
+            } else if (x instanceof BigInteger) {
+                BigInteger v = (BigInteger) x;
+                if (v.signum() < 0 || UINT64_MAX.compareTo(v) <= 0) {
+                    throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, toString(x), type));
+                }
+                return PrimitiveValue.newUint64(v.longValue());
+            } else if (x instanceof BigDecimal) {
+                BigDecimal v = (BigDecimal) x;
+                if (v.signum() < 0 || UINT64_MAX.compareTo(v.toBigIntegerExact()) <= 0) {
+                    throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, toString(x), type));
+                }
+                return PrimitiveValue.newUint64(v.longValue());
+            } else if (x instanceof Boolean) {
+                return PrimitiveValue.newUint64((Boolean) x ? 1 : 0);
+            } else if (x instanceof Time) {
+                long v = ((Time) x).toLocalTime().toSecondOfDay();
+                if (v < 0) {
+                    throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, toString(x), type));
+                }
+                return PrimitiveValue.newUint64(v);
+            } else if (x instanceof Date) {
+                long v = ((Date) x).toLocalDate().toEpochDay();
+                if (v < 0) {
+                    throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, toString(x), type));
+                }
+                return PrimitiveValue.newUint64(v);
+            } else if (x instanceof Timestamp) {
+                long v = ((Timestamp) x).getTime();
+                if (v < 0) {
+                    throw new SQLException(String.format(YdbConst.UNABLE_TO_CAST, toString(x), type));
+                }
+                return PrimitiveValue.newUint64(v);
+            } else if (x instanceof String) {
                 return PrimitiveValue.newUint64(Long.parseUnsignedLong((String) x));
-            } catch (NumberFormatException e) {
-                throw castNotSupported(type, x, e);
             }
+        } catch (NumberFormatException | ArithmeticException e) {
+            throw castNotSupported(type, x, e);
         }
         throw castNotSupported(type, x);
     }
