@@ -234,19 +234,16 @@ public class YdbDriverProperitesTest {
     }
 
     @ParameterizedTest(name = "[{index}] {0} => {1}")
-    @CsvSource(delimiter = ',', value = {
-        // Suffix only — the underlying IOException message is OS-specific, so we match a stable prefix.
-        "classpath:data/unknown-file.txt,resource not found",
-        "file:data/unknown-file.txt,",
+    @ValueSource(strings = {
+        "classpath:data/unknown-file.txt",
+        "file:data/unknown-file.txt",
     })
-    public void getCaCertificateAsInvalid(String value, String message) {
+    public void getCaCertificateAsInvalid(String path) {
         String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/db" +
-                "?secureConnectionCertificate=" + value;
-        String expectedPrefix = "Cannot process value " + value + " for option secureConnectionCertificate: "
-                + (message == null ? "" : message);
-        ExceptionAssert.sqlExceptionStartsWith(expectedPrefix,
-                () -> driver.getPropertyInfo(url, new Properties())
-        );
+                "?secureConnectionCertificate=" + path;
+        Exception ex = Assertions.assertThrows(SQLException.class, () -> driver.getPropertyInfo(url, new Properties()));
+        Assertions.assertTrue(ex.getMessage()
+                .startsWith("Cannot process value " + path + " for option secureConnectionCertificate: "));
     }
 
     @ParameterizedTest

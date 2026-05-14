@@ -30,8 +30,6 @@ public class ExceptionAssert {
                 "Invalid statement must throw SQLDataException"
         );
         Assertions.assertEquals(message, ex.getMessage());
-//        Assertions.assertTrue(ex.getMessage().contains(message),
-//                "SQLDataException '" + ex.getMessage() + "' doesn't contain message '" + message + "'");
     }
 
     public static void sqlRecoverable(String message, Executable exec) {
@@ -54,13 +52,5 @@ public class ExceptionAssert {
                 "Invalid statement must throw SQLException"
         );
         Assertions.assertEquals(message, ex.getMessage());
-    }
-
-    public static void sqlExceptionStartsWith(String prefix, Executable exec) {
-        SQLException ex = Assertions.assertThrows(SQLException.class, exec,
-                "Invalid statement must throw SQLException"
-        );
-        Assertions.assertTrue(ex.getMessage() != null && ex.getMessage().startsWith(prefix),
-                "SQLException message '" + ex.getMessage() + "' should start with '" + prefix + "'");
     }
 }
