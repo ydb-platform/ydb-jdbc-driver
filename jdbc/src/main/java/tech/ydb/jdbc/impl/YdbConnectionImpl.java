@@ -20,6 +20,8 @@ import java.util.concurrent.Executor;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import tech.ydb.common.transaction.YdbTransaction;
+import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbDatabaseMetaData;
@@ -407,14 +409,26 @@ public class YdbConnectionImpl implements YdbConnection {
 
     @Override
     public <T> T unwrap(Class<T> iface) throws SQLException {
-        if (iface.isAssignableFrom(getClass())) {
+        executor.ensureOpened();
+
+        if (iface == YdbTransaction.class) {
+            return iface.cast(executor.getTransaction(validator));
+        } else if (iface == GrpcTransport.class) {
+            return iface.cast(ctx.getGrpcTransport());
+        } else if (iface.isAssignableFrom(getClass())) {
             return iface.cast(this);
         }
+
         throw new SQLException(YdbConst.CANNOT_UNWRAP_TO + iface);
     }
 
     @Override
-    public boolean isWrapperFor(Class<?> iface) {
+    public boolean isWrapperFor(Class<?> iface) throws SQLException {
+        executor.ensureOpened();
+        if (iface == YdbTransaction.class || iface == GrpcTransport.class) {
+            return true;
+        }
+
         return iface.isAssignableFrom(getClass());
     }
 }

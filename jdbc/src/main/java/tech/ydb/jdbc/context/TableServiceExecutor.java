@@ -5,6 +5,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.time.Duration;
 
+import tech.ydb.common.transaction.YdbTransaction;
 import tech.ydb.core.Status;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbQueryResult;
@@ -163,6 +164,11 @@ public class TableServiceExecutor extends BaseYdbExecutor {
             updateState(tx.withRollback(session));
             tracer.close();
         }
+    }
+
+    @Override
+    public YdbTransaction getTransaction(YdbValidator validator) throws SQLException {
+        throw new SQLFeatureNotSupportedException(YdbConst.TABLE_SERVICE_TRANSACTION_UNWRAP_UNSUPPORTED);
     }
 
     private ExecuteDataQuerySettings dataQuerySettings(YdbStatement statement) {

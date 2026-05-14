@@ -25,6 +25,8 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import tech.ydb.common.transaction.YdbTransaction;
+import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.jdbc.YdbConst;
 import tech.ydb.jdbc.YdbDatabaseMetaData;
@@ -101,11 +103,19 @@ public class YdbConnectionImplTest {
         Assertions.assertTrue(jdbc.connection().isWrapperFor(YdbConnection.class));
         Assertions.assertSame(jdbc.connection(), jdbc.connection().unwrap(YdbConnection.class));
 
-        Assertions.assertFalse(jdbc.connection().isWrapperFor(YdbDatabaseMetaData.class));
+        Assertions.assertTrue(jdbc.connection().isWrapperFor(GrpcTransport.class));
+        Assertions.assertNotNull(jdbc.connection().unwrap(GrpcTransport.class));
 
-        SQLException ex = Assertions.assertThrows(SQLException.class,
+        Assertions.assertTrue(jdbc.connection().isWrapperFor(YdbTransaction.class));
+        ExceptionAssert.sqlException("Cannot unwrap YdbTransaction when autoCommit=true",
+                () -> jdbc.connection().unwrap(YdbTransaction.class));
+        jdbc.connection().setAutoCommit(false);
+        Assertions.assertNotNull(jdbc.connection().unwrap(YdbTransaction.class));
+        jdbc.connection().setAutoCommit(true);
+
+        Assertions.assertFalse(jdbc.connection().isWrapperFor(YdbDatabaseMetaData.class));
+        ExceptionAssert.sqlException("Cannot unwrap to interface tech.ydb.jdbc.YdbDatabaseMetaData",
                 () -> jdbc.connection().unwrap(YdbDatabaseMetaData.class));
-        Assertions.assertEquals("Cannot unwrap to interface tech.ydb.jdbc.YdbDatabaseMetaData", ex.getMessage());
     }
 
     @Test

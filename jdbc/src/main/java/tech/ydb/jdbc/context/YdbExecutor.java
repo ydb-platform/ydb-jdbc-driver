@@ -2,6 +2,7 @@ package tech.ydb.jdbc.context;
 
 import java.sql.SQLException;
 
+import tech.ydb.common.transaction.YdbTransaction;
 import tech.ydb.jdbc.YdbQueryResult;
 import tech.ydb.jdbc.YdbStatement;
 import tech.ydb.jdbc.impl.YdbResultSetMemory;
@@ -42,4 +43,6 @@ public interface YdbExecutor {
     void rollback(YdbContext ctx, YdbValidator validator) throws SQLException;
 
     boolean isValid(YdbValidator validator, int timeout) throws SQLException;
+
+    YdbTransaction getTransaction(YdbValidator validator) throws SQLException;
 }
