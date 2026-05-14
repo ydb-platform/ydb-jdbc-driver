@@ -419,35 +419,32 @@ public class MappingSetters {
     }
 
     private static long castAsLong(PrimitiveType type, Object x) throws SQLException {
-        if (x instanceof Long) {
-            return (Long) x;
-        } else if (x instanceof Integer) {
-            return (Integer) x;
-        } else if (x instanceof Short) {
-            return (Short) x;
-        } else if (x instanceof Byte) {
-            return (Byte) x;
-        } else if (x instanceof Boolean) {
-            return ((Boolean) x) ? 1L : 0L;
-        } else if (x instanceof Time) {
-            return ((Time) x).toLocalTime().toSecondOfDay();
-        } else if (x instanceof Date) {
-            return ((Date) x).toLocalDate().toEpochDay();
-        } else if (x instanceof Timestamp) {
-            return ((Timestamp) x).getTime();
-        } else if (x instanceof BigDecimal) {
-            return ((BigDecimal) x).longValueExact();
-        } else if (x instanceof BigInteger) {
-            return ((BigInteger) x).longValueExact();
-        } else if (x instanceof String) {
-            try {
-                if (type == PrimitiveType.Uint64) {
-                    return Long.parseUnsignedLong((String) x);
-                }
+        try {
+            if (x instanceof Long) {
+                return (Long) x;
+            } else if (x instanceof Integer) {
+                return (Integer) x;
+            } else if (x instanceof Short) {
+                return (Short) x;
+            } else if (x instanceof Byte) {
+                return (Byte) x;
+            } else if (x instanceof Boolean) {
+                return ((Boolean) x) ? 1L : 0L;
+            } else if (x instanceof Time) {
+                return ((Time) x).toLocalTime().toSecondOfDay();
+            } else if (x instanceof Date) {
+                return ((Date) x).toLocalDate().toEpochDay();
+            } else if (x instanceof Timestamp) {
+                return ((Timestamp) x).getTime();
+            } else if (x instanceof BigDecimal) {
+                return ((BigDecimal) x).longValueExact();
+            } else if (x instanceof BigInteger) {
+                return ((BigInteger) x).longValueExact();
+            } else if (x instanceof String) {
                 return Long.parseLong((String) x);
-            } catch (NumberFormatException e) {
-                throw castNotSupported(type, x, e);
             }
+        } catch (NumberFormatException | ArithmeticException e) {
+            throw castNotSupported(type, x, e);
         }
         throw castNotSupported(type, x);
     }
