@@ -18,18 +18,18 @@ jobs:
 
     steps:
       - name: Checkout YDB JDBC Driver
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: jdbc
 
       - name: Checkout YDB Java Examples
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ydb-platform/ydb-java-examples
           path: examples
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: 21
           distribution: 'temurin'
@@ -62,12 +62,12 @@ jobs:
 
     steps:
       - name: Checkout YDB JDBC Driver
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: jdbc
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -91,7 +91,7 @@ jobs:
         run: mvn $MAVEN_ARGS install
 
       - name: Checkout YDB Java Examples
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ydb-platform/ydb-java-examples
           path: examples
