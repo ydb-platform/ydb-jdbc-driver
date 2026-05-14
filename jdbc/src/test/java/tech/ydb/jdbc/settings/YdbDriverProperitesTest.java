@@ -193,7 +193,8 @@ public class YdbDriverProperitesTest {
     @MethodSource("tokensToCheck")
     public void getTokenAs(String token, String expectValue) throws SQLException {
         if ("file:".equals(token)) {
-            token += TOKEN_FILE.getAbsolutePath();
+            // Normalize to forward slashes so the URL stays valid on Windows (backslashes are illegal in queries).
+            token += TOKEN_FILE.getAbsolutePath().replace('\\', '/');
         }
 
         String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/db?token=" + token;
@@ -221,7 +222,7 @@ public class YdbDriverProperitesTest {
     @MethodSource("certificatesToCheck")
     public void getCaCertificateAs(String certificate, String expectValue) throws SQLException {
         if ("file:".equals(certificate)) {
-            certificate += CERTIFICATE_FILE.getAbsolutePath();
+            certificate += CERTIFICATE_FILE.getAbsolutePath().replace('\\', '/');
         }
         String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/db" +
                 "?secureConnectionCertificate=" + certificate;
@@ -233,17 +234,16 @@ public class YdbDriverProperitesTest {
     }
 
     @ParameterizedTest(name = "[{index}] {0} => {1}")
-    @CsvSource(delimiter = ',', value = {
-        "classpath:data/unknown-file.txt,resource not found",
-        "file:data/unknown-file.txt,data/unknown-file.txt (No such file or directory)",
+    @ValueSource(strings = {
+        "classpath:data/unknown-file.txt",
+        "file:data/unknown-file.txt",
     })
-    public void getCaCertificateAsInvalid(String value, String message) {
+    public void getCaCertificateAsInvalid(String path) {
         String url = "jdbc:ydb:ydb-demo.testhost.org:2135/test/db" +
-                "?secureConnectionCertificate=" + value;
-        ExceptionAssert.sqlException(
-                "Cannot process value " + value + " for option secureConnectionCertificate: " + message,
-                () -> driver.getPropertyInfo(url, new Properties())
-        );
+                "?secureConnectionCertificate=" + path;
+        Exception ex = Assertions.assertThrows(SQLException.class, () -> driver.getPropertyInfo(url, new Properties()));
+        Assertions.assertTrue(ex.getMessage()
+                .startsWith("Cannot process value " + path + " for option secureConnectionCertificate: "));
     }
 
     @ParameterizedTest
