@@ -30,8 +30,6 @@ public class ExceptionAssert {
                 "Invalid statement must throw SQLDataException"
         );
         Assertions.assertEquals(message, ex.getMessage());
-//        Assertions.assertTrue(ex.getMessage().contains(message),
-//                "SQLDataException '" + ex.getMessage() + "' doesn't contain message '" + message + "'");
     }
 
     public static void sqlRecoverable(String message, Executable exec) {
