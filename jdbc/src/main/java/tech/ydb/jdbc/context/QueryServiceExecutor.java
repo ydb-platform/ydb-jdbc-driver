@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import tech.ydb.common.transaction.TxMode;
+import tech.ydb.common.transaction.YdbTransaction;
 import tech.ydb.core.Issue;
 import tech.ydb.core.Status;
 import tech.ydb.jdbc.YdbConst;
@@ -74,15 +75,22 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         return validator.call("Get query session", null, () -> queryClient.createSession(sessionTimeout));
     }
 
-    private QueryTransaction getOrCreateTransaction(YdbValidator validator) throws SQLException {
+    private QueryTransaction getOrCreateTransaction(YdbValidator validator, boolean lazyTx) throws SQLException {
         QueryTransaction nextTx = tx.get();
         while (nextTx == null) {
             querySpi.onNewTransaction();
-            nextTx = createNewQuerySession(validator).createNewTransaction(txMode);
+            QuerySession session = createNewQuerySession(validator);
+
+            if (lazyTx) {
+                nextTx = session.createNewTransaction(txMode);
+            } else {
+                nextTx = validator.call("Begin transaction", null, () -> session.beginTransaction(txMode));
+            }
+
             if (tx.compareAndSet(null, nextTx)) {
                 return nextTx;
             }
-            nextTx.getSession().close();
+            session.close();
             nextTx = tx.get();
         }
         return nextTx;
@@ -259,7 +267,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             settings = settings.withRequestTimeout(timeout, TimeUnit.SECONDS);
         }
 
-        QueryTransaction localTx = getOrCreateTransaction(validator);
+        QueryTransaction localTx = getOrCreateTransaction(validator, true);
         YdbQueryExtentionService.QueryCall spi = querySpi.newDataQuery(statement, query, yql);
         settings = spi.prepareQuerySettings(settings);
 
@@ -325,7 +333,7 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             settings = settings.withRequestTimeout(timeout, TimeUnit.SECONDS);
         }
 
-        QueryTransaction localTx = getOrCreateTransaction(validator);
+        QueryTransaction localTx = getOrCreateTransaction(validator, true);
         YdbQueryExtentionService.QueryCall spi = querySpi.newDataQuery(statement, query, yql);
         settings = spi.prepareQuerySettings(settings);
 
@@ -453,6 +461,15 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
     public boolean isValid(YdbValidator validator, int timeout) throws SQLException {
         ensureOpened();
         return true;
+    }
+
+    @Override
+    public YdbTransaction getTransaction(YdbValidator validator) throws SQLException {
+        if (isAutoCommit) {
+            throw new SQLException(YdbConst.AUTO_COMMIT_TRANSACTION_UNWRAP_UNSUPPORTED);
+        }
+
+        return getOrCreateTransaction(validator, false);
     }
 
     private static TxMode txMode(int level, boolean isReadOnly) throws SQLException {
