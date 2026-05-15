@@ -1,3 +1,9 @@
+## 2.3.25 ##
+
+* Fixed Windows build
+* Fixed unsigned integer round-trip
+* Added support for unwrapping Connection to GrpcTransport & YdbTransaсtion
+
 ## 2.3.24 ##
 
 * Fixed RepeatableRead readOnly mode
