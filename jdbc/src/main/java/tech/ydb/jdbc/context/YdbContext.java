@@ -12,6 +12,7 @@ import tech.ydb.core.grpc.GrpcTransport;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
 import tech.ydb.core.impl.SingleChannelTransport;
 import tech.ydb.core.settings.BaseRequestSettings;
+import tech.ydb.core.tracing.Tracer;
 import tech.ydb.jdbc.YdbDriverInfo;
 import tech.ydb.jdbc.YdbPrepareMode;
 import tech.ydb.jdbc.YdbTracer;
@@ -241,6 +242,11 @@ public class YdbContext implements AutoCloseable {
                 builder.withApplicationName(YdbDriverInfo.DRIVER_VERSION);
             }
             connProps.applyToGrpcTransport(builder);
+
+            if (config.isOpenTelemetryTracerEnabled()) {
+                Tracer otTracer = OpenTelemetryTracerLoader.loadCreateGlobal();
+                builder.withTracer(otTracer);
+            }
 
             // Use custom single thread scheduler
             // because JDBC driver doesn't need to execute retries except for DISCOVERY
