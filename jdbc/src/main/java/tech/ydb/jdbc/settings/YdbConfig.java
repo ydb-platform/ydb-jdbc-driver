@@ -232,6 +232,8 @@ public class YdbConfig {
             YdbOperationProperties.SCAN_QUERY_TX_MODE.toInfo(properties),
             YdbOperationProperties.BULK_QUERY_TX_MODE.toInfo(properties),
             YdbOperationProperties.FORCE_NEW_DATETYPES.toInfo(properties),
+            YdbOperationProperties.DECIMAL_DEFAULT_PRECISION.toInfo(properties),
+            YdbOperationProperties.DECIMAL_DEFAULT_SCALE.toInfo(properties),
 
             YdbQueryProperties.DISABLE_PREPARE_DATAQUERY.toInfo(properties),
             YdbQueryProperties.DISABLE_AUTO_PREPARED_BATCHES.toInfo(properties),
