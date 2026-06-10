@@ -14,6 +14,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import tech.ydb.jdbc.common.YdbTypes;
 import tech.ydb.jdbc.query.params.JdbcPrm;
 import tech.ydb.jdbc.settings.YdbQueryProperties;
+import tech.ydb.table.values.DecimalType;
 import tech.ydb.table.values.PrimitiveType;
 
 
@@ -23,7 +24,7 @@ import tech.ydb.table.values.PrimitiveType;
  * @author Aleksandr Gorshenin
  */
 public class YdbQueryParserTest {
-    private final YdbTypes types = new YdbTypes(false);
+    private final YdbTypes types = new YdbTypes(false, DecimalType.getDefault());
     private YdbQueryProperties props;
 
     @BeforeEach

@@ -21,6 +21,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
+import java.util.Properties;
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -1002,6 +1003,86 @@ public class YdbPreparedStatementTest {
             ps.setString(1, "1");
             ps.setString(2, "3");
             assertResultSetCount(ps.executeQuery(), 2);
+        }
+    }
+
+    @Test
+    public void customDefaultDecimalTest() throws SQLException {
+        SqlQueries.JdbcQuery query = SqlQueries.JdbcQuery.IN_MEMORY;
+
+        Properties props = new Properties();
+        try (Connection conn = jdbc.createCustomConnection(props)) {
+            try (PreparedStatement ps = conn.prepareStatement(TEST_TABLE.upsertOne(query, "c_Decimal", ""))) {
+                ps.setInt(1, 1);
+                ps.setBigDecimal(2, BigDecimal.ONE);
+                Assertions.assertFalse(ps.execute());
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement(TEST_TABLE.upsertOne(query, "c_BigDecimal", ""))) {
+                ps.setInt(1, 2);
+                ps.setBigDecimal(2, BigDecimal.ONE);
+                // Decimal(22,9) cannot be cast to Decimal(35, 0)
+                ExceptionAssert.ydbException(
+                        "Failed to convert 'c_BigDecimal': Decimal(22,9) to Optional<Decimal(35,0)>", ps::execute
+                );
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement(TEST_TABLE.upsertOne(query, "c_BankDecimal", ""))) {
+                ps.setInt(1, 3);
+                ps.setBigDecimal(2, BigDecimal.ONE);
+                // Decimal(22,9) can be cast to Decimal(31, 9)
+                Assertions.assertFalse(ps.execute());
+            }
+        }
+
+        props.put("defaultDecimalPrecision", "31");
+        try (Connection conn = jdbc.createCustomConnection(props)) {
+            try (PreparedStatement ps = conn.prepareStatement(TEST_TABLE.upsertOne(query, "c_Decimal", ""))) {
+                ps.setInt(1, 4);
+                ps.setBigDecimal(2, BigDecimal.ONE);
+                ExceptionAssert.ydbException(
+                        "Failed to convert 'c_Decimal': Decimal(31,9) to Optional<Decimal(22,9)>", ps::execute
+                );
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement(TEST_TABLE.upsertOne(query, "c_BigDecimal", ""))) {
+                ps.setInt(1, 5);
+                ps.setBigDecimal(2, BigDecimal.ONE);
+                ExceptionAssert.ydbException(
+                        "Failed to convert 'c_BigDecimal': Decimal(31,9) to Optional<Decimal(35,0)>", ps::execute
+                );
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement(TEST_TABLE.upsertOne(query, "c_BankDecimal", ""))) {
+                ps.setInt(1, 6);
+                ps.setBigDecimal(2, BigDecimal.ONE);
+                Assertions.assertFalse(ps.execute());
+            }
+        }
+
+        props.put("defaultDecimalScale", "0");
+        try (Connection conn = jdbc.createCustomConnection(props)) {
+            try (PreparedStatement ps = conn.prepareStatement(TEST_TABLE.upsertOne(query, "c_Decimal", ""))) {
+                ps.setInt(1, 7);
+                ps.setBigDecimal(2, BigDecimal.ONE);
+                ExceptionAssert.ydbException(
+                        "Failed to convert 'c_Decimal': Decimal(31,0) to Optional<Decimal(22,9)>", ps::execute
+                );
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement(TEST_TABLE.upsertOne(query, "c_BigDecimal", ""))) {
+                ps.setInt(1, 8);
+                ps.setBigDecimal(2, BigDecimal.ONE);
+                Assertions.assertFalse(ps.execute());
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement(TEST_TABLE.upsertOne(query, "c_BankDecimal", ""))) {
+                ps.setInt(1, 9);
+                ps.setBigDecimal(2, BigDecimal.ONE);
+                ExceptionAssert.ydbException(
+                        "Failed to convert 'c_BankDecimal': Decimal(31,0) to Optional<Decimal(31,9)>", ps::execute
+                );
+            }
         }
     }
 
