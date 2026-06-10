@@ -5,6 +5,8 @@ import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Properties;
 
+import tech.ydb.table.values.DecimalType;
+
 
 public class YdbOperationProperties {
     static final YdbProperty<Duration> JOIN_DURATION = YdbProperty
@@ -64,6 +66,14 @@ public class YdbOperationProperties {
             "Use new data types Date32/Datetime64/Timestamp64 by default", false
     );
 
+    static final YdbProperty<Integer> DECIMAL_DEFAULT_PRECISION = YdbProperty.integer("defaultDecimalPrecision",
+            "Default precision for YDB decimal type", 22
+    );
+
+    static final YdbProperty<Integer> DECIMAL_DEFAULT_SCALE = YdbProperty.integer("defaultDecimalScale",
+            "Default scale for YDB decimal type", 9
+    );
+
     static final YdbProperty<String> TX_VALIDATION_TABLE = YdbProperty.string("withTxValidationTable",
             "Name of working table to store transactions to avoid UNDETERMINED errors");
 
@@ -89,6 +99,8 @@ public class YdbOperationProperties {
 
     private final YdbValue<Boolean> useStreamResultSets;
     private final YdbValue<Boolean> forceNewDatetypes;
+    private final YdbValue<Integer> decimalDefaultPrecision;
+    private final YdbValue<Integer> decimalDefaultScale;
     private final YdbValue<String> txValidationTable;
     private final YdbValue<String> queryRewriteTable;
     private final YdbValue<Duration> queryRewriteTTL;
@@ -112,6 +124,8 @@ public class YdbOperationProperties {
 
         this.useStreamResultSets = USE_STREAM_RESULT_SETS.readValue(props);
         this.forceNewDatetypes = FORCE_NEW_DATETYPES.readValue(props);
+        this.decimalDefaultPrecision = DECIMAL_DEFAULT_PRECISION.readValue(props);
+        this.decimalDefaultScale = DECIMAL_DEFAULT_SCALE.readValue(props);
         this.txValidationTable = TX_VALIDATION_TABLE.readValue(props);
         this.queryRewriteTable = QUERY_REWRITE_TABLE.readValue(props);
         this.queryRewriteTTL = QUERY_REWRITE_TABLE_TTL.readValue(props);
@@ -171,6 +185,10 @@ public class YdbOperationProperties {
 
     public boolean getForceNewDatetypes() {
         return forceNewDatetypes.getValue();
+    }
+
+    public DecimalType getDefaultDecimalType() {
+        return DecimalType.of(decimalDefaultPrecision.getValue(), decimalDefaultScale.getValue());
     }
 
     public String getTxValidationTable() {

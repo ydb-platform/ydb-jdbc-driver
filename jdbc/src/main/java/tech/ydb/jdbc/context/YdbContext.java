@@ -91,7 +91,7 @@ public class YdbContext implements AutoCloseable {
             prefixPragma = "";
         }
 
-        this.types = new YdbTypes(operationProperties.getForceNewDatetypes());
+        this.types = new YdbTypes(operationProperties);
 
         String queryRewriteTable = operationOptions.getQueryRewriteTable();
         if (queryRewriteTable != null && !queryRewriteTable.isEmpty()) {

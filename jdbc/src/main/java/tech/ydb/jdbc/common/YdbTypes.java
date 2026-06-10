@@ -18,6 +18,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import tech.ydb.jdbc.YdbConst;
+import tech.ydb.jdbc.settings.YdbOperationProperties;
 import tech.ydb.table.values.DecimalType;
 import tech.ydb.table.values.DecimalValue;
 import tech.ydb.table.values.PrimitiveType;
@@ -29,8 +30,15 @@ public class YdbTypes {
     private final Map<Integer, Type> typeBySqlType = new HashMap<>();
     private final Map<Class<?>, Type> typeByClass;
     private final Map<Type, TypeDescription> types = new ConcurrentHashMap<>();
+    private final DecimalType defaultDecimal;
 
-    public YdbTypes(boolean useNewDatetypes) {
+    public YdbTypes(YdbOperationProperties props) {
+        this(props.getForceNewDatetypes(), props.getDefaultDecimalType());
+    }
+
+    public YdbTypes(boolean useNewDatetypes, DecimalType defaultDecimalType) {
+        this.defaultDecimal = defaultDecimalType;
+
         // Store custom type ids to use it for PrepaparedStatement.setObject
         typeBySqlType.put(YdbConst.SQL_KIND_PRIMITIVE + 0, PrimitiveType.Bool);
 
@@ -89,8 +97,8 @@ public class YdbTypes {
         typeBySqlType.put(Types.TIME, PrimitiveType.Int32); // YDB doesn't support TIME
 
         typeBySqlType.put(Types.TIMESTAMP_WITH_TIMEZONE, PrimitiveType.TzTimestamp);
-        typeBySqlType.put(Types.DECIMAL, DecimalType.getDefault());
-        typeBySqlType.put(Types.NUMERIC, DecimalType.getDefault());
+        typeBySqlType.put(Types.DECIMAL, defaultDecimalType);
+        typeBySqlType.put(Types.NUMERIC, defaultDecimalType);
 
         typeByClass = new HashMap<>();
 
@@ -129,8 +137,8 @@ public class YdbTypes {
         typeByClass.put(LocalTime.class, PrimitiveType.Int32);
         typeByClass.put(Time.class, PrimitiveType.Int32);
 
-        typeByClass.put(DecimalValue.class, DecimalType.getDefault());
-        typeByClass.put(BigDecimal.class, DecimalType.getDefault());
+        typeByClass.put(DecimalValue.class, defaultDecimalType);
+        typeByClass.put(BigDecimal.class, defaultDecimalType);
         typeByClass.put(Duration.class, useNewDatetypes ? PrimitiveType.Interval64 : PrimitiveType.Interval);
     }
 
@@ -293,7 +301,7 @@ public class YdbTypes {
                 PrimitiveType.Datetime64,
                 PrimitiveType.Timestamp64,
                 PrimitiveType.Interval64,
-                DecimalType.getDefault());
+                defaultDecimal);
     }
 
     private int getSqlPrecisionImpl(PrimitiveType type) {
