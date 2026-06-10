@@ -88,6 +88,10 @@ public class JdbcConnectionExtention implements ExecutionCondition,
         return DriverManager.getConnection(jdbcURL(), props);
     }
 
+    public Connection createCustomConnection(Properties props) throws SQLException {
+        return DriverManager.getConnection(jdbcURL(), props);
+    }
+
     @Override
     public ConditionEvaluationResult evaluateExecutionCondition(ExtensionContext context) {
         if (!YdbHelperFactory.getInstance().isEnabled()) {
