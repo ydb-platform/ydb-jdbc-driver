@@ -240,6 +240,10 @@ public class YdbContext implements AutoCloseable {
                 // this method is available only on SDK 2.3.30+
                 builder.withApplicationName(YdbDriverInfo.DRIVER_VERSION);
             }
+            if (JdbcDriverVersion.getInstance().isSdkVersion(2, 3, 34)) {
+                // this method is available only on SDK 2.3.34+
+                builder.withExtraBuildInfo("ydb-jdbc-driver/" + YdbDriverInfo.DRIVER_VERSION);
+            }
             connProps.applyToGrpcTransport(builder);
 
             // Use custom single thread scheduler

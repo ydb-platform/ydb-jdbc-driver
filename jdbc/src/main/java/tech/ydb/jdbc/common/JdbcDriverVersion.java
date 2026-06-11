@@ -3,20 +3,24 @@ package tech.ydb.jdbc.common;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import tech.ydb.core.utils.Version;
 
 public class JdbcDriverVersion {
+    private static final Logger LOGGER = Logger.getLogger(JdbcDriverVersion.class.getName());
+
     private final int major;
     private final int minor;
     private final String version;
     private final String sdk;
 
-    private JdbcDriverVersion(String version, int major, int minor) {
+    private JdbcDriverVersion(String version, int major, int minor, String sdk) {
         this.version = version;
         this.major = major;
         this.minor = minor;
-        this.sdk = Version.getVersion().orElse("unknown");
+        this.sdk = sdk;
     }
 
     public int getMajor() {
@@ -34,12 +38,18 @@ public class JdbcDriverVersion {
                 if (idx >= parts.length) {
                     return false;
                 }
-                if (Integer.parseInt(parts[idx]) < vv[idx]) {
+
+                int actual = Integer.parseInt(parts[idx]);
+                if (actual > vv[idx]) {
+                    return true;
+                }
+                if (actual < vv[idx]) {
                     return false;
                 }
             }
             return true;
         } catch (NumberFormatException ex) {
+            LOGGER.log(Level.WARNING, "Cannot parse YDB SDK version " + sdk, ex);
             return false;
         }
     }
@@ -64,11 +74,15 @@ public class JdbcDriverVersion {
             int major = -1;
             int minor = -1;
             String version = "1.0.development";
-            try (InputStream in = Version.class.getResourceAsStream(PROPERTIES_PATH)) {
-                Properties prop = new Properties();
-                prop.load(in);
-                version = prop.getProperty("version");
-            } catch (IOException e) { }
+            try (InputStream in = JdbcDriverVersion.class.getResourceAsStream(PROPERTIES_PATH)) {
+                if (in != null) {
+                    Properties prop = new Properties();
+                    prop.load(in);
+                    version = prop.getProperty("version", version);
+                }
+            } catch (IOException ex) {
+                LOGGER.log(Level.WARNING, "Cannot load YDB JDBC version", ex);
+            }
 
             if (version != null && !version.isEmpty()) {
                 try {
@@ -77,10 +91,13 @@ public class JdbcDriverVersion {
                         major = Integer.parseInt(parts[0]);
                         minor = Integer.parseInt(parts[1]);
                     }
-                } catch (RuntimeException e) { }
+                } catch (RuntimeException ex) {
+                    LOGGER.log(Level.WARNING, "Cannot parse YDB JDBC version " + version, ex);
+                }
             }
 
-            INSTANCE = new JdbcDriverVersion(version, major, minor);
+            String sdk = Version.getVersion().orElse("0.0.unknown");
+            INSTANCE = new JdbcDriverVersion(version, major, minor, sdk);
         }
     }
 }
