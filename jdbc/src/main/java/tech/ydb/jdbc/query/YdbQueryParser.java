@@ -148,7 +148,6 @@ public class YdbQueryParser {
                     break;
             }
 
-
             if (keywordStart >= 0 && (!isInsideKeyword || (i == chars.length - 1))) {
                 int keywordLength = (isInsideKeyword ? i + 1 : keywordEnd) - keywordStart;
 
@@ -271,6 +270,7 @@ public class YdbQueryParser {
                                 || parseDropKeyword(chars, keywordStart, keywordLength)
                                 || parseGrantKeyword(chars, keywordStart, keywordLength)
                                 || parseRevokeKeyword(chars, keywordStart, keywordLength)
+                                || parseTruncateKeyword(chars, keywordStart, keywordLength)
                                 ) {
                             statement = new QueryStatement(type, QueryType.SCHEME_QUERY, QueryCmd.DDL);
                             batcher.readIdentifier(chars, keywordStart, keywordLength);
@@ -642,6 +642,22 @@ public class YdbQueryParser {
                 && (query[offset + 4] | 32) == 'k'
                 && (query[offset + 5] | 32) == 'e';
     }
+
+    private static boolean parseTruncateKeyword(char[] query, int offset, int length) {
+        if (length != 8) {
+            return false;
+        }
+
+        return (query[offset] | 32) == 't'
+                && (query[offset + 1] | 32) == 'r'
+                && (query[offset + 2] | 32) == 'u'
+                && (query[offset + 3] | 32) == 'n'
+                && (query[offset + 4] | 32) == 'c'
+                && (query[offset + 5] | 32) == 'a'
+                && (query[offset + 6] | 32) == 't'
+                && (query[offset + 7] | 32) == 'e';
+    }
+
     private static boolean parseScanKeyword(char[] query, int offset, int length) {
         if (length != 4) {
             return false;

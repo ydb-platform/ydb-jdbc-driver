@@ -74,6 +74,7 @@ public class YdbQueryParserTest {
         "Revoke--comment\npermission;",
         "GRant table 'test'",
         "-- comment \nCreate;",
+        "Truncate table test;",
     })
     public void schemeQueryTest(String query) throws SQLException {
         YdbQueryParser parser = new YdbQueryParser(types, query, props);
