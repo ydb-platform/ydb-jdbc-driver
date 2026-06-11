@@ -317,18 +317,22 @@ public class FixedResultSetFactory {
             return value.getInterval();
         }
 
+        @Override
         public LocalDate getDate32() {
             throw new UnsupportedOperationException("Not supported yet.");
         }
 
+        @Override
         public LocalDateTime getDatetime64() {
             throw new UnsupportedOperationException("Not supported yet.");
         }
 
+        @Override
         public Instant getTimestamp64() {
             throw new UnsupportedOperationException("Not supported yet.");
         }
 
+        @Override
         public Duration getInterval64() {
             throw new UnsupportedOperationException("Not supported yet.");
         }
