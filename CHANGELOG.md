@@ -1,3 +1,10 @@
+## 2.3.26 ##
+
+* Added JDBC driver version reporting
+* Upgrade to YDB Java SDK v2.3.34
+* Added support of TRUNCATE TABLE
+* Added options to specify default Decimal type precision & scale
+
 ## 2.3.25 ##
 
 * Fixed Windows build
