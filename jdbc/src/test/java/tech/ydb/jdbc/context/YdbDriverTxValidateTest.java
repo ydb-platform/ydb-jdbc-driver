@@ -41,6 +41,7 @@ public class YdbDriverTxValidateTest {
 
     private static final JdbcUrlHelper jdbcURL = new JdbcUrlHelper(ydb)
             .withArg("enableTxTracer", "true")
+            .withArg("channelInitializer", GrpcTestInterceptor.class.getCanonicalName())
             .withArg("usePrefixPath", "tx_validated");
 
     private void assertTxCount(String tableName, long count) throws SQLException {
@@ -186,6 +187,7 @@ public class YdbDriverTxValidateTest {
     @Test
     public void executeDataQueryTest() throws SQLException {
         String url = jdbcURL.withArg("withTxValidationTable", "tx1_store").build();
+        GrpcTestInterceptor.reset();
         try (Connection conn = DriverManager.getConnection(url)) {
             ErrorTxTracer tracer = YdbTracerImpl.use(new ErrorTxTracer());
             // table was created automatically
@@ -195,20 +197,20 @@ public class YdbDriverTxValidateTest {
             try (Statement st = conn.createStatement()) {
                 st.execute("DELETE FROM tx1_store");
 
-                tracer.throwErrorOn("<-- Status", Status.of(StatusCode.UNDETERMINED));
+                GrpcTestInterceptor.nextExecuteQuery(StatusCode.UNDETERMINED);
                 YdbConditionallyRetryableException e = Assertions.assertThrows(YdbConditionallyRetryableException.class,
                         () -> st.execute("DELETE FROM tx1_store"));
                 Assertions.assertEquals(Status.of(StatusCode.UNDETERMINED), e.getStatus());
 
-                tracer.throwErrorOn("<-- Status", Status.of(StatusCode.ABORTED));
+                GrpcTestInterceptor.nextExecuteQuery(StatusCode.ABORTED);
                 YdbRetryableException e2 = Assertions.assertThrows(YdbRetryableException.class,
                         () -> st.execute("DELETE FROM tx1_store"));
                 Assertions.assertEquals(Status.of(StatusCode.ABORTED), e2.getStatus());
 
-                tracer.throwErrorOn("<-- Status", Status.of(StatusCode.CLIENT_DEADLINE_EXCEEDED));
+                GrpcTestInterceptor.nextGrpcCall(io.grpc.Status.DEADLINE_EXCEEDED);
                 YdbTimeoutException e3 = Assertions.assertThrows(YdbTimeoutException.class,
                         () -> st.execute("DELETE FROM tx1_store"));
-                Assertions.assertEquals(Status.of(StatusCode.CLIENT_DEADLINE_EXCEEDED), e3.getStatus());
+                Assertions.assertEquals(StatusCode.CLIENT_DEADLINE_EXCEEDED, e3.getStatus().getCode());
             }
 
 
@@ -217,13 +219,13 @@ public class YdbDriverTxValidateTest {
                 st.execute("DELETE FROM tx1_store");
                 conn.commit();
 
-                tracer.throwErrorOn("<-- Status", Status.of(StatusCode.UNDETERMINED));
+                GrpcTestInterceptor.nextExecuteQuery(StatusCode.UNDETERMINED);
                 YdbRetryableException e = Assertions.assertThrows(YdbRetryableException.class,
                         () -> st.execute("DELETE FROM tx1_store"));
                 Assertions.assertEquals(StatusCode.ABORTED, e.getStatus().getCode());
                 Assertions.assertNotNull(e.getStatus().getCause());
 
-                tracer.throwErrorOn("<-- Status", Status.of(StatusCode.ABORTED));
+                GrpcTestInterceptor.nextExecuteQuery(StatusCode.ABORTED);
                 YdbRetryableException e2 = Assertions.assertThrows(YdbRetryableException.class,
                         () -> st.execute("DELETE FROM tx1_store"));
                 Assertions.assertEquals(Status.of(StatusCode.ABORTED), e2.getStatus());
