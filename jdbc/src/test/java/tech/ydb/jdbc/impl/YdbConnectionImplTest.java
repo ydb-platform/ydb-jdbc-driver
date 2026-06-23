@@ -1052,14 +1052,18 @@ public class YdbConnectionImplTest {
         }
     }
 
-    @Test
-    public void fullScanAnalyzerSchemeQueriesTest() throws SQLException {
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    public void fullScanAnalyzerSchemeQueriesTest(boolean useStreamResultSets) throws SQLException {
         StatsAssert sa = new StatsAssert();
+        Properties props = new Properties();
+        props.setProperty("jdbcFullScanDetector", "true");
+        props.setProperty("useStreamResultSets", Boolean.toString(useStreamResultSets));
 
         String createTable = QUERIES.withTableName("CREATE TABLE #tableName_1(id Int32, value Int32, PRIMARY KEY(id))");
         String dropTable = QUERIES.withTableName("DROP TABLE #tableName_1;");
 
-        try (Connection connection = jdbc.createCustomConnection("jdbcFullScanDetector", "true")) {
+        try (Connection connection = jdbc.createCustomConnection(props)) {
             try (Statement st = connection.createStatement()) {
                 try (ResultSet rs = st.executeQuery(" print_JDBC_stats();  ")) {
                     sa.check(rs)
@@ -1080,13 +1084,17 @@ public class YdbConnectionImplTest {
         }
     }
 
-    @Test
-    public void fullScanAnalyzerSchemeWrongQueryTest() throws SQLException {
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    public void fullScanAnalyzerSchemeWrongQueryTest(boolean useStreamResultSets) throws SQLException {
         StatsAssert sa = new StatsAssert();
+        Properties props = new Properties();
+        props.setProperty("jdbcFullScanDetector", "true");
+        props.setProperty("useStreamResultSets", Boolean.toString(useStreamResultSets));
 
         String wrongQuery = QUERIES.withTableName("select * from wrong_table;");
 
-        try (Connection connection = jdbc.createCustomConnection("jdbcFullScanDetector", "true")) {
+        try (Connection connection = jdbc.createCustomConnection(props)) {
             try (Statement st = connection.createStatement()) {
                 try (ResultSet rs = st.executeQuery("print_JDBC_stats();")) {
                     sa.check(rs)
@@ -1118,14 +1126,18 @@ public class YdbConnectionImplTest {
         }
     }
 
-    @Test
-    public void fullScanAnalyzerStatementTest() throws SQLException {
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    public void fullScanAnalyzerStatementTest(boolean useStreamResultSets) throws SQLException {
         StatsAssert sa = new StatsAssert();
+        Properties props = new Properties();
+        props.setProperty("jdbcFullScanDetector", "true");
+        props.setProperty("useStreamResultSets", Boolean.toString(useStreamResultSets));
 
         String selectAll = QUERIES.selectAllSQL();
         String selectByKey = QUERIES.selectAllByKey("1");
 
-        try (Connection connection = jdbc.createCustomConnection("jdbcFullScanDetector", "true")) {
+        try (Connection connection = jdbc.createCustomConnection(props)) {
             try (Statement st = connection.createStatement()) {
                 try (ResultSet rs = st.executeQuery(" print_JDBC_stats();  ")) {
                     sa.check(rs)
@@ -1206,14 +1218,18 @@ public class YdbConnectionImplTest {
         }
     }
 
-    @Test
-    public void fullScanAnalyzerPreparedStatementTest() throws SQLException {
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    public void fullScanAnalyzerPreparedStatementTest(boolean useStreamResultSets) throws SQLException {
         StatsAssert sa = new StatsAssert();
+        Properties props = new Properties();
+        props.setProperty("jdbcFullScanDetector", "true");
+        props.setProperty("useStreamResultSets", Boolean.toString(useStreamResultSets));
 
         String preparedSelectByKey = QUERIES.selectAllByKey("?");
         String preparedSelectByColumn = QUERIES.selectAllByColumnValue("c_Text", "?");
 
-        try (Connection connection = jdbc.createCustomConnection("jdbcFullScanDetector", "true")) {
+        try (Connection connection = jdbc.createCustomConnection(props)) {
             try (PreparedStatement ps = connection.prepareStatement("print_JDBC_stats();")) {
                 sa.check(ps.executeQuery())
                             .assertMetaColumns()
