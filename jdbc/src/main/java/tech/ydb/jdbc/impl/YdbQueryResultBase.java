@@ -71,11 +71,6 @@ public abstract class YdbQueryResultBase implements YdbQueryResult {
                 idx++;
             }
         }
-
-        while (idx < rsCount)  {
-            results.add(new ResultMeta(-1, idx, false));
-            idx++;
-        }
     }
 
     protected abstract YdbResultSet getResultSet(int index) throws SQLException;
