@@ -7,6 +7,8 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import tech.ydb.common.transaction.TxMode;
 import tech.ydb.common.transaction.YdbTransaction;
@@ -43,6 +45,8 @@ import tech.ydb.table.query.Params;
  * @author Aleksandr Gorshenin
  */
 public class QueryServiceExecutor extends BaseYdbExecutor {
+    private static final Logger LOGGER = Logger.getLogger(QueryServiceExecutor.class.getName());
+
     private final Duration sessionTimeout;
     private final QueryClient queryClient;
     private final boolean useStreamResultSet;
@@ -345,23 +349,35 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
         YdbQueryResultReader reader = new YdbQueryResultReader(types, statement, query) {
             @Override
             public void onClose(Status status, Throwable th) {
-                spi.onQueryResult(status, th);
-
-                if (th != null) {
-                    tracer.trace("<-- " + th.getMessage());
+                try {
+                    spi.onQueryResult(status, th);
+                } catch (RuntimeException ex) {
+                    LOGGER.log(Level.WARNING, "Query spi onQueryResult problem", ex);
                 }
+
+                try {
+                    if (th != null) {
+                        tracer.trace("<-- " + th.getMessage());
+                    }
+                    if (status != null) {
+                        tracer.trace("<-- " + status.toString());
+                    }
+
+                    if (localTx.isActive()) {
+                        tracer.setId(localTx.getId());
+                    } else {
+                        tracer.close();
+                    }
+                } catch (RuntimeException ex) {
+                    LOGGER.log(Level.WARNING, "YDB tracer error", ex);
+                }
+
                 if (status != null) {
                     validator.addStatusIssues(status);
-                    tracer.trace("<-- " + status.toString());
                 }
 
-                if (localTx.isActive()) {
-                    tracer.setId(localTx.getId());
-                } else {
-                    if (tx.compareAndSet(localTx, null)) {
-                        localTx.getSession().close();
-                    }
-                    tracer.close();
+                if (!localTx.isActive() && tx.compareAndSet(localTx, null)) {
+                    localTx.getSession().close();
                 }
 
                 super.onClose(status, th);
