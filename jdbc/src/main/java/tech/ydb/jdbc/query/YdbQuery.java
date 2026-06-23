@@ -1,9 +1,11 @@
 package tech.ydb.jdbc.query;
 
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.List;
 
 import tech.ydb.jdbc.common.YdbTypes;
+import tech.ydb.jdbc.context.QueryStat;
 import tech.ydb.jdbc.settings.YdbQueryProperties;
 
 /**
@@ -70,6 +72,11 @@ public class YdbQuery {
     }
 
     public static YdbQuery parseQuery(QueryKey query, YdbQueryProperties opts, YdbTypes types) throws SQLException {
+        if (QueryStat.isPrint(query.getQuery()) || QueryStat.isReset(query.getQuery())) {
+            QueryStatement fake = new QueryStatement(QueryType.DATA_QUERY, null, QueryCmd.SELECT);
+            return new YdbQuery(query, query.getQuery(), Collections.singletonList(fake), null, QueryType.DATA_QUERY);
+        }
+
         YdbQueryParser parser = new YdbQueryParser(types, query, opts);
         String preparedYQL = parser.parseSQL();
 
