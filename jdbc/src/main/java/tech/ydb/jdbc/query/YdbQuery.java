@@ -74,7 +74,8 @@ public class YdbQuery {
     public static YdbQuery parseQuery(QueryKey query, YdbQueryProperties opts, YdbTypes types) throws SQLException {
         if (QueryStat.isPrint(query.getQuery()) || QueryStat.isReset(query.getQuery())) {
             QueryStatement fake = new QueryStatement(QueryType.DATA_QUERY, null, QueryCmd.SELECT);
-            return new YdbQuery(query, query.getQuery(), Collections.singletonList(fake), null, QueryType.DATA_QUERY);
+            YqlBatcher batch = new YqlBatcher();
+            return new YdbQuery(query, query.getQuery(), Collections.singletonList(fake), batch, QueryType.DATA_QUERY);
         }
 
         YdbQueryParser parser = new YdbQueryParser(types, query, opts);

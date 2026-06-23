@@ -52,7 +52,7 @@ public class GrpcTestInterceptor implements Consumer<ManagedChannelBuilder<?>>, 
         EXECUTE_QUERY.addAll(Arrays.asList(codes));
     }
 
-    public static void nextCommitQuery(StatusCode... codes) {
+    public static void nextCommitTx(StatusCode... codes) {
         COMMIT_TX.addAll(Arrays.asList(codes));
     }
 
