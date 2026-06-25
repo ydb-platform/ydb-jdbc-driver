@@ -201,6 +201,11 @@ public abstract class YdbStatementBase implements YdbStatement {
         YdbContext ctx = connection.getCtx();
         YdbExecutor executor = connection.getExecutor();
 
+        try {
+            Thread.sleep(50);
+        } catch (InterruptedException ex) {
+        }
+
         if (ctx.isFullScanDetectorEnabled()) {
             if (QueryStat.isPrint(yql)) {
                 ResultSetReader rsr = QueryStat.toResultSetReader(ctx.getFullScanDetectorStats());
