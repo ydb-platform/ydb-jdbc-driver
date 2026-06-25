@@ -175,10 +175,8 @@ public class YdbCache {
     }
 
     public YdbPreparedQuery prepareYdbQuery(YdbQuery query, YdbPrepareMode mode) throws SQLException {
-        if (statsCache != null) {
-            if (QueryStat.isPrint(query.getOriginQuery()) || QueryStat.isReset(query.getOriginQuery())) {
-                return new InMemoryQuery(query, queryOptions.isDeclareJdbcParameters());
-            }
+        if (QueryStat.isPrint(query.getOriginQuery()) || QueryStat.isReset(query.getOriginQuery())) {
+            return new InMemoryQuery(query, queryOptions.isDeclareJdbcParameters());
         }
 
         QueryType type = query.getType();
