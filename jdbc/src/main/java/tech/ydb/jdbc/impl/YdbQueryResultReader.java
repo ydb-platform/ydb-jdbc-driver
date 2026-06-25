@@ -123,6 +123,7 @@ public class YdbQueryResultReader extends YdbQueryResultBase implements GrpcFlow
     }
 
     public void onClose(Status status, Throwable th) {
+        LOGGER.log(Level.FINEST, "ResultSet onClose {0}", status);
         isStreamCompleted = true;
         for (int idx = 0; idx < rs.length; idx += 1) {
             rs[idx].isCompleted = true;
@@ -206,6 +207,7 @@ public class YdbQueryResultReader extends YdbQueryResultBase implements GrpcFlow
                     stats.accept(result.getValue().getStats());
                 }
             }
+
             onClose(status, th);
 
             if (status != null) {

@@ -59,7 +59,7 @@ public class YdbOperationProperties {
     );
 
     static final YdbProperty<Boolean> USE_STREAM_RESULT_SETS = YdbProperty.bool("useStreamResultSets",
-            "Use stream implementation of ResultSet", false
+            "Use stream implementation of ResultSet", true
     );
 
     static final YdbProperty<Boolean> FORCE_NEW_DATETYPES = YdbProperty.bool("forceSignedDatetimes",

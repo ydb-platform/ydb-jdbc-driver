@@ -31,8 +31,7 @@ public class BadSessionRetryTest {
     @ValueSource(booleans = { true, false })
     public void badSessionRetryTest(boolean useQueryService) throws SQLException {
         GrpcTestInterceptor.reset();
-//        String prefix = useQueryService ? "Cannot execute 'STREAM_QUERY >>\n" : "Cannot call 'DATA_QUERY >>\n";
-        String prefix = "Cannot call 'DATA_QUERY >>\n";
+        String prefix = useQueryService ? "Cannot execute 'STREAM_QUERY >>\n" : "Cannot call 'DATA_QUERY >>\n";
 
         String url = jdbcURL.withArg("useQueryService", Boolean.toString(useQueryService)).build();
         try (Connection conn = DriverManager.getConnection(url)) {
