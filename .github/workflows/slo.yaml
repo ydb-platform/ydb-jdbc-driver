@@ -9,7 +9,7 @@ jobs:
     if: contains(github.event.pull_request.labels.*.name, 'SLO')
 
     name: Run YDB SLO Tests
-    runs-on: large-runner-java-sdk
+    runs-on: large-runner-jdbc-driver
 
     permissions:
       contents: read
