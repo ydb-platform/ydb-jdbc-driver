@@ -1,6 +1,7 @@
 package tech.ydb.jdbc.settings;
 
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.sql.SQLException;
 import java.util.Properties;
 import java.util.function.Consumer;
@@ -16,13 +17,16 @@ import tech.ydb.core.auth.StaticCredentials;
 import tech.ydb.core.grpc.BalancingSettings;
 import tech.ydb.core.grpc.GrpcCompression;
 import tech.ydb.core.grpc.GrpcTransportBuilder;
+import tech.ydb.core.tracing.Tracer;
 import tech.ydb.jdbc.YdbDriver;
+import tech.ydb.jdbc.common.JdbcDriverVersion;
 
 
 public class YdbConnectionProperties {
     private static final Logger LOGGER = Logger.getLogger(YdbDriver.class.getName());
     private static final String ID_PATTERN = "\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*";
     private static final Pattern FQCN = Pattern.compile(ID_PATTERN + "(\\." + ID_PATTERN + ")*");
+    private static final String OPENTELEMETRY_TRACER_CLASS = "tech.ydb.core.tracing.OpenTelemetryTracer";
 
     static final YdbProperty<String> TOKEN = YdbProperty.content(YdbConfig.TOKEN_KEY, "Authentication token");
 
@@ -66,6 +70,10 @@ public class YdbConnectionProperties {
             "grpcCompression", "Use specified GRPC compressor (supported only none and gzip)"
     );
 
+    static final YdbProperty<Object> WITH_TRACER = YdbProperty.object("withTracer",
+            "Enable tracing for YDB client operations, object instance or class full name "
+                    + "impementing Tracer. Can be 'true' for the default global OpenTelemetry tracer");
+
     private final String username;
     private final String password;
 
@@ -81,6 +89,7 @@ public class YdbConnectionProperties {
     private final YdbValue<String> metadataUrl;
     private final YdbValue<Object> tokenProvider;
     private final YdbValue<Object> channelInitializer;
+    private final YdbValue<Object> withTracer;
     private final YdbValue<String> grpcCompression;
 
     public YdbConnectionProperties(String username, String password, Properties props) throws SQLException {
@@ -99,6 +108,7 @@ public class YdbConnectionProperties {
         this.metadataUrl = METADATA_URL.readValue(props);
         this.tokenProvider = TOKEN_PROVIDER.readValue(props);
         this.channelInitializer = CHANNEL_INITIALIZER.readValue(props);
+        this.withTracer = WITH_TRACER.readValue(props);
         this.grpcCompression = GRPC_COMPRESSION.readValue(props);
     }
 
@@ -218,6 +228,13 @@ public class YdbConnectionProperties {
             builder = applyChannelInitializer(builder, initializer);
         }
 
+        if (withTracer.hasValue()) {
+            Object tracerObj = withTracer.getValue();
+            if (tracerObj != null && JdbcDriverVersion.getInstance().isSdkVersion(2, 4, 6)) {
+                builder = applyYdbTracer(builder, tracerObj);
+            }
+        }
+
         if (grpcCompression.hasValue()) {
             String value = grpcCompression.getValue();
             if ("none".equalsIgnoreCase(value)) {
@@ -264,6 +281,55 @@ public class YdbConnectionProperties {
             throw new SQLException("Cannot parse tokenProvider " + provider.getClass().getName());
         }
         return builder;
+    }
+
+    private GrpcTransportBuilder applyYdbTracer(GrpcTransportBuilder builder, Object tracerObj) throws SQLException {
+        if (tracerObj instanceof Tracer) {
+            return builder.withTracer((Tracer) tracerObj);
+        }
+
+        if (tracerObj instanceof String) {
+            String className = (String) tracerObj;
+
+            if ("true".equalsIgnoreCase(className)) {
+                try {
+                    Class<?> clazz = Class.forName(OPENTELEMETRY_TRACER_CLASS);
+                    Method createGlobal = clazz.getMethod("createGlobal");
+                    Object global = createGlobal.invoke(null);
+                    if (global instanceof Tracer) {
+                        return builder.withTracer((Tracer) global);
+                    }
+                    throw new SQLException("OpenTelemetryTracer.createGlobal() did not return a Tracer");
+                } catch (ClassNotFoundException | NoClassDefFoundError  e) {
+                    throw new SQLException("withTracer requires io.opentelemetry:opentelemetry-api on the classpath",
+                            e);
+                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+                    throw new SQLException("Cannot invoke OpenTelemetryTracer.createGlobal()", e);
+                }
+            }
+
+            if (!FQCN.matcher(className).matches()) {
+                throw new SQLException("tracer must be full class name or instance of tech.ydb.core.tracing.Tracer");
+            }
+
+            try {
+                Class<?> clazz = Class.forName(className);
+                if (!Tracer.class.isAssignableFrom(clazz)) {
+                    throw new SQLException("tracer " + className + " is not implement tech.ydb.core.tracing.Tracer");
+                }
+                Tracer tracer = clazz.asSubclass(Tracer.class)
+                        .getConstructor(new Class<?>[0])
+                        .newInstance(new Object[0]);
+                return builder.withTracer(tracer);
+            } catch (ClassNotFoundException ex) {
+                throw new SQLException("tracer " + className + " not found", ex);
+            } catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException
+                    | IllegalArgumentException | InvocationTargetException ex) {
+                throw new SQLException("Cannot construct tracer " + className, ex);
+            }
+        }
+
+        throw new SQLException("Cannot parse tracer " + tracerObj.getClass().getName());
     }
 
     private GrpcTransportBuilder applyChannelInitializer(GrpcTransportBuilder builder, Object initializer)
