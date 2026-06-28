@@ -10,6 +10,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
+import javax.annotation.Nonnull;
+
 import tech.ydb.auth.AuthProvider;
 import tech.ydb.auth.TokenAuthProvider;
 import tech.ydb.auth.iam.CloudAuthHelper;
@@ -72,7 +74,7 @@ public class YdbConnectionProperties {
 
     static final YdbProperty<Object> WITH_TRACER = YdbProperty.object("withTracer",
             "Enable tracing for YDB client operations, object instance or class full name "
-                    + "impementing Tracer. Can be 'true' for the default global OpenTelemetry tracer");
+                    + "implementing Tracer. Can be 'true' for the default global OpenTelemetry tracer");
 
     private final String username;
     private final String password;
@@ -228,10 +230,9 @@ public class YdbConnectionProperties {
             builder = applyChannelInitializer(builder, initializer);
         }
 
-        if (withTracer.hasValue()) {
-            Object tracerObj = withTracer.getValue();
-            if (tracerObj != null && JdbcDriverVersion.getInstance().isSdkVersion(2, 4, 6)) {
-                builder = applyYdbTracer(builder, tracerObj);
+        if (JdbcDriverVersion.getInstance().isSdkVersion(2, 4, 6)) {
+            if (withTracer.hasValue()) {
+                builder = applyTracer(builder, withTracer.getValue());
             }
         }
 
@@ -283,13 +284,13 @@ public class YdbConnectionProperties {
         return builder;
     }
 
-    private GrpcTransportBuilder applyYdbTracer(GrpcTransportBuilder builder, Object tracerObj) throws SQLException {
-        if (tracerObj instanceof Tracer) {
-            return builder.withTracer((Tracer) tracerObj);
+    private GrpcTransportBuilder applyTracer(GrpcTransportBuilder builder, @Nonnull Object obj) throws SQLException {
+        if (obj instanceof Tracer) {
+            return builder.withTracer((Tracer) obj);
         }
 
-        if (tracerObj instanceof String) {
-            String className = (String) tracerObj;
+        if (obj instanceof String) {
+            String className = (String) obj;
 
             if ("true".equalsIgnoreCase(className)) {
                 try {
@@ -329,7 +330,7 @@ public class YdbConnectionProperties {
             }
         }
 
-        throw new SQLException("Cannot parse tracer " + tracerObj.getClass().getName());
+        throw new SQLException("Cannot parse tracer " + obj.getClass().getName());
     }
 
     private GrpcTransportBuilder applyChannelInitializer(GrpcTransportBuilder builder, Object initializer)

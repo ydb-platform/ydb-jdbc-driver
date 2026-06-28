@@ -79,6 +79,7 @@ public class YdbClientProperties {
 
         table.sessionPoolSize(minSize, maxSize);
         query.sessionPoolMaxSize(maxSize).sessionPoolMinSize(minSize);
+
         return false;
     }
 }
