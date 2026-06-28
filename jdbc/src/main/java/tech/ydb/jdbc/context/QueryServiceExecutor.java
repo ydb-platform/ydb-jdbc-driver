@@ -291,6 +291,11 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             }
 
             spi.onQueryResult(Status.SUCCESS, null);
+            if (!localTx.isActive()) {
+                if (tx.compareAndSet(localTx, null)) {
+                    localTx.getSession().close();
+                }
+            }
             return readers;
         } catch (SQLException | RuntimeException ex) {
             if (ex instanceof YdbStatusable) {
@@ -298,14 +303,11 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             } else {
                 spi.onQueryResult(null, ex);
             }
+            if (tx.compareAndSet(localTx, null)) {
+                localTx.getSession().close();
+            }
             throw ex;
         } finally {
-            if (!localTx.isActive()) {
-                if (tx.compareAndSet(localTx, null)) {
-                    localTx.getSession().close();
-                }
-            }
-
             if (localTx.isActive()) {
                 tracer.setId(localTx.getId());
             } else {
@@ -355,8 +357,9 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
                     tracer.trace("<-- " + status.toString());
                 }
 
-                if (localTx.isActive()) {
-                    tracer.setId(localTx.getId());
+                String localTxId = status != null && status.isSuccess() ? localTx.getId() : null;
+                if (localTxId != null) {
+                    tracer.setId(localTxId);
                 } else {
                     if (tx.compareAndSet(localTx, null)) {
                         localTx.getSession().close();
