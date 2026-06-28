@@ -220,4 +220,92 @@ public class YdbConnectionPropertiesTest {
                 () -> cp.applyToGrpcTransport(GrpcTransport.forConnectionString(YDB_URL))
         );
     }
+
+    @Test
+    public void tracerWrongObjectTest() throws SQLException {
+        Properties props = new Properties();
+        props.put("withTracer", new Object());
+        YdbConnectionProperties cp = new YdbConnectionProperties(null, null, props);
+
+        ExceptionAssert.sqlException(
+                "Cannot parse tracer java.lang.Object",
+                () -> cp.applyToGrpcTransport(GrpcTransport.forConnectionString(YDB_URL))
+        );
+    }
+
+    @Test
+    public void tracerDefaultValueTest() throws SQLException {
+        Properties props = new Properties();
+        props.put("withTracer", "true");
+        YdbConnectionProperties cp = new YdbConnectionProperties(null, null, props);
+
+        ExceptionAssert.sqlException(
+                "withTracer requires io.opentelemetry:opentelemetry-api on the classpath",
+                () -> cp.applyToGrpcTransport(GrpcTransport.forConnectionString(YDB_URL))
+        );
+    }
+
+    @Test
+    public void tracerWrongClassNameTest() throws SQLException {
+        Properties props = new Properties();
+        props.put("withTracer", "1tech.ydb.jdbc.settings.StaticTokenProvider");
+        YdbConnectionProperties cp = new YdbConnectionProperties(null, null, props);
+        ExceptionAssert.sqlException(
+                "tracer must be full class name or instance of tech.ydb.core.tracing.Tracer",
+                () -> cp.applyToGrpcTransport(GrpcTransport.forConnectionString(YDB_URL))
+        );
+    }
+
+    @Test
+    public void tracerNonTracerClassTest() throws SQLException {
+        Properties props = new Properties();
+        props.put("withTracer", "tech.ydb.jdbc.settings.StaticTokenProvider");
+        YdbConnectionProperties cp = new YdbConnectionProperties(null, null, props);
+        ExceptionAssert.sqlException(
+                "tracer tech.ydb.jdbc.settings.StaticTokenProvider is not implement tech.ydb.core.tracing.Tracer",
+                () -> cp.applyToGrpcTransport(GrpcTransport.forConnectionString(YDB_URL))
+        );
+    }
+
+    @Test
+    public void tracerUnknownClassTest() throws SQLException {
+        Properties props = new Properties();
+        props.put("withTracer", "tech.ydb.jdbc.settings.TestTracer");
+        YdbConnectionProperties cp = new YdbConnectionProperties(null, null, props);
+        ExceptionAssert.sqlException(
+                "tracer tech.ydb.jdbc.settings.TestTracer not found",
+                () -> cp.applyToGrpcTransport(GrpcTransport.forConnectionString(YDB_URL))
+        );
+    }
+
+    @Test
+    public void tracerBadClassTest() throws SQLException {
+        Properties props = new Properties();
+        props.put("withTracer", BadCustomTracer.class.getCanonicalName());
+        YdbConnectionProperties cp = new YdbConnectionProperties(null, null, props);
+        ExceptionAssert.sqlException(
+                "Cannot construct tracer tech.ydb.jdbc.settings.BadCustomTracer",
+                () -> cp.applyToGrpcTransport(GrpcTransport.forConnectionString(YDB_URL))
+        );
+    }
+
+    @Test
+    public void tracerObjectTest() throws SQLException {
+        CustomTracer tracer = new CustomTracer();
+        Properties props = new Properties();
+        props.put("withTracer", tracer);
+        YdbConnectionProperties cp = new YdbConnectionProperties(null, null, props);
+        GrpcTransportBuilder builder = cp.applyToGrpcTransport(GrpcTransport.forConnectionString(YDB_URL));
+        Assertions.assertSame(tracer, builder.getTracer());
+    }
+
+    @Test
+    public void tracerClassNameTest() throws SQLException {
+        Properties props = new Properties();
+        props.put("withTracer", "tech.ydb.jdbc.settings.CustomTracer");
+        YdbConnectionProperties cp = new YdbConnectionProperties(null, null, props);
+        GrpcTransportBuilder builder = cp.applyToGrpcTransport(GrpcTransport.forConnectionString(YDB_URL));
+        Assertions.assertEquals("tech.ydb.jdbc.settings.CustomTracer",
+                builder.getTracer().getClass().getCanonicalName());
+    }
 }
