@@ -7,7 +7,6 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
@@ -143,7 +142,6 @@ public class YdbQueryResultReader extends YdbQueryResultBase implements GrpcFlow
         }
 
         YdbResultSet ready = rs[index].getReady();
-
         while (ready == null && !isStreamCompleted) {
             ready = rs[index].getReady();
         }
@@ -221,23 +219,29 @@ public class YdbQueryResultReader extends YdbQueryResultBase implements GrpcFlow
     private class CallCtrl implements GrpcFlowControl.Call {
         private final IntConsumer request;
         private final AtomicInteger loaded = new AtomicInteger(0);
-        private final AtomicBoolean isPaused = new AtomicBoolean(false);
+        private final AtomicInteger reqSize = new AtomicInteger(1);
 
         CallCtrl(IntConsumer request) {
             this.request = request;
         }
 
+        private void next() {
+            int next = reqSize.getAndSet(0);
+            if (next > 0) {
+                request.accept(next);
+            }
+        }
+
         @Override
         public void onStart() {
-            request.accept(1);
+            next();
         }
 
         @Override
         public void onMessageRead() {
+            reqSize.incrementAndGet();
             if (fetchSize <= 0 || loaded.get() < fetchSize) {
-                request.accept(1);
-            } else {
-                isPaused.set(true);
+                next();
             }
         }
 
@@ -247,9 +251,7 @@ public class YdbQueryResultReader extends YdbQueryResultBase implements GrpcFlow
 
         public void processRows(int rows) {
             if (loaded.addAndGet(-rows) < fetchSize) {
-                if (isPaused.compareAndSet(true, false)) {
-                    request.accept(1);
-                }
+                next();
             }
         }
     }
