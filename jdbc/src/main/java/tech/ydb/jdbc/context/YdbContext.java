@@ -236,12 +236,13 @@ public class YdbContext implements AutoCloseable {
             YdbQueryProperties queryProps = new YdbQueryProperties(config);
 
             GrpcTransportBuilder builder = GrpcTransport.forConnectionString(config.getConnectionString());
-            if (JdbcDriverVersion.getInstance().isSdkVersion(2, 3, 30)) {
+            JdbcDriverVersion version = JdbcDriverVersion.getInstance();
+            if (version.isSdkVersion(2, 3, 30)) {
                 // this method is available only on SDK 2.3.30+
                 builder.withApplicationName(YdbDriverInfo.DRIVER_VERSION);
             }
-            if (JdbcDriverVersion.getInstance().isSdkVersion(2, 3, 34)) {
-                // this method is available only on SDK 2.3.34+
+            if (version.isSdkVersion(2, 3, 34) && (version.isSdkVersion(2, 4, 4) || !version.isSdkVersion(2, 4))) {
+                // this method is available only on SDK 2.3.34+ and 2.4.4+
                 builder.withExtraBuildInfo("ydb-jdbc-driver/" + YdbDriverInfo.DRIVER_VERSION);
             }
             connProps.applyToGrpcTransport(builder);

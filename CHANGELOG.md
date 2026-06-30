@@ -1,3 +1,9 @@
+## 2.3.27 ##
+
+* Fixed datarace in YdbQueryResultReader
+* Updated JDBC driver version reporting
+* Upgrade to YDB Java SDK v2.3.35
+
 ## 2.3.26 ##
 
 * Added JDBC driver version reporting
