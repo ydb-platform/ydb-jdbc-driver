@@ -12,8 +12,6 @@ import java.util.Enumeration;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import tech.ydb.jdbc.spi.YdbQueryExtentionService;
-
 /**
  *
  * @author Aleksandr Gorshenin

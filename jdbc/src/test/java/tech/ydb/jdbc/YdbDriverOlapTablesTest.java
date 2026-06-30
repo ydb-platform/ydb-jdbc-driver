@@ -26,6 +26,7 @@ public class YdbDriverOlapTablesTest {
     private static final YdbHelperExtension ydb = new YdbHelperExtension();
 
     private static final JdbcUrlHelper jdbcURL = new JdbcUrlHelper(ydb)
+            .withArg("queryTimeout", "30s")
             .withArg("enableTxTracer", "true")
             .withArg("usePrefixPath", "jdbc_olap");
 

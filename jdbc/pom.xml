@@ -6,7 +6,7 @@
     <parent>
         <groupId>tech.ydb.jdbc</groupId>
         <artifactId>ydb-jdbc-driver-parent</artifactId>
-        <version>2.3.27</version>
+        <version>2.3.28-SNAPSHOT</version>
     </parent>
 
     <artifactId>ydb-jdbc-driver</artifactId>
@@ -29,14 +29,6 @@
         <dependency>
             <groupId>tech.ydb.auth</groupId>
             <artifactId>yc-auth-provider</artifactId>
-        </dependency>
-
-        <!-- Testcontainers requires Jackson 2.15+ -->
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>2.21.1</version>
-            <scope>test</scope>
         </dependency>
 
         <dependency>
