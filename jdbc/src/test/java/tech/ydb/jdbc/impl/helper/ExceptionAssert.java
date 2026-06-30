@@ -4,6 +4,7 @@ import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLRecoverableException;
+import java.sql.SQLTransientConnectionException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.function.Executable;
@@ -38,6 +39,14 @@ public class ExceptionAssert {
         );
         Assertions.assertTrue(ex.getMessage().contains(message),
                 "SQLRecoverableException '" + ex.getMessage() + "' doesn't contain message '" + message + "'");
+    }
+
+    public static void sqlTransientConnection(String message, Executable exec) {
+        SQLTransientConnectionException ex = Assertions.assertThrows(SQLTransientConnectionException.class, exec,
+                "Invalid statement must throw SQLTransientConnectionException"
+        );
+        Assertions.assertTrue(ex.getMessage().contains(message),
+                "SQLTransientConnectionException '" + ex.getMessage() + "' doesn't contain message '" + message + "'");
     }
 
     public static void sqlFeatureNotSupported(String message, Executable exec) {
