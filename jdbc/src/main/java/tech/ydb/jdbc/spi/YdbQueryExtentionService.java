@@ -22,7 +22,7 @@ public interface YdbQueryExtentionService {
         /**
          * Handler to customize QueryService's query execution settings.
          *
-         * @param builder
+         * @param builder current builder
          * @return customized ExecuteQuerySettings.Builder
          */
         default ExecuteQuerySettings.Builder prepareQuerySettings(ExecuteQuerySettings.Builder builder) {
@@ -32,7 +32,7 @@ public interface YdbQueryExtentionService {
         /**
          * Handler to customize TableService's query execution settings.
          *
-         * @param settings
+         * @param settings current settings
          * @return customized ExecuteDataQuerySettings
          */
         default ExecuteDataQuerySettings prepareDataQuerySettings(ExecuteDataQuerySettings settings) {
@@ -44,7 +44,7 @@ public interface YdbQueryExtentionService {
          * {@link QueryCall#prepareQuerySettings(tech.ydb.query.settings.ExecuteQuerySettings.Builder)} or
          * {@link QueryCall#prepareDataQuerySettings(tech.ydb.table.settings.ExecuteDataQuerySettings)} ).
          *
-         * @param stats
+         * @param stats query execution statistics
          */
         default void onQueryStats(QueryStats stats)  {
 
