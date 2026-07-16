@@ -6,6 +6,8 @@ import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import tech.ydb.core.utils.Version;
 
 public class JdbcDriverVersion {
@@ -16,7 +18,8 @@ public class JdbcDriverVersion {
     private final String version;
     private final String sdk;
 
-    private JdbcDriverVersion(String version, int major, int minor, String sdk) {
+    @VisibleForTesting
+    JdbcDriverVersion(String version, int major, int minor, String sdk) {
         this.version = version;
         this.major = major;
         this.minor = minor;
@@ -37,7 +40,9 @@ public class JdbcDriverVersion {
 
     public boolean isSdkVersion(int... vv) {
         try {
-            String[] parts = sdk.split("\\.");
+            int separator = sdk.indexOf("-");
+            String digits = separator > 0 ? sdk.substring(0, separator) : sdk;
+            String[] parts = digits.split("\\.");
             for (int idx = 0; idx < vv.length; idx++) {
                 if (idx >= parts.length) {
                     return false;
@@ -100,7 +105,7 @@ public class JdbcDriverVersion {
                 }
             }
 
-            String sdk = Version.getVersion().orElse("0.0.unknown");
+            String sdk = Version.getVersion().orElse("0.0.0-SNAPSHOT");
             INSTANCE = new JdbcDriverVersion(version, major, minor, sdk);
         }
     }
