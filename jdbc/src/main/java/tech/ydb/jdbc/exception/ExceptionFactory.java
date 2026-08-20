@@ -40,7 +40,7 @@ public class ExceptionFactory {
         }
         if (status.getCode() == StatusCode.PRECONDITION_FAILED) {
             if (hasIssue(status.getIssues(), "Conflict with existing key.")) {
-                return "23000"; // Integrity constraint violation
+                return "23505"; // dublicate keys SQL state value
             }
         }
         return null;

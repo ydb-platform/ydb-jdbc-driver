@@ -591,7 +591,7 @@ public class YdbDriverTablesTest {
                 ps.setDate(3, Date.valueOf(LocalDate.of(2001, Month.MARCH, 4)));
 
                 SQLException ex = Assertions.assertThrows(SQLException.class, ps::execute);
-                Assertions.assertEquals("23000", ex.getSQLState());
+                Assertions.assertEquals("23505", ex.getSQLState());
                 Assertions.assertEquals(400120, ex.getErrorCode());
                 Assertions.assertTrue(ex.getMessage().contains("Conflict with existing key."));
             }
@@ -602,7 +602,7 @@ public class YdbDriverTablesTest {
                 ps.setDate(3, Date.valueOf(LocalDate.of(2001, Month.MARCH, 4)));
 
                 SQLException ex = Assertions.assertThrows(SQLException.class, ps::execute);
-                Assertions.assertEquals("23000", ex.getSQLState());
+                Assertions.assertEquals("23505", ex.getSQLState());
                 Assertions.assertEquals(400120, ex.getErrorCode());
                 Assertions.assertTrue(ex.getMessage().contains("Conflict with existing key."));
             }

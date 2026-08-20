@@ -1,3 +1,8 @@
+## 2.4.1 ##
+
+* Upgrade to YDB Java SDK v2.4.10
+* Added partitial support of standard SQLState
+
 ## 2.4.0 ##
 
 * Upgrade to YDB Java SDK v2.4.7
