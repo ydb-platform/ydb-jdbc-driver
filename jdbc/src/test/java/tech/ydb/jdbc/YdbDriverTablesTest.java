@@ -9,10 +9,14 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
+import java.time.Month;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import tech.ydb.jdbc.impl.helper.ExceptionAssert;
 import tech.ydb.jdbc.impl.helper.JdbcUrlHelper;
@@ -42,7 +46,7 @@ public class YdbDriverTablesTest {
             + "  PRIMARY KEY (id)"
             + ")";
 
-    private final static String DROP_TABLE = "DROP TABLE table";
+    private final static String DROP_TABLE = "DROP TABLE IF EXISTS table";
     private final static String UPSERT_ROW = "UPSERT INTO table (id, value, date) VALUES (?, ?, ?)";
     private final static String INSERT_ROW = "INSERT INTO table (id, value, date) VALUES (?, ?, ?)";
     private final static String SELECT_ALL = "SELECT * FROM table ORDER BY id";
@@ -51,15 +55,18 @@ public class YdbDriverTablesTest {
     private final static String UPDATE_ROW = "UPDATE table SET value = ? WHERE id = ?";
     private final static String DELETE_ROW = "DELETE FROM table WHERE id = ?";
 
+    @BeforeEach
+    public void dropTable() throws SQLException {
+        try (Connection connection = DriverManager.getConnection(jdbcURL.build())) {
+            try (Statement st = connection.createStatement()) {
+                st.execute(DROP_TABLE);
+            }
+        }
+    }
+
     @Test
     public void defaultModeTest() throws SQLException {
         try (Connection connection = DriverManager.getConnection(jdbcURL.build())) {
-            try {
-                connection.createStatement().execute(DROP_TABLE);
-            } catch (SQLException e) {
-                // ignore
-            }
-
             connection.createStatement().execute(CREATE_TABLE);
 
             Assertions.assertTrue(connection.isValid(10));
@@ -140,12 +147,6 @@ public class YdbDriverTablesTest {
     @Test
     public void customQueriesTest() throws SQLException {
         try (Connection conn = DriverManager.getConnection(jdbcURL.build())) {
-            try {
-                conn.createStatement().execute(DROP_TABLE);
-            } catch (SQLException e) {
-                // ignore
-            }
-
             conn.createStatement().execute(CREATE_TABLE);
 
             Assertions.assertTrue(conn.isValid(10));
@@ -220,12 +221,6 @@ public class YdbDriverTablesTest {
                 .withArg("forceScanSelect", "true")
                 .build()
         )) {
-            try {
-                conn.createStatement().execute(DROP_TABLE);
-            } catch (SQLException e) {
-                // ignore
-            }
-
             conn.createStatement().execute(CREATE_TABLE);
 
             Assertions.assertTrue(conn.isValid(10));
@@ -330,12 +325,6 @@ public class YdbDriverTablesTest {
     @Test
     public void streamResultsTest() throws SQLException {
         try (Connection conn = DriverManager.getConnection(jdbcURL.withArg("useStreamResultSets", "true").build())) {
-            try {
-                conn.createStatement().execute(DROP_TABLE);
-            } catch (SQLException e) {
-                // ignore
-            }
-
             conn.createStatement().execute(CREATE_TABLE);
 
             Assertions.assertTrue(conn.isValid(10));
@@ -486,12 +475,6 @@ public class YdbDriverTablesTest {
     @Test
     public void tableServiceModeTest() throws SQLException {
         try (Connection connection = DriverManager.getConnection(jdbcURL.withArg("useQueryService", "false").build())) {
-            try {
-                connection.createStatement().execute(DROP_TABLE);
-            } catch (SQLException e) {
-                // ignore
-            }
-
             connection.createStatement().execute(CREATE_TABLE);
 
             Assertions.assertTrue(connection.isValid(10));
@@ -565,6 +548,63 @@ public class YdbDriverTablesTest {
             try (PreparedStatement ps = connection.prepareStatement(DELETE_ROW)) {
                 ps.setInt(1, 2);
                 ps.executeUpdate();
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"true", "false"})
+    public void errorsMappingTest(String useQS) throws SQLException {
+        try (Connection conn = DriverManager.getConnection(jdbcURL.withArg("useQueryService", useQS).build())) {
+            try (Statement st = conn.createStatement()) {
+                SQLException ex = Assertions.assertThrows(SQLException.class, () -> st.execute(";NON SQL TEXT"));
+                Assertions.assertEquals("42000", ex.getSQLState());
+                Assertions.assertEquals(400080, ex.getErrorCode());
+                Assertions.assertTrue(ex.getMessage().contains("no viable alternative at input"));
+            }
+
+            try (Statement st = conn.createStatement()) {
+                SQLException ex = Assertions.assertThrows(SQLException.class, () -> st.execute(
+                        "CREATE TABLE table (id Int32, value Text, PRIMARY KEY(id2))"
+                ));
+                Assertions.assertEquals("42000", ex.getSQLState());
+                Assertions.assertEquals(400080, ex.getErrorCode());
+                Assertions.assertTrue(ex.getMessage().contains("Undefined column: id2"));
+            }
+
+            try (Statement st = conn.createStatement()) {
+                st.execute("CREATE TABLE table (id Int32, value Text, date Date, "
+                        + "PRIMARY KEY(id), "
+                        + "INDEX uniq GLOBAL UNIQUE ON (value))");
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement(INSERT_ROW)) {
+                ps.setInt(1, 1);
+                ps.setString(2, "value");
+                ps.setDate(3, Date.valueOf(LocalDate.of(2001, Month.MARCH, 4)));
+                Assertions.assertFalse(ps.execute());
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement(INSERT_ROW)) {
+                ps.setInt(1, 1);
+                ps.setString(2, "value2");
+                ps.setDate(3, Date.valueOf(LocalDate.of(2001, Month.MARCH, 4)));
+
+                SQLException ex = Assertions.assertThrows(SQLException.class, ps::execute);
+                Assertions.assertEquals("23000", ex.getSQLState());
+                Assertions.assertEquals(400120, ex.getErrorCode());
+                Assertions.assertTrue(ex.getMessage().contains("Conflict with existing key."));
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement(INSERT_ROW)) {
+                ps.setInt(1, 2);
+                ps.setString(2, "value");
+                ps.setDate(3, Date.valueOf(LocalDate.of(2001, Month.MARCH, 4)));
+
+                SQLException ex = Assertions.assertThrows(SQLException.class, ps::execute);
+                Assertions.assertEquals("23000", ex.getSQLState());
+                Assertions.assertEquals(400120, ex.getErrorCode());
+                Assertions.assertTrue(ex.getMessage().contains("Conflict with existing key."));
             }
         }
     }
