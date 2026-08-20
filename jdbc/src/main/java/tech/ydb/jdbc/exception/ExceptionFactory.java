@@ -2,6 +2,8 @@ package tech.ydb.jdbc.exception;
 
 import java.sql.SQLException;
 
+import tech.ydb.core.Issue;
+import tech.ydb.core.Status;
 import tech.ydb.core.StatusCode;
 import tech.ydb.core.UnexpectedResultException;
 
@@ -12,9 +14,48 @@ import tech.ydb.core.UnexpectedResultException;
 public class ExceptionFactory {
     private ExceptionFactory() { }
 
-    static String getSQLState(StatusCode status) {
-        // TODO: Add SQLSTATE message with order with https://en.wikipedia.org/wiki/SQLSTATE
+    /*
+     SQLException
+     |-> YdbSQLException
+     |-> SQLRecoverableException
+     |    |-> YdbRetryableException
+     |-> SQLTransientException
+     |    |-> YdbConditionallyRetryableException
+     |    |-> SQLTransientConnectionException
+     |    |    |-> YdbUnavailbaleException
+     |    |-> SQLTransactionRollbackException
+     |    |-> SQLTimeoutException
+     |         |-> YdbTimeoutException
+     |-> SQLNonTransientException
+          |-> SQLDataException
+          |-> SQLInvalidAuthorizationSpecException
+          |-> SQLSyntaxErrorException
+          |-> SQLIntegrityConstraintViolationException
+          |-> SQLFeatureNotSupportedException
+     */
+
+    static String getSQLState(Status status) {
+        if (status.getCode() == StatusCode.GENERIC_ERROR) {
+            return "42000";  // General SQL syntax error
+        }
+        if (status.getCode() == StatusCode.PRECONDITION_FAILED) {
+            if (hasIssue(status.getIssues(), "Conflict with existing key.")) {
+                return "23000"; // Integrity constraint violation
+            }
+        }
         return null;
+    }
+
+    private static boolean hasIssue(Issue[] issues, String text) {
+        if (issues == null || issues.length == 0) {
+            return false;
+        }
+        for (Issue issue: issues) {
+            if (text.equalsIgnoreCase(issue.getMessage()) || hasIssue(issue.getIssues(), text)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static int getVendorCode(StatusCode code) {
@@ -22,8 +63,9 @@ public class ExceptionFactory {
     }
 
     public static SQLException createException(String message, UnexpectedResultException cause) {
+        String sqlState = getSQLState(cause.getStatus());
+
         StatusCode code = cause.getStatus().getCode();
-        String sqlState = getSQLState(code);
         int vendorCode = getVendorCode(code);
 
         // base retryable statuses are translated to SQLRecoverableException
