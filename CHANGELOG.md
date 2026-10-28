@@ -1,3 +1,7 @@
+## 2.3.28 ##
+
+* Upgrade to YDB Java SDK v2.4.0
+
 ## 2.3.27 ##
 
 * Fixed datarace in YdbQueryResultReader

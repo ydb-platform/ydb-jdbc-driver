@@ -504,8 +504,8 @@ public class TableServiceExecutor extends BaseYdbExecutor {
             switch (level) {
                 case Connection.TRANSACTION_SERIALIZABLE:
                     return TxControl.serializableRw().setCommitTx(isAutoCommit);
-                case Connection.TRANSACTION_REPEATABLE_READ:
-                    return TxControl.snapshotRw().setCommitTx(isAutoCommit);
+//                case Connection.TRANSACTION_REPEATABLE_READ:
+//                    return TxControl.snapshotRw().setCommitTx(isAutoCommit);
                 default:
                     throw new SQLException(YdbConst.UNSUPPORTED_TRANSACTION_LEVEL + level);
             }

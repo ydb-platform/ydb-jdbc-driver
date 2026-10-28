@@ -1,10 +1,11 @@
 package tech.ydb.jdbc.impl;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -35,7 +36,7 @@ public class YdbTracerImpl implements YdbTracer {
     private class Tx {
         private final Instant startDate = Instant.now();
         private final long startedAt = System.currentTimeMillis();
-        private final List<Record> records = new ArrayList<>();
+        private final Queue<Record> records = new ConcurrentLinkedQueue<>();
 
         private String id = null;
         private String label = null;
