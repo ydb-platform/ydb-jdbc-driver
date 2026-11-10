@@ -202,6 +202,36 @@ public class YdbDriverIntegrationTest {
     }
 
     @Test
+    public void testContextCacheConcurrentReopen() throws SQLException {
+        YdbDriver driver = (YdbDriver) DriverManager.getDriver(jdbcURL.build());
+        driver.clear();
+
+        // Workers open and close connections in a loop, so the last connection of a cached context is often
+        // closed while another worker is opening a new connection on the same context
+        List<CompletableFuture<Void>> list = new ArrayList<>();
+        for (int idx = 0; idx < 8; idx++) {
+            list.add(CompletableFuture.runAsync(() -> {
+                for (int iteration = 0; iteration < 50; iteration++) {
+                    try (Connection connection = DriverManager.getConnection(jdbcURL.build())) {
+                        try (Statement statement = connection.createStatement();
+                                ResultSet rs = statement.executeQuery("SELECT 1")) {
+                            Assertions.assertTrue(rs.next());
+                        }
+                    } catch (SQLException ex) {
+                        throw new RuntimeException("Cannot execute query", ex);
+                    }
+                }
+            }));
+        }
+
+        for (CompletableFuture<Void> future: list) {
+            future.join();
+        }
+
+        Assertions.assertEquals(0, driver.getConnectionCount());
+    }
+
+    @Test
     public void testCachedTransportCount() throws SQLException {
         Properties props = new Properties();
         props.put("cachedTransportsCount", "3");
