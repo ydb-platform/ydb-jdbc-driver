@@ -97,7 +97,7 @@ public class YdbDriver implements Driver {
             if (cached.tryAcquire()) {
                 return cached;
             }
-            // The last connection has just closed this context, drop the stale entry and try again
+            // The context has just been closed by its last connection, drop the stale entry and try again
             cache.remove(config, cached);
         }
     }
@@ -201,43 +201,36 @@ public class YdbDriver implements Driver {
     }
 
     /**
-     * Context shared by all connections with the same config. A context is closed by the last connection, and
-     * once closed it can't be acquired again, so a connection is never opened on a context being shut down.
+     * Context shared by all cached connections with the same config. It counts the connections opened on it and
+     * becomes closed together with the last of them. A closed context can't be acquired again, so a new connection
+     * is never opened on a context that is being shut down.
      */
     private static final class CachedContext {
         private static final int CLOSED = -1;
 
         private final YdbContext context;
-        private final AtomicInteger leases = new AtomicInteger();
+        private final AtomicInteger connections = new AtomicInteger();
 
         CachedContext(YdbContext context) {
             this.context = context;
         }
 
         boolean tryAcquire() {
-            int actual = leases.get();
-            while (actual >= 0) {
-                if (leases.compareAndSet(actual, actual + 1)) {
-                    return true;
-                }
-                actual = leases.get();
-            }
-            return false;
+            return connections.getAndUpdate(count -> count == CLOSED ? CLOSED : count + 1) != CLOSED;
         }
 
         /**
-         * @return true if the caller released the last lease and must close the context
+         * @return true if the last connection was released, then the caller must close the context
          */
         boolean release() {
-            return leases.decrementAndGet() == 0 && leases.compareAndSet(0, CLOSED);
+            return connections.getAndUpdate(count -> count > 1 ? count - 1 : CLOSED) == 1;
         }
 
         /**
-         * Closes the context regardless of open connections. Their later releases never reach zero again,
-         * so the context is not closed twice.
+         * Closes the context regardless of open connections, their later releases don't close it again.
          */
         void close() {
-            if (leases.getAndSet(CLOSED) != CLOSED) {
+            if (connections.getAndSet(CLOSED) != CLOSED) {
                 context.close();
             }
         }
