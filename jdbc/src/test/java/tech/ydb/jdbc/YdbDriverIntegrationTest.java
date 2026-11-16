@@ -14,6 +14,10 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -199,6 +203,40 @@ public class YdbDriverIntegrationTest {
         for (CompletableFuture<YdbConnection> future: list) {
             future.join().close();
         }
+    }
+
+    @Test
+    public void testContextCacheConcurrentReopen() throws Exception {
+        YdbDriver driver = (YdbDriver) DriverManager.getDriver(jdbcURL.build());
+        driver.clear();
+
+        // Workers open and close connections in a loop, so the last connection of the cached context is often
+        // closed while another worker is opening a new connection on the same context
+        int workersCount = 8;
+        ExecutorService workers = Executors.newFixedThreadPool(workersCount);
+        try {
+            List<Future<?>> list = new ArrayList<>();
+            for (int idx = 0; idx < workersCount; idx++) {
+                list.add(workers.submit(() -> {
+                    for (int iteration = 0; iteration < 50; iteration++) {
+                        try (Connection connection = DriverManager.getConnection(jdbcURL.build());
+                                Statement statement = connection.createStatement();
+                                ResultSet rs = statement.executeQuery("SELECT 1")) {
+                            Assertions.assertTrue(rs.next());
+                        }
+                    }
+                    return null;
+                }));
+            }
+
+            for (Future<?> future: list) {
+                future.get(1, TimeUnit.MINUTES);
+            }
+        } finally {
+            workers.shutdownNow();
+        }
+
+        Assertions.assertEquals(0, driver.getConnectionCount());
     }
 
     @Test

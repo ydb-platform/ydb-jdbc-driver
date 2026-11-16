@@ -1,3 +1,7 @@
+## 2.4.2 ##
+
+* Fixed race between closing the last connection and reusing a cached context
+
 ## 2.4.1 ##
 
 * Upgrade to YDB Java SDK v2.4.10

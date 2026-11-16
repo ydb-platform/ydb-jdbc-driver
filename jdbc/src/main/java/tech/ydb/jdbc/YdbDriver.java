@@ -63,16 +63,28 @@ public class YdbDriver implements Driver {
             };
         }
 
-        YdbContext cached = getCachedContext(config);
-        return new YdbConnectionImpl(cached) {
-            @Override
-            public void close() throws SQLException {
-                super.close();
-                if (!cached.hasConnections() && cache.remove(config, cached)) {
-                    cached.close();
+        while (true) {
+            YdbContext cached = getCachedContext(config);
+            // The connection registers itself on the context under the same lock that the last connection holds
+            // while removing the context from the cache, so a new connection never gets onto a removed context
+            synchronized (cached) {
+                if (cache.get(config) == cached) {
+                    return new YdbConnectionImpl(cached) {
+                        @Override
+                        public void close() throws SQLException {
+                            super.close();
+                            synchronized (cached) {
+                                if (cached.hasConnections() || !cache.remove(config, cached)) {
+                                    return;
+                                }
+                            }
+                            cached.close();
+                        }
+                    };
                 }
             }
-        };
+            // The context has just been removed by its last connection, try again with a new one
+        }
     }
 
     public YdbContext getCachedContext(YdbConfig config) throws SQLException {
