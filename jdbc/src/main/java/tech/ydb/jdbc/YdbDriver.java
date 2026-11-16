@@ -7,8 +7,6 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -40,7 +38,7 @@ public class YdbDriver implements Driver {
         }
     }
 
-    private final ConcurrentHashMap<YdbConfig, CachedContext> cache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<YdbConfig, YdbContext> cache = new ConcurrentHashMap<>();
 
     @Override
     public YdbConnection connect(String url, Properties info) throws SQLException {
@@ -65,66 +63,46 @@ public class YdbDriver implements Driver {
             };
         }
 
-        CachedContext cached = acquireCachedContext(config);
-        try {
-            return new YdbConnectionImpl(cached.context) {
-                private final AtomicBoolean released = new AtomicBoolean();
-
-                @Override
-                public void close() throws SQLException {
-                    try {
-                        super.close();
-                    } finally {
-                        if (released.compareAndSet(false, true)) {
-                            releaseCachedContext(config, cached);
+        while (true) {
+            YdbContext cached = getCachedContext(config);
+            // The connection registers itself on the context under the same lock that the last connection holds
+            // while removing the context from the cache, so a new connection never gets onto a removed context
+            synchronized (cached) {
+                if (cache.get(config) == cached) {
+                    return new YdbConnectionImpl(cached) {
+                        @Override
+                        public void close() throws SQLException {
+                            super.close();
+                            synchronized (cached) {
+                                if (cached.hasConnections() || !cache.remove(config, cached)) {
+                                    return;
+                                }
+                            }
+                            cached.close();
                         }
-                    }
+                    };
                 }
-            };
-        } catch (SQLException | RuntimeException e) {
-            releaseCachedContext(config, cached);
-            throw e;
+            }
+            // The context has just been removed by its last connection, try again with a new one
         }
     }
 
     public YdbContext getCachedContext(YdbConfig config) throws SQLException {
-        return getOrCreateCachedContext(config).context;
-    }
-
-    private CachedContext acquireCachedContext(YdbConfig config) throws SQLException {
-        while (true) {
-            CachedContext cached = getOrCreateCachedContext(config);
-            if (cached.tryAcquire()) {
-                return cached;
-            }
-            // The context has just been closed by its last connection, drop the stale entry and try again
-            cache.remove(config, cached);
-        }
-    }
-
-    private CachedContext getOrCreateCachedContext(YdbConfig config) throws SQLException {
         // Workaround for https://bugs.openjdk.java.net/browse/JDK-8161372 to prevent unnecessary locks in Java 8
         // Was fixed in Java 9+
-        CachedContext cached = cache.get(config);
-        if (cached != null) {
+        YdbContext context = cache.get(config);
+        if (context != null) {
             LOGGER.log(Level.FINEST, "Reusing YDB connection to {0}", config.getSafeUrl());
-            return cached;
+            return context;
         }
 
-        CachedContext created = new CachedContext(YdbContext.createContext(config));
-        CachedContext old = cache.putIfAbsent(config, created);
+        context = YdbContext.createContext(config);
+        YdbContext old = cache.putIfAbsent(config, context);
         if (old != null) {
-            created.context.close();
+            context.close();
             return old;
         }
-        return created;
-    }
-
-    private void releaseCachedContext(YdbConfig config, CachedContext cached) {
-        if (cached.release()) {
-            cache.remove(config, cached);
-            cached.context.close();
-        }
+        return context;
     }
 
     @Override
@@ -170,7 +148,7 @@ public class YdbDriver implements Driver {
     public void clear() {
         if (!cache.isEmpty()) {
             LOGGER.log(Level.FINE, "Closing {0} cached connection(s)...", cache.size());
-            cache.values().forEach(CachedContext::close);
+            cache.values().forEach(YdbContext::close);
             cache.clear();
         }
     }
@@ -198,41 +176,5 @@ public class YdbDriver implements Driver {
 
         LOGGER.log(Level.INFO, "YDB JDBC Driver deregistered: {0}", registeredDriver);
         registeredDriver = null;
-    }
-
-    /**
-     * Context shared by all cached connections with the same config. It counts the connections opened on it and
-     * becomes closed together with the last of them. A closed context can't be acquired again, so a new connection
-     * is never opened on a context that is being shut down.
-     */
-    private static final class CachedContext {
-        private static final int CLOSED = -1;
-
-        private final YdbContext context;
-        private final AtomicInteger connections = new AtomicInteger();
-
-        CachedContext(YdbContext context) {
-            this.context = context;
-        }
-
-        boolean tryAcquire() {
-            return connections.getAndUpdate(count -> count == CLOSED ? CLOSED : count + 1) != CLOSED;
-        }
-
-        /**
-         * @return true if the last connection was released, then the caller must close the context
-         */
-        boolean release() {
-            return connections.getAndUpdate(count -> count > 1 ? count - 1 : CLOSED) == 1;
-        }
-
-        /**
-         * Closes the context regardless of open connections, their later releases don't close it again.
-         */
-        void close() {
-            if (connections.getAndSet(CLOSED) != CLOSED) {
-                context.close();
-            }
-        }
     }
 }
