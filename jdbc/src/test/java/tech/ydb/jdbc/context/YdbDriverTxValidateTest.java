@@ -236,6 +236,66 @@ public class YdbDriverTxValidateTest {
     }
 
     @Test
+    public void abortedWriteMustNotMarkNextReadTransactionAsWriting() throws SQLException {
+        assertReadAfterAbortedWrite("tx_stale_store", "tx_stale_data", false);
+    }
+
+    @Test
+    public void rollbackAfterAbortedWriteMustNotMarkNextReadTransactionAsWriting() throws SQLException {
+        assertReadAfterAbortedWrite("tx_stale_rb_store", "tx_stale_rb_data", true);
+    }
+
+    private void assertReadAfterAbortedWrite(String txTable, String dataTable, boolean rollbackAbortedTx)
+            throws SQLException {
+        String url = jdbcURL.withArg("withTxValidationTable", txTable).build();
+
+        GrpcTestInterceptor.reset();
+
+        try (Connection conn = DriverManager.getConnection(url);
+                Statement st = conn.createStatement()) {
+            st.execute(
+                    "CREATE TABLE " + dataTable + " ("
+                    + "id Int32 NOT NULL, "
+                    + "value Text, "
+                    + "PRIMARY KEY (id))"
+            );
+
+            assertTxCount(txTable, 0);
+            conn.setAutoCommit(false);
+
+            // Tx A becomes writing: isWriteTx = true.
+            Assertions.assertFalse(st.execute(
+                    "UPSERT INTO " + dataTable
+                    + " (id, value) VALUES (1, 'test')"
+            ));
+
+            // Abort Tx A before commit. Its QueryTransaction is removed, while the connection
+            // can be reused without an explicit rollback.
+            GrpcTestInterceptor.nextExecuteQuery(StatusCode.ABORTED);
+            YdbRetryableException aborted = Assertions.assertThrows(
+                    YdbRetryableException.class,
+                    () -> st.execute("SELECT * FROM " + dataTable)
+            );
+            Assertions.assertEquals(StatusCode.ABORTED, aborted.getStatus().getCode());
+            if (rollbackAbortedTx) {
+                conn.rollback();
+            }
+
+            // Tx B is strictly read-only and starts with a clean write flag.
+            Assertions.assertTrue(st.execute("SELECT * FROM " + dataTable));
+            conn.commit();
+
+            // Tx B must use an ordinary commit and must not write to the validation table.
+            assertTxCount(txTable, 0);
+        } finally {
+            try (Statement st = jdbc.connection().createStatement()) {
+                st.execute("DROP TABLE " + dataTable);
+                st.execute("DROP TABLE " + txTable);
+            }
+        }
+    }
+
+    @Test
     public void invalididTxTableTest() throws SQLException {
         String url = jdbcURL.withArg("withTxValidationTable", "tx store").build();
         ExceptionAssert.ydbException(
