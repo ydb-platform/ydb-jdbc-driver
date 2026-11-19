@@ -80,9 +80,10 @@ public class TableTxExecutor extends QueryServiceExecutor {
     }
 
     @Override
-    public void rollback(YdbContext ctx, YdbValidator validator) throws SQLException {
+    protected void onTransactionStarted() {
+        // The flag describes only the current transaction. Resetting here also covers a previous
+        // transaction that became inactive without commit() or rollback().
         isWriteTx = false;
-        super.rollback(ctx, validator);
     }
 
     @Override
@@ -107,7 +108,6 @@ public class TableTxExecutor extends QueryServiceExecutor {
     @Override
     protected void commitImpl(YdbContext ctx, YdbValidator validator, QueryTransaction tx) throws SQLException {
         boolean storeTx = isWriteTx;
-        isWriteTx = false;
         if (!storeTx) {
             super.commitImpl(ctx, validator, tx);
             return;

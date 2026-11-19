@@ -237,8 +237,16 @@ public class YdbDriverTxValidateTest {
 
     @Test
     public void abortedWriteMustNotMarkNextReadTransactionAsWriting() throws SQLException {
-        String txTable = "tx_stale_store";
-        String dataTable = "tx_stale_data";
+        assertReadAfterAbortedWrite("tx_stale_store", "tx_stale_data", false);
+    }
+
+    @Test
+    public void rollbackAfterAbortedWriteMustNotMarkNextReadTransactionAsWriting() throws SQLException {
+        assertReadAfterAbortedWrite("tx_stale_rb_store", "tx_stale_rb_data", true);
+    }
+
+    private void assertReadAfterAbortedWrite(String txTable, String dataTable, boolean rollbackAbortedTx)
+            throws SQLException {
         String url = jdbcURL.withArg("withTxValidationTable", txTable).build();
 
         GrpcTestInterceptor.reset();
@@ -261,16 +269,19 @@ public class YdbDriverTxValidateTest {
                     + " (id, value) VALUES (1, 'test')"
             ));
 
-            // Abort Tx A before commit. QueryServiceExecutor removes the inactive
-            // QueryTransaction, but TableTxExecutor must also clear its write state.
+            // Abort Tx A before commit. Its QueryTransaction is removed, while the connection
+            // can be reused without an explicit rollback.
             GrpcTestInterceptor.nextExecuteQuery(StatusCode.ABORTED);
             YdbRetryableException aborted = Assertions.assertThrows(
                     YdbRetryableException.class,
                     () -> st.execute("SELECT * FROM " + dataTable)
             );
             Assertions.assertEquals(StatusCode.ABORTED, aborted.getStatus().getCode());
+            if (rollbackAbortedTx) {
+                conn.rollback();
+            }
 
-            // Tx B is strictly read-only.
+            // Tx B is strictly read-only and starts with a clean write flag.
             Assertions.assertTrue(st.execute("SELECT * FROM " + dataTable));
             conn.commit();
 
