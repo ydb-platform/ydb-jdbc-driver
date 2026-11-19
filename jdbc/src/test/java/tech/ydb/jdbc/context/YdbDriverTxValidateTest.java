@@ -236,6 +236,55 @@ public class YdbDriverTxValidateTest {
     }
 
     @Test
+    public void abortedWriteMustNotMarkNextReadTransactionAsWriting() throws SQLException {
+        String txTable = "tx_stale_store";
+        String dataTable = "tx_stale_data";
+        String url = jdbcURL.withArg("withTxValidationTable", txTable).build();
+
+        GrpcTestInterceptor.reset();
+
+        try (Connection conn = DriverManager.getConnection(url);
+                Statement st = conn.createStatement()) {
+            st.execute(
+                    "CREATE TABLE " + dataTable + " ("
+                    + "id Int32 NOT NULL, "
+                    + "value Text, "
+                    + "PRIMARY KEY (id))"
+            );
+
+            assertTxCount(txTable, 0);
+            conn.setAutoCommit(false);
+
+            // Tx A becomes writing: isWriteTx = true.
+            Assertions.assertFalse(st.execute(
+                    "UPSERT INTO " + dataTable
+                    + " (id, value) VALUES (1, 'test')"
+            ));
+
+            // Abort Tx A before commit. QueryServiceExecutor removes the inactive
+            // QueryTransaction, but TableTxExecutor must also clear its write state.
+            GrpcTestInterceptor.nextExecuteQuery(StatusCode.ABORTED);
+            YdbRetryableException aborted = Assertions.assertThrows(
+                    YdbRetryableException.class,
+                    () -> st.execute("SELECT * FROM " + dataTable)
+            );
+            Assertions.assertEquals(StatusCode.ABORTED, aborted.getStatus().getCode());
+
+            // Tx B is strictly read-only.
+            Assertions.assertTrue(st.execute("SELECT * FROM " + dataTable));
+            conn.commit();
+
+            // Tx B must use an ordinary commit and must not write to the validation table.
+            assertTxCount(txTable, 0);
+        } finally {
+            try (Statement st = jdbc.connection().createStatement()) {
+                st.execute("DROP TABLE " + dataTable);
+                st.execute("DROP TABLE " + txTable);
+            }
+        }
+    }
+
+    @Test
     public void invalididTxTableTest() throws SQLException {
         String url = jdbcURL.withArg("withTxValidationTable", "tx store").build();
         ExceptionAssert.ydbException(
