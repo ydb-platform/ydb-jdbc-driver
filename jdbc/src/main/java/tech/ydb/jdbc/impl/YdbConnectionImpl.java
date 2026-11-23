@@ -41,12 +41,13 @@ public class YdbConnectionImpl implements YdbConnection {
     private final YdbContext ctx;
     private final YdbValidator validator;
     private final YdbExecutor executor;
+    private final Runnable onCloseHandler;
 
-    public YdbConnectionImpl(YdbContext context) throws SQLException {
+    public YdbConnectionImpl(YdbContext context, Runnable onCloseHandler) throws SQLException {
         this.ctx = context;
         this.validator = new YdbValidator();
         this.executor = ctx.createExecutor();
-        this.ctx.register();
+        this.onCloseHandler = onCloseHandler;
     }
 
     @Override
@@ -107,10 +108,16 @@ public class YdbConnectionImpl implements YdbConnection {
             return;
         }
 
-        commit(); // like Oracle
-        validator.clearWarnings();
-        executor.close();
-        ctx.deregister();
+        try {
+            commit(); // like Oracle
+            validator.clearWarnings();
+        } finally {
+            try {
+                executor.close();
+            } finally {
+                onCloseHandler.run();
+            }
+        }
     }
 
     @Override

@@ -160,6 +160,7 @@ public class YdbContext implements AutoCloseable {
 
     public YdbExecutor createExecutor() throws SQLException {
         cache.validate();
+        adjustSessionPool();
         if (config.isUseQueryService()) {
             String txValidationTable = operationOptions.getTxValidationTable();
             if (txValidationTable != null && !txValidationTable.isEmpty()) {
@@ -175,6 +176,10 @@ public class YdbContext implements AutoCloseable {
 
     public int getConnectionsCount() {
         return connectionsCount.get();
+    }
+
+    public boolean isEmpty() {
+        return connectionsCount.get() <= 0;
     }
 
     public YdbOperationProperties getOperationProperties() {
@@ -193,12 +198,12 @@ public class YdbContext implements AutoCloseable {
         }
     }
 
-    public boolean hasConnections() {
-        return connectionsCount.get() > 0;
+    public void registerConnection() {
+        connectionsCount.incrementAndGet();
     }
 
-    public void register() {
-        int actual = connectionsCount.incrementAndGet();
+    private void adjustSessionPool() {
+        int actual = connectionsCount.get();
         int maxSize = tableClient.sessionPoolStats().getMaxSize();
         if (autoResizeSessionPool && actual > maxSize - SESSION_POOL_RESIZE_THRESHOLD) {
             int newSize = maxSize + SESSION_POOL_RESIZE_STEP;
@@ -209,7 +214,7 @@ public class YdbContext implements AutoCloseable {
         }
     }
 
-    public void deregister() {
+    public void deregisterConnection() {
         YdbTracer.clear();
 
         int actual = connectionsCount.decrementAndGet();
