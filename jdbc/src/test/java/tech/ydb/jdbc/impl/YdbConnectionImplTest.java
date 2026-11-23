@@ -851,9 +851,10 @@ public class YdbConnectionImplTest {
                     SQLWarning warnings = statement.getWarnings();
                     Assertions.assertNotNull(warnings);
 
-                    Assertions.assertEquals("#1060 Execution (S_WARNING)\n  "
-                            + "1:1 - 1:1: #2503 Given predicate is not suitable for used index: idx_value (S_WARNING)",
-                            warnings.getMessage());
+                    // The position of the issue depends on the YDB version
+                    Assertions.assertTrue(warnings.getMessage().matches("#1060 Execution \\(S_WARNING\\)\n  "
+                            + "\\d+:\\d+ - \\d+:\\d+: #2503 Given predicate is not suitable for used index: idx_value "
+                            + "\\(S_WARNING\\)"), warnings.getMessage());
 //                    https://github.com/ydb-platform/ydb/issues/33399
 //                    Assertions.assertNull(warnings.getNextWarning());
                 }

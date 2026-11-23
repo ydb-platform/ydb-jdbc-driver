@@ -52,45 +52,63 @@ public class YdbDriver implements Driver {
             config.getSafeProps()
         });
 
-        if (!config.isCacheConnectionsInDriver()) {
-            final YdbContext context = YdbContext.createContext(config);
-            return new YdbConnectionImpl(context) {
-                @Override
-                public void close() throws SQLException {
-                    super.close();
-                    context.close();
-                }
-            };
+        if (config.isCacheConnectionsInDriver()) {
+            return newCachedConnection(config);
         }
 
-        YdbContext cached = getCachedContext(config);
-        return new YdbConnectionImpl(cached) {
-            @Override
-            public void close() throws SQLException {
-                super.close();
-                if (!cached.hasConnections() && cache.remove(config, cached)) {
-                    cached.close();
-                }
-            }
-        };
+        YdbContext context = YdbContext.createContext(config);
+        try {
+            return new YdbConnectionImpl(context, context::close);
+        } catch (SQLException | RuntimeException ex) {
+            context.close();
+            throw ex;
+        }
     }
 
-    public YdbContext getCachedContext(YdbConfig config) throws SQLException {
-        // Workaround for https://bugs.openjdk.java.net/browse/JDK-8161372 to prevent unnecessary locks in Java 8
-        // Was fixed in Java 9+
-        YdbContext context = cache.get(config);
-        if (context != null) {
-            LOGGER.log(Level.FINEST, "Reusing YDB connection to {0}", config.getSafeUrl());
-            return context;
+    private YdbConnection newCachedConnection(YdbConfig config) throws SQLException {
+        while (true) {
+            YdbContext cached = cache.get(config);
+            if (cached != null) {
+                cached.registerConnection();
+                if (cache.get(config) == cached) {
+                    LOGGER.log(Level.FINEST, "Reusing YDB connection to {0}", config.getSafeUrl());
+                    return makeCachedConnection(config, cached);
+                }
+            } else {
+                cached = YdbContext.createContext(config);
+                cached.registerConnection();
+                if (cache.putIfAbsent(config, cached) == null) {
+                    return makeCachedConnection(config, cached);
+                }
+            }
+
+            cached.deregisterConnection();
+            if (cached.isEmpty()) {
+                cached.close();
+            }
+        }
+    }
+
+    private void closeCachedContext(YdbConfig config, YdbContext ctx) {
+        ctx.deregisterConnection();
+        if (!ctx.isEmpty()) {
+            return;
         }
 
-        context = YdbContext.createContext(config);
-        YdbContext old = cache.putIfAbsent(config, context);
-        if (old != null) {
-            context.close();
-            return old;
+        cache.remove(config, ctx);
+
+        if (ctx.isEmpty()) {
+            ctx.close();
         }
-        return context;
+    }
+
+    private YdbConnectionImpl makeCachedConnection(YdbConfig config, YdbContext ctx) throws SQLException {
+        try {
+            return new YdbConnectionImpl(ctx, () -> closeCachedContext(config, ctx));
+        } catch (SQLException | RuntimeException ex) {
+            closeCachedContext(config, ctx);
+            throw ex;
+        }
     }
 
     @Override
