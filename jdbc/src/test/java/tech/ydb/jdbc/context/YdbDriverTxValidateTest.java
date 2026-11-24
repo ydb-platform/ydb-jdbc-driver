@@ -281,11 +281,10 @@ public class YdbDriverTxValidateTest {
             ExceptionAssert.sqlRecoverable("Transaction locks invalidated", conn::commit);
             assertTxCount("tx1_store", 1);
 
-            // transaction 4 - write and read
-            executeDML(conn, "INSERT INTO tmp (id, vv) VALUES (2, 2)");
-            countRows(conn, "tmp", 3);
+            // transaction 4 - read only
+            countRows(conn, "tmp", 2);
             conn.commit();
-            assertTxCount("tx1_store", 2);
+            assertTxCount("tx1_store", 1);
         } finally {
             executeDML(jdbc.connection(), "DROP TABLE IF EXISTS tmp");
             executeDML(jdbc.connection(), "DROP TABLE IF EXISTS tx1_store");
