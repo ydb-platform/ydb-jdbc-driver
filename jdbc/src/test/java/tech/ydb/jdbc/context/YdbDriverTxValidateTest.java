@@ -54,6 +54,22 @@ public class YdbDriverTxValidateTest {
         }
     }
 
+    private void countRows(Connection conn, String tableName, long expected) throws SQLException {
+        try (Statement st = conn.createStatement()) {
+            try (ResultSet rs = st.executeQuery("select count(*) from " + tableName)) {
+                Assertions.assertTrue(rs.next());
+                Assertions.assertEquals(expected, rs.getLong(1));
+                Assertions.assertFalse(rs.next());
+            }
+        }
+    }
+
+    private void executeDML(Connection conn, String query) throws SQLException {
+        try (Statement st = conn.createStatement()) {
+            Assertions.assertFalse(st.execute(query));
+        }
+    }
+
     @Test
     public void basicUsageTest() throws SQLException {
         String url = jdbcURL.withArg("withTxValidationTable", "tx_store").build();
@@ -189,7 +205,7 @@ public class YdbDriverTxValidateTest {
         String url = jdbcURL.withArg("withTxValidationTable", "tx1_store").build();
         GrpcTestInterceptor.reset();
         try (Connection conn = DriverManager.getConnection(url)) {
-            ErrorTxTracer tracer = YdbTracerImpl.use(new ErrorTxTracer());
+            YdbTracerImpl.use(new ErrorTxTracer());
             // table was created automatically
             assertTxCount("tx1_store", 0);
 
@@ -236,62 +252,81 @@ public class YdbDriverTxValidateTest {
     }
 
     @Test
-    public void abortedWriteMustNotMarkNextReadTransactionAsWriting() throws SQLException {
-        assertReadAfterAbortedWrite("tx_stale_store", "tx_stale_data", false);
+    public void abortedTransactionTest() throws SQLException {
+        String url = jdbcURL.withArg("withTxValidationTable", "tx1_store").build();
+        GrpcTestInterceptor.reset();
+        try (Connection conn = DriverManager.getConnection(url)) {
+            // table was created automatically
+            assertTxCount("tx1_store", 0);
+            executeDML(conn, "CREATE TABLE tmp (id Int32, vv UInt64, PRIMARY KEY(id))");
+
+            conn.setAutoCommit(false);
+
+            // transaction 1 - read and write
+            countRows(conn, "tmp", 0);
+            executeDML(conn, "INSERT INTO tmp (id, vv) VALUES (1, 1)");
+            conn.commit();
+            assertTxCount("tx1_store", 1);
+
+            // transaction 2 - read only
+            countRows(conn, "tmp", 1);
+            conn.commit();
+            assertTxCount("tx1_store", 1);
+
+            // transaction 3 - read, write and aborted commit
+            executeDML(conn, "INSERT INTO tmp (id, vv) VALUES (2, 2)");
+            countRows(conn, "tmp", 2);
+            // insert inside other transaction aborts the current transac
+            executeDML(jdbc.connection(), "INSERT INTO tmp (id, vv) VALUES (3, 3)");
+            ExceptionAssert.sqlRecoverable("Transaction locks invalidated", conn::commit);
+            assertTxCount("tx1_store", 1);
+
+            // transaction 4 - write and read
+            executeDML(conn, "INSERT INTO tmp (id, vv) VALUES (2, 2)");
+            countRows(conn, "tmp", 3);
+            conn.commit();
+            assertTxCount("tx1_store", 2);
+        } finally {
+            executeDML(jdbc.connection(), "DROP TABLE IF EXISTS tmp");
+            executeDML(jdbc.connection(), "DROP TABLE IF EXISTS tx1_store");
+        }
     }
 
     @Test
-    public void rollbackAfterAbortedWriteMustNotMarkNextReadTransactionAsWriting() throws SQLException {
-        assertReadAfterAbortedWrite("tx_stale_rb_store", "tx_stale_rb_data", true);
-    }
-
-    private void assertReadAfterAbortedWrite(String txTable, String dataTable, boolean rollbackAbortedTx)
-            throws SQLException {
-        String url = jdbcURL.withArg("withTxValidationTable", txTable).build();
-
+    public void rollbackedTransactionTest() throws SQLException {
+        String url = jdbcURL.withArg("withTxValidationTable", "tx1_store").build();
         GrpcTestInterceptor.reset();
+        try (Connection conn = DriverManager.getConnection(url)) {
+            // table was created automatically
+            assertTxCount("tx1_store", 0);
+            executeDML(conn, "CREATE TABLE tmp (id Int32, vv UInt64, PRIMARY KEY(id))");
 
-        try (Connection conn = DriverManager.getConnection(url);
-                Statement st = conn.createStatement()) {
-            st.execute(
-                    "CREATE TABLE " + dataTable + " ("
-                    + "id Int32 NOT NULL, "
-                    + "value Text, "
-                    + "PRIMARY KEY (id))"
-            );
-
-            assertTxCount(txTable, 0);
             conn.setAutoCommit(false);
 
-            // Tx A becomes writing: isWriteTx = true.
-            Assertions.assertFalse(st.execute(
-                    "UPSERT INTO " + dataTable
-                    + " (id, value) VALUES (1, 'test')"
-            ));
-
-            // Abort Tx A before commit. Its QueryTransaction is removed, while the connection
-            // can be reused without an explicit rollback.
-            GrpcTestInterceptor.nextExecuteQuery(StatusCode.ABORTED);
-            YdbRetryableException aborted = Assertions.assertThrows(
-                    YdbRetryableException.class,
-                    () -> st.execute("SELECT * FROM " + dataTable)
-            );
-            Assertions.assertEquals(StatusCode.ABORTED, aborted.getStatus().getCode());
-            if (rollbackAbortedTx) {
-                conn.rollback();
-            }
-
-            // Tx B is strictly read-only and starts with a clean write flag.
-            Assertions.assertTrue(st.execute("SELECT * FROM " + dataTable));
+            // transaction 1 - read and write
+            countRows(conn, "tmp", 0);
+            executeDML(conn, "INSERT INTO tmp (id, vv) VALUES (1, 1)");
             conn.commit();
+            assertTxCount("tx1_store", 1);
 
-            // Tx B must use an ordinary commit and must not write to the validation table.
-            assertTxCount(txTable, 0);
+            // transaction 2 - read only
+            countRows(conn, "tmp", 1);
+            conn.commit();
+            assertTxCount("tx1_store", 1);
+
+            // transaction 3 - read, write and rollback
+            executeDML(conn, "INSERT INTO tmp (id, vv) VALUES (2, 2)");
+            countRows(conn, "tmp", 2);
+            conn.rollback();
+            assertTxCount("tx1_store", 1);
+
+            // transaction 4 - read only
+            countRows(conn, "tmp", 1);
+            conn.commit();
+            assertTxCount("tx1_store", 1);
         } finally {
-            try (Statement st = jdbc.connection().createStatement()) {
-                st.execute("DROP TABLE " + dataTable);
-                st.execute("DROP TABLE " + txTable);
-            }
+            executeDML(jdbc.connection(), "DROP TABLE IF EXISTS tmp");
+            executeDML(jdbc.connection(), "DROP TABLE IF EXISTS tx1_store");
         }
     }
 

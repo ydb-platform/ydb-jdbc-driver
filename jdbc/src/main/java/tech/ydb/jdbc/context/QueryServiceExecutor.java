@@ -92,19 +92,12 @@ public class QueryServiceExecutor extends BaseYdbExecutor {
             }
 
             if (tx.compareAndSet(null, nextTx)) {
-                onTransactionStarted();
                 return nextTx;
             }
             session.close();
             nextTx = tx.get();
         }
         return nextTx;
-    }
-
-    /**
-     * Called when this executor installs a newly created transaction.
-     */
-    protected void onTransactionStarted() {
     }
 
     @Override

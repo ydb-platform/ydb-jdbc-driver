@@ -80,16 +80,11 @@ public class TableTxExecutor extends QueryServiceExecutor {
     }
 
     @Override
-    protected void onTransactionStarted() {
-        // The flag describes only the current transaction. Resetting here also covers a previous
-        // transaction that became inactive without commit() or rollback().
-        isWriteTx = false;
-    }
-
-    @Override
     public YdbQueryResult executeDataQuery(YdbStatement statement, YdbQuery query, String preparedYql, Params params)
             throws SQLException {
         try {
+            // reset isWriteTx if the transaction is not active yet
+            isWriteTx = isInsideTransaction() && isWriteTx;
             YdbQueryResult result = super.executeDataQuery(statement, query, preparedYql, params);
             isWriteTx = isInsideTransaction() && (isWriteTx || query.isWriting());
             return result;
