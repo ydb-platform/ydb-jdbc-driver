@@ -80,15 +80,11 @@ public class TableTxExecutor extends QueryServiceExecutor {
     }
 
     @Override
-    public void rollback(YdbContext ctx, YdbValidator validator) throws SQLException {
-        isWriteTx = false;
-        super.rollback(ctx, validator);
-    }
-
-    @Override
     public YdbQueryResult executeDataQuery(YdbStatement statement, YdbQuery query, String preparedYql, Params params)
             throws SQLException {
         try {
+            // reset isWriteTx if the transaction is not active yet
+            isWriteTx = isInsideTransaction() && isWriteTx;
             YdbQueryResult result = super.executeDataQuery(statement, query, preparedYql, params);
             isWriteTx = isInsideTransaction() && (isWriteTx || query.isWriting());
             return result;
@@ -107,7 +103,6 @@ public class TableTxExecutor extends QueryServiceExecutor {
     @Override
     protected void commitImpl(YdbContext ctx, YdbValidator validator, QueryTransaction tx) throws SQLException {
         boolean storeTx = isWriteTx;
-        isWriteTx = false;
         if (!storeTx) {
             super.commitImpl(ctx, validator, tx);
             return;
